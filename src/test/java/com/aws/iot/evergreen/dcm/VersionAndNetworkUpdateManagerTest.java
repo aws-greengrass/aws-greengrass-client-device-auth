@@ -9,6 +9,7 @@ import com.aws.iot.evergreen.dcm.shadow.ShadowClient;
 import com.aws.iot.evergreen.deployment.exceptions.AWSIotException;
 import com.aws.iot.evergreen.iot.IotCloudHelper;
 import com.aws.iot.evergreen.iot.IotConnectionManager;
+import com.aws.iot.evergreen.iot.model.IotCloudResponse;
 import com.aws.iot.evergreen.mqtt.MqttClient;
 import com.aws.iot.evergreen.testcommons.testutilities.EGExtension;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -116,7 +117,9 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
         GetShadowVersionResponse response = new GetShadowVersionResponse(new GetShadowVersionResponse.State(
                 new GetShadowVersionResponse.State.Delta(UUID.randomUUID().toString())));
 
-        doReturn(OBJECT_MAPPER.writeValueAsString(response)).when(mockIotCloudHelper)
+        String httpResponse = OBJECT_MAPPER.writeValueAsString(response);
+        IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
+        doReturn(cloudResponse).when(mockIotCloudHelper)
                 .sendHttpRequest(any(), eq(listener.getShadowUrl(service)), any(), eq(null));
 
         lenient().doReturn(CompletableFuture.completedFuture(null)).when(mockUpdateHandler)
@@ -132,7 +135,9 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
         response = new GetShadowVersionResponse(new GetShadowVersionResponse.State(
                 new GetShadowVersionResponse.State.Delta(UUID.randomUUID().toString())));
 
-        doReturn(OBJECT_MAPPER.writeValueAsString(response)).when(mockIotCloudHelper)
+        httpResponse = OBJECT_MAPPER.writeValueAsString(response);
+        cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
+        doReturn(cloudResponse).when(mockIotCloudHelper)
                 .sendHttpRequest(any(), eq(listener.getShadowUrl(service)), any(), eq(null));
 
         reset(mockUpdateHandler);
@@ -159,7 +164,9 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
         response = new GetShadowVersionResponse(
                 new GetShadowVersionResponse.State(new GetShadowVersionResponse.State.Delta("")));
 
-        doReturn(OBJECT_MAPPER.writeValueAsString(response)).when(mockIotCloudHelper)
+        httpResponse = OBJECT_MAPPER.writeValueAsString(response);
+        cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
+        doReturn(cloudResponse).when(mockIotCloudHelper)
                 .sendHttpRequest(any(), eq(listener.getShadowUrl(service)), any(), eq(null));
 
         reset(mockUpdateHandler);
@@ -197,7 +204,8 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
                 THING_NAME, mockUpdateHandler, mockMqttClient);
         ShadowClient.ShadowCallbacks shadowCallbacks = listener.getShadowCallbacks();
 
-        doReturn("foo").when(mockIotCloudHelper)
+        IotCloudResponse cloudResponse = new IotCloudResponse("foo".getBytes(), 200);
+        doReturn(cloudResponse).when(mockIotCloudHelper)
                 .sendHttpRequest(any(), eq(listener.getShadowUrl(service)), any(), eq(null));
 
         // Simulate shadow onConnect callback
@@ -296,7 +304,9 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
         GetShadowVersionResponse response = new GetShadowVersionResponse(new GetShadowVersionResponse.State(
                 new GetShadowVersionResponse.State.Delta(UUID.randomUUID().toString())));
 
-        doReturn(OBJECT_MAPPER.writeValueAsString(response)).when(mockIotCloudHelper)
+        String httpResponse = OBJECT_MAPPER.writeValueAsString(response);
+        IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
+        doReturn(cloudResponse).when(mockIotCloudHelper)
                 .sendHttpRequest(any(), eq(listener.getShadowUrl(service)), any(), eq(null));
 
         CompletableFuture<Void> future = new CompletableFuture<>();

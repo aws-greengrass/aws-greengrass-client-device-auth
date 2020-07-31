@@ -6,6 +6,7 @@ package com.aws.iot.evergreen.cisclient;
 import com.aws.iot.evergreen.deployment.exceptions.AWSIotException;
 import com.aws.iot.evergreen.iot.IotCloudHelper;
 import com.aws.iot.evergreen.iot.IotConnectionManager;
+import com.aws.iot.evergreen.iot.model.IotCloudResponse;
 import com.aws.iot.evergreen.testcommons.testutilities.EGExtension;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -59,9 +60,10 @@ public class CISClientTest extends EGExtension {
         items.add(new ConnectivityInfoItem(UUID.randomUUID().toString(), "localhost", null, 8000));
         response.setConnectivityInfoItems(items);
         final String httpResponse = OBJECT_MAPPER.writeValueAsString(response);
+        final IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
         when(mockIotCloudHelper
                 .sendHttpRequest(eq(mockIotConnectionManager), pathCaptor.capture(), verbCaptor.capture(), eq(null)))
-                .thenReturn(httpResponse);
+                .thenReturn(cloudResponse);
 
         GetConnectivityInfoResponse actualResponse = client.getConnectivityInfo(request);
         assertThat(actualResponse, is(response));
@@ -78,8 +80,9 @@ public class CISClientTest extends EGExtension {
         List<ConnectivityInfoItem> items = new ArrayList<>();
         response.setConnectivityInfoItems(items);
         final String httpResponse = OBJECT_MAPPER.writeValueAsString(response);
+        final IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
         when(mockIotCloudHelper.sendHttpRequest(eq(mockIotConnectionManager), any(), any(), eq(null)))
-                .thenReturn(httpResponse);
+                .thenReturn(cloudResponse);
 
         CISClientException ex = Assertions.assertThrows(CISClientException.class,
                 () -> client.getConnectivityInfo(new GetConnectivityInfoRequest(thingName)));
@@ -91,8 +94,9 @@ public class CISClientTest extends EGExtension {
             throws AWSIotException {
         final String thingName = UUID.randomUUID().toString();
         final String httpResponse = "Some invalid response";
+        final IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
         when(mockIotCloudHelper.sendHttpRequest(eq(mockIotConnectionManager), any(), any(), eq(null)))
-                .thenReturn(httpResponse);
+                .thenReturn(cloudResponse);
 
         CISClientException ex = Assertions.assertThrows(CISClientException.class,
                 () -> client.getConnectivityInfo(new GetConnectivityInfoRequest(thingName)));

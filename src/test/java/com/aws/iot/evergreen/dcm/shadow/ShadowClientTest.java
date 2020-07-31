@@ -24,12 +24,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 
 @ExtendWith({MockitoExtension.class, EGExtension.class})
@@ -104,7 +106,8 @@ public class ShadowClientTest extends EGExtension {
     public void GIVEN_shadow_client_WHEN_updateShadow_called_THEN_publish_with_mqtt_client()
             throws InterruptedException, ExecutionException, TimeoutException {
         ArgumentCaptor<PublishRequest> publishRequestArgumentCaptor = ArgumentCaptor.forClass(PublishRequest.class);
-        doNothing().when(mockMqttClient).publish(publishRequestArgumentCaptor.capture());
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        doReturn(future).when(mockMqttClient).publish(publishRequestArgumentCaptor.capture());
 
         String topic = UUID.randomUUID().toString();
         byte[] payload = UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8);
@@ -113,15 +116,5 @@ public class ShadowClientTest extends EGExtension {
         assertThat(publishRequestArgumentCaptor.getAllValues().size(), is(1));
         assertThat(publishRequestArgumentCaptor.getValue().getTopic(), is(topic));
         assertThat(publishRequestArgumentCaptor.getValue().getPayload(), is(payload));
-    }
-
-    @Test
-    public void GIVEN_shadow_client_WHEN_updateShadow_called_and_mqtt_client_fails_THEN_throws_exception()
-            throws InterruptedException, ExecutionException, TimeoutException {
-        doThrow(new TimeoutException()).when(mockMqttClient).publish(ArgumentMatchers.any(PublishRequest.class));
-
-        String topic = UUID.randomUUID().toString();
-        byte[] payload = UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8);
-        Assertions.assertThrows(TimeoutException.class, () -> client.updateShadow(topic, payload));
     }
 }

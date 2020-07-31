@@ -8,6 +8,7 @@ package com.aws.iot.evergreen.cisclient;
 import com.aws.iot.evergreen.deployment.exceptions.AWSIotException;
 import com.aws.iot.evergreen.iot.IotCloudHelper;
 import com.aws.iot.evergreen.iot.IotConnectionManager;
+import com.aws.iot.evergreen.iot.model.IotCloudResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.NonNull;
@@ -46,7 +47,9 @@ public class CISClient {
         try {
             String url =
                     String.format("https://%s/%s/%s", endpoint, CIS_GET_CONNECTIVITY_INFO_PATH, request.getThingName());
-            response = iotCloudHelper.sendHttpRequest(iotConnectionManager, url, GET_CONNECTIVITY_INFO_VERB, null);
+            IotCloudResponse cloudResponse = iotCloudHelper.sendHttpRequest(
+                    iotConnectionManager, url, GET_CONNECTIVITY_INFO_VERB, null);
+            response = cloudResponse.toString();
         } catch (AWSIotException e) {
             throw new CISClientException("Failed to get connectivity info from CIS", e);
         }

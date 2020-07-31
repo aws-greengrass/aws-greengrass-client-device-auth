@@ -6,6 +6,7 @@ package com.aws.iot.evergreen.gcmclient;
 import com.aws.iot.evergreen.deployment.exceptions.AWSIotException;
 import com.aws.iot.evergreen.iot.IotCloudHelper;
 import com.aws.iot.evergreen.iot.IotConnectionManager;
+import com.aws.iot.evergreen.iot.model.IotCloudResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -52,7 +53,9 @@ public class GCMClient {
         String response;
         try {
             String url = String.format("https://%s/%s", endpoint, GCM_GET_CERTIFICATE_PATH);
-            response = iotCloudHelper.sendHttpRequest(iotConnectionManager, url, GET_CERTIFICATE_HTTP_VERB, bytes);
+            IotCloudResponse cloudResponse = iotCloudHelper.sendHttpRequest(
+                    iotConnectionManager, url, GET_CERTIFICATE_HTTP_VERB, bytes);
+            response = cloudResponse.toString();
         } catch (AWSIotException e) {
             throw new GCMClientException("Failed to get certificate from GCM", e);
         }

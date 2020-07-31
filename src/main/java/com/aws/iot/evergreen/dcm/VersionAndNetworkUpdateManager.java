@@ -9,6 +9,7 @@ import com.aws.iot.evergreen.dcm.shadow.ShadowClient;
 import com.aws.iot.evergreen.deployment.exceptions.AWSIotException;
 import com.aws.iot.evergreen.iot.IotCloudHelper;
 import com.aws.iot.evergreen.iot.IotConnectionManager;
+import com.aws.iot.evergreen.iot.model.IotCloudResponse;
 import com.aws.iot.evergreen.logging.api.Logger;
 import com.aws.iot.evergreen.logging.impl.LogManager;
 import com.aws.iot.evergreen.mqtt.MqttClient;
@@ -161,30 +162,25 @@ public class VersionAndNetworkUpdateManager {
             throw new CompletionException(throwable);
         }).thenRun(() -> {
             latestProcessedShadowVersions.put(service, newVersion);
-            try {
-                reportVersion(service, newVersion);
-            } catch (InterruptedException ignored) {
-            }
+            reportVersion(service, newVersion);
         });
     }
 
-    private void reportVersion(String service, String version) throws InterruptedException {
+    private void reportVersion(String service, String version) {
         LOGGER.atInfo().kv("service", service).addKeyValue("version", version).log("Reporting version");
         String shadowUpdate = String.format("{\"state\": {\"reported\" : {\"version\": \"%s\"}}}", version);
         String topic = getShadowUpdateTopic(service);
-        try {
-            shadowClient.updateShadow(topic, shadowUpdate.getBytes(StandardCharsets.UTF_8));
-        } catch (TimeoutException | ExecutionException e) {
-            LOGGER.atError().log("Unable to publish", e);
-            // TODO: Add retry for publish
-        }
+        shadowClient.updateShadow(topic, shadowUpdate.getBytes(StandardCharsets.UTF_8));
+        // TODO wait for publish to complete?
     }
 
     private String getLatestVersion(String service) throws AWSIotException, JsonProcessingException {
         LOGGER.atDebug().kv("service", service).log("Retrieving latest shadow version");
         String response;
         String url = getShadowUrl(service);
-        response = iotCloudHelper.sendHttpRequest(iotConnectionManager, url, GET_SHADOW_HTTP_VERB, null);
+        IotCloudResponse cloudResponse = iotCloudHelper.sendHttpRequest(
+                iotConnectionManager, url, GET_SHADOW_HTTP_VERB, null);
+        response = cloudResponse.toString();
 
         GetShadowVersionResponse getShadowVersionResponse;
         getShadowVersionResponse = OBJECT_MAPPER.readValue(response, GetShadowVersionResponse.class);

@@ -6,6 +6,7 @@ package com.aws.iot.evergreen.gcmclient;
 import com.aws.iot.evergreen.deployment.exceptions.AWSIotException;
 import com.aws.iot.evergreen.iot.IotCloudHelper;
 import com.aws.iot.evergreen.iot.IotConnectionManager;
+import com.aws.iot.evergreen.iot.model.IotCloudResponse;
 import com.aws.iot.evergreen.testcommons.testutilities.EGExtension;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,9 +56,10 @@ public class GCMClientTest extends EGExtension {
         final GetCertificateResponse response = new GetCertificateResponse();
         response.setCertificate(UUID.randomUUID().toString());
         final String httpResponse = OBJECT_MAPPER.writeValueAsString(response);
+        final IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
         when(mockIotCloudHelper
                 .sendHttpRequest(eq(mockIotConnectionManager), pathCaptor.capture(), verbCaptor.capture(),
-                        bodyCaptor.capture())).thenReturn(httpResponse);
+                        bodyCaptor.capture())).thenReturn(cloudResponse);
         GetCertificateResponse actualResponse = client.getCertificate(request);
         assertThat(actualResponse, is(response));
         assertThat(pathCaptor.getValue(), is(String.format("https://%s/greengrass/gcm/certificate", ENDPOINT_TEST)));
@@ -72,8 +74,9 @@ public class GCMClientTest extends EGExtension {
         final GetCertificateResponse response = new GetCertificateResponse();
         response.setCertificate("");
         final String httpResponse = OBJECT_MAPPER.writeValueAsString(response);
+        final IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
         when(mockIotCloudHelper.sendHttpRequest(eq(mockIotConnectionManager), any(), any(), any()))
-                .thenReturn(httpResponse);
+                .thenReturn(cloudResponse);
         GCMClientException ex = Assertions
                 .assertThrows(GCMClientException.class, () -> client.getCertificate(new GetCertificateRequest(csr)));
         assertThat(ex.getMessage(), containsString("Bad GCM response"));
@@ -86,8 +89,9 @@ public class GCMClientTest extends EGExtension {
         final GetCertificateResponse response = new GetCertificateResponse();
         response.setCertificate(UUID.randomUUID().toString());
         final String httpResponse = OBJECT_MAPPER.writeValueAsString(UUID.randomUUID().toString());
+        final IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
         when(mockIotCloudHelper.sendHttpRequest(eq(mockIotConnectionManager), any(), any(), any()))
-                .thenReturn(httpResponse);
+                .thenReturn(cloudResponse);
         GCMClientException ex = Assertions
                 .assertThrows(GCMClientException.class, () -> client.getCertificate(new GetCertificateRequest(csr)));
         assertThat(ex.getMessage(), containsString("Unparsable GCM response"));
