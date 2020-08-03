@@ -1,4 +1,4 @@
-package com.aws.iot.evergreen.dcm.certgeneration;
+package com.aws.iot.evergreen.dcm.certificate;
 
 import java.net.InetAddress;
 import java.security.KeyFactory;

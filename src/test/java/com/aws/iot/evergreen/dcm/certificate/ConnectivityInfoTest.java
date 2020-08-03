@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.iot.evergreen.dcm.certgeneration;
+package com.aws.iot.evergreen.dcm.certificate;
 
 import com.aws.iot.evergreen.cisclient.ConnectivityInfoItem;
 import com.aws.iot.evergreen.cisclient.GetConnectivityInfoResponse;
@@ -23,7 +23,7 @@ import static org.hamcrest.Matchers.is;
 
 @ExtendWith({MockitoExtension.class, EGExtension.class})
 @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
-public class ConnectivityInfoParserTest extends EGExtension {
+public class ConnectivityInfoTest extends EGExtension {
 
     @Test
     public void GIVEN_valid_connectivity_info_response_WHEN_parse_THEN_return_conn_info_cert_gen()
@@ -35,12 +35,12 @@ public class ConnectivityInfoParserTest extends EGExtension {
         items.add(new ConnectivityInfoItem(UUID.randomUUID().toString(), ipString, "metadata", 2000));
         GetConnectivityInfoResponse response = new GetConnectivityInfoResponse();
         response.setConnectivityInfoItems(items);
-        ConnectivityInfoForCertGen connectivityInfoForCertGen = ConnectivityInfoParser.parseConnectivityInfo(response);
+        ConnectivityInfo connectivityInfo = new ConnectivityInfo(response);
 
-        assertThat(connectivityInfoForCertGen.dnsNames.size(), is(1));
-        assertThat(connectivityInfoForCertGen.dnsNames.get(0), is(dnsName));
-        assertThat(connectivityInfoForCertGen.ipAddresses.size(), is(1));
-        assertThat(connectivityInfoForCertGen.ipAddresses.get(0), is(InetAddress.getByName(ipString)));
+        assertThat(connectivityInfo.dnsNames.size(), is(1));
+        assertThat(connectivityInfo.dnsNames.get(0), is(dnsName));
+        assertThat(connectivityInfo.ipAddresses.size(), is(1));
+        assertThat(connectivityInfo.ipAddresses.get(0), is(InetAddress.getByName(ipString)));
     }
 
     // TODO: Add additional test cases

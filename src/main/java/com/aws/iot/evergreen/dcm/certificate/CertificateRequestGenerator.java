@@ -1,4 +1,4 @@
-package com.aws.iot.evergreen.dcm.certgeneration;
+package com.aws.iot.evergreen.dcm.certificate;
 
 import com.aws.iot.evergreen.dcm.Constants;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
