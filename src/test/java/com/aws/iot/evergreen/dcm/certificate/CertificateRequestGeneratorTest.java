@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package com.aws.iot.evergreen.dcm.certificate;
 
 import java.net.InetAddress;
@@ -16,7 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
-class CSRGeneratorTest {
+class CertificateRequestGeneratorTest {
 
     // TODO: Replace with Key Manager when ready
     private static final String PRIVATE_KEY = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCxCHT3zdDxDTIH\n" +
