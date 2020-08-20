@@ -81,7 +81,7 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
         listener.start();
 
         assertThat(topicsCaptor.getAllValues().size(), is(1));
-        assertThat(topicsCaptor.getValue().size(), is(2));
+        assertThat(topicsCaptor.getValue().size(), is(1));
     }
 
     @Test
@@ -106,7 +106,7 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {Constants.CIS_SERVICE_NAME, Constants.GCM_SERVICE_NAME})
+    @ValueSource(strings = {Constants.CIS_SERVICE_NAME})
     public void GIVEN_version_change_listener_WHEN_on_subscribe_callback_THEN_calls_on_version_changed_callback(
             String service) throws JsonProcessingException, AWSIotException, ExecutionException, TimeoutException,
             InterruptedException {
@@ -179,7 +179,7 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {Constants.CIS_SERVICE_NAME, Constants.GCM_SERVICE_NAME})
+    @ValueSource(strings = {Constants.CIS_SERVICE_NAME})
     public void GIVEN_version_change_listener_WHEN_on_subscribe_callback_iot_call_fails_THEN_no_op(String service)
             throws AWSIotException, ExecutionException, TimeoutException, InterruptedException {
         listener = new VersionAndNetworkUpdateManager(mockIotConnectionManager, mockIotCloudHelper, HTTP_ENDPOINT,
@@ -197,7 +197,7 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {Constants.CIS_SERVICE_NAME, Constants.GCM_SERVICE_NAME})
+    @ValueSource(strings = {Constants.CIS_SERVICE_NAME})
     public void GIVEN_version_change_listener_WHEN_on_subscribe_callback_iot_returns_invalid_response_THEN_no_op(
             String service) throws AWSIotException, ExecutionException, TimeoutException, InterruptedException {
         listener = new VersionAndNetworkUpdateManager(mockIotConnectionManager, mockIotCloudHelper, HTTP_ENDPOINT,
@@ -216,7 +216,7 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {Constants.CIS_SERVICE_NAME, Constants.GCM_SERVICE_NAME})
+    @ValueSource(strings = {Constants.CIS_SERVICE_NAME})
     public void GIVEN_version_change_listener_WHEN_on_message_callback_THEN_calls_on_version_changed_callback(
             String service) throws JsonProcessingException, ExecutionException, TimeoutException, InterruptedException {
         listener = new VersionAndNetworkUpdateManager(mockIotConnectionManager, mockIotCloudHelper, HTTP_ENDPOINT,
@@ -278,7 +278,7 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {Constants.CIS_SERVICE_NAME, Constants.GCM_SERVICE_NAME})
+    @ValueSource(strings = {Constants.CIS_SERVICE_NAME})
     public void GIVEN_version_change_listener_WHEN_on_message_callback_with_invalid_response_THEN_no_op(String service)
             throws ExecutionException, TimeoutException, InterruptedException {
         listener = new VersionAndNetworkUpdateManager(mockIotConnectionManager, mockIotCloudHelper, HTTP_ENDPOINT,
@@ -293,7 +293,7 @@ public class VersionAndNetworkUpdateManagerTest extends EGExtension {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {Constants.CIS_SERVICE_NAME, Constants.GCM_SERVICE_NAME})
+    @ValueSource(strings = {Constants.CIS_SERVICE_NAME})
     public void GIVEN_version_change_listener_WHEN_handle_service_version_update_fails_THEN_no_op(String service)
             throws JsonProcessingException, AWSIotException, ExecutionException, TimeoutException,
             InterruptedException {
