@@ -1,4 +1,11 @@
+---
 services:
+    aws.greengrass.certificate.manager:
+        parameters:
+            devices: '[{"deviceArn": "arn1", "certificateId": "id1"}, {"deviceArn": "arn2", "certificateId": "id2"}]'
     main:
+        lifecycle:
+            install:
+                all: echo All installed
         dependencies:
-            - deviceCertificateManager
+            - aws.greengrass.certificate.manager

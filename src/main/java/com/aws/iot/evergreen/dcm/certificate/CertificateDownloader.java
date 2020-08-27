@@ -45,23 +45,32 @@ public class CertificateDownloader {
      * @return List of certificates as PEM encoded strings
      */
     // TODO: Revisit return type. List of strings is not sufficient (e.g. if a cert ID doesn't exist)
-    public List<String> downloadDeviceCertificate(final List<String> certificateIds) {
+    public List<String> batchDownloadDeviceCertificates(final List<String> certificateIds) {
         ArrayList<String> certificatePems = new ArrayList<>();
 
         // TODO: Retries
         // TODO: Handle exceptions
         // TODO: Replace with batch data plane API
         for (String certificateId : certificateIds) {
-            DescribeCertificateRequest request = DescribeCertificateRequest
-                    .builder()
-                    .certificateId(certificateId)
-                    .build();
-
-            DescribeCertificateResponse response = iotClient.describeCertificate(request);
-            CertificateDescription description = response.certificateDescription();
-            certificatePems.add(description.certificatePem());
+            certificatePems.add(downloadSingleDeviceCertificate(certificateId));
         }
 
         return certificatePems;
+    }
+
+    /**
+     * Download single IoT device certificate.
+     * @param certificateId Device certificateId to download
+     * @return Certificate as PEM encoded string
+     */
+    public String downloadSingleDeviceCertificate(String certificateId) {
+        DescribeCertificateRequest request = DescribeCertificateRequest
+                .builder()
+                .certificateId(certificateId)
+                .build();
+
+        DescribeCertificateResponse response = iotClient.describeCertificate(request);
+        CertificateDescription description = response.certificateDescription();
+        return description.certificatePem();
     }
 }

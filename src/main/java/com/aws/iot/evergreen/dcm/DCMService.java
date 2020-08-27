@@ -3,87 +3,86 @@
 
 package com.aws.iot.evergreen.dcm;
 
+import com.aws.iot.evergreen.config.Node;
+import com.aws.iot.evergreen.config.Topic;
 import com.aws.iot.evergreen.config.Topics;
+import com.aws.iot.evergreen.config.WhatHappened;
+import com.aws.iot.evergreen.dcm.certificate.CertificateManager;
+import com.aws.iot.evergreen.dcm.model.DeviceConfig;
 import com.aws.iot.evergreen.dependency.ImplementsService;
 import com.aws.iot.evergreen.dependency.State;
-import com.aws.iot.evergreen.deployment.DeviceConfiguration;
-import com.aws.iot.evergreen.iot.IotCloudHelper;
-import com.aws.iot.evergreen.iot.IotConnectionManager;
 import com.aws.iot.evergreen.kernel.EvergreenService;
-import com.aws.iot.evergreen.mqtt.MqttClient;
 import com.aws.iot.evergreen.util.Coerce;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeoutException;
+import java.security.KeyStoreException;
+import java.util.ArrayList;
+import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
-@ImplementsService(name = "aws.greengrass.deviceCertificateManager")
+import static com.aws.iot.evergreen.packagemanager.KernelConfigResolver.PARAMETERS_CONFIG_KEY;
+
+@ImplementsService(name = DCMService.DCM_SERVICE_NAME, autostart = true)
 @Singleton
 public class DCMService extends EvergreenService {
-    private final IotConnectionManager iotConnectionManager;
-    private final ExecutorService executorService;
-    private final VersionAndNetworkUpdateManager versionAndNetworkUpdateManager;
-    private final VersionAndNetworkUpdateHandler versionAndNetworkChangeHandler;
-    private final ExecutorService executorServiceForCertGenWorkFlow;
-    private static final String httpEndpoint = ""; // TODO: Where will this come from?
+    public static final String DCM_SERVICE_NAME = "aws.greengrass.certificate.manager";
+    private static final String DEVICES_TOPIC = "devices";
+    private static final JsonMapper OBJECT_MAPPER =
+            JsonMapper.builder().configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true).build();
+
+    private final CertificateManager certificateManager;
 
     /**
      * Constructor for EvergreenService.
      *
-     * @param topics               root Configuration topic for this service
-     * @param iotConnectionManager {@link IotConnectionManager}
-     * @param executorService      the shared executor service
-     * @param deviceConfiguration  See {@link DeviceConfiguration}
-     * @param mqttClient           the shared mqtt client
+     * @param topics             Root Configuration topic for this service
+     * @param certificateManager Certificate manager
      */
     @Inject
-    public DCMService(Topics topics, IotConnectionManager iotConnectionManager, ExecutorService executorService,
-                      DeviceConfiguration deviceConfiguration, MqttClient mqttClient) {
-        // General TODO: Revisit executors. We should avoid creating new threads if we can help it.
-        // Need to make sure we start/stop threads as appropriate.
+    public DCMService(Topics topics, CertificateManager certificateManager) {
         super(topics);
-        this.iotConnectionManager = iotConnectionManager;
-        this.executorService = executorService;
-        IotCloudHelper iotCloudHelper = new IotCloudHelper();
-        this.executorServiceForCertGenWorkFlow = Executors.newSingleThreadExecutor();
-        this.versionAndNetworkChangeHandler = new VersionAndNetworkUpdateHandler(executorServiceForCertGenWorkFlow);
-        // TODO: Subscribe to ThingName configuration updates instead of retrieving once
-        this.versionAndNetworkUpdateManager =
-                new VersionAndNetworkUpdateManager(this.iotConnectionManager, iotCloudHelper, httpEndpoint,
-                        Coerce.toString(deviceConfiguration.getThingName()), versionAndNetworkChangeHandler,
-                        mqttClient);
+        this.certificateManager = certificateManager;
     }
 
-    /**
-     * Starts DCM.
-     */
+    @Override
+    protected void install() throws InterruptedException {
+        super.install();
+        this.config.lookup(PARAMETERS_CONFIG_KEY, DEVICES_TOPIC)
+                .subscribe(this::onConfigChange);
+    }
+
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    private void onConfigChange(WhatHappened what, Node node) {
+        Topic devices = this.config.lookup(PARAMETERS_CONFIG_KEY, DEVICES_TOPIC).dflt("[]");
+        List<DeviceConfig> deviceConfigList = null;
+        String val = Coerce.toString(devices);
+
+        if (val != null) {
+            try {
+                deviceConfigList = OBJECT_MAPPER.readValue(val, new TypeReference<List<DeviceConfig>>() {});
+            } catch (JsonProcessingException e) {
+                logger.atError().kv("node", devices.getFullName()).kv("value", val)
+                        .log("Malformed device configuration", e);
+            }
+        }
+
+        if (deviceConfigList == null) {
+            deviceConfigList = new ArrayList<>();
+        }
+        certificateManager.setDeviceConfigurations(deviceConfigList);
+    }
+
     @Override
     public void startup() {
-        // Start listening to the version updates
-        // We do this in a asynchronous way, since it can fail and we don't want to get blocked on it.
-        executorService.submit(this::startVersionAndNetworkListener);
-        reportState(State.RUNNING);
-    }
-
-    /**
-     * Shutdowns DCM.
-     */
-    @Override
-    public void shutdown() {
-        // TODO: Shutdown executor services
-    }
-
-    private void startVersionAndNetworkListener() {
         try {
-            versionAndNetworkUpdateManager.start();
-        } catch (ExecutionException | TimeoutException e) {
-            logger.atError().log("Unable to start listening to version updates. Will retry", e);
-            // TODO: Retry indefinitely
-        } catch (InterruptedException ignored) {
-            // TODO: Don't ignore this
+            certificateManager.initialize();
+            reportState(State.RUNNING);
+        } catch (KeyStoreException e) {
+            serviceErrored(e);
         }
     }
 }

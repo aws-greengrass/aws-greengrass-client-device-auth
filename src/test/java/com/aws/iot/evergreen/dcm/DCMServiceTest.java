@@ -3,52 +3,63 @@
 
 package com.aws.iot.evergreen.dcm;
 
+import com.aws.iot.evergreen.dcm.certificate.CertificateDownloader;
 import com.aws.iot.evergreen.dependency.State;
-import com.aws.iot.evergreen.deployment.DeviceConfiguration;
-import com.aws.iot.evergreen.iot.IotConnectionManager;
-import com.aws.iot.evergreen.mqtt.MqttClient;
+import com.aws.iot.evergreen.kernel.EvergreenService;
+import com.aws.iot.evergreen.kernel.Kernel;
 import com.aws.iot.evergreen.testcommons.testutilities.EGExtension;
 import com.aws.iot.evergreen.testcommons.testutilities.EGServiceTestUtil;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.concurrent.ExecutorService;
+import java.nio.file.Path;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith({MockitoExtension.class, EGExtension.class})
 public class DCMServiceTest extends EGServiceTestUtil {
-    @Mock
-    IotConnectionManager mockIotConnectionManager;
+    private static final long TEST_TIME_OUT_SEC = 30L;
+
+    @TempDir
+    Path rootDir;
 
     @Mock
-    ExecutorService mockExecutorService;
+    CertificateDownloader mockCertificateDownloader;
 
-    @Mock
-    DeviceConfiguration mockDeviceConfiguration;
-
-    @Mock
-    MqttClient mockMqttClient;
+    private Kernel kernel;
 
     @BeforeEach
-    public void setup() {
-        // initialize Evergreen service specific mocks
-        serviceFullName = "TokenExchangeService";
-        initializeMockedConfig();
-        when(stateTopic.getOnce()).thenReturn(State.INSTALLED);
+    void setup() {
+        kernel = new Kernel();
+        kernel.getContext().put(CertificateDownloader.class, mockCertificateDownloader);
+    }
+
+    @AfterEach
+    void cleanup() {
+        kernel.shutdown();
     }
 
     @Test
-    public void GIVEN_dcm_service_WHEN_started_THEN_does_not_throw() {
-        //TODO: add more tests
-        DCMService dcmService =
-                new DCMService(config, mockIotConnectionManager, mockExecutorService, mockDeviceConfiguration,
-                        mockMqttClient);
-        dcmService.postInject();
-        dcmService.startup();
-        dcmService.shutdown();
+    void GIVEN_Evergreen_with_dcm_WHEN_start_kernel_THEN_dcm_starts_successfully() throws InterruptedException {
+        CountDownLatch serviceRunning = new CountDownLatch(1);
+        kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
+                getClass().getResource("config.yaml").toString());
+        kernel.getContext().addGlobalStateChangeListener((EvergreenService service, State was, State newState) -> {
+            if (service.getName().equals(DCMService.DCM_SERVICE_NAME) && service.getState()
+                    .equals(State.RUNNING)) {
+                serviceRunning.countDown();
+            }
+        });
+        kernel.launch();
+        assertTrue(serviceRunning.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS));
+        // TODO: Remove once more "stuff" is done here
+        Thread.sleep(500);
     }
 }

@@ -18,7 +18,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 @ExtendWith({MockitoExtension.class})
-public class KeyHelperTest {
+public class CAHelperTest {
     static final String RSA_KEY_ALGORITHM = "RSA";
     static final int    RSA_BIT_LENGTH = 2048;
     static final String EC_KEY_ALGORITHM = "EC";
@@ -27,9 +27,9 @@ public class KeyHelperTest {
 
     @Test
     public void GIVEN_missing_keystore_WHEN_getCAKeyStore_THEN_new_rsa_ca_created() throws KeyStoreException {
-        KeyStore ks = KeyHelper.getCAKeyStore();
-        PrivateKey pk = KeyHelper.getCAPrivateKey(ks);
-        X509Certificate cert = KeyHelper.getCACertificate(ks);
+        KeyStore ks = CAHelper.getCAKeyStore();
+        PrivateKey pk = CAHelper.getCAPrivateKey(ks);
+        X509Certificate cert = CAHelper.getCACertificate(ks);
 
         assertThat(pk.getAlgorithm(), equalTo(RSA_KEY_ALGORITHM));
         assertThat(cert.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
@@ -37,7 +37,7 @@ public class KeyHelperTest {
 
     @Test
     public void GIVEN_KeyHelper_WHEN_newRSAKeyPair_THEN_2048_bit_RSA_key_generated() throws NoSuchAlgorithmException {
-        KeyPair rsaKeypair = KeyHelper.newRSAKeyPair();
+        KeyPair rsaKeypair = CAHelper.newRSAKeyPair();
         RSAPrivateKey rsaPrivateKey = (RSAPrivateKey)rsaKeypair.getPrivate();
 
         assertThat(rsaPrivateKey.getAlgorithm(), equalTo(RSA_KEY_ALGORITHM));
@@ -47,7 +47,7 @@ public class KeyHelperTest {
     @Test
     public void GIVEN_KeyHelper_WHEN_newECKeyPair_THEN_nist_p256_ec_key_generated()
             throws InvalidAlgorithmParameterException, NoSuchAlgorithmException {
-        KeyPair ecKeyPair = KeyHelper.newECKeyPair();
+        KeyPair ecKeyPair = CAHelper.newECKeyPair();
         ECPrivateKey ecPrivateKey = (ECPrivateKey)ecKeyPair.getPrivate();
 
         // TODO: Figure out how to test for the correct curve

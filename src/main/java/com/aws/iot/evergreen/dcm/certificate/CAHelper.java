@@ -24,7 +24,7 @@ import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
 import java.util.Date;
 
-public final class KeyHelper {
+public final class CAHelper {
     private static final long   DEFAULT_CA_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
     private static final String DEFAULT_KEYSTORE_PASSWORD = "";
     private static final String DEFAULT_CA_CN = "Greengrass";
@@ -40,7 +40,7 @@ public final class KeyHelper {
     private static final String EC_KEY_INSTANCE = "EC";
     private static final String EC_DEFAULT_CURVE = "secp256r1";
 
-    private KeyHelper(){
+    private CAHelper(){
     }
 
     /**
@@ -102,7 +102,7 @@ public final class KeyHelper {
             Instant now = Instant.now();
             Date notBefore = Date.from(now);
             Date notAfter = Date.from(now.plusSeconds(DEFAULT_CA_EXPIRY_SECONDS));
-            caCertificate = CertificateGenerator.createCACertificate(
+            caCertificate = CertificateHelper.createCACertificate(
                     kp, notBefore, notAfter, DEFAULT_CA_CN);
         } catch (NoSuchAlgorithmException | CertIOException | OperatorCreationException | CertificateException e) {
             throw new KeyStoreException("unable to generate CA certificate", e);

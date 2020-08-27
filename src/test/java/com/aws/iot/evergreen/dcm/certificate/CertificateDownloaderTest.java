@@ -49,7 +49,7 @@ public class CertificateDownloaderTest {
             return response;
         });
 
-        List<String> certificates = certDownloader.downloadDeviceCertificate(certificateIDs);
+        List<String> certificates = certDownloader.batchDownloadDeviceCertificates(certificateIDs);
         assertThat(certificates.get(0), equalTo("ID1-CERT"));
     }
 
@@ -69,7 +69,7 @@ public class CertificateDownloaderTest {
             return response;
         });
 
-        List<String> certificates = certDownloader.downloadDeviceCertificate(certificateIDs);
+        List<String> certificates = certDownloader.batchDownloadDeviceCertificates(certificateIDs);
         assertThat(certificates.get(0), equalTo("ID1-CERT"));
         assertThat(certificates.get(1), equalTo("ID2-CERT"));
     }

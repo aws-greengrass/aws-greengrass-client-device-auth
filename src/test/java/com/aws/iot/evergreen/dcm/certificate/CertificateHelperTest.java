@@ -1,3 +1,6 @@
+/* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0 */
+
 package com.aws.iot.evergreen.dcm.certificate;
 
 import org.junit.jupiter.api.Test;
@@ -5,7 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith({MockitoExtension.class})
-public class CertificateGeneratorTest {
+public class CertificateHelperTest {
 
     @Test
     public void GIVEN_valid_rsa_csr_and_rsa_ca_WHEN_signCertificateRequest_THEN_return_valid_certificate() {

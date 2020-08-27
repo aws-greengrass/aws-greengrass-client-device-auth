@@ -21,33 +21,44 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.bouncycastle.util.io.pem.PemObject;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.Security;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.Enumeration;
 
 
-public final class CertificateGenerator {
+public final class CertificateHelper {
     private static final String X500_DISTINGUISHED_NAME_COUNTRY_NAME = "US";
     private static final String X500_DISTINGUISHED_NAME_STATE_OR_PROVINCE_NAME = "Washington";
     private static final String X500_DISTINGUISHED_NAME_LOCALITY_NAME = "Seattle";
     private static final String X500_DISTINGUISHED_NAME_ORGANIZATION_NAME = "Amazon.com Inc.";
     private static final String X500_DISTINGUISHED_NAME_ORGANIZATION_UNIT_NAME = "Amazon Web Services";
 
-    private CertificateGenerator() {
+    private CertificateHelper() {
     }
 
     static {
@@ -131,7 +142,6 @@ public final class CertificateGenerator {
                         extUtils.createSubjectKeyIdentifier(jcaRequest.getPublicKey()))
                 .addExtension(Extension.extendedKeyUsage, true, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
 
-
         addSANFromCSRToCertificate(csr, builder);
 
         final ContentSigner contentSigner = new JcaContentSignerBuilder(
@@ -139,6 +149,40 @@ public final class CertificateGenerator {
 
         return new JcaX509CertificateConverter().setProvider("BC")
                 .getCertificate(builder.build(contentSigner));
+    }
+
+    /**
+     * Parse CSR string into PKCS10CertificationRequest.
+     *
+     * @param csrString PEM encoded CSR
+     * @return PKCS10CertificationRequest
+     * @throws IOException If unable to read CSR
+     */
+    public static PKCS10CertificationRequest getPKCS10CertificationRequestFromPem(String csrString) throws IOException {
+        ByteArrayInputStream pemStream = new ByteArrayInputStream(csrString.getBytes(StandardCharsets.UTF_8));
+        Reader pemReader = new BufferedReader(new InputStreamReader(pemStream, StandardCharsets.UTF_8));
+        try (PEMParser pemParser = new PEMParser(pemReader)) {
+            return (PKCS10CertificationRequest)pemParser.readObject();
+        }
+    }
+
+    /**
+     * Convert an X509Certificate into a PEM encoded string.
+     *
+     * @param certificate Certificate to encode
+     * @return PEM encoded X509 certificate
+     * @throws IOException If unable to read certificate
+     * @throws CertificateEncodingException If unable to get certificate encoding
+     */
+    public static String toPem(X509Certificate certificate) throws IOException, CertificateEncodingException {
+        PemObject pemObject = new PemObject("CERTIFICATE", certificate.getEncoded());
+
+        try (StringWriter str = new StringWriter();
+             JcaPEMWriter pemWriter = new JcaPEMWriter(str)) {
+            pemWriter.writeObject(pemObject);
+            pemWriter.close(); // Need to explicitly close this since JcaPEMWriter is a buffered writer
+            return str.toString();
+        }
     }
 
     private static void addSANFromCSRToCertificate(final PKCS10CertificationRequest csr,
