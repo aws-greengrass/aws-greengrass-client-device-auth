@@ -1,0 +1,13 @@
+---
+templateVersion: '2020-01-25'
+componentName: aws.greengrass.certificate.manager
+description: AWS Greengrass Certificate Manager
+publisher: AWS
+version: '0.0.0'
+componentType: plugin
+manifests:
+  - platform:
+      os: all
+      architecture: all
+    artifacts:
+      - uri: s3://gg-dev-artifacts/$componentName/$platform.os/$version/aws.greengrass.certificate.manager.jar
