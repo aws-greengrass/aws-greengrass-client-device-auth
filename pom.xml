@@ -309,6 +309,13 @@
             </plugin>
         </plugins>
     </build>
+    <distributionManagement>
+        <snapshotRepository>
+            <id>evergreen-dev-snapshot</id>
+            <name>Evergreen Dev Snapshot</name>
+            <url>${stargate-snapshot-repository-url}</url>
+        </snapshotRepository>
+    </distributionManagement>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
