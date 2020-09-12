@@ -27,7 +27,7 @@ import java.util.Date;
 public final class CAHelper {
     private static final long   DEFAULT_CA_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
     private static final String DEFAULT_KEYSTORE_PASSWORD = "";
-    private static final String DEFAULT_CA_CN = "Greengrass";
+    private static final String DEFAULT_CA_CN = "Greengrass Core CA";
     private static final String CA_KEY_ALIAS = "CA";
 
     // Current NIST recommendation is to provide at least 112 bits

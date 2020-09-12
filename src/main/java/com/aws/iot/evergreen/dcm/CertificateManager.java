@@ -1,8 +1,12 @@
 /* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0 */
 
-package com.aws.iot.evergreen.dcm.certificate;
+package com.aws.iot.evergreen.dcm;
 
+import com.aws.iot.evergreen.dcm.certificate.CAHelper;
+import com.aws.iot.evergreen.dcm.certificate.CertificateDownloader;
+import com.aws.iot.evergreen.dcm.certificate.CertificateHelper;
+import com.aws.iot.evergreen.dcm.certificate.CsrProcessingException;
 import com.aws.iot.evergreen.dcm.model.DeviceConfig;
 import com.aws.iot.evergreen.logging.api.Logger;
 import com.aws.iot.evergreen.logging.impl.LogManager;
@@ -15,9 +19,11 @@ import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -51,10 +57,8 @@ public class CertificateManager {
      *
      * @throws KeyStoreException if unable to load the CA key store
      */
-    public void initialize() throws KeyStoreException {
+    void initialize() throws KeyStoreException {
         caKeyStore = CAHelper.getCAKeyStore();
-
-        // TODO: Register CA with cloud
     }
 
     /**
@@ -62,7 +66,7 @@ public class CertificateManager {
      *
      * @param deviceConfigurationList Updated device configuration list
      */
-    public void setDeviceConfigurations(List<DeviceConfig> deviceConfigurationList) {
+    void setDeviceConfigurations(List<DeviceConfig> deviceConfigurationList) {
         Set<DeviceConfig> currentDeviceSet = deviceCertificateMap.keySet();
         Set<DeviceConfig> newDeviceSet = deviceConfigurationList.stream().collect(Collectors.toSet());
 
@@ -79,7 +83,7 @@ public class CertificateManager {
         // TODO: handle exceptions
         newDeviceSet.forEach(d -> {
             deviceCertificateMap.computeIfAbsent(d, k -> {
-                logger.atDebug()
+                logger.atInfo()
                         .kv("deviceArn", d.getDeviceArn())
                         .kv("certificateId", d.getCertificateId())
                         .log("downloading device certificate");
@@ -89,10 +93,24 @@ public class CertificateManager {
     }
 
     /**
-     * Get device configurations.
+     * Return a map of device certificates, indexed by Device ARN.
      */
-    public List<DeviceConfig> getDeviceConfigurations() {
-        return deviceCertificateMap.keySet().stream().collect(Collectors.toList());
+    Map<String, String> getDeviceCertificates() {
+        return deviceCertificateMap.entrySet().stream().collect(Collectors.toMap(
+                entry -> entry.getKey().getDeviceArn(),
+                entry -> entry.getValue()
+        ));
+    }
+
+    /**
+     * Return a list of CA certificates used to issue client certs.
+     */
+    List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
+        List<String> caList = new ArrayList<>();
+        String caPem = CertificateHelper.toPem(CAHelper.getCACertificate(caKeyStore));
+        caList.add(caPem);
+
+        return caList;
     }
 
     /**
@@ -110,7 +128,7 @@ public class CertificateManager {
      * @throws CsrProcessingException if unable to process CSR
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    public void subscribeToCertificateUpdates(@NonNull String csr, @NonNull Consumer<String> cb)
+    public void subscribeToServerCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
             throws KeyStoreException, CsrProcessingException {
         // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
         // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
@@ -118,7 +136,7 @@ public class CertificateManager {
             Instant now = Instant.now();
             PKCS10CertificationRequest pkcs10CertificationRequest =
                     CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
-            X509Certificate certificate = CertificateHelper.signCertificateRequest(
+            X509Certificate certificate = CertificateHelper.signServerCertificateRequest(
                     CAHelper.getCACertificate(caKeyStore),
                     CAHelper.getCAPrivateKey(caKeyStore),
                     pkcs10CertificationRequest,
@@ -127,7 +145,48 @@ public class CertificateManager {
 
             // TODO: Save cb
             // For now, just generate certificate and accept it
-            cb.accept(CertificateHelper.toPem(certificate));
+            cb.accept(certificate);
+        } catch (KeyStoreException e) {
+            logger.atError().setCause(e).log("unable to subscribe to certificate update");
+            throw e;
+        } catch (RuntimeException | OperatorCreationException | NoSuchAlgorithmException | CertificateException
+                | InvalidKeyException | IOException e) {
+            throw new CsrProcessingException(csr, e);
+        }
+    }
+
+    /**
+     * Subscribe to client certificate updates.
+     * <p>
+     * The certificate manager will save the given CSR and generate a new certificate under the following scenarios:
+     *   1) The previous certificate is nearing expiry
+     * Certificates will continue to be generated until the client calls unsubscribeFromCertificateUpdates.
+     * </p>
+     *
+     * @param csr Certificate signing request
+     * @param cb  Certificate consumer
+     * @throws KeyStoreException if unable to access KeyStore
+     * @throws CsrProcessingException if unable to process CSR
+     */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
+            throws KeyStoreException, CsrProcessingException {
+        // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
+        // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
+        try {
+            Instant now = Instant.now();
+            PKCS10CertificationRequest pkcs10CertificationRequest =
+                    CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
+            X509Certificate certificate = CertificateHelper.signClientCertificateRequest(
+                    CAHelper.getCACertificate(caKeyStore),
+                    CAHelper.getCAPrivateKey(caKeyStore),
+                    pkcs10CertificationRequest,
+                    Date.from(now),
+                    Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
+
+            // TODO: Save cb
+            // For now, just generate certificate and accept it
+            cb.accept(certificate);
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;

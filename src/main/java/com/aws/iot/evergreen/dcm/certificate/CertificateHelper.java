@@ -107,7 +107,7 @@ public final class CertificateHelper {
     }
 
     /**
-     * Sign CSR.
+     * Generate server certificate from CSR.
      *
      * @param caCert        CA Certificate
      * @param caPrivateKey  CA Private Key
@@ -121,15 +121,52 @@ public final class CertificateHelper {
      * @throws CertificateException       CertificateException
      * @throws CertIOException            CertIOException
      */
-    public static X509Certificate signCertificateRequest(@NonNull X509Certificate caCert,
+    public static X509Certificate signServerCertificateRequest(@NonNull X509Certificate caCert,
                                                          @NonNull PrivateKey caPrivateKey,
                                                          @NonNull PKCS10CertificationRequest csr,
                                                          @NonNull Date notBefore,
                                                          @NonNull Date notAfter) throws
             NoSuchAlgorithmException, InvalidKeyException, OperatorCreationException,
             CertificateException, CertIOException {
-        JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(
-                csr);
+        return signCertificateRequest(caCert, caPrivateKey, csr, notBefore, notAfter,
+                new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+    }
+
+    /**
+     * Generate client certificate from CSR.
+     *
+     * @param caCert        CA Certificate
+     * @param caPrivateKey  CA Private Key
+     * @param csr           PKCS10 Certificate Signing Request
+     * @param notBefore     Certificate notBefore Date
+     * @param notAfter      Certificate notAfter Date
+     * @return              X509 certificate
+     * @throws NoSuchAlgorithmException   NoSuchAlgorithmException
+     * @throws InvalidKeyException        InvalidKeyException
+     * @throws OperatorCreationException  OperatorCreationException
+     * @throws CertificateException       CertificateException
+     * @throws CertIOException            CertIOException
+     */
+    public static X509Certificate signClientCertificateRequest(@NonNull X509Certificate caCert,
+                                                         @NonNull PrivateKey caPrivateKey,
+                                                         @NonNull PKCS10CertificationRequest csr,
+                                                         @NonNull Date notBefore,
+                                                         @NonNull Date notAfter) throws
+            NoSuchAlgorithmException, InvalidKeyException, OperatorCreationException,
+            CertificateException, CertIOException {
+        return signCertificateRequest(caCert, caPrivateKey, csr, notBefore, notAfter,
+                new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth));
+    }
+
+    private static X509Certificate signCertificateRequest(@NonNull X509Certificate caCert,
+                                                          @NonNull PrivateKey caPrivateKey,
+                                                          @NonNull PKCS10CertificationRequest csr,
+                                                          @NonNull Date notBefore,
+                                                          @NonNull Date notAfter,
+                                                          @NonNull ExtendedKeyUsage keyUsage) throws
+            NoSuchAlgorithmException, InvalidKeyException, OperatorCreationException,
+            CertificateException, CertIOException {
+        JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(csr);
         X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                 caCert, newSerialNumber(), notBefore,
                 notAfter, jcaRequest.getSubject(), jcaRequest.getPublicKey()
@@ -140,7 +177,7 @@ public final class CertificateHelper {
                 .addExtension(Extension.basicConstraints, true, new BasicConstraints(false))
                 .addExtension(Extension.subjectKeyIdentifier, false,
                         extUtils.createSubjectKeyIdentifier(jcaRequest.getPublicKey()))
-                .addExtension(Extension.extendedKeyUsage, true, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+                .addExtension(Extension.extendedKeyUsage, true, keyUsage);
 
         addSANFromCSRToCertificate(csr, builder);
 

@@ -89,11 +89,15 @@ public final class CertificateRequestGenerator {
         }
 
         final List<GeneralName> generalNamesArray = new ArrayList<>();
-        for (InetAddress ipAddress : ipAddresses) {
-            generalNamesArray.add(new GeneralName(GeneralName.iPAddress, ipAddress.getHostAddress()));
+        if (ipAddresses != null) {
+            for (InetAddress ipAddress : ipAddresses) {
+                generalNamesArray.add(new GeneralName(GeneralName.iPAddress, ipAddress.getHostAddress()));
+            }
         }
-        for (String dnsName : dnsNames) {
-            generalNamesArray.add(new GeneralName(GeneralName.dNSName, dnsName));
+        if (dnsNames != null) {
+            for (String dnsName : dnsNames) {
+                generalNamesArray.add(new GeneralName(GeneralName.dNSName, dnsName));
+            }
         }
         final GeneralNames generalNames = new GeneralNames(generalNamesArray.toArray(new GeneralName[0]));
         ExtensionsGenerator extensions = new ExtensionsGenerator();

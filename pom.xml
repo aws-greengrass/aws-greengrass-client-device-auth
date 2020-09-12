@@ -274,6 +274,7 @@
                                     </limits>
                                 </rule>
                             </rules>
+                            <skip>${skipTests}</skip>
                         </configuration>
                     </execution>
                 </executions>
