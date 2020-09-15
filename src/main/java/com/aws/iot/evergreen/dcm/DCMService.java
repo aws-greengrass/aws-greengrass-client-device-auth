@@ -44,9 +44,9 @@ public class DCMService extends EvergreenService {
      *  |        |---- authorities: [...]
      *  |        |---- devices: [...]
      */
-    private static final String CERTIFICATES_KEY = "certificates";
-    private static final String AUTHORITIES_TOPIC = "authorities";
-    private static final String DEVICES_TOPIC = "devices";
+    public static final String CERTIFICATES_KEY = "certificates";
+    public static final String AUTHORITIES_TOPIC = "authorities";
+    public static final String DEVICES_TOPIC = "devices";
 
     private final CertificateManager certificateManager;
 
