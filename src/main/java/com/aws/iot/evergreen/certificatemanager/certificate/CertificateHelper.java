@@ -1,7 +1,7 @@
 /* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0 */
 
-package com.aws.iot.evergreen.dcm.certificate;
+package com.aws.iot.evergreen.certificatemanager.certificate;
 
 import lombok.NonNull;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;

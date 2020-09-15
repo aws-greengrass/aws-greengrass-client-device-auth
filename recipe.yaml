@@ -1,9 +1,9 @@
 ---
 RecipeFormatVersion: '2020-01-25'
-ComponentName: aws.greengrass.certificate.manager
-ComponentDescription: AWS Greengrass Certificate Manager
+ComponentName: aws.greengrass.CertificateManager
+ComponentDescription: AWS Greengrass Device Certificate Manager
 ComponentPublisher: AWS
-ComponentVersion: 0.0.2
+ComponentVersion: 0.0.0
 ComponentType: aws.greengrass.plugin
 Manifests:
   - Parameters:
@@ -11,4 +11,4 @@ Manifests:
       Value: "[]"
       Type: STRING
     Artifacts:
-      - URI: s3://gg-dev-artifacts/$componentName/$version/aws.greengrass.certificate.manager.jar
+      - URI: s3://gg-dev-artifacts/$componentName/$version/aws.greengrass.CertificateManager.jar

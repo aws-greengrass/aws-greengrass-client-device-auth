@@ -1,7 +1,7 @@
 /* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0 */
 
-package com.aws.iot.evergreen.dcm.model;
+package com.aws.iot.evergreen.certificatemanager.model;
 
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;

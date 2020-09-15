@@ -1,4 +1,4 @@
-package com.aws.iot.evergreen.dcm.certificate;
+package com.aws.iot.evergreen.certificatemanager.certificate;
 
 public class CsrProcessingException extends Exception {
     static final long serialVersionUID = -3387516993124229948L;

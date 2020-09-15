@@ -1,10 +1,10 @@
 /* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0 */
 
-package com.aws.iot.evergreen.dcm;
+package com.aws.iot.evergreen.certificatemanager;
 
 import com.aws.iot.evergreen.config.Topic;
-import com.aws.iot.evergreen.dcm.certificate.CertificateDownloader;
+import com.aws.iot.evergreen.certificatemanager.certificate.CertificateDownloader;
 import com.aws.iot.evergreen.dependency.State;
 import com.aws.iot.evergreen.kernel.EvergreenService;
 import com.aws.iot.evergreen.kernel.Kernel;

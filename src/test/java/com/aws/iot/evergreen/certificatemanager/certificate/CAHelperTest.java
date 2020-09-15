@@ -1,4 +1,4 @@
-package com.aws.iot.evergreen.dcm.certificate;
+package com.aws.iot.evergreen.certificatemanager.certificate;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

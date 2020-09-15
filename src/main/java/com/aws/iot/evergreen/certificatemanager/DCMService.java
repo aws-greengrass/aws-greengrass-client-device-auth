@@ -1,13 +1,13 @@
 /* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0 */
 
-package com.aws.iot.evergreen.dcm;
+package com.aws.iot.evergreen.certificatemanager;
 
+import com.aws.iot.evergreen.certificatemanager.model.DeviceConfig;
 import com.aws.iot.evergreen.config.Node;
 import com.aws.iot.evergreen.config.Topic;
 import com.aws.iot.evergreen.config.Topics;
 import com.aws.iot.evergreen.config.WhatHappened;
-import com.aws.iot.evergreen.dcm.model.DeviceConfig;
 import com.aws.iot.evergreen.dependency.ImplementsService;
 import com.aws.iot.evergreen.dependency.State;
 import com.aws.iot.evergreen.kernel.EvergreenService;
@@ -31,7 +31,7 @@ import static com.aws.iot.evergreen.packagemanager.KernelConfigResolver.PARAMETE
 @ImplementsService(name = DCMService.DCM_SERVICE_NAME, autostart = true)
 @Singleton
 public class DCMService extends EvergreenService {
-    public static final String DCM_SERVICE_NAME = "aws.greengrass.certificate.manager";
+    public static final String DCM_SERVICE_NAME = "aws.greengrass.CertificateManager";
     private static final JsonMapper OBJECT_MAPPER =
             JsonMapper.builder().configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true).build();
 

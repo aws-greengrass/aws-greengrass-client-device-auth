@@ -1,13 +1,13 @@
 /* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0 */
 
-package com.aws.iot.evergreen.dcm;
+package com.aws.iot.evergreen.certificatemanager;
 
-import com.aws.iot.evergreen.dcm.certificate.CAHelper;
-import com.aws.iot.evergreen.dcm.certificate.CertificateDownloader;
-import com.aws.iot.evergreen.dcm.certificate.CertificateHelper;
-import com.aws.iot.evergreen.dcm.certificate.CsrProcessingException;
-import com.aws.iot.evergreen.dcm.model.DeviceConfig;
+import com.aws.iot.evergreen.certificatemanager.certificate.CAHelper;
+import com.aws.iot.evergreen.certificatemanager.certificate.CertificateDownloader;
+import com.aws.iot.evergreen.certificatemanager.certificate.CertificateHelper;
+import com.aws.iot.evergreen.certificatemanager.certificate.CsrProcessingException;
+import com.aws.iot.evergreen.certificatemanager.model.DeviceConfig;
 import com.aws.iot.evergreen.logging.api.Logger;
 import com.aws.iot.evergreen.logging.impl.LogManager;
 import lombok.NonNull;

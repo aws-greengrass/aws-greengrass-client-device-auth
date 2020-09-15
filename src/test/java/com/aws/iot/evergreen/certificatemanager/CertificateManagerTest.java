@@ -1,11 +1,11 @@
 /* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0 */
 
-package com.aws.iot.evergreen.dcm;
+package com.aws.iot.evergreen.certificatemanager;
 
-import com.aws.iot.evergreen.dcm.certificate.CertificateDownloader;
-import com.aws.iot.evergreen.dcm.certificate.CsrProcessingException;
-import com.aws.iot.evergreen.dcm.model.DeviceConfig;
+import com.aws.iot.evergreen.certificatemanager.certificate.CertificateDownloader;
+import com.aws.iot.evergreen.certificatemanager.certificate.CsrProcessingException;
+import com.aws.iot.evergreen.certificatemanager.model.DeviceConfig;
 import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
