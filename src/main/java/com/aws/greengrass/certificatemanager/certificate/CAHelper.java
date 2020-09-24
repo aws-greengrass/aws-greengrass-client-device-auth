@@ -5,10 +5,20 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.certificatemanager.DCMService;
+import com.aws.greengrass.lifecyclemanager.Kernel;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
+import lombok.AccessLevel;
+import lombok.Getter;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.operator.OperatorCreationException;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -16,6 +26,7 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
@@ -23,12 +34,14 @@ import java.security.cert.X509Certificate;
 import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
 import java.util.Date;
+import javax.inject.Inject;
 
-public final class CAHelper {
+public class CAHelper {
     private static final long   DEFAULT_CA_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
-    private static final String DEFAULT_KEYSTORE_PASSWORD = "";
     private static final String DEFAULT_CA_CN = "Greengrass Core CA";
     private static final String CA_KEY_ALIAS = "CA";
+    private static final String DEFAULT_KEYSTORE_FILENAME = "ca.jks";
+    private static final String DEFAULT_CA_CERTIFICATE_FILENAME = "ca.pem";
 
     // Current NIST recommendation is to provide at least 112 bits
     // of security strength through 2030
@@ -40,36 +53,51 @@ public final class CAHelper {
     private static final String EC_KEY_INSTANCE = "EC";
     private static final String EC_DEFAULT_CURVE = "secp256r1";
 
-    private CAHelper(){
+    private final Logger logger = LogManager.getLogger(CAHelper.class);
+    @Getter
+    private KeyStore keyStore;
+    @Getter(AccessLevel.PRIVATE)
+    private char[] passphrase;
+    private final Path workPath;
+
+
+    @Inject
+    public CAHelper(Kernel kernel) {
+        this.workPath = kernel.getWorkPath().resolve(DCMService.DCM_SERVICE_NAME);
+    }
+
+    // For unit tests
+    public CAHelper(Path workPath) {
+        this.workPath = workPath;
     }
 
     /**
-     * Retrieve CA keystore.
+     * Initialize CA keystore.
      *
-     * @return CA KeyStore object
+     * @param passphrase Passphrase used for KeyStore and private key entries.
      * @throws KeyStoreException if unable to load or create CA KeyStore
      */
-    public static KeyStore getCAKeyStore() throws KeyStoreException {
-        KeyStore ks;
+    public void init(String passphrase) throws KeyStoreException {
+        this.passphrase = passphrase.toCharArray();
         try {
-            ks = loadCAKeyStore();
-        } catch (KeyStoreException e) {
-            ks = createDefaultCAKeyStore();
+            keyStore = loadDefaultKeyStore();
+            logger.atDebug().log("successfully loaded existing CA keystore");
+        } catch (KeyStoreException | IOException | CertificateException | NoSuchAlgorithmException e) {
+            logger.atDebug().log("failed to load existing CA keystore");
+            createAndStoreDefaultKeyStore();
+            logger.atDebug().log("successfully created new CA keystore");
         }
-
-        return ks;
     }
 
     /**
      * Get CA PrivateKey.
      *
-     * @param caKeyStore         KeyStore containing the CA
      * @return                   CA PrivateKey object
      * @throws KeyStoreException if unable to retrieve PrivateKey object
      */
-    public static PrivateKey getCAPrivateKey(KeyStore caKeyStore) throws KeyStoreException {
+    public PrivateKey getCAPrivateKey() throws KeyStoreException {
         try {
-            return (PrivateKey)caKeyStore.getKey(CA_KEY_ALIAS, DEFAULT_KEYSTORE_PASSWORD.toCharArray());
+            return (PrivateKey) keyStore.getKey(CA_KEY_ALIAS, getPassphrase());
         } catch (NoSuchAlgorithmException | UnrecoverableKeyException e) {
             throw new KeyStoreException("unable to retrieve CA private key", e);
         }
@@ -78,15 +106,14 @@ public final class CAHelper {
     /**
      * Get CA Public Certificate.
      *
-     * @param caKeyStore         KeyStore containing the CA
      * @return                   CA X509Certificate object
      * @throws KeyStoreException if unable to retrieve the certificate
      */
-    public static X509Certificate getCACertificate(KeyStore caKeyStore) throws KeyStoreException {
-        return (X509Certificate)caKeyStore.getCertificate(CA_KEY_ALIAS);
+    public X509Certificate getCACertificate() throws KeyStoreException {
+        return (X509Certificate) keyStore.getCertificate(CA_KEY_ALIAS);
     }
 
-    private static KeyStore createDefaultCAKeyStore() throws KeyStoreException {
+    private void createAndStoreDefaultKeyStore() throws KeyStoreException {
         KeyPair kp;
 
         // Generate CA keypair
@@ -115,9 +142,14 @@ public final class CAHelper {
             throw new KeyStoreException("unable to load CA keystore", e);
         }
         Certificate[] certificateChain = { caCertificate };
-        ks.setKeyEntry("CA", kp.getPrivate(), DEFAULT_KEYSTORE_PASSWORD.toCharArray(), certificateChain);
+        ks.setKeyEntry("CA", kp.getPrivate(), getPassphrase(), certificateChain);
+        keyStore = ks;
 
-        return ks;
+        try {
+            saveKeyStore();
+        } catch (IOException | CertificateException | NoSuchAlgorithmException ex) {
+            throw new KeyStoreException("unable to store CA keystore", ex);
+        }
     }
 
     /**
@@ -145,8 +177,50 @@ public final class CAHelper {
         return kpg.generateKeyPair();
     }
 
-    private static KeyStore loadCAKeyStore() throws KeyStoreException {
-        // TODO
-        throw new KeyStoreException("Not found");
+    private KeyStore loadDefaultKeyStore() throws KeyStoreException, IOException, CertificateException,
+            NoSuchAlgorithmException {
+        KeyStore ks = KeyStore.getInstance("JKS");
+        try (InputStream ksInputStream = Files.newInputStream(workPath.resolve(DEFAULT_KEYSTORE_FILENAME))) {
+            ks.load(ksInputStream, getPassphrase());
+        }
+        return ks;
+    }
+
+    private void saveKeyStore() throws IOException, CertificateException,
+            NoSuchAlgorithmException, KeyStoreException {
+        Path caPath = workPath.resolve(DEFAULT_KEYSTORE_FILENAME);
+        caPath.toFile().getParentFile().mkdirs();
+        try (OutputStream writeStream = Files.newOutputStream(caPath)) {
+            keyStore.store(writeStream, getPassphrase());
+        }
+
+        // TODO: Clean this up
+        // Temporarily store public CA since CA information is not yet available in cloud
+        X509Certificate caCert = getCACertificate();
+        try (OutputStream writeStream = Files.newOutputStream(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME))) {
+            writeStream.write(CertificateHelper.toPem(caCert).getBytes());
+        }
+    }
+
+    /**
+     * Generates a secure passphrase suitable for use with KeyStores.
+     *
+     * @return ASCII passphrase
+     */
+    public static String generateRandomPassphrase() {
+        // Generate cryptographically secure sequence of bytes
+        SecureRandom secureRandom = new SecureRandom();
+        byte[] randomBytes = new byte[16];
+        secureRandom.nextBytes(randomBytes);
+        StringBuilder sb = new StringBuilder();
+        for (byte b : randomBytes) {
+            sb.append(byteToAsciiCharacter(b));
+        }
+        return sb.toString();
+    }
+
+    // Map random byte into ASCII space
+    static char byteToAsciiCharacter(byte randomByte) {
+        return (char) ((randomByte & 0x7F) % ('~' - ' ') + ' ');
     }
 }

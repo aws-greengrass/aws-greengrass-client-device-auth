@@ -18,7 +18,6 @@ import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
-import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
@@ -42,16 +41,18 @@ public class CertificateManager {
     private final Logger logger = LogManager.getLogger(CertificateManager.class);
     private final Map<DeviceConfig, String> deviceCertificateMap = new ConcurrentHashMap<>();
 
-    private KeyStore caKeyStore;
+    private final CAHelper caHelper;
 
     /**
      * Constructor for Certificate Manager.
      *
      * @param certificateDownloader IoT device certificate downloader
+     * @param caHelper              Helper class for managing certificate authorities
      */
     @Inject
-    public CertificateManager(CertificateDownloader certificateDownloader) {
+    public CertificateManager(CertificateDownloader certificateDownloader, CAHelper caHelper) {
         this.certificateDownloader = certificateDownloader;
+        this.caHelper = caHelper;
     }
 
     /**
@@ -59,8 +60,8 @@ public class CertificateManager {
      *
      * @throws KeyStoreException if unable to load the CA key store
      */
-    void initialize() throws KeyStoreException {
-        caKeyStore = CAHelper.getCAKeyStore();
+    void init(String caPassphrase) throws KeyStoreException {
+        caHelper.init(caPassphrase);
     }
 
     /**
@@ -109,7 +110,7 @@ public class CertificateManager {
      */
     List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
         List<String> caList = new ArrayList<>();
-        String caPem = CertificateHelper.toPem(CAHelper.getCACertificate(caKeyStore));
+        String caPem = CertificateHelper.toPem(caHelper.getCACertificate());
         caList.add(caPem);
 
         return caList;
@@ -139,8 +140,8 @@ public class CertificateManager {
             PKCS10CertificationRequest pkcs10CertificationRequest =
                     CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
             X509Certificate certificate = CertificateHelper.signServerCertificateRequest(
-                    CAHelper.getCACertificate(caKeyStore),
-                    CAHelper.getCAPrivateKey(caKeyStore),
+                    caHelper.getCACertificate(),
+                    caHelper.getCAPrivateKey(),
                     pkcs10CertificationRequest,
                     Date.from(now),
                     Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
@@ -180,8 +181,8 @@ public class CertificateManager {
             PKCS10CertificationRequest pkcs10CertificationRequest =
                     CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
             X509Certificate certificate = CertificateHelper.signClientCertificateRequest(
-                    CAHelper.getCACertificate(caKeyStore),
-                    CAHelper.getCAPrivateKey(caKeyStore),
+                    caHelper.getCACertificate(),
+                    caHelper.getCAPrivateKey(),
                     pkcs10CertificationRequest,
                     Date.from(now),
                     Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));

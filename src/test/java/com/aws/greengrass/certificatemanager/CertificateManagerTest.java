@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.certificatemanager;
 
+import com.aws.greengrass.certificatemanager.certificate.CAHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateDownloader;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.certificatemanager.model.DeviceConfig;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,6 +24,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.security.KeyFactory;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -113,12 +116,15 @@ public class CertificateManagerTest {
     @Mock
     CertificateDownloader mockCertificateDownloader;
 
+    @TempDir
+    Path tmpPath;
+
     private CertificateManager certificateManager;
 
     @BeforeEach
     public void beforeEach() throws KeyStoreException {
-        certificateManager = new CertificateManager(mockCertificateDownloader);
-        certificateManager.initialize();
+        certificateManager = new CertificateManager(mockCertificateDownloader, new CAHelper(tmpPath));
+        certificateManager.init("");
     }
 
     public static PrivateKey getRsaPrivateKeyFromPem(String privateKeyString)

@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.certificatemanager;
 
+import com.aws.greengrass.certificatemanager.certificate.CAHelper;
 import com.aws.greengrass.certificatemanager.model.DeviceConfig;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
@@ -43,10 +44,12 @@ public class DCMService extends PluginService {
      *  |    |---- certificates
      *  |        |---- authorities: [...]
      *  |        |---- devices: [...]
+     *  |    |---- ca_passphrase: "..."
      */
     public static final String CERTIFICATES_KEY = "certificates";
     public static final String AUTHORITIES_TOPIC = "authorities";
     public static final String DEVICES_TOPIC = "devices";
+    public static final String CA_PASSPHRASE = "ca_passphrase";
 
     private final CertificateManager certificateManager;
 
@@ -93,31 +96,40 @@ public class DCMService extends PluginService {
             deviceConfigList = new ArrayList<>();
         }
         certificateManager.setDeviceConfigurations(deviceConfigList);
-        updateDeviceCertificateConfig(certificateManager.getDeviceCertificates());
+        try {
+            updateDeviceCertificateConfig(certificateManager.getDeviceCertificates());
+        } catch (JsonProcessingException e) {
+            logger.atError().cause(e).log("unable to update device configuration");
+            serviceErrored(e);
+        }
     }
 
-    void updateDeviceCertificateConfig(Map<String, String> clientCerts) {
-        Topic clientCertsTopic = this.config.lookup(RUNTIME_STORE_NAMESPACE_TOPIC, CERTIFICATES_KEY, DEVICES_TOPIC);
-        clientCertsTopic.withValue(clientCerts);
+    void updateDeviceCertificateConfig(Map<String, String> clientCerts) throws JsonProcessingException {
+        Topic clientCertsTopic = getRuntimeConfig().lookup(CERTIFICATES_KEY, DEVICES_TOPIC);
+        clientCertsTopic.withValue(OBJECT_MAPPER.writeValueAsString(clientCerts));
     }
 
     void updateCACertificateConfig(List<String> caCerts) {
-        Topic caCertsTopic = this.config.lookup(RUNTIME_STORE_NAMESPACE_TOPIC, CERTIFICATES_KEY, AUTHORITIES_TOPIC);
+        Topic caCertsTopic = getRuntimeConfig().lookup(CERTIFICATES_KEY, AUTHORITIES_TOPIC);
         caCertsTopic.withValue(caCerts);
     }
 
     @Override
     public void startup() {
         try {
-            certificateManager.initialize();
+            certificateManager.init(getPassphrase());
             List<String> caCerts = certificateManager.getCACertificates();
             updateCACertificateConfig(caCerts);
-            for (String ca : caCerts) {
-                logger.atInfo().kv("ca", ca).log("CA certificate");
-            }
             reportState(State.RUNNING);
         } catch (KeyStoreException | IOException | CertificateEncodingException e) {
             serviceErrored(e);
         }
+    }
+
+    private String getPassphrase() {
+        // TODO: This passphrase needs to be encrypted prior to storing in TLOG
+        Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE)
+                .dflt(CAHelper.generateRandomPassphrase());
+        return Coerce.toString(caPassphrase);
     }
 }

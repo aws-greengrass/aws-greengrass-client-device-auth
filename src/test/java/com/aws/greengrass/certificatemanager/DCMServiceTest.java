@@ -13,6 +13,11 @@ import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.GGServiceTestUtil;
+import com.aws.greengrass.util.Coerce;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -38,6 +43,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class DCMServiceTest extends GGServiceTestUtil {
     private static final long TEST_TIME_OUT_SEC = 30L;
+    private static final JsonMapper OBJECT_MAPPER =
+            JsonMapper.builder().configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true).build();
 
     @TempDir
     Path rootDir;
@@ -68,10 +75,11 @@ public class DCMServiceTest extends GGServiceTestUtil {
         assertThat(caPemList, IsIterableContainingInAnyOrder.containsInAnyOrder(expectedCerts.toArray()));
     }
 
-    void assertDeviceCertTopicContains(Map<String, String> expectedCerts) {
+    void assertDeviceCertTopicContains(Map<String, String> expectedCerts) throws JsonProcessingException {
         Topic deviceCertTopic = kernel.findServiceTopic(DCMService.DCM_SERVICE_NAME)
                 .lookup("runtime", "certificates", "devices");
-        Map<String, String> deviceCertMap = (Map<String, String>) deviceCertTopic.toPOJO();
+        Map<String, String> deviceCertMap = OBJECT_MAPPER.readValue(Coerce.toString(deviceCertTopic),
+                new TypeReference<Map<String, String>>() {});
         Assertions.assertNotNull(deviceCertMap);
         assertThat(deviceCertMap, is(expectedCerts));
     }
@@ -143,7 +151,7 @@ public class DCMServiceTest extends GGServiceTestUtil {
 
     @Test
     void GIVEN_added_device_cert_WHEN_updateCertConfig_THEN_cert_topic_updated()
-            throws InterruptedException, ServiceLoadException {
+            throws InterruptedException, ServiceLoadException, JsonProcessingException {
         CountDownLatch startLatch = new CountDownLatch(1);
         kernel.getContext().addGlobalStateChangeListener((GreengrassService service, State was, State newState) -> {
             if (service.getName().equals(DCMService.DCM_SERVICE_NAME) && service.getState()
