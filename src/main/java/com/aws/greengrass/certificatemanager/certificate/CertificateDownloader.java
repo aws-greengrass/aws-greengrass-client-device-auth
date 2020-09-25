@@ -8,12 +8,15 @@ package com.aws.greengrass.certificatemanager.certificate;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.tes.LazyCredentialProvider;
 import com.aws.greengrass.util.Coerce;
+import com.aws.greengrass.util.IotSdkClientFactory;
+import com.aws.greengrass.util.exceptions.InvalidEnvironmentStageException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.iot.IotClient;
 import software.amazon.awssdk.services.iot.model.CertificateDescription;
 import software.amazon.awssdk.services.iot.model.DescribeCertificateRequest;
 import software.amazon.awssdk.services.iot.model.DescribeCertificateResponse;
 
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.inject.Inject;
@@ -26,14 +29,17 @@ public class CertificateDownloader {
      *
      * @param credentialsProvider AWS SDK credentials provider
      * @param deviceConfiguration Greengrass device configuration
+     * @throws InvalidEnvironmentStageException if environment stage is invalid
+     * @throws URISyntaxException               if unable to build iot client
      */
     @Inject
     public CertificateDownloader(final LazyCredentialProvider credentialsProvider,
-                                 final DeviceConfiguration deviceConfiguration) {
-        iotClient = IotClient.builder()
-                .credentialsProvider(credentialsProvider)
-                .region(Region.of(Coerce.toString(deviceConfiguration.getAWSRegion())))
-                .build();
+                                 final DeviceConfiguration deviceConfiguration)
+            throws InvalidEnvironmentStageException, URISyntaxException {
+        Region awsRegion = Region.of(Coerce.toString(deviceConfiguration.getAWSRegion()));
+        IotSdkClientFactory.EnvironmentStage stage = IotSdkClientFactory.EnvironmentStage.fromString(
+                Coerce.toString(deviceConfiguration.getEnvironmentStage()));
+        iotClient = IotSdkClientFactory.getIotClient(awsRegion, stage, credentialsProvider);
     }
 
     public CertificateDownloader(final IotClient iotClient) {
