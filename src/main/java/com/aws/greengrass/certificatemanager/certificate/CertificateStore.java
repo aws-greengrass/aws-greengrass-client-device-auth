@@ -36,10 +36,11 @@ import java.time.Instant;
 import java.util.Date;
 import javax.inject.Inject;
 
-public class CAHelper {
+public class CertificateStore {
     private static final long   DEFAULT_CA_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
     private static final String DEFAULT_CA_CN = "Greengrass Core CA";
     private static final String CA_KEY_ALIAS = "CA";
+    private static final String DEVICE_CERTIFICATE_DIR = "devices";
     private static final String DEFAULT_KEYSTORE_FILENAME = "ca.jks";
     private static final String DEFAULT_CA_CERTIFICATE_FILENAME = "ca.pem";
 
@@ -53,7 +54,7 @@ public class CAHelper {
     private static final String EC_KEY_INSTANCE = "EC";
     private static final String EC_DEFAULT_CURVE = "secp256r1";
 
-    private final Logger logger = LogManager.getLogger(CAHelper.class);
+    private final Logger logger = LogManager.getLogger(CertificateStore.class);
     @Getter
     private KeyStore keyStore;
     @Getter(AccessLevel.PRIVATE)
@@ -62,12 +63,12 @@ public class CAHelper {
 
 
     @Inject
-    public CAHelper(Kernel kernel) {
+    public CertificateStore(Kernel kernel) {
         this.workPath = kernel.getWorkPath().resolve(DCMService.DCM_SERVICE_NAME);
     }
 
     // For unit tests
-    public CAHelper(Path workPath) {
+    public CertificateStore(Path workPath) {
         this.workPath = workPath;
     }
 
@@ -111,6 +112,28 @@ public class CAHelper {
      */
     public X509Certificate getCACertificate() throws KeyStoreException {
         return (X509Certificate) keyStore.getCertificate(CA_KEY_ALIAS);
+    }
+
+    public String loadDeviceCertificate(String certificateId) throws IOException {
+        return loadCertificatePem(certificateIdToPath(certificateId));
+    }
+
+    /**
+     * Store device certificate if not present.
+     *
+     * @param certificateId  Certificate ID
+     * @param certificatePem Certificate PEM
+     * @throws IOException   if unable to write certificate to disk
+     */
+    public void storeDeviceCertificateIfNotPresent(String certificateId, String certificatePem) throws IOException {
+        Path filePath = certificateIdToPath(certificateId);
+        if (!Files.exists(filePath)) {
+            saveCertificatePem(certificateIdToPath(certificateId), certificatePem);
+        }
+    }
+
+    Path certificateIdToPath(String certificateId) {
+        return workPath.resolve(DEVICE_CERTIFICATE_DIR).resolve(certificateId + ".pem");
     }
 
     private void createAndStoreDefaultKeyStore() throws KeyStoreException {
@@ -189,7 +212,7 @@ public class CAHelper {
     private void saveKeyStore() throws IOException, CertificateException,
             NoSuchAlgorithmException, KeyStoreException {
         Path caPath = workPath.resolve(DEFAULT_KEYSTORE_FILENAME);
-        caPath.toFile().getParentFile().mkdirs();
+        Files.createDirectories(caPath.getParent());
         try (OutputStream writeStream = Files.newOutputStream(caPath)) {
             keyStore.store(writeStream, getPassphrase());
         }
@@ -197,8 +220,17 @@ public class CAHelper {
         // TODO: Clean this up
         // Temporarily store public CA since CA information is not yet available in cloud
         X509Certificate caCert = getCACertificate();
-        try (OutputStream writeStream = Files.newOutputStream(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME))) {
-            writeStream.write(CertificateHelper.toPem(caCert).getBytes());
+        saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME), CertificateHelper.toPem(caCert));
+    }
+
+    private String loadCertificatePem(Path filePath) throws IOException {
+        return new String(Files.readAllBytes(filePath));
+    }
+
+    private void saveCertificatePem(Path filePath, String certificatePem) throws IOException {
+        Files.createDirectories(filePath.getParent());
+        try (OutputStream writeStream = Files.newOutputStream(filePath)) {
+            writeStream.write(certificatePem.getBytes());
         }
     }
 

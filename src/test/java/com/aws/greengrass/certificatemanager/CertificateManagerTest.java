@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.certificatemanager;
 
-import com.aws.greengrass.certificatemanager.certificate.CAHelper;
+import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CertificateDownloader;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.certificatemanager.model.DeviceConfig;
@@ -123,7 +123,7 @@ public class CertificateManagerTest {
 
     @BeforeEach
     public void beforeEach() throws KeyStoreException {
-        certificateManager = new CertificateManager(mockCertificateDownloader, new CAHelper(tmpPath));
+        certificateManager = new CertificateManager(mockCertificateDownloader, new CertificateStore(tmpPath));
         certificateManager.init("");
     }
 
@@ -176,6 +176,29 @@ public class CertificateManagerTest {
                 .downloadSingleDeviceCertificate(dc.getCertificateId());
         Mockito.verify(mockCertificateDownloader, Mockito.times(1))
                 .downloadSingleDeviceCertificate(dc2.getCertificateId());
+    }
+
+    @Test
+    public void GIVEN_device_list_containing_previously_downloaded_cert_WHEN_setDeviceConfigurations_THEN_certs_are_retrieved_from_disk() {
+        List<DeviceConfig> deviceConfigList = new ArrayList<>();
+        DeviceConfig dc = new DeviceConfig("deviceArn", "certificateId");
+        deviceConfigList.add(dc);
+
+        Mockito.when(mockCertificateDownloader.downloadSingleDeviceCertificate(Mockito.any()))
+                .thenReturn("certificatePem");
+        certificateManager.setDeviceConfigurations(deviceConfigList);
+
+        // Certificate is downloaded first time and stored to disk
+        Mockito.verify(mockCertificateDownloader, Mockito.times(1))
+                .downloadSingleDeviceCertificate(dc.getCertificateId());
+
+        // Remove device from config list
+        certificateManager.setDeviceConfigurations(new ArrayList<>());
+
+        // Certificate should be read from disk
+        certificateManager.setDeviceConfigurations(deviceConfigList);
+        Mockito.verify(mockCertificateDownloader, Mockito.times(1))
+                .downloadSingleDeviceCertificate(dc.getCertificateId());
     }
 
     @Test

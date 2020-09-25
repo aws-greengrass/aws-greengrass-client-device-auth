@@ -26,7 +26,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.stubbing.Answer;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class DCMServiceTest extends GGServiceTestUtil {
@@ -60,6 +63,10 @@ public class DCMServiceTest extends GGServiceTestUtil {
         kernel.getContext().put(CertificateDownloader.class, mockCertificateDownloader);
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource("config.yaml").toString());
+
+        // By default, downloadSingleDeviceCertificate returns string equal to the input argument
+        Mockito.when(mockCertificateDownloader.downloadSingleDeviceCertificate(any()))
+                .then((Answer<String>) invocation -> invocation.getArgument(0));
     }
 
     @AfterEach

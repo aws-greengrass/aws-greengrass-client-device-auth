@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.certificatemanager;
 
-import com.aws.greengrass.certificatemanager.certificate.CAHelper;
+import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.model.DeviceConfig;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
@@ -129,7 +129,7 @@ public class DCMService extends PluginService {
     private String getPassphrase() {
         // TODO: This passphrase needs to be encrypted prior to storing in TLOG
         Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE)
-                .dflt(CAHelper.generateRandomPassphrase());
+                .dflt(CertificateStore.generateRandomPassphrase());
         return Coerce.toString(caPassphrase);
     }
 }
