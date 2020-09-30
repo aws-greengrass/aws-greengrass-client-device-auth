@@ -11,4 +11,4 @@ Manifests:
       Value: "[]"
       Type: STRING
     Artifacts:
-      - URI: s3://gg-dev-artifacts/$componentName/$version/aws.greengrass.CertificateManager.jar
+      - URI: s3://gg-dev-artifacts-$stage/$componentName/$version/aws.greengrass.CertificateManager.jar
