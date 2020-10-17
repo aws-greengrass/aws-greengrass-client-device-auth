@@ -63,8 +63,8 @@ public class CertificateStore {
 
 
     @Inject
-    public CertificateStore(Kernel kernel) {
-        this.workPath = kernel.getWorkPath().resolve(DCMService.DCM_SERVICE_NAME);
+    public CertificateStore(Kernel kernel) throws IOException {
+        this.workPath = kernel.getNucleusPaths().workPath(DCMService.DCM_SERVICE_NAME);
     }
 
     // For unit tests
