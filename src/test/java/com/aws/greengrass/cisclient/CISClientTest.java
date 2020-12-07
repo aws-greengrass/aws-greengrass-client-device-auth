@@ -64,7 +64,7 @@ public class CISClientTest extends GGExtension {
         final String httpResponse = OBJECT_MAPPER.writeValueAsString(response);
         final IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
         when(mockIotCloudHelper
-                .sendHttpRequest(eq(mockIotConnectionManager), pathCaptor.capture(), verbCaptor.capture(), eq(null)))
+                .sendHttpRequest(eq(mockIotConnectionManager), any(), pathCaptor.capture(), verbCaptor.capture(), eq(null)))
                 .thenReturn(cloudResponse);
 
         GetConnectivityInfoResponse actualResponse = client.getConnectivityInfo(request);
@@ -83,7 +83,7 @@ public class CISClientTest extends GGExtension {
         response.setConnectivityInfoItems(items);
         final String httpResponse = OBJECT_MAPPER.writeValueAsString(response);
         final IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
-        when(mockIotCloudHelper.sendHttpRequest(eq(mockIotConnectionManager), any(), any(), eq(null)))
+        when(mockIotCloudHelper.sendHttpRequest(eq(mockIotConnectionManager), any(), any(), any(), eq(null)))
                 .thenReturn(cloudResponse);
 
         CISClientException ex = Assertions.assertThrows(CISClientException.class,
@@ -97,7 +97,7 @@ public class CISClientTest extends GGExtension {
         final String thingName = UUID.randomUUID().toString();
         final String httpResponse = "Some invalid response";
         final IotCloudResponse cloudResponse = new IotCloudResponse(httpResponse.getBytes(), 200);
-        when(mockIotCloudHelper.sendHttpRequest(eq(mockIotConnectionManager), any(), any(), eq(null)))
+        when(mockIotCloudHelper.sendHttpRequest(eq(mockIotConnectionManager), any(), any(), any(), eq(null)))
                 .thenReturn(cloudResponse);
 
         CISClientException ex = Assertions.assertThrows(CISClientException.class,
@@ -109,7 +109,7 @@ public class CISClientTest extends GGExtension {
     public void GIVEN_cis_client_WHEN_get_conn_info_called_and_cloud_helper_throws_THEN_throws()
             throws AWSIotException {
         final String thingName = UUID.randomUUID().toString();
-        when(mockIotCloudHelper.sendHttpRequest(eq(mockIotConnectionManager), any(), any(), eq(null)))
+        when(mockIotCloudHelper.sendHttpRequest(eq(mockIotConnectionManager), any(), any(), any(), eq(null)))
                 .thenThrow(new AWSIotException("TEST"));
         CISClientException ex = Assertions.assertThrows(CISClientException.class,
                 () -> client.getConnectivityInfo(new GetConnectivityInfoRequest(thingName)));

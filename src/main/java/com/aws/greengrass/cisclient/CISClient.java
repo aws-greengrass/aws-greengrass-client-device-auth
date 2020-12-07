@@ -48,7 +48,7 @@ public class CISClient {
             String url =
                     String.format("https://%s/%s/%s", endpoint, CIS_GET_CONNECTIVITY_INFO_PATH, request.getThingName());
             IotCloudResponse cloudResponse = iotCloudHelper.sendHttpRequest(
-                    iotConnectionManager, url, GET_CONNECTIVITY_INFO_VERB, null);
+                    iotConnectionManager, request.getThingName(), url, GET_CONNECTIVITY_INFO_VERB, null);
             response = cloudResponse.toString();
         } catch (AWSIotException e) {
             throw new CISClientException("Failed to get connectivity info from CIS", e);
