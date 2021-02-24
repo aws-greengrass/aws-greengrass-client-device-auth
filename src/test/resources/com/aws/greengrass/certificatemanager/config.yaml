@@ -1,7 +1,7 @@
 ---
 services:
     aws.greengrass.CertificateManager:
-        parameters:
+        configuration:
             devices: '[{"deviceArn": "arn1", "certificateId": "id1"}, {"deviceArn": "arn2", "certificateId": "id2"}]'
     main:
         lifecycle:

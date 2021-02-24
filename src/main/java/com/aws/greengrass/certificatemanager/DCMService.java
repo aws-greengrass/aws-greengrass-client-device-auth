@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
 
+import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
+
 @ImplementsService(name = DCMService.DCM_SERVICE_NAME)
 public class DCMService extends PluginService {
     public static final String DCM_SERVICE_NAME = "aws.greengrass.CertificateManager";
@@ -66,7 +68,7 @@ public class DCMService extends PluginService {
     @Override
     protected void install() throws InterruptedException {
         super.install();
-        this.config.lookup(DEVICES_TOPIC)
+        this.config.lookup(CONFIGURATION_CONFIG_KEY, DEVICES_TOPIC)
                 .subscribe(this::onConfigChange);
     }
 
@@ -76,7 +78,7 @@ public class DCMService extends PluginService {
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private void onConfigChange(WhatHappened what, Node node) {
-        Topic devices = this.config.lookup(DEVICES_TOPIC).dflt("[]");
+        Topic devices = this.config.lookup(CONFIGURATION_CONFIG_KEY, DEVICES_TOPIC).dflt("[]");
         List<DeviceConfig> deviceConfigList = null;
         String val = Coerce.toString(devices);
 
