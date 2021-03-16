@@ -124,7 +124,7 @@ public class CertificateManagerTest {
     @BeforeEach
     public void beforeEach() throws KeyStoreException {
         certificateManager = new CertificateManager(mockCertificateDownloader, new CertificateStore(tmpPath));
-        certificateManager.init("");
+        certificateManager.update("", CertificateStore.CAType.RSA_2048);
     }
 
     public static PrivateKey getRsaPrivateKeyFromPem(String privateKeyString)

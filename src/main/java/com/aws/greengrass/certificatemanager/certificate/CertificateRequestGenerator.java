@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
-import com.aws.greengrass.certificatemanager.Constants;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.ExtensionsGenerator;
@@ -32,6 +31,11 @@ import javax.security.auth.x500.X500Principal;
  * Certificate Request Generator that creates a CSR for given key pair, CIS info and common name.
  */
 public final class CertificateRequestGenerator {
+    private static final String CSR_COUNTRY = "US";
+    private static final String CSR_PROVINCE = "Washington";
+    private static final String CSR_LOCALITY = "Seattle";
+    private static final String CSR_ORGANIZATION = "Amazon.com Inc.";
+    private static final String CSR_ORGANIZATIONAL_UNIT = "Amazon Web Services";
 
     private CertificateRequestGenerator() {
     }
@@ -64,7 +68,7 @@ public final class CertificateRequestGenerator {
         }
 
         // Create signature and sign the certificate Request
-        String keyType = Constants.CSR_CERTIFICATE_SIGNING_ALGORITHM.get(keyPair.getPrivate().getAlgorithm());
+        String keyType = CertificateHelper.CERTIFICATE_SIGNING_ALGORITHM.get(keyPair.getPrivate().getAlgorithm());
         JcaContentSignerBuilder csBuilder = new JcaContentSignerBuilder(keyType);
         ContentSigner signer = csBuilder.build(keyPair.getPrivate());
 
@@ -115,11 +119,11 @@ public final class CertificateRequestGenerator {
     private static X500Principal getx500PrincipalForThing(String commonName) {
         String distinguishedName = String.format("CN=%sC=%sST=%sL=%sO=%sOU=%s",
                 commonName,
-                Constants.CSR_COUNTRY,
-                Constants.CSR_PROVINCE,
-                Constants.CSR_LOCALITY,
-                Constants.CSR_ORGANIZATION,
-                Constants.CSR_ORGANIZATIONAL_UNIT);
+                CSR_COUNTRY,
+                CSR_PROVINCE,
+                CSR_LOCALITY,
+                CSR_ORGANIZATION,
+                CSR_ORGANIZATIONAL_UNIT);
 
         return new X500Principal(distinguishedName);
     }

@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.certificatemanager.certificate.CertificateStore.CAType;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -30,6 +31,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.not;
 
 @ExtendWith({MockitoExtension.class})
 public class CertificateStoreTest {
@@ -38,6 +40,7 @@ public class CertificateStoreTest {
     static final String EC_KEY_ALGORITHM = "EC";
     static final int    EC_BIT_LENGTH = 256;
     static final String RSA_CERT_SIG_ALG = "SHA256WITHRSA";
+    static final String ECDSA_CERT_SIG_ALG = "SHA256WITHECDSA";
     static final String DEFAULT_PASSPHRASE = "defaultPassphrase";
 
     private CertificateStore certificateStore;
@@ -46,9 +49,8 @@ public class CertificateStoreTest {
     Path tmpPath;
 
     @BeforeEach
-    public void beforeEach() throws KeyStoreException {
+    public void beforeEach() {
         certificateStore = new CertificateStore(tmpPath);
-        certificateStore.init(DEFAULT_PASSPHRASE);
     }
 
     @AfterEach
@@ -57,7 +59,8 @@ public class CertificateStoreTest {
     }
 
     @Test
-    public void GIVEN_missing_keystore_WHEN_getCAKeyStore_THEN_new_rsa_ca_created() throws KeyStoreException {
+    public void GIVEN_missing_keystore_WHEN_init_with_RSA_THEN_new_rsa_ca_created() throws KeyStoreException {
+        certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
         PrivateKey pk = certificateStore.getCAPrivateKey();
         X509Certificate cert = certificateStore.getCACertificate();
 
@@ -66,7 +69,18 @@ public class CertificateStoreTest {
     }
 
     @Test
-    public void GIVEN_KeyHelper_WHEN_newRSAKeyPair_THEN_2048_bit_RSA_key_generated() throws NoSuchAlgorithmException {
+    public void GIVEN_missing_keystore_WHEN_init_with_EC_THEN_new_ec_ca_created() throws KeyStoreException {
+        certificateStore.update(DEFAULT_PASSPHRASE, CAType.ECDSA_P256);
+        PrivateKey pk = certificateStore.getCAPrivateKey();
+        X509Certificate cert = certificateStore.getCACertificate();
+
+        assertThat(pk.getAlgorithm(), equalTo(EC_KEY_ALGORITHM));
+        assertThat(cert.getSigAlgName(), equalTo(ECDSA_CERT_SIG_ALG));
+    }
+
+    @Test
+    public void GIVEN_CertificateStore_WHEN_newRSAKeyPair_THEN_2048_bit_RSA_key_generated()
+            throws NoSuchAlgorithmException {
         KeyPair rsaKeypair = certificateStore.newRSAKeyPair();
         RSAPrivateKey rsaPrivateKey = (RSAPrivateKey)rsaKeypair.getPrivate();
 
@@ -75,41 +89,56 @@ public class CertificateStoreTest {
     }
 
     @Test
-    public void GIVEN_KeyHelper_WHEN_newECKeyPair_THEN_nist_p256_ec_key_generated()
+    public void GIVEN_CertificateStore_WHEN_newECKeyPair_THEN_nist_p256_ec_key_generated()
             throws InvalidAlgorithmParameterException, NoSuchAlgorithmException {
         KeyPair ecKeyPair = certificateStore.newECKeyPair();
         ECPrivateKey ecPrivateKey = (ECPrivateKey)ecKeyPair.getPrivate();
 
-        // TODO: Figure out how to test for the correct curve
         assertThat(ecPrivateKey.getAlgorithm(), equalTo(EC_KEY_ALGORITHM));
+        assertThat(ecPrivateKey.getParams().getCurve().getField().getFieldSize(), equalTo(EC_BIT_LENGTH));
     }
 
     @Test
-    public void GIVEN_existing_keystore_WHEN_getCAKeyStore_called_with_passphrase_THEN_keystore_is_loaded()
+    public void GIVEN_existing_keystore_WHEN_initialized_with_passphrase_and_same_ca_type_THEN_keystore_is_loaded()
             throws KeyStoreException {
+        certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
         X509Certificate initialCert = certificateStore.getCACertificate();
 
-        CertificateStore helper2 = new CertificateStore(tmpPath);
-        helper2.init(DEFAULT_PASSPHRASE);
-        X509Certificate secondCert = helper2.getCACertificate();
+        CertificateStore certificateStore2 = new CertificateStore(tmpPath);
+        certificateStore2.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
+        X509Certificate secondCert = certificateStore2.getCACertificate();
 
-        Assertions.assertTrue(initialCert.equals(secondCert));
+        assertThat(initialCert, equalTo(secondCert));
     }
 
     @Test
-    public void GIVEN_existing_keystore_WHEN_getCAKeyStore_called_with_wrong_passphrase_THEN_new_keystore_is_created()
+    public void GIVEN_existing_keystore_WHEN_initialized_with_wrong_passphrase_THEN_new_keystore_is_created()
             throws KeyStoreException {
+        certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
         X509Certificate initialCert = certificateStore.getCACertificate();
 
-        CertificateStore helper2 = new CertificateStore(tmpPath);
-        helper2.init("wrongPassphrase");
-        X509Certificate secondCert = helper2.getCACertificate();
+        CertificateStore certificateStore2 = new CertificateStore(tmpPath);
+        certificateStore2.update("wrongPassphrase", CAType.RSA_2048);
+        X509Certificate secondCert = certificateStore2.getCACertificate();
 
-        Assertions.assertTrue(!initialCert.equals(secondCert));
+        assertThat(initialCert, not(equalTo(secondCert)));
     }
 
     @Test
-    public void GIVEN_CAHelper_WHEN_generateRandomPassphrase_THEN_ascii_passphrase_consistently_returned() {
+    public void GIVEN_existing_keystore_WHEN_initialized_with_different_ca_type_THEN_new_keystore_is_created()
+            throws KeyStoreException {
+        certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
+        X509Certificate initialCert = certificateStore.getCACertificate();
+
+        CertificateStore certificateStore2 = new CertificateStore(tmpPath);
+        certificateStore2.update(DEFAULT_PASSPHRASE, CAType.ECDSA_P256);
+        X509Certificate secondCert = certificateStore2.getCACertificate();
+
+        assertThat(initialCert, not(equalTo(secondCert)));
+    }
+
+    @Test
+    public void GIVEN_CertificateStore_WHEN_generateRandomPassphrase_THEN_ascii_passphrase_consistently_returned() {
         for (int x = 0; x < 1000; x++) {
             String passphrase = CertificateStore.generateRandomPassphrase();
             assertThat(passphrase.length(), equalTo(16));

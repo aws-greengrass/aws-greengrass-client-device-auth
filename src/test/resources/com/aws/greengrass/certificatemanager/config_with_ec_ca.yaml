@@ -1,0 +1,12 @@
+---
+services:
+  aws.greengrass.CertificateManager:
+    configuration:
+      devices: '[{"deviceArn": "arn1", "certificateId": "id1"}, {"deviceArn": "arn2", "certificateId": "id2"}]'
+      ca_type: ["ECDSA_P256"]
+  main:
+    lifecycle:
+      install:
+        all: echo All installed
+    dependencies:
+      - aws.greengrass.CertificateManager

@@ -20,6 +20,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
+import java.security.Key;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
@@ -31,6 +32,8 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.ECPrivateKey;
+import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
 import java.util.Date;
@@ -49,9 +52,7 @@ public class CertificateStore {
     // https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-57pt1r5.pdf
     // RSA 2048 is used on v1 and provides 112 bits
     // NIST-P256 (secp256r1) provides 128 bits
-    private static final String RSA_KEY_INSTANCE = "RSA";
     private static final int    RSA_KEY_LENGTH = 2048;
-    private static final String EC_KEY_INSTANCE = "EC";
     private static final String EC_DEFAULT_CURVE = "secp256r1";
 
     private final Logger logger = LogManager.getLogger(CertificateStore.class);
@@ -61,6 +62,9 @@ public class CertificateStore {
     private char[] passphrase;
     private final Path workPath;
 
+    public enum CAType {
+        RSA_2048, ECDSA_P256
+    }
 
     @Inject
     public CertificateStore(Kernel kernel) throws IOException {
@@ -75,17 +79,19 @@ public class CertificateStore {
     /**
      * Initialize CA keystore.
      *
-     * @param passphrase Passphrase used for KeyStore and private key entries.
+     * @param passphrase   Passphrase used for KeyStore and private key entries.
+     * @param caType CA key type.
      * @throws KeyStoreException if unable to load or create CA KeyStore
      */
-    public void init(String passphrase) throws KeyStoreException {
+    public void update(String passphrase, CAType caType) throws KeyStoreException {
         this.passphrase = passphrase.toCharArray();
         try {
-            keyStore = loadDefaultKeyStore();
+            keyStore = loadDefaultKeyStore(caType);
             logger.atDebug().log("successfully loaded existing CA keystore");
-        } catch (KeyStoreException | IOException | CertificateException | NoSuchAlgorithmException e) {
-            logger.atDebug().log("failed to load existing CA keystore");
-            createAndStoreDefaultKeyStore();
+        } catch (KeyStoreException | IOException | CertificateException | NoSuchAlgorithmException
+                | UnrecoverableKeyException e) {
+            logger.atDebug().cause(e).log("failed to load existing CA keystore");
+            createAndStoreDefaultKeyStore(caType);
             logger.atDebug().log("successfully created new CA keystore");
         }
     }
@@ -136,13 +142,13 @@ public class CertificateStore {
         return workPath.resolve(DEVICE_CERTIFICATE_DIR).resolve(certificateId + ".pem");
     }
 
-    private void createAndStoreDefaultKeyStore() throws KeyStoreException {
+    private void createAndStoreDefaultKeyStore(CAType caType) throws KeyStoreException {
         KeyPair kp;
 
         // Generate CA keypair
         try {
-            kp = newRSAKeyPair();
-        } catch (NoSuchAlgorithmException e) {
+            kp = newKeyPair(caType);
+        } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e) {
             throw new KeyStoreException("unable to generate keypair for CA key store", e);
         }
 
@@ -175,6 +181,16 @@ public class CertificateStore {
         }
     }
 
+    private KeyPair newKeyPair(CAType caType)
+            throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
+        if (caType.equals(CAType.ECDSA_P256)) {
+            return newECKeyPair();
+        } else if (caType.equals(CAType.RSA_2048)) {
+            return newRSAKeyPair();
+        }
+        throw new NoSuchAlgorithmException(String.format("Algorithm %s not supported", caType.toString()));
+    }
+
     /**
      * Generates an RSA key pair.
      *
@@ -182,7 +198,7 @@ public class CertificateStore {
      * @throws NoSuchAlgorithmException if unable to generate RSA key
      */
     public static KeyPair newRSAKeyPair() throws NoSuchAlgorithmException {
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance(RSA_KEY_INSTANCE);
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance(CertificateHelper.KEY_TYPE_RSA);
         kpg.initialize(RSA_KEY_LENGTH);
         return kpg.generateKeyPair();
     }
@@ -195,18 +211,36 @@ public class CertificateStore {
      * @throws InvalidAlgorithmParameterException if unable to initialize with given EC curve
      */
     public static KeyPair newECKeyPair() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance(EC_KEY_INSTANCE);
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance(CertificateHelper.KEY_TYPE_EC);
         kpg.initialize(new ECGenParameterSpec(EC_DEFAULT_CURVE));
         return kpg.generateKeyPair();
     }
 
-    private KeyStore loadDefaultKeyStore() throws KeyStoreException, IOException, CertificateException,
-            NoSuchAlgorithmException {
+    private KeyStore loadDefaultKeyStore(CAType caType) throws KeyStoreException, IOException,
+            CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException {
         KeyStore ks = KeyStore.getInstance("JKS");
         try (InputStream ksInputStream = Files.newInputStream(workPath.resolve(DEFAULT_KEYSTORE_FILENAME))) {
             ks.load(ksInputStream, getPassphrase());
         }
+
+        Key caKey = ks.getKey(CA_KEY_ALIAS, getPassphrase());
+        if (!isKeyOfType(caKey, caType)) {
+            throw new KeyStoreException(String.format("Key store with %s CA does not exist", caType.toString()));
+        }
+
         return ks;
+    }
+
+    private boolean isKeyOfType(Key key, CAType caType) {
+        String algorithm = key.getAlgorithm();
+        if (caType.equals(CAType.RSA_2048) && algorithm.equals(CertificateHelper.KEY_TYPE_RSA)) {
+            int bitLength = ((RSAPrivateKey) key).getModulus().bitLength();
+            return bitLength == 2048;
+        } else if (caType.equals(CAType.ECDSA_P256) && algorithm.equals(CertificateHelper.KEY_TYPE_EC)) {
+            int fieldSize = ((ECPrivateKey) key).getParams().getCurve().getField().getFieldSize();
+            return fieldSize == 256;
+        }
+        return false;
     }
 
     private void saveKeyStore() throws IOException, CertificateException,

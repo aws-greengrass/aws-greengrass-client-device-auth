@@ -31,6 +31,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
+import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -54,6 +55,13 @@ import java.util.Enumeration;
 
 
 public final class CertificateHelper {
+    public static final String KEY_TYPE_RSA = "RSA";
+    public static final String RSA_SIGNING_ALGORITHM = "SHA256withRSA";
+    public static final String KEY_TYPE_EC = "EC";
+    public static final String ECDSA_SIGNING_ALGORITHM = "SHA256withECDSA";
+    public static final ImmutableMap<String, String> CERTIFICATE_SIGNING_ALGORITHM =
+            ImmutableMap.of(KEY_TYPE_RSA, RSA_SIGNING_ALGORITHM, KEY_TYPE_EC, ECDSA_SIGNING_ALGORITHM);
+
     private static final String X500_DISTINGUISHED_NAME_COUNTRY_NAME = "US";
     private static final String X500_DISTINGUISHED_NAME_STATE_OR_PROVINCE_NAME = "Washington";
     private static final String X500_DISTINGUISHED_NAME_LOCALITY_NAME = "Seattle";
@@ -101,8 +109,9 @@ public final class CertificateHelper {
                 .addExtension(Extension.subjectKeyIdentifier, false,
                         extUtils.createSubjectKeyIdentifier(keyPair.getPublic()));
 
-        final ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256withRSA")
-                .setProvider("BC").build(keyPair.getPrivate());
+        String signingAlgorithm = CERTIFICATE_SIGNING_ALGORITHM.get(keyPair.getPrivate().getAlgorithm());
+        final ContentSigner contentSigner = new JcaContentSignerBuilder(signingAlgorithm).setProvider("BC")
+                .build(keyPair.getPrivate());
 
         return new JcaX509CertificateConverter().setProvider("BC")
                 .getCertificate(builder.build(contentSigner));

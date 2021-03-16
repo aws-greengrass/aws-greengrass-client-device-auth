@@ -62,8 +62,8 @@ public class CertificateManager {
      *
      * @throws KeyStoreException if unable to load the CA key store
      */
-    void init(String caPassphrase) throws KeyStoreException {
-        certificateStore.init(caPassphrase);
+    void update(String caPassphrase, CertificateStore.CAType caType) throws KeyStoreException {
+        certificateStore.update(caPassphrase, caType);
     }
 
     /**

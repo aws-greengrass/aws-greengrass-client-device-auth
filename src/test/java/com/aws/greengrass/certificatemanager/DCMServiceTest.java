@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.certificatemanager;
 
+import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
+import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.certificatemanager.certificate.CertificateDownloader;
 import com.aws.greengrass.dependency.State;
@@ -13,7 +15,7 @@ import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import com.aws.greengrass.testcommons.testutilities.GGServiceTestUtil;
+import com.aws.greengrass.testcommons.testutilities.UniqueRootPathExtension;
 import com.aws.greengrass.util.Coerce;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -29,11 +31,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyStoreException;
 import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,8 +56,8 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 
-@ExtendWith({MockitoExtension.class, GGExtension.class})
-public class DCMServiceTest extends GGServiceTestUtil {
+@ExtendWith({MockitoExtension.class, GGExtension.class, UniqueRootPathExtension.class})
+public class DCMServiceTest {
     private static final long TEST_TIME_OUT_SEC = 30L;
     private static final JsonMapper OBJECT_MAPPER =
             JsonMapper.builder().configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true).build();
@@ -59,11 +68,9 @@ public class DCMServiceTest extends GGServiceTestUtil {
     private Kernel kernel;
 
     @BeforeEach
-    void setup() throws IOException {
+    void setup() {
         kernel = new Kernel();
         kernel.getContext().put(CertificateDownloader.class, mockCertificateDownloader);
-        ConfigPlatformResolver.initKernelWithMultiPlatformConfig(kernel,
-                this.getClass().getResource("config.yaml"));
 
         lenient().when(mockCertificateDownloader.downloadSingleDeviceCertificate(any()))
                 .then((Answer<String>) invocation -> invocation.getArgument(0));
@@ -92,12 +99,14 @@ public class DCMServiceTest extends GGServiceTestUtil {
     }
 
     @Test
-    void GIVEN_GG_with_dcm_WHEN_start_kernel_THEN_dcm_starts_successfully() throws InterruptedException {
-        startKernelWithDCM();
+    void GIVEN_GG_with_dcm_WHEN_start_kernel_THEN_dcm_starts_successfully() throws InterruptedException, IOException {
+        startKernelWithDCM("config.yaml");
     }
 
-    private void startKernelWithDCM() throws InterruptedException {
+    private void startKernelWithDCM(String configFileName) throws InterruptedException, IOException {
         CountDownLatch serviceRunning = new CountDownLatch(1);
+        ConfigPlatformResolver.initKernelWithMultiPlatformConfig(kernel,
+                this.getClass().getResource(configFileName));
         kernel.getContext().addGlobalStateChangeListener((GreengrassService service, State was, State newState) -> {
             if (service.getName().equals(DCMService.DCM_SERVICE_NAME) && service.getState()
                     .equals(State.RUNNING)) {
@@ -109,15 +118,10 @@ public class DCMServiceTest extends GGServiceTestUtil {
     }
 
     @Test
-    void GIVEN_GG_with_dcm_WHEN_subscribing_to_ca_updates_THEN_get_list_of_certs() throws InterruptedException {
-        CountDownLatch countDownLatch = new CountDownLatch(2);
-        kernel.getContext().addGlobalStateChangeListener((GreengrassService service, State was, State newState) -> {
-            if (service.getName().equals(DCMService.DCM_SERVICE_NAME) && service.getState()
-                    .equals(State.RUNNING)) {
-                countDownLatch.countDown();
-            }
-        });
-        kernel.launch();
+    void GIVEN_GG_with_dcm_WHEN_subscribing_to_ca_updates_THEN_get_list_of_certs()
+            throws InterruptedException, IOException {
+        startKernelWithDCM("config.yaml");
+        CountDownLatch countDownLatch = new CountDownLatch(1);
 
         kernel.findServiceTopic(DCMService.DCM_SERVICE_NAME)
                 .lookup("runtime", "certificates", "authorities")
@@ -133,8 +137,8 @@ public class DCMServiceTest extends GGServiceTestUtil {
 
     @Test
     void GIVEN_updated_ca_certs_WHEN_updateCACertificateConfig_THEN_cert_topic_updated()
-            throws InterruptedException, ServiceLoadException {
-        startKernelWithDCM();
+            throws InterruptedException, ServiceLoadException, IOException {
+        startKernelWithDCM("config.yaml");
 
         DCMService dcmService = (DCMService) kernel.locate(DCMService.DCM_SERVICE_NAME);
 
@@ -154,8 +158,8 @@ public class DCMServiceTest extends GGServiceTestUtil {
 
     @Test
     void GIVEN_added_device_cert_WHEN_updateCertConfig_THEN_cert_topic_updated()
-            throws InterruptedException, ServiceLoadException, JsonProcessingException {
-        startKernelWithDCM();
+            throws InterruptedException, ServiceLoadException, IOException {
+        startKernelWithDCM("config.yaml");
 
         DCMService dcmService = (DCMService) kernel.locate(DCMService.DCM_SERVICE_NAME);
 
@@ -177,7 +181,7 @@ public class DCMServiceTest extends GGServiceTestUtil {
     @Test
     void GIVEN_GG_with_dcm_WHEN_restart_kernel_THEN_ca_is_persisted()
             throws InterruptedException, CertificateEncodingException, KeyStoreException, IOException, ServiceLoadException {
-        startKernelWithDCM();
+        startKernelWithDCM("config.yaml");
 
         String initialPassphrase = getCaPassphrase();
         Assertions.assertNotNull(initialPassphrase);
@@ -186,7 +190,7 @@ public class DCMServiceTest extends GGServiceTestUtil {
 
         kernel.shutdown();
         kernel = new Kernel().parseArgs();
-        startKernelWithDCM();
+        startKernelWithDCM("config.yaml");
 
         String finalPassphrase = getCaPassphrase();
         Assertions.assertNotNull(finalPassphrase);
@@ -207,5 +211,55 @@ public class DCMServiceTest extends GGServiceTestUtil {
             throws ServiceLoadException, CertificateEncodingException, KeyStoreException, IOException {
         DCMService dcmService = (DCMService) kernel.locate(DCMService.DCM_SERVICE_NAME);
         return dcmService.getCertificateManager().getCACertificates();
+    }
+
+    @Test
+    void GIVEN_GG_with_dcm_WHEN_updated_ca_type_THEN_ca_is_updated()
+            throws InterruptedException, ServiceLoadException, KeyStoreException, CertificateException, IOException {
+        startKernelWithDCM("config.yaml");
+
+        List<String> initialCACerts = getCaCertificates();
+        X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
+        assertThat(initialCA.getSigAlgName(), is(CertificateHelper.RSA_SIGNING_ALGORITHM));
+
+        kernel.locate(DCMService.DCM_SERVICE_NAME).getConfig().find(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                DCMService.CA_TYPE).withValue(Collections.singletonList("RSA_2048"));
+        // Block until subscriber has finished updating
+        kernel.getContext().waitForPublishQueueToClear();
+
+        List<String> secondCACerts = getCaCertificates();
+        X509Certificate secondCA = pemToX509Certificate(secondCACerts.get(0));
+        assertThat(secondCA.getSigAlgName(), is(CertificateHelper.RSA_SIGNING_ALGORITHM));
+        assertThat(initialCA, is(secondCA));
+
+        kernel.locate(DCMService.DCM_SERVICE_NAME).getConfig().find(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                DCMService.CA_TYPE).withValue(Collections.singletonList("ECDSA_P256"));
+        // Block until subscriber has finished updating
+        kernel.getContext().waitForPublishQueueToClear();
+
+        List<String> thirdCACerts = getCaCertificates();
+        X509Certificate thirdCA = pemToX509Certificate(thirdCACerts.get(0));
+        assertThat(thirdCA.getSigAlgName(), is(CertificateHelper.ECDSA_SIGNING_ALGORITHM));
+        assertThat(initialCA, is(not(thirdCA)));
+    }
+
+    private X509Certificate pemToX509Certificate(String certPem) throws IOException, CertificateException {
+        byte[] certBytes = certPem.getBytes(StandardCharsets.UTF_8);
+        CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+        X509Certificate cert;
+        try (InputStream certStream = new ByteArrayInputStream(certBytes)) {
+            cert = (X509Certificate) certFactory.generateCertificate(certStream);
+        }
+        return cert;
+    }
+
+    @Test
+    void GIVEN_GG_with_dcm_WHEN_ca_type_provided_in_config_THEN_valid_ca_created()
+            throws IOException, InterruptedException, ServiceLoadException, CertificateException, KeyStoreException {
+        startKernelWithDCM("config_with_ec_ca.yaml");
+
+        List<String> initialCACerts = getCaCertificates();
+        X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
+        assertThat(initialCA.getSigAlgName(), is(CertificateHelper.ECDSA_SIGNING_ALGORITHM));
     }
 }

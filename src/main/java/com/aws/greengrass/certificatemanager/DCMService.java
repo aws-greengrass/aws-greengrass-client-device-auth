@@ -12,9 +12,9 @@ import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
 import com.aws.greengrass.dependency.ImplementsService;
-import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
+import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -30,6 +30,7 @@ import javax.inject.Inject;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 
+@SuppressWarnings("PMD.DataClass")
 @ImplementsService(name = DCMService.DCM_SERVICE_NAME)
 public class DCMService extends PluginService {
     public static final String DCM_SERVICE_NAME = "aws.greengrass.CertificateManager";
@@ -38,18 +39,20 @@ public class DCMService extends PluginService {
 
     /**
      * Certificate Manager Service uses the following topic structure:
-     *  |---- config
+     *  |---- configuration
      *  |    |---- devices: [...]
-     *  |    |---- runtime
-     *  |        |---- certificates
-     *  |            |---- authorities: [...]
-     *  |            |---- devices: [...]
-     *  |        |---- ca_passphrase: "..."
+     *  |    |---- ca_type: [...]
+     *  |---- runtime
+     *  |    |---- ca_passphrase: "..."
+     *  |    |---- certificates
+     *  |         |---- authorities: [...]
+     *  |         |---- devices: [...]
      */
     public static final String CERTIFICATES_KEY = "certificates";
     public static final String AUTHORITIES_TOPIC = "authorities";
     public static final String DEVICES_TOPIC = "devices";
     public static final String CA_PASSPHRASE = "ca_passphrase";
+    public static final String CA_TYPE = "ca_type";
 
     private final CertificateManager certificateManager;
 
@@ -70,6 +73,7 @@ public class DCMService extends PluginService {
         super.install();
         this.config.lookup(CONFIGURATION_CONFIG_KEY, DEVICES_TOPIC)
                 .subscribe(this::onConfigChange);
+        this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE).subscribe(this::updateCAType);
     }
 
     public CertificateManager getCertificateManager() {
@@ -104,6 +108,30 @@ public class DCMService extends PluginService {
         }
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    private void updateCAType(WhatHappened what, Topic topic) {
+        try {
+            List<String> caTypeList = Coerce.toStringList(topic);
+            logger.atDebug().kv("CA type", caTypeList).log("CA type list updated");
+
+            if (Utils.isEmpty(caTypeList)) {
+                logger.atDebug().log("CA type list null or empty. Defaulting to RSA");
+                certificateManager.update(getPassphrase(), CertificateStore.CAType.RSA_2048);
+            } else {
+                if (caTypeList.size() > 1) {
+                    logger.atWarn().log("Only one CA type is supported. Ignoring subsequent CAs in the list.");
+                }
+                String caType = caTypeList.get(0);
+                certificateManager.update(getPassphrase(), CertificateStore.CAType.valueOf(caType));
+            }
+
+            List<String> caCerts = certificateManager.getCACertificates();
+            updateCACertificateConfig(caCerts);
+        } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException e) {
+            serviceErrored(e);
+        }
+    }
+
     void updateDeviceCertificateConfig(Map<String, String> clientCerts) throws JsonProcessingException {
         Topic clientCertsTopic = getRuntimeConfig().lookup(CERTIFICATES_KEY, DEVICES_TOPIC);
         clientCertsTopic.withValue(OBJECT_MAPPER.writeValueAsString(clientCerts));
@@ -112,18 +140,6 @@ public class DCMService extends PluginService {
     void updateCACertificateConfig(List<String> caCerts) {
         Topic caCertsTopic = getRuntimeConfig().lookup(CERTIFICATES_KEY, AUTHORITIES_TOPIC);
         caCertsTopic.withValue(caCerts);
-    }
-
-    @Override
-    public void startup() {
-        try {
-            certificateManager.init(getPassphrase());
-            List<String> caCerts = certificateManager.getCACertificates();
-            updateCACertificateConfig(caCerts);
-            reportState(State.RUNNING);
-        } catch (KeyStoreException | IOException | CertificateEncodingException e) {
-            serviceErrored(e);
-        }
     }
 
     private String getPassphrase() {
