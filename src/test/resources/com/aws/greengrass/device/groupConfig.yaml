@@ -1,0 +1,36 @@
+---
+services:
+  main:
+    lifecycle:
+      install:
+        all: echo All installed
+    dependencies:
+      - aws.greengrass.DeviceSupport
+
+  aws.greengrass.DeviceSupport:
+    configuration:
+      version: "2021-03-05"
+      groups:
+        myTemperatureSensors:
+          selectionRule: "thingName:mySensor1 OR thingName:mySensor2"
+          roleName: "sensorAccessRole"
+        myHumiditySensors:
+          selectionRule: "thingName:mySensor3 OR thingName:mySensor4"
+          roleName: "sensorAccessRole"
+      roles:
+        sensorAccessRole:
+          policy1:
+            policyDescription: "mqtt connect"
+            effect: ALLOW
+            operations:
+              - "mqtt:connect"
+            resources:
+              - "mqtt:broker:localBroker"
+          policy2:
+            policyDescription: "mqtt publish"
+            effect: ALLOW
+            operations:
+              - "mqtt:publish"
+            resources:
+              - "mqtt:topic:temperature"
+              - "mqtt:topic:humidity"

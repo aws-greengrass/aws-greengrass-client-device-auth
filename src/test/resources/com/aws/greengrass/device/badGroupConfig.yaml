@@ -1,0 +1,12 @@
+---
+services:
+  main:
+    lifecycle:
+      install:
+        all: echo All installed
+    dependencies:
+      - aws.greengrass.DeviceSupport
+
+  aws.greengrass.DeviceSupport:
+    configuration:
+      foo: "bar"
