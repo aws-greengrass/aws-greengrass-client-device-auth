@@ -1,11 +1,16 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package com.aws.greengrass.device.configuration;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import lombok.Builder;
-import lombok.NonNull;
 import lombok.Value;
 
+import java.util.Collections;
 import java.util.Set;
 
 @Value
@@ -18,9 +23,11 @@ public class AuthorizationPolicy {
     @Builder.Default
     Effect effect = Effect.ALLOW;
 
-    @NonNull Set<String> operations;
+    @Builder.Default
+    Set<String> operations = Collections.emptySet();
 
-    @NonNull Set<String> resources;
+    @Builder.Default
+    Set<String> resources = Collections.emptySet();
 
     @JsonPOJOBuilder(withPrefix = "")
     public static class AuthorizationPolicyBuilder {

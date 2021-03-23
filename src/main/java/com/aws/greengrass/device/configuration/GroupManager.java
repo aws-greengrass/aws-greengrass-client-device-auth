@@ -1,39 +1,41 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package com.aws.greengrass.device.configuration;
 
-import com.aws.greengrass.device.SessionManager;
+import com.aws.greengrass.device.Session;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.inject.Inject;
 
 /**
- * a singleton manager class for managing device group roles. It listens to configuration update through nucleus, build
- * GroupDefinition including rule binary expression tree. On the hand, for each request in a session, it iterates
- * through the configurations to find match group(s), returning the authorization policies of group(s).
+ * a singleton manager class for managing device group roles.
+ * It listens to configuration update through nucleus, On the hand, for each request in a session, it iterate through
+ * the configurations to find match group(s), returning the authorization policies of group(s).
  */
 @SuppressWarnings("PMD.UnusedPrivateField")
 public class GroupManager {
+    private static final Logger logger = LogManager.getLogger(GroupManager.class);
 
-    @Inject
-    private SessionManager sessionManager;
+    private AtomicReference<GroupConfiguration> groupConfigurationRef;
 
-    private AtomicReference<GroupConfiguration> groupConfiguration;
-
-    public void handleGroupConfigurationUpdate() {
-        // take updated group definition from nucleus configuration store
-        // rebuild GroupConfiguration model
+    public void setGroupConfiguration(GroupConfiguration groupConfiguration) {
+        groupConfigurationRef.set(groupConfiguration);
     }
 
     /**
      * find applicable policies to evaluate for the given device request.
      *
-     * @param sessionId sessionId can retrieve cached device attributes
+     * @param session session used to retrieve cached device attributes
      * @return set of applicable policy for the device
      */
-    public Set<AuthorizationPolicy> getApplicablePolicies(String sessionId) {
+    public Set<AuthorizationPolicy> getApplicablePolicies(Session session) {
         // GroupConfiguration config = groupConfiguration.get();
-        // Session session = sessionManager.getSession(sessionId);
         //TODO iterate groups to find matching group(s), return the policies.
 
         return Collections.emptySet();
