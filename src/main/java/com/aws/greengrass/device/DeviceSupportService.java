@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.device;
 
-import com.aws.greengrass.config.Topic;
+import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
 import com.aws.greengrass.dependency.ImplementsService;
@@ -26,39 +26,39 @@ public class DeviceSupportService extends PluginService {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
 
-    @Inject
-    private GroupManager groupManager;
+    private final GroupManager groupManager;
 
-    @Inject
-    private SessionManager sessionManager;
+    private final SessionManager sessionManager;
+
+    private final Topics configurationTopics;
 
     /**
      * Constructor.
      *
-     * @param topics Root Configuration topic for this service
+     * @param topics         Root Configuration topic for this service
+     * @param groupManager   Group configuration management
+     * @param sessionManager Session management
      */
     @Inject
-    public DeviceSupportService(Topics topics) {
+    public DeviceSupportService(Topics topics, GroupManager groupManager, SessionManager sessionManager) {
         super(topics);
-        topics.lookup(CONFIGURATION_CONFIG_KEY).subscribe(this::handleConfigurationChange);
+        this.groupManager = groupManager;
+        this.sessionManager = sessionManager;
+
+        //handleConfiguration
+        this.configurationTopics = topics.lookupTopics(CONFIGURATION_CONFIG_KEY);
+        this.configurationTopics.subscribe(this::handleConfigurationChange);
     }
 
-    private void handleConfigurationChange(WhatHappened whatHappened, Topic configurationTopic) {
-        if (configurationTopic == null) {
-            logger.atInfo().kv("service", DEVICE_SUPPORT_SERVICE_NAME).kv("event", whatHappened)
-                    .log("No group configuration");
-            groupManager.setGroupConfiguration(GroupConfiguration.builder().build());
-            return;
-        }
-
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    private void handleConfigurationChange(WhatHappened whatHappened, Node childNode) {
         try {
             groupManager.setGroupConfiguration(
-                    OBJECT_MAPPER.convertValue(configurationTopic.toPOJO(), GroupConfiguration.class));
+                    OBJECT_MAPPER.convertValue(configurationTopics.toPOJO(), GroupConfiguration.class));
         } catch (IllegalArgumentException e) {
             logger.atError().kv("service", DEVICE_SUPPORT_SERVICE_NAME).kv("event", whatHappened)
-                    .kv("node", configurationTopic.getFullName()).kv("value", configurationTopic).setCause(e)
+                    .kv("node", configurationTopics.getFullName()).kv("value", configurationTopics).setCause(e)
                     .log("Unable to parse group configuration");
-            serviceErrored(e);
         }
     }
 }

@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class GroupManager {
     private static final Logger logger = LogManager.getLogger(GroupManager.class);
 
-    private AtomicReference<GroupConfiguration> groupConfigurationRef;
+    private final AtomicReference<GroupConfiguration> groupConfigurationRef = new AtomicReference<>();
 
     public void setGroupConfiguration(GroupConfiguration groupConfiguration) {
         groupConfigurationRef.set(groupConfiguration);

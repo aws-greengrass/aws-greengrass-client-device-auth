@@ -20,6 +20,8 @@ public class AuthorizationPolicy {
 
     String policyId;
 
+    String policyDescription;
+
     @Builder.Default
     Effect effect = Effect.ALLOW;
 

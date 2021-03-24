@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.device.configuration;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import lombok.Builder;
 import lombok.Value;
@@ -14,6 +15,7 @@ import java.util.Map;
 
 @Value
 @Builder
+@JsonDeserialize(builder = GroupConfiguration.GroupConfigurationBuilder.class)
 public class GroupConfiguration {
 
     @Builder.Default
