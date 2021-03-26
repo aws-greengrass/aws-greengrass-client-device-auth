@@ -38,6 +38,9 @@ class PermissionEvaluationUtilsTest {
         authorized = PermissionEvaluationUtils.isAuthorize("mqtt:connect", "mqtt:broker:localBroker", groupPermissions);
         assertThat(authorized, is(true));
 
+        authorized = PermissionEvaluationUtils.isAuthorize("dds:connect", null, groupPermissions);
+        assertThat(authorized, is(true));
+
         authorized = PermissionEvaluationUtils.isAuthorize("mqtt:publish", "mqtt:topic:d", groupPermissions);
         assertThat(authorized, is(false));
 
@@ -50,7 +53,8 @@ class PermissionEvaluationUtilsTest {
                 Permission.builder().principal("sensor").operation("mqtt:publish").resource("mqtt:topic:a").build(),
                 Permission.builder().principal("sensor").operation("mqtt:*").resource("mqtt:topic:b").build(),
                 Permission.builder().principal("sensor").operation("mqtt:subscribe").resource("mqtt:topic:*").build(),
-                Permission.builder().principal("sensor").operation("mqtt:connect").resource("*").build()
+                Permission.builder().principal("sensor").operation("mqtt:connect").resource("*").build(),
+                Permission.builder().principal("sensor").operation("dds:connect").build()
         };
         return Collections.singletonMap("sensor", new HashSet<>(Arrays.asList(sensorPermission)));
     }

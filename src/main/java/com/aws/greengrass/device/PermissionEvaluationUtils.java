@@ -94,11 +94,11 @@ public final class PermissionEvaluationUtils {
         return ANY_REGEX.equals(policyPrincipal);
     }
 
-    private static boolean compareOperation(Operation requestOp, String policyOperation) {
-        if (requestOp.toString().equals(policyOperation)) {
+    private static boolean compareOperation(Operation requestOperation, String policyOperation) {
+        if (requestOperation.toString().equals(policyOperation)) {
             return true;
         }
-        if (String.format(SERVICE_OPERATION_FORMAT, requestOp.getService(), ANY_REGEX).equals(policyOperation)) {
+        if (String.format(SERVICE_OPERATION_FORMAT, requestOperation.getService(), ANY_REGEX).equals(policyOperation)) {
             return true;
         }
         return ANY_REGEX.equals(policyOperation);
