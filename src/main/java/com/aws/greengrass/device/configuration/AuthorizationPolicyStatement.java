@@ -15,10 +15,8 @@ import java.util.Set;
 
 @Value
 @Builder
-@JsonDeserialize(builder = AuthorizationPolicy.AuthorizationPolicyBuilder.class)
-public class AuthorizationPolicy {
-
-    String policyId;
+@JsonDeserialize(builder = AuthorizationPolicyStatement.AuthorizationPolicyStatementBuilder.class)
+public class AuthorizationPolicyStatement {
 
     String policyDescription;
 
@@ -32,7 +30,7 @@ public class AuthorizationPolicy {
     Set<String> resources = Collections.emptySet();
 
     @JsonPOJOBuilder(withPrefix = "")
-    public static class AuthorizationPolicyBuilder {
+    public static class AuthorizationPolicyStatementBuilder {
     }
 
     public enum Effect {

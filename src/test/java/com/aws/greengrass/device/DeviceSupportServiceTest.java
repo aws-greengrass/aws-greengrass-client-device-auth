@@ -9,6 +9,7 @@ import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.device.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
+import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.hamcrest.collection.IsMapContaining;
@@ -24,12 +25,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
@@ -83,7 +87,7 @@ class DeviceSupportServiceTest {
         verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
         GroupConfiguration groupConfiguration = configurationCaptor.getValue();
         assertThat(groupConfiguration.getGroups(), IsMapWithSize.anEmptyMap());
-        assertThat(groupConfiguration.getRoles(), IsMapWithSize.anEmptyMap());
+        assertThat(groupConfiguration.getPolicies(), IsMapWithSize.anEmptyMap());
     }
 
     @Test
@@ -105,12 +109,42 @@ class DeviceSupportServiceTest {
         GroupConfiguration groupConfiguration = configurationCaptor.getValue();
         assertThat(groupConfiguration.getVersion(), is(ConfigurationFormatVersion.MAR_05_2021));
         assertThat(groupConfiguration.getGroups(), IsMapWithSize.aMapWithSize(2));
-        assertThat(groupConfiguration.getRoles(), IsMapWithSize.aMapWithSize(1));
+        assertThat(groupConfiguration.getPolicies(), IsMapWithSize.aMapWithSize(1));
+        assertThat(groupConfiguration.getGroups(), IsMapContaining
+                .hasEntry(is("myTemperatureSensors"), hasProperty("policyName", is("sensorAccessPolicy"))));
         assertThat(groupConfiguration.getGroups(),
-                IsMapContaining.hasEntry(is("myTemperatureSensors"), hasProperty("roleName", is("sensorAccessRole"))));
-        assertThat(groupConfiguration.getGroups(),
-                IsMapContaining.hasEntry(is("myHumiditySensors"), hasProperty("roleName", is("sensorAccessRole"))));
-        assertThat(groupConfiguration.getRoles(), IsMapContaining.hasEntry(is("sensorAccessRole"),
-                allOf(IsMapContaining.hasKey("policy1"), IsMapContaining.hasKey("policy2"))));
+                IsMapContaining.hasEntry(is("myHumiditySensors"), hasProperty("policyName", is("sensorAccessPolicy"))));
+        assertThat(groupConfiguration.getPolicies(), IsMapContaining.hasEntry(is("sensorAccessPolicy"),
+                allOf(IsMapContaining.hasKey("policyStatement1"), IsMapContaining.hasKey("policyStatement2"))));
+
+        Map<String, Set<Permission>> permissionMap = groupConfiguration.getGroupToPermissionsMap();
+        assertThat(permissionMap, IsMapWithSize.aMapWithSize(2));
+
+        Permission[] tempSensorPermissions =
+                {Permission.builder().principal("myTemperatureSensors").operation("mqtt" + ":connect")
+                        .resource("mqtt:broker:localBroker").build(),
+                        Permission.builder().principal("myTemperatureSensors").operation("mqtt:publish")
+                                .resource("mqtt:topic:temperature").build(),
+                        Permission.builder().principal("myTemperatureSensors").operation("mqtt:publish")
+                                .resource("mqtt:topic:humidity").build()};
+        assertThat(permissionMap.get("myTemperatureSensors"), containsInAnyOrder(tempSensorPermissions));
+        Permission[] humidSensorPermissions =
+                {Permission.builder().principal("myHumiditySensors").operation("mqtt:connect")
+                        .resource("mqtt:broker:localBroker").build(),
+                        Permission.builder().principal("myHumiditySensors").operation("mqtt:publish")
+                                .resource("mqtt:topic:temperature").build(),
+                        Permission.builder().principal("myHumiditySensors").operation("mqtt:publish")
+                                .resource("mqtt:topic:humidity").build()};
+        assertThat(permissionMap.get("myHumiditySensors"), containsInAnyOrder(humidSensorPermissions));
+    }
+
+    @Test
+    void GIVEN_group_has_no_policy_WHEN_start_service_THEN_no_configuration_update(ExtensionContext context)
+            throws InterruptedException {
+        ignoreExceptionOfType(context, IllegalArgumentException.class);
+
+        startNucleusWithConfig("noGroupPolicyConfig.yaml", State.RUNNING);
+
+        verify(groupManager, never()).setGroupConfiguration(any());
     }
 }
