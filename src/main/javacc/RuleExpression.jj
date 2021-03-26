@@ -1,0 +1,63 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+options
+{
+    LOOKAHEAD=2;
+    STATIC=false;
+}
+
+PARSER_BEGIN(RuleExpression)
+
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package com.aws.greengrass.device.configuration.parser;
+
+public class RuleExpression {
+}
+PARSER_END(RuleExpression)
+
+SKIP :
+{
+    " "
+|   "\r"
+|   "\t"
+}
+TOKEN:
+{
+    < OR:           "OR" >
+|   < AND:          "AND" >
+|   < THINGNAME:    (<ALPHANUMERIC> | "-" | "_" | "\\:")+ > // Only allow escaped colons
+|   < ALPHANUMERIC: [ "a"-"z" ] | [ "A"-"Z" ] | [ "0"-"9" ] >
+}
+
+void expression(): {}
+{
+    logicalORExpression() <EOF>
+}
+
+void logicalORExpression(): {}
+{
+    logicalANDExpression() [ <OR> logicalORExpression() ]
+}
+
+void logicalANDExpression(): {}
+{
+    unaryExpression() [ <AND> logicalANDExpression() ]
+}
+
+void unaryExpression(): {}
+{
+    // Only Thing expressions, to start
+    thingExpression()
+}
+
+void thingExpression(): {}
+{
+    "ThingName:" <THINGNAME>
+}
