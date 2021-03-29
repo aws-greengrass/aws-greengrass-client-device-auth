@@ -68,7 +68,13 @@ void unaryExpression(): {}
     thingExpression()
 }
 
-void thingExpression() #Thing : {}
+void thingExpression() #Thing :
 {
-    "ThingName:" <THINGNAME>
+    Token t;
+}
+{
+    "ThingName:" t=<THINGNAME>
+    {
+        jjtThis.value = t.image;
+    }
 }

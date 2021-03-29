@@ -125,12 +125,15 @@ if (jjtc001) {
 }
 
   final public void thingExpression() throws ParseException {/*@bgen(jjtree) Thing */
-  ASTThing jjtn000 = new ASTThing(JJTTHING);
-  boolean jjtc000 = true;
-  jjtree.openNodeScope(jjtn000);
+    ASTThing jjtn000 = new ASTThing(JJTTHING);
+    boolean jjtc000 = true;
+    jjtree.openNodeScope(jjtn000);Token t;
     try {
       jj_consume_token(8);
-      jj_consume_token(THINGNAME);
+      t = jj_consume_token(THINGNAME);
+jjtree.closeNodeScope(jjtn000, true);
+      jjtc000 = false;
+jjtn000.value = t.image;
     } finally {
 if (jjtc000) {
         jjtree.closeNodeScope(jjtn000, true);

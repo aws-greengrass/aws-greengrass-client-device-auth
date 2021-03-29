@@ -157,15 +157,26 @@ void unaryExpression(): {}
     thingExpression()
 }
 
-void thingExpression()        : {/*@bgen(jjtree) Thing */
-  ASTThing jjtn000 = new ASTThing(JJTTHING);
-  boolean jjtc000 = true;
-  jjtree.openNodeScope(jjtn000);
-/*@egen*/}
+void thingExpression()        :
+{/*@bgen(jjtree) Thing */
+    ASTThing jjtn000 = new ASTThing(JJTTHING);
+    boolean jjtc000 = true;
+    jjtree.openNodeScope(jjtn000);
+/*@egen*/
+    Token t;
+}
 {/*@bgen(jjtree) Thing */
     try {
 /*@egen*/
-    "ThingName:" <THINGNAME>/*@bgen(jjtree)*/
+    "ThingName:" t=<THINGNAME>/*@bgen(jjtree)*/
+    {
+      jjtree.closeNodeScope(jjtn000, true);
+      jjtc000 = false;
+    }
+/*@egen*/
+    {
+        jjtn000.value = t.image;
+    }/*@bgen(jjtree)*/
     } finally {
       if (jjtc000) {
         jjtree.closeNodeScope(jjtn000, true);
