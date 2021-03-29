@@ -19,7 +19,7 @@ public class SessionTest {
         Certificate cert = new Certificate("FAKE_PEM");
         Thing thing = new Thing("MyThing");
         Session session = new Session(cert);
-        session.addAttributeProvider(thing);
+        session.put(thing.getNamespace(), thing);
 
         Assertions.assertEquals(session.getSessionAttribute("Certificate", "CertificateId").getValue(),
                 cert.getDeviceAttributes().get("CertificateId").getValue());

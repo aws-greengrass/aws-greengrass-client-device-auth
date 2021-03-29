@@ -6,8 +6,6 @@
 package com.aws.greengrass.device.configuration;
 
 import com.aws.greengrass.device.Session;
-import com.aws.greengrass.logging.api.Logger;
-import com.aws.greengrass.logging.impl.LogManager;
 
 import java.util.Collections;
 import java.util.Map;
@@ -20,10 +18,7 @@ import java.util.stream.Collectors;
  * hand, for each request in a session, it iterate through the configurations to find match group(s), returning the
  * authorization policies of group(s).
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
 public class GroupManager {
-    private static final Logger logger = LogManager.getLogger(GroupManager.class);
-
     private final AtomicReference<GroupConfiguration> groupConfigurationRef = new AtomicReference<>();
 
     public void setGroupConfiguration(GroupConfiguration groupConfiguration) {
@@ -31,12 +26,12 @@ public class GroupManager {
     }
 
     /**
-     * find applicable policies to evaluate for the given device request.
+     * find applicable policy permissions to evaluate for the given device request.
      *
      * @param session session used to retrieve cached device attributes
      * @return Map of group name to applicable permission
      */
-    public Map<String, Set<Permission>> getApplicablePolicies(Session session) {
+    public Map<String, Set<Permission>> getApplicablePolicyPermissions(Session session) {
         GroupConfiguration config = groupConfigurationRef.get();
         if (config == null) {
             return Collections.emptyMap();

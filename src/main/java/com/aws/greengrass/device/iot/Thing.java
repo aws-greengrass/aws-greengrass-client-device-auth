@@ -12,7 +12,7 @@ import java.util.Collections;
 import java.util.Map;
 
 public class Thing implements AttributeProvider {
-    private static final String NAMESPACE = "Thing";
+    public static final String NAMESPACE = "Thing";
 
     private final String thingName;
 
