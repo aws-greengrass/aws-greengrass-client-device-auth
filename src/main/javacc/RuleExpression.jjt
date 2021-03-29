@@ -5,8 +5,9 @@
 
 options
 {
-    LOOKAHEAD=2;
-    STATIC=false;
+    MULTI = true;
+    NODE_DEFAULT_VOID = true;
+    STATIC = false;
 }
 
 PARSER_BEGIN(RuleExpression)
@@ -36,19 +37,29 @@ TOKEN:
 |   < ALPHANUMERIC: [ "a"-"z" ] | [ "A"-"Z" ] | [ "0"-"9" ] >
 }
 
+ASTStart Start() #Start : {}
+{
+    expression() <EOF>
+    { return jjtThis; }
+}
+
 void expression(): {}
 {
-    logicalORExpression() <EOF>
+    logicalORExpression()
 }
 
 void logicalORExpression(): {}
 {
+  (
     logicalANDExpression() [ <OR> logicalORExpression() ]
+  ) #Or(>1)
 }
 
 void logicalANDExpression(): {}
 {
+  (
     unaryExpression() [ <AND> logicalANDExpression() ]
+  ) #And(>1)
 }
 
 void unaryExpression(): {}
@@ -57,7 +68,7 @@ void unaryExpression(): {}
     thingExpression()
 }
 
-void thingExpression(): {}
+void thingExpression() #Thing : {}
 {
     "ThingName:" <THINGNAME>
 }
