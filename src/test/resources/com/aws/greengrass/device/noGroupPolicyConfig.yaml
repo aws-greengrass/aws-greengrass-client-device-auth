@@ -18,14 +18,14 @@ services:
           selectionRule: "thingName:mySensor3 OR thingName:mySensor4"
           policyName: "sensorAccessPolicy"
       policies:
-        sensorAccessPolicy:
+        policyNameTypo:
           policyStatement1:
             policyDescription: "mqtt connect"
             effect: ALLOW
             operations:
               - "mqtt:connect"
             resources:
-              - "mqtt:clientId:foo"
+              - "mqtt:broker:localBroker"
           policyStatement2:
             policyDescription: "mqtt publish"
             effect: ALLOW

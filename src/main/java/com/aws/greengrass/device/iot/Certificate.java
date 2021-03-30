@@ -16,7 +16,7 @@ import java.util.Collections;
 import java.util.Map;
 
 public class Certificate implements AttributeProvider {
-    private static final String NAMESPACE = "Certificate";
+    public static final String NAMESPACE = "Certificate";
 
     @Getter
     private String certificatePem;

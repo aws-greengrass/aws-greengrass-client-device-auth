@@ -19,14 +19,14 @@ public class GroupDefinition {
 
     // RuleExpressionNode ruleExpressionTree;
 
-    String roleName;
+    String policyName;
 
     @Builder
-    GroupDefinition(@NonNull String selectionRule, @NonNull String roleName) {
+    GroupDefinition(@NonNull String selectionRule, @NonNull String policyName) {
         this.selectionRule = selectionRule;
         //TODO build binary expression tree from rule string
         // this.ruleExpressionTree = null;
-        this.roleName = roleName;
+        this.policyName = policyName;
     }
 
     @JsonPOJOBuilder(withPrefix = "")
