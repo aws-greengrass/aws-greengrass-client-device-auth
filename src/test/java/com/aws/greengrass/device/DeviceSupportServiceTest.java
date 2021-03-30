@@ -122,7 +122,7 @@ class DeviceSupportServiceTest {
 
         Permission[] tempSensorPermissions =
                 {Permission.builder().principal("myTemperatureSensors").operation("mqtt" + ":connect")
-                        .resource("mqtt:broker:localBroker").build(),
+                        .resource("mqtt:clientId:foo").build(),
                         Permission.builder().principal("myTemperatureSensors").operation("mqtt:publish")
                                 .resource("mqtt:topic:temperature").build(),
                         Permission.builder().principal("myTemperatureSensors").operation("mqtt:publish")
@@ -130,7 +130,7 @@ class DeviceSupportServiceTest {
         assertThat(permissionMap.get("myTemperatureSensors"), containsInAnyOrder(tempSensorPermissions));
         Permission[] humidSensorPermissions =
                 {Permission.builder().principal("myHumiditySensors").operation("mqtt:connect")
-                        .resource("mqtt:broker:localBroker").build(),
+                        .resource("mqtt:clientId:foo").build(),
                         Permission.builder().principal("myHumiditySensors").operation("mqtt:publish")
                                 .resource("mqtt:topic:temperature").build(),
                         Permission.builder().principal("myHumiditySensors").operation("mqtt:publish")
