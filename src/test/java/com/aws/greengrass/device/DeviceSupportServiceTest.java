@@ -13,6 +13,9 @@ import com.aws.greengrass.device.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.configuration.Permission;
+import com.aws.greengrass.device.exception.AuthorizationException;
+import com.aws.greengrass.device.iot.Certificate;
+import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -54,13 +57,17 @@ import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class DeviceSupportServiceTest {
@@ -92,7 +99,7 @@ class DeviceSupportServiceTest {
         kernel.shutdown();
     }
 
-    private void startNucleusWithConfig(String configFileName) throws InterruptedException, IOException {
+    private void startNucleusWithConfig(String configFileName) throws InterruptedException {
         CountDownLatch deviceSupportRunning = new CountDownLatch(1);
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
@@ -309,5 +316,63 @@ class DeviceSupportServiceTest {
         List<String> initialCACerts = getCaCertificates();
         X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
         assertThat(initialCA.getSigAlgName(), is(CertificateHelper.ECDSA_SIGNING_ALGORITHM));
+    }
+
+    @Test
+    void GIVEN_no_session_exist_WHEN_receive_authorization_request_THEN_throw_exception() throws InterruptedException {
+        DeviceSupportService service = getServiceReferenceFromNucleus();
+        when(sessionManager.findSession(anyString())).thenReturn(null);
+
+        Exception exception = assertThrows(AuthorizationException.class,
+                () -> service.canDevicePerform(constructAuthorizationRequest()));
+        assertThat(exception.getMessage(), containsString("isn't existed or expired"));
+        verify(sessionManager).findSession("sessionId");
+    }
+
+    @Test
+    void GIVEN_session_no_thing_WHEN_receive_authorization_request_THEN_thing_added_to_session() throws Exception {
+        DeviceSupportService service = getServiceReferenceFromNucleus();
+        Session session = new Session(new Certificate("certificatePem"));
+        when(sessionManager.findSession("sessionId")).thenReturn(session);
+        when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
+                Collections.singleton(
+                        Permission.builder().operation("mqtt:publish").resource("mqtt:topic:foo").principal("group1")
+                                .build())));
+
+        boolean authorized = service.canDevicePerform(constructAuthorizationRequest());
+
+        assertThat(authorized, is(true));
+        assertThat(session, IsMapContaining.hasKey("Thing"));
+        assertThat(session.getSessionAttribute("Thing", "ThingName").getValue(), is("clientId"));
+    }
+
+    @Test
+    void GIVEN_session_has_thing_WHEN_receive_authorization_request_THEN_thing_in_session_not_changed()
+            throws Exception {
+        DeviceSupportService service = getServiceReferenceFromNucleus();
+        Session session = new Session(new Certificate("certificatePem"));
+        session.put(Thing.NAMESPACE, new Thing("baz"));
+        when(sessionManager.findSession("sessionId")).thenReturn(session);
+        when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
+                Collections.singleton(
+                        Permission.builder().operation("mqtt:publish").resource("mqtt:topic:bar").principal("group1")
+                                .build())));
+
+        boolean authorized = service.canDevicePerform(constructAuthorizationRequest());
+
+        assertThat(authorized, is(false));
+        assertThat(session, IsMapContaining.hasKey("Thing"));
+        assertThat(session.getSessionAttribute("Thing", "ThingName").getValue(), is("baz"));
+    }
+
+    private DeviceSupportService getServiceReferenceFromNucleus() throws InterruptedException {
+        startNucleusWithConfig("config.yaml");
+
+        return kernel.getContext().get(DeviceSupportService.class);
+    }
+
+    private AuthorizationRequest constructAuthorizationRequest() {
+        return AuthorizationRequest.builder().sessionId("sessionId").clientId("clientId").operation("mqtt:publish")
+                .resource("mqtt:topic:foo").build();
     }
 }
