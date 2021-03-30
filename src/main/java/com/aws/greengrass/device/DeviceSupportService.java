@@ -66,27 +66,24 @@ public class DeviceSupportService extends PluginService {
 
     /**
      * determine device operation authorization.
-     * @param operation operation in the form of 'service:action'
-     * @param resource  resource in the form of 'service:resourceType:resourceName'
-     * @param sessionId session id for identifying previous created session
-     * @param clientId device client id, is thing name if device has registered with IoT core
+     *
+     * @param request authorization request including operation, resource, sessionId, clientId
      * @return if device is authorized
      * @throws AuthorizationException if session not existed or expired
      */
-    @SuppressWarnings("PMD.UseObjectForClearerAPI")
-    public boolean canDevicePerform(String operation, String resource, String sessionId, String clientId)
-            throws AuthorizationException {
-        Session session = sessionManager.findSession(sessionId);
+    public boolean canDevicePerform(AuthorizationRequest request) throws AuthorizationException {
+        Session session = sessionManager.findSession(request.getSessionId());
         if (session == null) {
-            throw new AuthorizationException(String.format("session %s isn't existed or expired", sessionId));
+            throw new AuthorizationException(
+                    String.format("session %s isn't existed or expired", request.getSessionId()));
         }
 
         Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
-        Thing thing = new Thing(clientId);
+        Thing thing = new Thing(request.getClientId());
         // if thing name is already cached, proceed;
         // otherwise validate thing name with certificate, then cache thing name
         session.computeIfAbsent(thing.getNamespace(), (k) -> thing.isCertificateAttached(certificate) ? thing : null);
-        return PermissionEvaluationUtils
-                .isAuthorize(operation, resource, groupManager.getApplicablePolicyPermissions(session));
+        return PermissionEvaluationUtils.isAuthorize(request.getOperation(), request.getResource(),
+                groupManager.getApplicablePolicyPermissions(session));
     }
 }
