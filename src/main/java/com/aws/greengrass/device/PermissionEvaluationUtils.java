@@ -13,7 +13,6 @@ import lombok.Builder;
 import lombok.Value;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,25 +36,26 @@ public final class PermissionEvaluationUtils {
     private PermissionEvaluationUtils() {
     }
 
-    /** utility method of authorizing operation to resource.
+    /**
+     * utility method of authorizing operation to resource.
+     *
      * @param operation             operation in the form of 'service:action'
      * @param resource              resource in the form of 'service:resourceType:resourceName'
      * @param groupToPermissionsMap device matching group to permissions map
      * @return whether operation to resource in authorized
      */
-    public static boolean isAuthorize(String operation, String resource,
-                                      Map<String, Set<Permission>> groupToPermissionsMap) {
+    public static boolean isAuthorized(String operation, String resource,
+                                       Map<String, Set<Permission>> groupToPermissionsMap) {
         Operation op = parseOperation(operation);
-        Optional<Resource> rscOptional = parseResource(resource);
-        rscOptional.ifPresent(rsc -> {
-            if (!rsc.getService().equals(op.getService())) {
-                throw new IllegalArgumentException(
-                        String.format("Operation %s service is not same as resource %s " + "service", op, rsc));
-            }
-        });
+        Resource rsc = parseResource(resource);
+        if (!rsc.getService().equals(op.getService())) {
+            throw new IllegalArgumentException(
+                    String.format("Operation %s service is not same as resource %s service", op, rsc));
 
+        }
         if (groupToPermissionsMap == null || groupToPermissionsMap.isEmpty()) {
-            logger.atDebug().log("No authorization group matches, deny the request");
+            logger.atDebug().kv("operation", operation).kv("resource", resource)
+                    .log("No authorization group matches, " + "deny the request");
             return false;
         }
 
@@ -66,6 +66,8 @@ public final class PermissionEvaluationUtils {
                 continue;
             }
 
+            // Find the first matching permission since we don't support 'deny' operation yet.
+            //TODO add support of 'deny' operation
             Permission permission = permissions.stream().filter(e -> {
                 if (!comparePrincipal(principal, e.getPrincipal())) {
                     return false;
@@ -73,8 +75,7 @@ public final class PermissionEvaluationUtils {
                 if (!compareOperation(op, e.getOperation())) {
                     return false;
                 }
-                return rscOptional.map(value -> compareResource(value, e.getResource()))
-                        .orElseGet(() -> e.getResource() == null);
+                return compareResource(rsc, e.getResource());
             }).findFirst().orElse(null);
 
             if (permission != null) {
@@ -130,15 +131,15 @@ public final class PermissionEvaluationUtils {
                 SERVICE_OPERATION_PATTERN.pattern()));
     }
 
-    private static Optional<Resource> parseResource(String resourceStr) {
-        if (resourceStr == null) {
-            return Optional.empty();
+    private static Resource parseResource(String resourceStr) {
+        if (Utils.isEmpty(resourceStr)) {
+            throw new IllegalArgumentException("Resource can't be empty");
         }
 
         Matcher matcher = SERVICE_RESOURCE_PATTERN.matcher(resourceStr);
         if (matcher.matches()) {
-            return Optional.of(Resource.builder().service(matcher.group(1)).resourceType(matcher.group(2))
-                    .resourceName(matcher.group(3)).build());
+            return Resource.builder().service(matcher.group(1)).resourceType(matcher.group(2))
+                    .resourceName(matcher.group(3)).build();
         }
 
         throw new IllegalArgumentException(

@@ -30,7 +30,7 @@ public class GroupConfiguration {
     //group name to group definition map
     Map<String, GroupDefinition> groups;
 
-    //policies map
+    //policy name to policy map
     Map<String, Map<String, AuthorizationPolicyStatement>> policies;
 
 
@@ -86,13 +86,12 @@ public class GroupConfiguration {
             if (Utils.isEmpty(operation)) {
                 continue;
             }
-            if (Utils.isEmpty(statement.getResources())) {
-                permissions.add(Permission.builder().principal(groupName).operation(operation).resource(null).build());
-            } else {
-                for (String resource : statement.getResources()) {
-                    permissions.add(Permission.builder().principal(groupName).operation(operation).resource(resource)
-                            .build());
+            for (String resource : statement.getResources()) {
+                if (Utils.isEmpty(resource)) {
+                    continue;
                 }
+                permissions
+                        .add(Permission.builder().principal(groupName).operation(operation).resource(resource).build());
             }
         }
         return permissions;

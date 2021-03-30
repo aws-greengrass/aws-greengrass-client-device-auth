@@ -83,7 +83,7 @@ public class DeviceSupportService extends PluginService {
         // if thing name is already cached, proceed;
         // otherwise validate thing name with certificate, then cache thing name
         session.computeIfAbsent(thing.getNamespace(), (k) -> thing.isCertificateAttached(certificate) ? thing : null);
-        return PermissionEvaluationUtils.isAuthorize(request.getOperation(), request.getResource(),
+        return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
                 groupManager.getApplicablePolicyPermissions(session));
     }
 }

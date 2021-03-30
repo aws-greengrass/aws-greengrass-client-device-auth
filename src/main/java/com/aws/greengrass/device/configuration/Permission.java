@@ -16,5 +16,5 @@ public class Permission {
 
     @NonNull String operation;
 
-    String resource;
+    @NonNull String resource;
 }
