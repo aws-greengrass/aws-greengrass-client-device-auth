@@ -5,31 +5,37 @@
 
 package com.aws.greengrass.device.configuration;
 
+import com.aws.greengrass.device.Session;
+import com.aws.greengrass.device.configuration.parser.ASTStart;
+import com.aws.greengrass.device.configuration.parser.ParseException;
+import com.aws.greengrass.device.configuration.parser.RuleExpression;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 
+import java.io.StringReader;
+
 @Value
 @JsonDeserialize(builder = GroupDefinition.GroupDefinitionBuilder.class)
 public class GroupDefinition {
 
-    String selectionRule;
-
-    // RuleExpressionNode ruleExpressionTree;
-
+    ASTStart expressionTree;
     String policyName;
 
+
     @Builder
-    GroupDefinition(@NonNull String selectionRule, @NonNull String policyName) {
-        this.selectionRule = selectionRule;
-        //TODO build binary expression tree from rule string
-        // this.ruleExpressionTree = null;
+    GroupDefinition(@NonNull String selectionRule, @NonNull String policyName) throws ParseException {
+        this.expressionTree = new RuleExpression(new StringReader(selectionRule)).Start();
         this.policyName = policyName;
     }
 
     @JsonPOJOBuilder(withPrefix = "")
     public static class GroupDefinitionBuilder {
+    }
+
+    public boolean containsSession(Session session) {
+        return false;
     }
 }
