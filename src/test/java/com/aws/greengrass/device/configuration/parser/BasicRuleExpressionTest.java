@@ -32,82 +32,82 @@ public class BasicRuleExpressionTest {
 
     @Test
     public void GIVEN_lowerCaseThingName_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: lowercase");
+        expectValidExpression("thingName: lowercase");
     }
 
     @Test
     public void GIVEN_upperCaseThingName_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: UPPERCASE");
+        expectValidExpression("thingName: UPPERCASE");
     }
 
     @Test
     public void GIVEN_upperAndLowerCaseThingName_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: lowerUPPER");
+        expectValidExpression("thingName: lowerUPPER");
     }
 
     @Test
     public void GIVEN_thingNameWithTrailingDigits_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: thing1");
+        expectValidExpression("thingName: thing1");
     }
 
     @Test
     public void GIVEN_thingNameWithDashAndDigit_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: thing-1");
+        expectValidExpression("thingName: thing-1");
     }
 
     @Test
     public void GIVEN_thingNameWithUnderscoreAndDigit_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: thing_1");
+        expectValidExpression("thingName: thing_1");
     }
 
     @Test
     public void GIVEN_thingNameWithLeadingDigit_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: 1thing");
+        expectValidExpression("thingName: 1thing");
     }
 
     @Test
     public void GIVEN_thingNameWithLeadingDash_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: -thing");
+        expectValidExpression("thingName: -thing");
     }
 
     @Test
     public void GIVEN_thingNameWithLeadingUnderscore_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: _thing");
+        expectValidExpression("thingName: _thing");
     }
 
     @Test
     public void GIVEN_thingNameWithEscapedColon_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: thi\\:ng");
+        expectValidExpression("thingName: thi\\:ng");
     }
 
     @Test
     public void GIVEN_thingNameWithAllCharacters_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_\\:");
+        expectValidExpression("thingName: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_\\:");
     }
 
     @Test
     public void GIVEN_thingNameWithNoSpace_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName:thing");
+        expectValidExpression("thingName:thing");
     }
 
     @Test
     public void GIVEN_basicLogicalORExpression_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: Thing1 OR ThingName: Thing2");
+        expectValidExpression("thingName: Thing1 OR thingName: Thing2");
     }
 
     @Test
     public void GIVEN_basicLogicalANDExpression_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: Thing1 AND ThingName: Thing2");
+        expectValidExpression("thingName: Thing1 AND thingName: Thing2");
     }
 
     @Test
     public void GIVEN_logicalExpressionWithAndOr_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
-        expectValidExpression("ThingName: Thing1 AND ThingName: Thing2 OR ThingName: Thing3");
+        expectValidExpression("thingName: Thing1 AND thingName: Thing2 OR thingName: Thing3");
     }
 
     @Test
     public void GIVEN_expressionWithoutThingName_WHEN_RuleExpression_THEN_exceptionIsThrown() {
-        expectParseException("ThingName:");
+        expectParseException("thingName:");
     }
 
     @Test
@@ -117,6 +117,6 @@ public class BasicRuleExpressionTest {
 
     @Test
     public void GIVEN_thingNameWithUnescapedColon_WHEN_RuleExpression_THEN_exceptionIsThrown() {
-        expectTokenMgrError("ThingName: :");
+        expectTokenMgrError("thingName: :");
     }
 }

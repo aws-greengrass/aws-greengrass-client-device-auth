@@ -168,7 +168,7 @@ void thingExpression()        :
 {/*@bgen(jjtree) Thing */
     try {
 /*@egen*/
-    "ThingName:" t=<THINGNAME>/*@bgen(jjtree)*/
+    "thingName:" t=<THINGNAME>/*@bgen(jjtree)*/
     {
       jjtree.closeNodeScope(jjtn000, true);
       jjtc000 = false;

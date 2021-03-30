@@ -73,7 +73,7 @@ void thingExpression() #Thing :
     Token t;
 }
 {
-    "ThingName:" t=<THINGNAME>
+    "thingName:" t=<THINGNAME>
     {
         jjtThis.value = t.image;
     }

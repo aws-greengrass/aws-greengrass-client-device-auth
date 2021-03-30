@@ -37,7 +37,7 @@ public interface RuleExpressionConstants {
     "\"AND\"",
     "<THINGNAME>",
     "<ALPHANUMERIC>",
-    "\"ThingName:\"",
+    "\"thingName:\"",
   };
 
 }
