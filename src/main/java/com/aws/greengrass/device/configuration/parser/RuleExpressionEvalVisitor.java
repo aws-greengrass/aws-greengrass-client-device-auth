@@ -1,6 +1,6 @@
 package com.aws.greengrass.device.configuration.parser;
 
-import com.aws.greengrass.device.DeviceAttribute;
+import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.Session;
 
 public class RuleExpressionEvalVisitor implements RuleExpressionVisitor {

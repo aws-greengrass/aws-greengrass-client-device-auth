@@ -5,8 +5,9 @@
 
 package com.aws.greengrass.device.iot;
 
-import com.aws.greengrass.device.AttributeProvider;
-import com.aws.greengrass.device.DeviceAttribute;
+import com.aws.greengrass.device.attribute.AttributeProvider;
+import com.aws.greengrass.device.attribute.DeviceAttribute;
+import com.aws.greengrass.device.attribute.StringLiteralAttribute;
 
 import java.util.Collections;
 import java.util.Map;
@@ -32,6 +33,6 @@ public class Thing implements AttributeProvider {
 
     @Override
     public Map<String, DeviceAttribute> getDeviceAttributes() {
-        return Collections.singletonMap("ThingName", new DeviceAttribute(thingName));
+        return Collections.singletonMap("ThingName", new StringLiteralAttribute(thingName));
     }
 }

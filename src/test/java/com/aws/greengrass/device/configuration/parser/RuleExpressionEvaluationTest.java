@@ -5,7 +5,8 @@
 
 package com.aws.greengrass.device.configuration.parser;
 
-import com.aws.greengrass.device.DeviceAttribute;
+import com.aws.greengrass.device.attribute.DeviceAttribute;
+import com.aws.greengrass.device.attribute.StringLiteralAttribute;
 import com.aws.greengrass.device.Session;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,7 @@ public class RuleExpressionEvaluationTest {
 
     Session getSessionWithThing(String thingName) {
         Session session = Mockito.mock(Session.class);
-        DeviceAttribute attribute = new DeviceAttribute(thingName);
+        DeviceAttribute attribute = new StringLiteralAttribute(thingName);
         Mockito.when(session.getSessionAttribute(any(), any())).thenReturn(attribute);
         return session;
     }

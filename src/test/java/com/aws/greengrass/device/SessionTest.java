@@ -21,9 +21,9 @@ public class SessionTest {
         Session session = new Session(cert);
         session.put(thing.getNamespace(), thing);
 
-        Assertions.assertEquals(session.getSessionAttribute("Certificate", "CertificateId").getValue(),
-                cert.getDeviceAttributes().get("CertificateId").getValue());
-        Assertions.assertEquals(session.getSessionAttribute("Thing", "ThingName").getValue(),
-                thing.getDeviceAttributes().get("ThingName").getValue());
+        Assertions.assertEquals(session.getSessionAttribute("Certificate", "CertificateId").toString(),
+                cert.getDeviceAttributes().get("CertificateId").toString());
+        Assertions.assertEquals(session.getSessionAttribute("Thing", "ThingName").toString(),
+                thing.getDeviceAttributes().get("ThingName").toString());
     }
 }

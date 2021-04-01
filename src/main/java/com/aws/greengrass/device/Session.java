@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.device;
 
+import com.aws.greengrass.device.attribute.AttributeProvider;
+import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.iot.Certificate;
 
 import java.util.concurrent.ConcurrentHashMap;

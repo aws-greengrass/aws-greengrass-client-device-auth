@@ -5,8 +5,9 @@
 
 package com.aws.greengrass.device.iot;
 
-import com.aws.greengrass.device.AttributeProvider;
-import com.aws.greengrass.device.DeviceAttribute;
+import com.aws.greengrass.device.attribute.AttributeProvider;
+import com.aws.greengrass.device.attribute.DeviceAttribute;
+import com.aws.greengrass.device.attribute.StringLiteralAttribute;
 import lombok.Getter;
 
 import java.nio.charset.StandardCharsets;
@@ -66,6 +67,6 @@ public class Certificate implements AttributeProvider {
 
     @Override
     public Map<String, DeviceAttribute> getDeviceAttributes() {
-        return Collections.singletonMap("CertificateId", new DeviceAttribute(getIotCertificateId()));
+        return Collections.singletonMap("CertificateId", new StringLiteralAttribute(getIotCertificateId()));
     }
 }
