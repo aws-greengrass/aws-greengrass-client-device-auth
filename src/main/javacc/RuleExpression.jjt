@@ -6,6 +6,7 @@
 options
 {
     MULTI = true;
+    VISITOR=true;
     NODE_DEFAULT_VOID = true;
     STATIC = false;
 }

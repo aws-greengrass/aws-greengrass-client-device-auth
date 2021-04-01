@@ -14,4 +14,13 @@ public class DeviceAttribute {
     public DeviceAttribute(String attributeValue) {
         value = attributeValue;
     }
+
+    public boolean matches(String val) {
+        // TODO: Match other attribute types
+        return matchesStringAttribute(val);
+    }
+
+    public boolean matchesStringAttribute(String val) {
+        return value.equals(val);
+    }
 }
