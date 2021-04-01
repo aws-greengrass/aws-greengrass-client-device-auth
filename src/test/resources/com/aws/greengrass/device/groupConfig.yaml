@@ -9,28 +9,29 @@ services:
 
   aws.greengrass.DeviceSupport:
     configuration:
-      version: "2021-03-05"
-      groups:
-        myTemperatureSensors:
-          selectionRule: "thingName:mySensor1 OR thingName:mySensor2"
-          policyName: "sensorAccessPolicy"
-        myHumiditySensors:
-          selectionRule: "thingName:mySensor3 OR thingName:mySensor4"
-          policyName: "sensorAccessPolicy"
-      policies:
-        sensorAccessPolicy:
-          policyStatement1:
-            policyDescription: "mqtt connect"
-            effect: ALLOW
-            operations:
-              - "mqtt:connect"
-            resources:
-              - "mqtt:clientId:foo"
-          policyStatement2:
-            policyDescription: "mqtt publish"
-            effect: ALLOW
-            operations:
-              - "mqtt:publish"
-            resources:
-              - "mqtt:topic:temperature"
-              - "mqtt:topic:humidity"
+      deviceGroups:
+        formatVersion: "2021-03-05"
+        definitions:
+          myTemperatureSensors:
+            selectionRule: "thingName:mySensor1 OR thingName:mySensor2"
+            policyName: "sensorAccessPolicy"
+          myHumiditySensors:
+            selectionRule: "thingName:mySensor3 OR thingName:mySensor4"
+            policyName: "sensorAccessPolicy"
+        policies:
+          sensorAccessPolicy:
+            policyStatement1:
+              policyDescription: "mqtt connect"
+              effect: ALLOW
+              operations:
+                - "mqtt:connect"
+              resources:
+                - "mqtt:clientId:foo"
+            policyStatement2:
+              policyDescription: "mqtt publish"
+              effect: ALLOW
+              operations:
+                - "mqtt:publish"
+              resources:
+                - "mqtt:topic:temperature"
+                - "mqtt:topic:humidity"

@@ -86,7 +86,7 @@ class DeviceSupportServiceTest {
 
         verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
         GroupConfiguration groupConfiguration = configurationCaptor.getValue();
-        assertThat(groupConfiguration.getGroups(), IsMapWithSize.anEmptyMap());
+        assertThat(groupConfiguration.getDefinitions(), IsMapWithSize.anEmptyMap());
         assertThat(groupConfiguration.getPolicies(), IsMapWithSize.anEmptyMap());
     }
 
@@ -107,12 +107,12 @@ class DeviceSupportServiceTest {
 
         verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
         GroupConfiguration groupConfiguration = configurationCaptor.getValue();
-        assertThat(groupConfiguration.getVersion(), is(ConfigurationFormatVersion.MAR_05_2021));
-        assertThat(groupConfiguration.getGroups(), IsMapWithSize.aMapWithSize(2));
+        assertThat(groupConfiguration.getFormatVersion(), is(ConfigurationFormatVersion.MAR_05_2021));
+        assertThat(groupConfiguration.getDefinitions(), IsMapWithSize.aMapWithSize(2));
         assertThat(groupConfiguration.getPolicies(), IsMapWithSize.aMapWithSize(1));
-        assertThat(groupConfiguration.getGroups(), IsMapContaining
+        assertThat(groupConfiguration.getDefinitions(), IsMapContaining
                 .hasEntry(is("myTemperatureSensors"), hasProperty("policyName", is("sensorAccessPolicy"))));
-        assertThat(groupConfiguration.getGroups(),
+        assertThat(groupConfiguration.getDefinitions(),
                 IsMapContaining.hasEntry(is("myHumiditySensors"), hasProperty("policyName", is("sensorAccessPolicy"))));
         assertThat(groupConfiguration.getPolicies(), IsMapContaining.hasEntry(is("sensorAccessPolicy"),
                 allOf(IsMapContaining.hasKey("policyStatement1"), IsMapContaining.hasKey("policyStatement2"))));

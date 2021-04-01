@@ -25,6 +25,7 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
 @ImplementsService(name = DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME)
 public class DeviceSupportService extends PluginService {
     public static final String DEVICE_SUPPORT_SERVICE_NAME = "aws.greengrass.DeviceSupport";
+    private static final String DEVICE_GROUPS_TOPIC = "deviceGroups";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
 
@@ -48,7 +49,7 @@ public class DeviceSupportService extends PluginService {
         this.sessionManager = sessionManager;
 
         //handleConfiguration
-        this.configurationTopics = topics.lookupTopics(CONFIGURATION_CONFIG_KEY);
+        this.configurationTopics = topics.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPIC);
         this.configurationTopics.subscribe(this::handleConfigurationChange);
     }
 
@@ -56,11 +57,11 @@ public class DeviceSupportService extends PluginService {
     private void handleConfigurationChange(WhatHappened whatHappened, Node childNode) {
         try {
             groupManager.setGroupConfiguration(
-                    OBJECT_MAPPER.convertValue(configurationTopics.toPOJO(), GroupConfiguration.class));
+                    OBJECT_MAPPER.convertValue(this.configurationTopics.toPOJO(), GroupConfiguration.class));
         } catch (IllegalArgumentException e) {
             logger.atError().kv("service", DEVICE_SUPPORT_SERVICE_NAME).kv("event", whatHappened)
-                    .kv("node", configurationTopics.getFullName()).kv("value", configurationTopics).setCause(e)
-                    .log("Unable to parse group configuration");
+                    .kv("node", this.configurationTopics.getFullName()).kv("value", this.configurationTopics)
+                    .setCause(e).log("Unable to parse group configuration");
         }
     }
 

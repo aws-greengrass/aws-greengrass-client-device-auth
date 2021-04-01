@@ -8,4 +8,5 @@ services:
       - aws.greengrass.DeviceSupport
 
   aws.greengrass.DeviceSupport:
-    configuration: {}
+    configuration:
+      deviceGroups: {}
