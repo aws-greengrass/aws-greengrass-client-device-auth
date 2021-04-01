@@ -8,6 +8,7 @@ package com.aws.greengrass.device.configuration.parser;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.attribute.StringLiteralAttribute;
 import com.aws.greengrass.device.Session;
+import com.aws.greengrass.device.configuration.RuleExpressionVisitor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,7 +38,7 @@ public class RuleExpressionEvaluationTest {
     public void GIVEN_unaryExpressionWithSessionContainingThing_WHEN_RuleExpressionEvaluated_THEN_EvaluatesTrue() throws ParseException {
         ASTStart tree = getTree("thingName: Thing");
         Session session = getSessionWithThing("Thing");
-        RuleExpressionVisitor visitor = new RuleExpressionEvalVisitor();
+        com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor visitor = new RuleExpressionVisitor();
         Assertions.assertTrue((Boolean) visitor.visit(tree, session));
     }
 
@@ -45,7 +46,7 @@ public class RuleExpressionEvaluationTest {
     public void GIVEN_unaryExpression_WHEN_RuleExpressionEvaluatedWithSessionNotContainingThing_THEN_EvaluatesFalse() throws ParseException {
         ASTStart tree = getTree("thingName: Thing1");
         Session session = getSessionWithThing("Thing");
-        RuleExpressionVisitor visitor = new RuleExpressionEvalVisitor();
+        com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor visitor = new RuleExpressionVisitor();
         Assertions.assertFalse((Boolean) visitor.visit(tree, session));
     }
 
@@ -53,7 +54,7 @@ public class RuleExpressionEvaluationTest {
     public void GIVEN_basicOrExpression_WHEN_RuleExpressionEvaluatedWithSessionContainingOneThing_THEN_EvaluatesTrue() throws ParseException {
         ASTStart tree = getTree("thingName: Thing OR thingName: Thing1");
         Session session = getSessionWithThing("Thing");
-        RuleExpressionVisitor visitor = new RuleExpressionEvalVisitor();
+        com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor visitor = new RuleExpressionVisitor();
         Assertions.assertTrue((Boolean) visitor.visit(tree, session));
     }
 
@@ -61,7 +62,7 @@ public class RuleExpressionEvaluationTest {
     public void GIVEN_basicAndExpression_WHEN_RuleExpressionEvaluatedWithSessionContainingOneThing_THEN_EvaluatesFalse() throws ParseException {
         ASTStart tree = getTree("thingName: Thing AND thingName: Thing1");
         Session session = getSessionWithThing("Thing");
-        RuleExpressionVisitor visitor = new RuleExpressionEvalVisitor();
+        com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor visitor = new RuleExpressionVisitor();
         Assertions.assertFalse((Boolean) visitor.visit(tree, session));
     }
 
@@ -69,7 +70,7 @@ public class RuleExpressionEvaluationTest {
     public void GIVEN_logicalExpressionWithAndOr_WHEN_RuleExpressionEvaluatedWithSessionContainingThingInOR_THEN_EvaluatesTrue() throws ParseException {
         ASTStart tree = getTree("thingName: Thing OR thingName: Thing1 AND thingName: Thing2");
         Session session = getSessionWithThing("Thing");
-        RuleExpressionVisitor visitor = new RuleExpressionEvalVisitor();
+        com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor visitor = new RuleExpressionVisitor();
         Assertions.assertTrue((Boolean) visitor.visit(tree, session));
     }
 
@@ -77,7 +78,7 @@ public class RuleExpressionEvaluationTest {
     public void GIVEN_logicalExpressionWithAndOr_WHEN_RuleExpressionEvaluatedWithSessionContainingThingInAND_THEN_EvaluatesFalse() throws ParseException {
         ASTStart tree = getTree("thingName: Thing AND thingName: Thing1 OR thingName: Thing2");
         Session session = getSessionWithThing("Thing");
-        RuleExpressionVisitor visitor = new RuleExpressionEvalVisitor();
+        com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor visitor = new RuleExpressionVisitor();
         Assertions.assertFalse((Boolean) visitor.visit(tree, session));
     }
 }

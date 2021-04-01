@@ -1,9 +1,19 @@
-package com.aws.greengrass.device.configuration.parser;
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-import com.aws.greengrass.device.attribute.DeviceAttribute;
+package com.aws.greengrass.device.configuration;
+
 import com.aws.greengrass.device.Session;
+import com.aws.greengrass.device.attribute.DeviceAttribute;
+import com.aws.greengrass.device.configuration.parser.ASTAnd;
+import com.aws.greengrass.device.configuration.parser.ASTOr;
+import com.aws.greengrass.device.configuration.parser.ASTStart;
+import com.aws.greengrass.device.configuration.parser.ASTThing;
+import com.aws.greengrass.device.configuration.parser.SimpleNode;
 
-public class RuleExpressionEvalVisitor implements RuleExpressionVisitor {
+public class RuleExpressionVisitor implements com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor {
     @Override
     public Object visit(SimpleNode node, Object data) {
         // Not used
@@ -38,8 +48,9 @@ public class RuleExpressionEvalVisitor implements RuleExpressionVisitor {
 
     @Override
     public Object visit(ASTThing node, Object data) {
+        // TODO: Make ASTThing a generic node instead of hardcoding ThingName
         Session session = (Session) data;
         DeviceAttribute attribute = session.getSessionAttribute("Thing", "ThingName");
-        return attribute.matches((String) node.jjtGetValue());
+        return attribute != null && attribute.matches((String) node.jjtGetValue());
     }
 }
