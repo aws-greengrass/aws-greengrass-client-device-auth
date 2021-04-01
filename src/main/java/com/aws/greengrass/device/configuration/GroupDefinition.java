@@ -36,6 +36,7 @@ public class GroupDefinition {
     }
 
     public boolean containsSession(Session session) {
-        return false;
+        com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor visitor = new RuleExpressionVisitor();
+        return (boolean) visitor.visit(expressionTree, session);
     }
 }

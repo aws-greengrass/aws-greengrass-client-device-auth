@@ -15,7 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith({MockitoExtension.class})
 public class SessionTest {
     @Test
-    public void GIVEN_session_with_thing_and_cert_WHEN_getSessionAttributes_THEN_attributes_are_returned() {
+    public void GIVEN_sessionWithThingAndCert_WHEN_getSessionAttributes_THEN_attributesAreReturned() {
         Certificate cert = new Certificate("FAKE_PEM");
         Thing thing = new Thing("MyThing");
         Session session = new Session(cert);
