@@ -25,10 +25,10 @@ import java.util.Set;
 public class GroupConfiguration {
     private static final Logger logger = LogManager.getLogger(GroupConfiguration.class);
 
-    ConfigurationFormatVersion version;
+    ConfigurationFormatVersion formatVersion;
 
     //group name to group definition map
-    Map<String, GroupDefinition> groups;
+    Map<String, GroupDefinition> definitions;
 
     //policy name to policy map
     Map<String, Map<String, AuthorizationPolicyStatement>> policies;
@@ -37,10 +37,10 @@ public class GroupConfiguration {
     Map<String, Set<Permission>> groupToPermissionsMap;
 
     @Builder
-    GroupConfiguration(ConfigurationFormatVersion version, Map<String, GroupDefinition> groups,
+    GroupConfiguration(ConfigurationFormatVersion formatVersion, Map<String, GroupDefinition> definitions,
                        Map<String, Map<String, AuthorizationPolicyStatement>> policies) throws AuthorizationException {
-        this.version = version == null ? ConfigurationFormatVersion.MAR_05_2021 : version;
-        this.groups = groups == null ? Collections.emptyMap() : groups;
+        this.formatVersion = formatVersion == null ? ConfigurationFormatVersion.MAR_05_2021 : formatVersion;
+        this.definitions = definitions == null ? Collections.emptyMap() : definitions;
         this.policies = policies == null ? Collections.emptyMap() : policies;
         this.groupToPermissionsMap = constructGroupToPermissionsMap();
     }
@@ -52,7 +52,7 @@ public class GroupConfiguration {
     private Map<String, Set<Permission>> constructGroupToPermissionsMap() throws AuthorizationException {
         Map<String, Set<Permission>> groupToPermissionsMap = new HashMap<>();
 
-        for (Map.Entry<String, GroupDefinition> groupDefinitionEntry : groups.entrySet()) {
+        for (Map.Entry<String, GroupDefinition> groupDefinitionEntry : definitions.entrySet()) {
             GroupDefinition groupDefinition = groupDefinitionEntry.getValue();
             if (!policies.containsKey(groupDefinition.getPolicyName())) {
                 throw new AuthorizationException(

@@ -9,4 +9,5 @@ services:
 
   aws.greengrass.DeviceSupport:
     configuration:
-      foo: "bar"
+      deviceGroups:
+        foo: "bar"

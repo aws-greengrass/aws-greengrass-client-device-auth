@@ -1,12 +1,11 @@
 ---
 services:
+  aws.greengrass.DeviceSupport:
+    configuration:
+      ca_type: ["ECDSA_P256"]
   main:
     lifecycle:
       install:
         all: echo All installed
     dependencies:
       - aws.greengrass.DeviceSupport
-
-  aws.greengrass.DeviceSupport:
-    configuration:
-      deviceGroups: {}
