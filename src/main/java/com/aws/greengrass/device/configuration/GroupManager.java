@@ -46,7 +46,7 @@ public class GroupManager {
 
         for (String groupName : groupDefinitionMap.keySet()) {
             GroupDefinition group = groupDefinitionMap.get(groupName);
-            if (group.containsSession(session)) {
+            if (group.containsClientDevice(session)) {
                 matchingGroups.add(groupName);
             }
         }

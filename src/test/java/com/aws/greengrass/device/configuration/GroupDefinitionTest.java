@@ -26,12 +26,12 @@ public class GroupDefinitionTest {
         Session session = Mockito.mock(Session.class);
         DeviceAttribute attribute = new StringLiteralAttribute("thing");
         Mockito.when(session.getSessionAttribute(any(), any())).thenReturn(attribute);
-        Assertions.assertTrue(groupDefinition.containsSession(session));
+        Assertions.assertTrue(groupDefinition.containsClientDevice(session));
     }
 
     @Test
     public void GIVEN_groupDefinitionAndNonMatchingSession_WHEN_containsSession_THEN_returnsFalse() throws ParseException {
         GroupDefinition groupDefinition = new GroupDefinition("thingName: thing", "Policy1");
-        Assertions.assertFalse(groupDefinition.containsSession(new Session(new Certificate("FAKE PEM"))));
+        Assertions.assertFalse(groupDefinition.containsClientDevice(new Session(new Certificate("FAKE PEM"))));
     }
 }

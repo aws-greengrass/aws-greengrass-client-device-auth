@@ -35,8 +35,14 @@ public class GroupDefinition {
     public static class GroupDefinitionBuilder {
     }
 
-    public boolean containsSession(Session session) {
-        com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor visitor = new RuleExpressionVisitor();
+    /**
+     * Returns true if the client device represented by the specified session
+     * belongs to this device group.
+     * @param session session representing the client device to be tested
+     * @return true if the client device belongs to the group
+     */
+    public boolean containsClientDevice(Session session) {
+        ExpressionVisitor visitor = new ExpressionVisitor();
         return (boolean) visitor.visit(expressionTree, session);
     }
 }

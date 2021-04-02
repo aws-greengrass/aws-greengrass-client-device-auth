@@ -11,9 +11,10 @@ import com.aws.greengrass.device.configuration.parser.ASTAnd;
 import com.aws.greengrass.device.configuration.parser.ASTOr;
 import com.aws.greengrass.device.configuration.parser.ASTStart;
 import com.aws.greengrass.device.configuration.parser.ASTThing;
+import com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor;
 import com.aws.greengrass.device.configuration.parser.SimpleNode;
 
-public class RuleExpressionVisitor implements com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor {
+public class ExpressionVisitor implements RuleExpressionVisitor {
     @Override
     public Object visit(SimpleNode node, Object data) {
         // Not used
