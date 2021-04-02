@@ -59,10 +59,11 @@ public class CertificateManager {
 
     /**
      * Initialize the certificate manager.
-     *
+     * @param caPassphrase  CA Passphrase
+     * @param caType        CA type
      * @throws KeyStoreException if unable to load the CA key store
      */
-    void update(String caPassphrase, CertificateStore.CAType caType) throws KeyStoreException {
+    public void update(String caPassphrase, CertificateStore.CAType caType) throws KeyStoreException {
         certificateStore.update(caPassphrase, caType);
     }
 
@@ -128,8 +129,13 @@ public class CertificateManager {
 
     /**
      * Return a list of CA certificates used to issue client certs.
+     *
+     * @return a list of CA certificates for issuing client certs
+     * @throws KeyStoreException if unable to retrieve the certificate
+     * @throws IOException if unable to write certificate
+     * @throws CertificateEncodingException if unable to get certificate encoding
      */
-    List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
+    public List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
         List<String> caList = new ArrayList<>();
         String caPem = CertificateHelper.toPem(certificateStore.getCACertificate());
         caList.add(caPem);
