@@ -36,7 +36,7 @@ public class GroupManager {
         if (config == null) {
             return Collections.emptyMap();
         }
-        Set<String> matchingGroups = findMatchingGroups(config.getGroups(), session);
+        Set<String> matchingGroups = findMatchingGroups(config.getDefinitions(), session);
         return matchingGroups.stream()
                 .collect(Collectors.toMap(group -> group, group -> config.getGroupToPermissionsMap().get(group)));
     }

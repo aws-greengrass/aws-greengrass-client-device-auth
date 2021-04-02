@@ -5,16 +5,23 @@
 
 package com.aws.greengrass.device;
 
+import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
+import com.aws.greengrass.componentmanager.KernelConfigResolver;
+import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.device.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.lifecyclemanager.Kernel;
+import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsMapContaining;
 import org.hamcrest.collection.IsMapWithSize;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -24,7 +31,20 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.security.KeyStoreException;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -34,14 +54,17 @@ import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class DeviceSupportServiceTest {
+    private static final long TEST_TIME_OUT_SEC = 30L;
 
     private Kernel kernel;
 
@@ -57,21 +80,11 @@ class DeviceSupportServiceTest {
     @Captor
     ArgumentCaptor<GroupConfiguration> configurationCaptor;
 
-    private void startNucleusWithConfig(String configFile, State expectedState) throws InterruptedException {
-        CountDownLatch deviceSupportRunning = new CountDownLatch(1);
+    @BeforeEach
+    void setup() {
         kernel = new Kernel();
-        kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
-                getClass().getResource(configFile).toString());
-        kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
-            if (DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME.equals(service.getName()) && service.getState()
-                    .equals(expectedState)) {
-                deviceSupportRunning.countDown();
-            }
-        });
         kernel.getContext().put(GroupManager.class, groupManager);
         kernel.getContext().put(SessionManager.class, sessionManager);
-        kernel.launch();
-        assertThat(deviceSupportRunning.await(10, TimeUnit.SECONDS), is(true));
     }
 
     @AfterEach
@@ -79,40 +92,54 @@ class DeviceSupportServiceTest {
         kernel.shutdown();
     }
 
+    private void startNucleusWithConfig(String configFileName) throws InterruptedException, IOException {
+        CountDownLatch deviceSupportRunning = new CountDownLatch(1);
+        kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
+                getClass().getResource(configFileName).toString());
+        kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
+            if (DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME.equals(service.getName()) && service.getState()
+                    .equals(State.RUNNING)) {
+                deviceSupportRunning.countDown();
+            }
+        });
+        kernel.launch();
+        assertThat(deviceSupportRunning.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS), is(true));
+    }
+
     @Test
     void GIVEN_no_group_configuration_WHEN_start_service_change_THEN_empty_configuration_model_instantiated()
-            throws InterruptedException {
-        startNucleusWithConfig("emptyGroupConfig.yaml", State.RUNNING);
+            throws Exception {
+        startNucleusWithConfig("emptyGroupConfig.yaml");
 
         verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
         GroupConfiguration groupConfiguration = configurationCaptor.getValue();
-        assertThat(groupConfiguration.getGroups(), IsMapWithSize.anEmptyMap());
+        assertThat(groupConfiguration.getDefinitions(), IsMapWithSize.anEmptyMap());
         assertThat(groupConfiguration.getPolicies(), IsMapWithSize.anEmptyMap());
     }
 
     @Test
     void GIVEN_bad_group_configuration_WHEN_start_service_THEN_no_configuration_update(ExtensionContext context)
-            throws InterruptedException {
+            throws Exception {
         ignoreExceptionOfType(context, IllegalArgumentException.class);
 
-        startNucleusWithConfig("badGroupConfig.yaml", State.RUNNING);
+        startNucleusWithConfig("badGroupConfig.yaml");
 
         verify(groupManager, never()).setGroupConfiguration(any());
     }
 
     @Test
     void GIVEN_valid_group_configuration_WHEN_start_service_THEN_instantiated_configuration_model_updated()
-            throws InterruptedException {
-        startNucleusWithConfig("groupConfig.yaml", State.RUNNING);
+            throws Exception {
+        startNucleusWithConfig("config.yaml");
 
         verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
         GroupConfiguration groupConfiguration = configurationCaptor.getValue();
-        assertThat(groupConfiguration.getVersion(), is(ConfigurationFormatVersion.MAR_05_2021));
-        assertThat(groupConfiguration.getGroups(), IsMapWithSize.aMapWithSize(2));
+        assertThat(groupConfiguration.getFormatVersion(), is(ConfigurationFormatVersion.MAR_05_2021));
+        assertThat(groupConfiguration.getDefinitions(), IsMapWithSize.aMapWithSize(2));
         assertThat(groupConfiguration.getPolicies(), IsMapWithSize.aMapWithSize(1));
-        assertThat(groupConfiguration.getGroups(), IsMapContaining
+        assertThat(groupConfiguration.getDefinitions(), IsMapContaining
                 .hasEntry(is("myTemperatureSensors"), hasProperty("policyName", is("sensorAccessPolicy"))));
-        assertThat(groupConfiguration.getGroups(),
+        assertThat(groupConfiguration.getDefinitions(),
                 IsMapContaining.hasEntry(is("myHumiditySensors"), hasProperty("policyName", is("sensorAccessPolicy"))));
         assertThat(groupConfiguration.getPolicies(), IsMapContaining.hasEntry(is("sensorAccessPolicy"),
                 allOf(IsMapContaining.hasKey("policyStatement1"), IsMapContaining.hasKey("policyStatement2"))));
@@ -140,11 +167,147 @@ class DeviceSupportServiceTest {
 
     @Test
     void GIVEN_group_has_no_policy_WHEN_start_service_THEN_no_configuration_update(ExtensionContext context)
-            throws InterruptedException {
+            throws Exception {
         ignoreExceptionOfType(context, IllegalArgumentException.class);
 
-        startNucleusWithConfig("noGroupPolicyConfig.yaml", State.RUNNING);
+        startNucleusWithConfig("noGroupPolicyConfig.yaml");
 
         verify(groupManager, never()).setGroupConfiguration(any());
+    }
+
+    @Test
+    void GIVEN_GG_with_dsc_WHEN_subscribing_to_ca_updates_THEN_get_list_of_certs() throws Exception {
+        startNucleusWithConfig("config.yaml");
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+
+        kernel.findServiceTopic(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME)
+                .lookup("runtime", "certificates", "authorities").subscribe((why, newv) -> {
+            List<String> caPemList = (List<String>) newv.toPOJO();
+            if (caPemList != null) {
+                Assertions.assertEquals(1, caPemList.size());
+                countDownLatch.countDown();
+            }
+        });
+        Assertions.assertTrue(countDownLatch.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS));
+    }
+
+    @Test
+    void GIVEN_updated_ca_certs_WHEN_updateCACertificateConfig_THEN_cert_topic_updated()
+            throws InterruptedException, ServiceLoadException, IOException {
+        startNucleusWithConfig("config.yaml");
+
+        DeviceSupportService deviceSupportService =
+                (DeviceSupportService) kernel.locate(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME);
+
+        List<String> expectedCACerts = new ArrayList<>(Arrays.asList("CA1"));
+        deviceSupportService.updateCACertificateConfig(expectedCACerts);
+        assertCaCertTopicContains(expectedCACerts);
+
+        expectedCACerts.add("CA2");
+        deviceSupportService.updateCACertificateConfig(expectedCACerts);
+        assertCaCertTopicContains(expectedCACerts);
+
+        expectedCACerts.remove("CA1");
+        expectedCACerts.add("CA3");
+        deviceSupportService.updateCACertificateConfig(expectedCACerts);
+        assertCaCertTopicContains(expectedCACerts);
+    }
+
+    void assertCaCertTopicContains(List<String> expectedCerts) {
+        Topic caCertTopic = kernel.findServiceTopic(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME)
+                .lookup("runtime", "certificates", "authorities");
+        List<String> caPemList = (List<String>) caCertTopic.toPOJO();
+        Assertions.assertNotNull(caPemList);
+        assertThat(caPemList, IsIterableContainingInAnyOrder.containsInAnyOrder(expectedCerts.toArray()));
+    }
+
+    @Test
+    void GIVEN_GG_with_dsc_WHEN_restart_kernel_THEN_ca_is_persisted()
+            throws InterruptedException, CertificateEncodingException, KeyStoreException, IOException,
+            ServiceLoadException {
+        startNucleusWithConfig("config.yaml");
+
+        String initialPassphrase = getCaPassphrase();
+        Assertions.assertNotNull(initialPassphrase);
+        List<String> initialCerts = getCaCertificates();
+        assertThat(initialCerts, is(not(empty())));
+
+        kernel.shutdown();
+        kernel = new Kernel().parseArgs("-r", rootDir.toAbsolutePath().toString());
+        startNucleusWithConfig("config.yaml");
+
+        String finalPassphrase = getCaPassphrase();
+        Assertions.assertNotNull(finalPassphrase);
+        List<String> finalCerts = getCaCertificates();
+        assertThat(finalCerts, is(not(empty())));
+
+        assertThat(initialPassphrase, is(finalPassphrase));
+        assertThat(initialCerts, is(finalCerts));
+    }
+
+    private String getCaPassphrase() {
+        Topic caPassphraseTopic = kernel.findServiceTopic(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME)
+                .lookup("runtime", "ca_passphrase");
+        return (String) caPassphraseTopic.toPOJO();
+    }
+
+    private List<String> getCaCertificates()
+            throws ServiceLoadException, CertificateEncodingException, KeyStoreException, IOException {
+        DeviceSupportService deviceSupportService =
+                (DeviceSupportService) kernel.locate(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME);
+        return deviceSupportService.getCertificateManager().getCACertificates();
+    }
+
+
+    @Test
+    void GIVEN_GG_with_dsc_WHEN_updated_ca_type_THEN_ca_is_updated()
+            throws InterruptedException, ServiceLoadException, KeyStoreException, CertificateException, IOException {
+        startNucleusWithConfig("config.yaml");
+
+        List<String> initialCACerts = getCaCertificates();
+        X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
+        assertThat(initialCA.getSigAlgName(), is(CertificateHelper.RSA_SIGNING_ALGORITHM));
+
+        kernel.locate(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME).getConfig()
+                .find(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                        DeviceSupportService.CA_TYPE_TOPIC).withValue(Collections.singletonList("RSA_2048"));
+        // Block until subscriber has finished updating
+        kernel.getContext().waitForPublishQueueToClear();
+
+        List<String> secondCACerts = getCaCertificates();
+        X509Certificate secondCA = pemToX509Certificate(secondCACerts.get(0));
+        assertThat(secondCA.getSigAlgName(), is(CertificateHelper.RSA_SIGNING_ALGORITHM));
+        assertThat(initialCA, is(secondCA));
+
+        kernel.locate(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME).getConfig()
+                .find(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                        DeviceSupportService.CA_TYPE_TOPIC).withValue(Collections.singletonList("ECDSA_P256"));
+        // Block until subscriber has finished updating
+        kernel.getContext().waitForPublishQueueToClear();
+
+        List<String> thirdCACerts = getCaCertificates();
+        X509Certificate thirdCA = pemToX509Certificate(thirdCACerts.get(0));
+        assertThat(thirdCA.getSigAlgName(), is(CertificateHelper.ECDSA_SIGNING_ALGORITHM));
+        assertThat(initialCA, is(not(thirdCA)));
+    }
+
+    private X509Certificate pemToX509Certificate(String certPem) throws IOException, CertificateException {
+        byte[] certBytes = certPem.getBytes(StandardCharsets.UTF_8);
+        CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+        X509Certificate cert;
+        try (InputStream certStream = new ByteArrayInputStream(certBytes)) {
+            cert = (X509Certificate) certFactory.generateCertificate(certStream);
+        }
+        return cert;
+    }
+
+    @Test
+    void GIVEN_GG_with_dsc_WHEN_ca_type_provided_in_config_THEN_valid_ca_created()
+            throws IOException, InterruptedException, ServiceLoadException, CertificateException, KeyStoreException {
+        startNucleusWithConfig("config_with_ec_ca.yaml");
+
+        List<String> initialCACerts = getCaCertificates();
+        X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
+        assertThat(initialCA.getSigAlgName(), is(CertificateHelper.ECDSA_SIGNING_ALGORITHM));
     }
 }
