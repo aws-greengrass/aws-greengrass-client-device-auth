@@ -15,15 +15,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith({MockitoExtension.class})
 public class SessionTest {
     @Test
-    public void GIVEN_session_with_thing_and_cert_WHEN_getSessionAttributes_THEN_attributes_are_returned() {
+    public void GIVEN_sessionWithThingAndCert_WHEN_getSessionAttributes_THEN_attributesAreReturned() {
         Certificate cert = new Certificate("FAKE_PEM");
         Thing thing = new Thing("MyThing");
         Session session = new Session(cert);
         session.put(thing.getNamespace(), thing);
 
-        Assertions.assertEquals(session.getSessionAttribute("Certificate", "CertificateId").getValue(),
-                cert.getDeviceAttributes().get("CertificateId").getValue());
-        Assertions.assertEquals(session.getSessionAttribute("Thing", "ThingName").getValue(),
-                thing.getDeviceAttributes().get("ThingName").getValue());
+        Assertions.assertEquals(session.getSessionAttribute("Certificate", "CertificateId").toString(),
+                cert.getDeviceAttributes().get("CertificateId").toString());
+        Assertions.assertEquals(session.getSessionAttribute("Thing", "ThingName").toString(),
+                thing.getDeviceAttributes().get("ThingName").toString());
     }
 }

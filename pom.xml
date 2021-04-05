@@ -138,6 +138,10 @@
                         <ruleset>codestyle/pmd-eg-tests-ruleset.xml</ruleset>
                     </rulesets>
                     <includeTests>true</includeTests>
+                    <!-- Exclude auto-generated JavaCC code -->
+                    <excludes>
+                        <exclude>**/device/configuration/parser/*.java</exclude>
+                    </excludes>
                     <skip>${skipTests}</skip>
                 </configuration>
                 <executions>
@@ -186,6 +190,7 @@
                     <configLocation>codestyle/checkstyle.xml</configLocation>
                     <violationSeverity>warning</violationSeverity>
                     <maxAllowedViolations>0</maxAllowedViolations>
+                    <excludes>**/device/configuration/parser/*.java</excludes>
                     <skip>${skipTests}</skip>
                 </configuration>
                 <executions>

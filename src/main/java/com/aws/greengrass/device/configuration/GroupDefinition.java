@@ -5,31 +5,44 @@
 
 package com.aws.greengrass.device.configuration;
 
+import com.aws.greengrass.device.Session;
+import com.aws.greengrass.device.configuration.parser.ASTStart;
+import com.aws.greengrass.device.configuration.parser.ParseException;
+import com.aws.greengrass.device.configuration.parser.RuleExpression;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 
+import java.io.StringReader;
+
 @Value
 @JsonDeserialize(builder = GroupDefinition.GroupDefinitionBuilder.class)
 public class GroupDefinition {
 
-    String selectionRule;
-
-    // RuleExpressionNode ruleExpressionTree;
-
+    ASTStart expressionTree;
     String policyName;
 
+
     @Builder
-    GroupDefinition(@NonNull String selectionRule, @NonNull String policyName) {
-        this.selectionRule = selectionRule;
-        //TODO build binary expression tree from rule string
-        // this.ruleExpressionTree = null;
+    GroupDefinition(@NonNull String selectionRule, @NonNull String policyName) throws ParseException {
+        this.expressionTree = new RuleExpression(new StringReader(selectionRule)).Start();
         this.policyName = policyName;
     }
 
     @JsonPOJOBuilder(withPrefix = "")
     public static class GroupDefinitionBuilder {
+    }
+
+    /**
+     * Returns true if the client device represented by the specified session
+     * belongs to this device group.
+     * @param session session representing the client device to be tested
+     * @return true if the client device belongs to the group
+     */
+    public boolean containsClientDevice(Session session) {
+        ExpressionVisitor visitor = new ExpressionVisitor();
+        return (boolean) visitor.visit(expressionTree, session);
     }
 }

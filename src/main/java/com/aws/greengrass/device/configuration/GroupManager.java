@@ -41,9 +41,16 @@ public class GroupManager {
                 .collect(Collectors.toMap(group -> group, group -> config.getGroupToPermissionsMap().get(group)));
     }
 
-    @SuppressWarnings("PMD.UnusedFormalParameter")
     private Set<String> findMatchingGroups(Map<String, GroupDefinition> groupDefinitionMap, Session session) {
-        //TODO iterate groups to find matching group(s), return the group names
-        return Collections.emptySet();
+        Set<String> matchingGroups = Collections.emptySet();
+
+        for (String groupName : groupDefinitionMap.keySet()) {
+            GroupDefinition group = groupDefinitionMap.get(groupName);
+            if (group.containsClientDevice(session)) {
+                matchingGroups.add(groupName);
+            }
+        }
+
+        return matchingGroups;
     }
 }

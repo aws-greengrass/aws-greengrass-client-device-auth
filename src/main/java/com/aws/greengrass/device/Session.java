@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.device;
 
+import com.aws.greengrass.device.attribute.AttributeProvider;
+import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.iot.Certificate;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,7 +32,9 @@ public class Session extends ConcurrentHashMap<String, AttributeProvider> {
      * @return Session attribute
      */
     public DeviceAttribute getSessionAttribute(String attributeNamespace, String attributeName) {
-        // TODO: Avoid NPE
-        return this.get(attributeNamespace).getDeviceAttributes().get(attributeName);
+        if (this.get(attributeNamespace) != null) {
+            return this.get(attributeNamespace).getDeviceAttributes().get(attributeName);
+        }
+        return null;
     }
 }
