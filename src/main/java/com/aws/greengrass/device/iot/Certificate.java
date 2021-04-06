@@ -23,9 +23,11 @@ public class Certificate implements AttributeProvider {
     private String certificatePem;
     private String certificateId; // Needed in case we cannot talk to IoT
     private String iotCertificateId; // Needed for certificate revocation
+    private final IotAuthClient iotAuthClient;
 
-    public Certificate(String certificatePem) {
+    public Certificate(String certificatePem, IotAuthClient iotAuthClient) {
         this.certificatePem = certificatePem;
+        this.iotAuthClient = iotAuthClient;
     }
 
     /**
@@ -53,8 +55,7 @@ public class Certificate implements AttributeProvider {
      */
     public String getIotCertificateId() {
         if (iotCertificateId == null) {
-            // TODO
-            iotCertificateId = "12345";
+            iotCertificateId = iotAuthClient.getActiveCertificateId(certificatePem);
         }
 
         return iotCertificateId;

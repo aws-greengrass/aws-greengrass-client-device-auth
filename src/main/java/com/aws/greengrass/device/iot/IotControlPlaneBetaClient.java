@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 
-public class IotControlPlaneBetaClient {
+public class IotControlPlaneBetaClient implements IotAuthClient {
     private final IotClient iotClient;
 
     /**
@@ -43,8 +43,28 @@ public class IotControlPlaneBetaClient {
         iotClient = IotSdkClientFactory.getIotClient(awsRegion, stage, credentialsProvider);
     }
 
-    public IotControlPlaneBetaClient(final IotClient iotClient) {
+    IotControlPlaneBetaClient(final IotClient iotClient) {
         this.iotClient = iotClient;
+    }
+
+    @Override
+    public String getActiveCertificateId(String certificatePem) {
+        // TODO
+        return null;
+    }
+
+    @Override
+    public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
+        List<String> attachedIds = listThingCertificatePrincipals(thing.getThingName());
+
+        for (String certificateId : attachedIds) {
+            String iotCertificate = downloadSingleDeviceCertificate(certificateId);
+            if (iotCertificate.equals(certificate.getCertificatePem())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
