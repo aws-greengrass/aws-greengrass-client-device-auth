@@ -33,7 +33,7 @@ public class DeviceAuthClient {
     }
 
     public String createSession(String certificatePem) {
-        return null; // TODO
+        return sessionManager.createSession(new Certificate(certificatePem, iotAuthClient));
     }
 
     /**
