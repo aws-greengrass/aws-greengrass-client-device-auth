@@ -31,9 +31,9 @@ import javax.inject.Inject;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 
-@ImplementsService(name = DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME)
-public class DeviceSupportService extends PluginService {
-    public static final String DEVICE_SUPPORT_SERVICE_NAME = "aws.greengrass.DeviceSupport";
+@ImplementsService(name = ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
+public class ClientDevicesAuthService extends PluginService {
+    public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
     public static final String DEVICE_GROUPS_TOPICS = "deviceGroups";
     public static final String CA_TYPE_TOPIC = "ca_type";
     public static final String CA_PASSPHRASE = "ca_passphrase";
@@ -59,8 +59,8 @@ public class DeviceSupportService extends PluginService {
      * @param certificateManager Certificate management
      */
     @Inject
-    public DeviceSupportService(Topics topics, GroupManager groupManager, SessionManager sessionManager,
-                                CertificateManager certificateManager) {
+    public ClientDevicesAuthService(Topics topics, GroupManager groupManager, SessionManager sessionManager,
+                                    CertificateManager certificateManager) {
         super(topics);
         this.groupManager = groupManager;
         this.sessionManager = sessionManager;
@@ -98,7 +98,7 @@ public class DeviceSupportService extends PluginService {
             groupManager.setGroupConfiguration(
                     OBJECT_MAPPER.convertValue(this.deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
         } catch (IllegalArgumentException e) {
-            logger.atError().kv("service", DEVICE_SUPPORT_SERVICE_NAME).kv("event", whatHappened)
+            logger.atError().kv("service", CLIENT_DEVICES_AUTH_SERVICE_NAME).kv("event", whatHappened)
                     .kv("node", this.deviceGroupsTopics.getFullName()).kv("value", this.deviceGroupsTopics)
                     .setCause(e).log("Unable to parse group configuration");
         }

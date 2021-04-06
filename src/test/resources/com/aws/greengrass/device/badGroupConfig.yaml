@@ -5,9 +5,9 @@ services:
       install:
         all: echo All installed
     dependencies:
-      - aws.greengrass.DeviceSupport
+      - aws.greengrass.clientdevices.Auth
 
-  aws.greengrass.DeviceSupport:
+  aws.greengrass.clientdevices.Auth:
     configuration:
       deviceGroups:
         foo: "bar"

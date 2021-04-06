@@ -1,6 +1,6 @@
 ---
 services:
-  aws.greengrass.DeviceSupport:
+  aws.greengrass.clientdevices.Auth:
     configuration:
       ca_type: ["ECDSA_P256"]
   main:
@@ -8,4 +8,4 @@ services:
       install:
         all: echo All installed
     dependencies:
-      - aws.greengrass.DeviceSupport
+      - aws.greengrass.clientdevices.Auth
