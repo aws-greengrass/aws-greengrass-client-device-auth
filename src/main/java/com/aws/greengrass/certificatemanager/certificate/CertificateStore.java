@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
-import com.aws.greengrass.device.DeviceSupportService;
+import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -68,7 +68,7 @@ public class CertificateStore {
 
     @Inject
     public CertificateStore(Kernel kernel) throws IOException {
-        this.workPath = kernel.getNucleusPaths().workPath(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME);
+        this.workPath = kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
     }
 
     // For unit tests

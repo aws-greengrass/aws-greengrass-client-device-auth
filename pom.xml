@@ -9,8 +9,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.aws.greengrass</groupId>
-    <artifactId>device-support</artifactId>
-    <name>greengrass-device-support</name>
+    <artifactId>client-devices-auth</artifactId>
+    <name>greengrass-client-devices-auth</name>
     <packaging>jar</packaging>
     <version>2.0.0-SNAPSHOT</version>
 
@@ -361,7 +361,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <skipTests>false</skipTests>
         <groups></groups>
-        <jar.name>aws.greengrass.CertificateManager</jar.name>
+        <jar.name>aws.greengrass.clientdevices.Auth</jar.name>
     </properties>
     <distributionManagement>
         <snapshotRepository>

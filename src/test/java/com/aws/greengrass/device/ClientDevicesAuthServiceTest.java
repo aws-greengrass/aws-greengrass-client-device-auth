@@ -63,7 +63,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
-class DeviceSupportServiceTest {
+class ClientDevicesAuthServiceTest {
     private static final long TEST_TIME_OUT_SEC = 30L;
 
     private Kernel kernel;
@@ -93,17 +93,17 @@ class DeviceSupportServiceTest {
     }
 
     private void startNucleusWithConfig(String configFileName) throws InterruptedException, IOException {
-        CountDownLatch deviceSupportRunning = new CountDownLatch(1);
+        CountDownLatch authServiceRunning = new CountDownLatch(1);
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
-            if (DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME.equals(service.getName()) && service.getState()
+            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName()) && service.getState()
                     .equals(State.RUNNING)) {
-                deviceSupportRunning.countDown();
+                authServiceRunning.countDown();
             }
         });
         kernel.launch();
-        assertThat(deviceSupportRunning.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS), is(true));
+        assertThat(authServiceRunning.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS), is(true));
     }
 
     @Test
@@ -180,7 +180,7 @@ class DeviceSupportServiceTest {
         startNucleusWithConfig("config.yaml");
         CountDownLatch countDownLatch = new CountDownLatch(1);
 
-        kernel.findServiceTopic(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME)
+        kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
                 .lookup("runtime", "certificates", "authorities").subscribe((why, newv) -> {
             List<String> caPemList = (List<String>) newv.toPOJO();
             if (caPemList != null) {
@@ -196,25 +196,25 @@ class DeviceSupportServiceTest {
             throws InterruptedException, ServiceLoadException, IOException {
         startNucleusWithConfig("config.yaml");
 
-        DeviceSupportService deviceSupportService =
-                (DeviceSupportService) kernel.locate(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME);
+        ClientDevicesAuthService clientDevicesAuthService =
+                (ClientDevicesAuthService) kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
 
         List<String> expectedCACerts = new ArrayList<>(Arrays.asList("CA1"));
-        deviceSupportService.updateCACertificateConfig(expectedCACerts);
+        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
         assertCaCertTopicContains(expectedCACerts);
 
         expectedCACerts.add("CA2");
-        deviceSupportService.updateCACertificateConfig(expectedCACerts);
+        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
         assertCaCertTopicContains(expectedCACerts);
 
         expectedCACerts.remove("CA1");
         expectedCACerts.add("CA3");
-        deviceSupportService.updateCACertificateConfig(expectedCACerts);
+        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
         assertCaCertTopicContains(expectedCACerts);
     }
 
     void assertCaCertTopicContains(List<String> expectedCerts) {
-        Topic caCertTopic = kernel.findServiceTopic(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME)
+        Topic caCertTopic = kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
                 .lookup("runtime", "certificates", "authorities");
         List<String> caPemList = (List<String>) caCertTopic.toPOJO();
         Assertions.assertNotNull(caPemList);
@@ -246,16 +246,16 @@ class DeviceSupportServiceTest {
     }
 
     private String getCaPassphrase() {
-        Topic caPassphraseTopic = kernel.findServiceTopic(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME)
+        Topic caPassphraseTopic = kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
                 .lookup("runtime", "ca_passphrase");
         return (String) caPassphraseTopic.toPOJO();
     }
 
     private List<String> getCaCertificates()
             throws ServiceLoadException, CertificateEncodingException, KeyStoreException, IOException {
-        DeviceSupportService deviceSupportService =
-                (DeviceSupportService) kernel.locate(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME);
-        return deviceSupportService.getCertificateManager().getCACertificates();
+        ClientDevicesAuthService clientDevicesAuthService =
+                (ClientDevicesAuthService) kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
+        return clientDevicesAuthService.getCertificateManager().getCACertificates();
     }
 
 
@@ -268,9 +268,9 @@ class DeviceSupportServiceTest {
         X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
         assertThat(initialCA.getSigAlgName(), is(CertificateHelper.RSA_SIGNING_ALGORITHM));
 
-        kernel.locate(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME).getConfig()
+        kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
                 .find(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
-                        DeviceSupportService.CA_TYPE_TOPIC).withValue(Collections.singletonList("RSA_2048"));
+                        ClientDevicesAuthService.CA_TYPE_TOPIC).withValue(Collections.singletonList("RSA_2048"));
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();
 
@@ -279,9 +279,9 @@ class DeviceSupportServiceTest {
         assertThat(secondCA.getSigAlgName(), is(CertificateHelper.RSA_SIGNING_ALGORITHM));
         assertThat(initialCA, is(secondCA));
 
-        kernel.locate(DeviceSupportService.DEVICE_SUPPORT_SERVICE_NAME).getConfig()
+        kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
                 .find(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
-                        DeviceSupportService.CA_TYPE_TOPIC).withValue(Collections.singletonList("ECDSA_P256"));
+                        ClientDevicesAuthService.CA_TYPE_TOPIC).withValue(Collections.singletonList("ECDSA_P256"));
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();
 
