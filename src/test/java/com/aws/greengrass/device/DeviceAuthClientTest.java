@@ -8,6 +8,7 @@ package com.aws.greengrass.device;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.IotControlPlaneBetaClient;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +20,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.emptyOrNullString;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class DeviceAuthClientTest {
     @Mock
     private IotControlPlaneBetaClient mockIotClient;

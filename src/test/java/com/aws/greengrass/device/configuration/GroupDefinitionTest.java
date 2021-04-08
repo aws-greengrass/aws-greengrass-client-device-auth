@@ -11,6 +11,7 @@ import com.aws.greengrass.device.attribute.StringLiteralAttribute;
 import com.aws.greengrass.device.configuration.parser.ParseException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.device.iot.IotControlPlaneBetaClient;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,7 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.mockito.ArgumentMatchers.any;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class GroupDefinitionTest {
     @Mock
     private IotControlPlaneBetaClient mockIotClient;
