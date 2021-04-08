@@ -14,9 +14,6 @@ import com.aws.greengrass.config.WhatHappened;
 import com.aws.greengrass.dependency.ImplementsService;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
-import com.aws.greengrass.device.exception.AuthorizationException;
-import com.aws.greengrass.device.iot.Certificate;
-import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.Utils;
@@ -31,6 +28,7 @@ import javax.inject.Inject;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 
+@SuppressWarnings("PMD.DataClass")
 @ImplementsService(name = ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
@@ -44,8 +42,6 @@ public class ClientDevicesAuthService extends PluginService {
 
     private final GroupManager groupManager;
 
-    private final SessionManager sessionManager;
-
     private final CertificateManager certificateManager;
 
     private Topics deviceGroupsTopics;
@@ -55,15 +51,12 @@ public class ClientDevicesAuthService extends PluginService {
      *
      * @param topics         Root Configuration topic for this service
      * @param groupManager   Group configuration management
-     * @param sessionManager Session management
      * @param certificateManager Certificate management
      */
     @Inject
-    public ClientDevicesAuthService(Topics topics, GroupManager groupManager, SessionManager sessionManager,
-                                    CertificateManager certificateManager) {
+    public ClientDevicesAuthService(Topics topics, GroupManager groupManager, CertificateManager certificateManager) {
         super(topics);
         this.groupManager = groupManager;
-        this.sessionManager = sessionManager;
         this.certificateManager = certificateManager;
     }
 
@@ -138,28 +131,5 @@ public class ClientDevicesAuthService extends PluginService {
         Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE)
                 .dflt(CertificateStore.generateRandomPassphrase());
         return Coerce.toString(caPassphrase);
-    }
-
-    /**
-     * determine device operation authorization.
-     *
-     * @param request authorization request including operation, resource, sessionId, clientId
-     * @return if device is authorized
-     * @throws AuthorizationException if session not existed or expired
-     */
-    public boolean canDevicePerform(AuthorizationRequest request) throws AuthorizationException {
-        Session session = sessionManager.findSession(request.getSessionId());
-        if (session == null) {
-            throw new AuthorizationException(
-                    String.format("session %s isn't existed or expired", request.getSessionId()));
-        }
-
-        Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
-        Thing thing = new Thing(request.getClientId());
-        // if thing name is already cached, proceed;
-        // otherwise validate thing name with certificate, then cache thing name
-        session.computeIfAbsent(thing.getNamespace(), (k) -> thing.isCertificateAttached(certificate) ? thing : null);
-        return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
-                groupManager.getApplicablePolicyPermissions(session));
     }
 }

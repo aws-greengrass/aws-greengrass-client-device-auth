@@ -8,6 +8,7 @@ package com.aws.greengrass.device.iot;
 import com.aws.greengrass.device.attribute.AttributeProvider;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.attribute.StringLiteralAttribute;
+import lombok.Getter;
 
 import java.util.Collections;
 import java.util.Map;
@@ -17,6 +18,7 @@ public class Thing implements AttributeProvider {
     public static final String NAMESPACE = "Thing";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
 
+    @Getter
     private final String thingName;
 
     /**
@@ -29,11 +31,6 @@ public class Thing implements AttributeProvider {
             throw new IllegalArgumentException("Invalid ThingName");
         }
         this.thingName = thingName;
-    }
-
-    public boolean isCertificateAttached(Certificate certificate) {
-        // TODO
-        return true;
     }
 
     @Override

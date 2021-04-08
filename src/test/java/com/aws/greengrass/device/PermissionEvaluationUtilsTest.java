@@ -6,7 +6,10 @@
 package com.aws.greengrass.device;
 
 import com.aws.greengrass.device.configuration.Permission;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -17,6 +20,7 @@ import java.util.Set;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 class PermissionEvaluationUtilsTest {
 
     @Test

@@ -20,9 +20,9 @@ import java.util.regex.Pattern;
 public final class PermissionEvaluationUtils {
     private static final Logger logger = LogManager.getLogger(PermissionEvaluationUtils.class);
     private static final String ANY_REGEX = "*";
-    private static final String SERVICE_PATTERN_STRING = "([a-z]+)";
+    private static final String SERVICE_PATTERN_STRING = "([a-zA-Z]+)";
     private static final String SERVICE_OPERATION_PATTERN_STRING = "([a-zA-Z0-9-_]+)";
-    private static final String SERVICE_RESOURCE_TYPE_PATTERN_STRING = "([a-z]+)";
+    private static final String SERVICE_RESOURCE_TYPE_PATTERN_STRING = "([a-zA-Z]+)";
     private static final String SERVICE_RESOURCE_NAME_PATTERN_STRING = "([a-zA-Z0-9-_$/+]+)";
     private static final String SERVICE_OPERATION_FORMAT = "%s:%s";
     private static final String SERVICE_RESOURCE_FORMAT = "%s:%s:%s";
