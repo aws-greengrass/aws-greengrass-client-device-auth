@@ -21,6 +21,7 @@ public class DeviceAuthClient {
 
     /**
      * Constructor.
+     *
      * @param sessionManager Session manager
      * @param groupManager   Group manager
      * @param iotAuthClient  Iot auth client
@@ -37,17 +38,17 @@ public class DeviceAuthClient {
     }
 
     /**
-     * determine device operation authorization.
+     * Determine whether the requested device operation is allowed.
      *
      * @param request authorization request including operation, resource, sessionId, clientId
      * @return if device is authorized
-     * @throws AuthorizationException if session not existed or expired
+     * @throws AuthorizationException if session is invalid
      */
     public boolean canDevicePerform(AuthorizationRequest request) throws AuthorizationException {
         Session session = sessionManager.findSession(request.getSessionId());
         if (session == null) {
             throw new AuthorizationException(
-                    String.format("session %s isn't existed or expired", request.getSessionId()));
+                    String.format("invalid session id (%s)", request.getSessionId()));
         }
 
         Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
