@@ -6,24 +6,17 @@
 package com.aws.greengrass.certificatemanager;
 
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
-import com.aws.greengrass.certificatemanager.certificate.CertificateDownloader;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
-import com.aws.greengrass.certificatemanager.model.DeviceConfig;
 import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.KeyFactory;
 import java.security.KeyStore;
@@ -32,14 +25,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.EncodedKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -91,30 +81,7 @@ public class CertificateManagerTest {
             "g6FM9ak2LgmWO2UZvFV0dl+EUmYFZFXETrjE3gaM3svuYRIgWCtxYbkFjTocSTW+\n" +
             "xw6vjYSXhB49pvE=\n" +
             "-----END CERTIFICATE REQUEST-----";
-    private static final String IOT_CERT_RESPONSE = "-----BEGIN CERTIFICATE-----\n" +
-            "MIIDWTCCAkGgAwIBAgIUcMgL9j0BQ6HqadaNuHh/x1WRpd0wDQYJKoZIhvcNAQEL\n" +
-            "BQAwTTFLMEkGA1UECwxCQW1hem9uIFdlYiBTZXJ2aWNlcyBPPUFtYXpvbi5jb20g\n" +
-            "SW5jLiBMPVNlYXR0bGUgU1Q9V2FzaGluZ3RvbiBDPVVTMB4XDTIwMDYwNTAxMTY1\n" +
-            "OFoXDTQ5MTIzMTIzNTk1OVowHjEcMBoGA1UEAwwTQVdTIElvVCBDZXJ0aWZpY2F0\n" +
-            "ZTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANgiX9P2FVDYjCdSvLdY\n" +
-            "H4wpP0IrSpKzfL6FdjzzPx83cZ2EsxmgifhhEOCtbmXrXn8qECd+KtCmbxHXuVnf\n" +
-            "rKRp7SEBG+rebZjgyCom3wlffQsns1DZTiL3wMsxJn5CF7qZ3c/kuxNeD7CHk8XR\n" +
-            "eJk0anA5Grks8TO5opT75SE4fwvuVyVvi0n54TYM0736Zve+viVs7VfX7zuuFmYr\n" +
-            "UVVO07/drT+QD9l+guV57ti0xuLj00utxuL4yf4upKuNQQjWqq6JtL4W/p5l4VZB\n" +
-            "ZH/qHAJC7cBLMsovJOYtRTJM9TG0gA7zO6QpN9tOt17kkx24EE0Dyvt2ydcaC/A/\n" +
-            "W6ECAwEAAaNgMF4wHwYDVR0jBBgwFoAUY1ds6Gn8cB4AbMFNdkrQJNYXleMwHQYD\n" +
-            "VR0OBBYEFMDPfTQjWsyNXxQczxMfhI7JymQIMAwGA1UdEwEB/wQCMAAwDgYDVR0P\n" +
-            "AQH/BAQDAgeAMA0GCSqGSIb3DQEBCwUAA4IBAQBHVKnpobp93Jo1bvg5M4CG3wCq\n" +
-            "f40eRErlcZ9XmuYHwzNXjOQCVE14BcuuwefWi1BcCgcjScI7Dxp8PAlL2GtOsl/l\n" +
-            "va/XaWoS93bEULTNc8rcm54wnEiQiZf4IaMrljPDwJOOWXQHglpnbfTQCgRE7Mev\n" +
-            "7YytSBhlUbgLCEE/IJVbD7aM9vn1t63zqJAnVXsqs5DTvf5+2qBzD0+gkkuSTbVj\n" +
-            "67kQAMZs/MBVR2+94Ka5jAPSmotUwJADNQHKD5wB1vLc4vi7TfyDCA/dG0WtDmrx\n" +
-            "knISpDCZWWbdcCNFfZVmHGg7F5VBVUCcrB2bz+E9W1PCBYyMCrEJywGxva+w\n" +
-            "-----END CERTIFICATE-----\n";
     private static final int TEST_TIME_OUT_SEC = 1;
-
-    @Mock
-    CertificateDownloader mockCertificateDownloader;
 
     @TempDir
     Path tmpPath;
@@ -123,7 +90,7 @@ public class CertificateManagerTest {
 
     @BeforeEach
     public void beforeEach() throws KeyStoreException {
-        certificateManager = new CertificateManager(mockCertificateDownloader, new CertificateStore(tmpPath));
+        certificateManager = new CertificateManager(new CertificateStore(tmpPath));
         certificateManager.update("", CertificateStore.CAType.RSA_2048);
     }
 
@@ -132,129 +99,6 @@ public class CertificateManagerTest {
         try (PemReader reader = new PemReader(new StringReader(privateKeyString))) {
             EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(reader.readPemObject().getContent());
             return KeyFactory.getInstance("RSA").generatePrivate(keySpec);
-        }
-    }
-
-    private X509Certificate pemToX509Certificate(String certPem) throws IOException, CertificateException {
-        byte[] certBytes = certPem.getBytes(StandardCharsets.UTF_8);
-        CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
-        X509Certificate cert;
-        try (InputStream certStream = new ByteArrayInputStream(certBytes)) {
-            cert = (X509Certificate) certFactory.generateCertificate(certStream);
-        }
-        return cert;
-    }
-
-    @Test
-    public void GIVEN_single_device_WHEN_setDeviceConfigurations_THEN_certificate_downloaded() {
-        List<DeviceConfig> deviceConfigList = new ArrayList<>();
-        DeviceConfig dc = new DeviceConfig("deviceArn", "certificateId");
-        deviceConfigList.add(dc);
-
-        Mockito.when(mockCertificateDownloader.downloadSingleDeviceCertificate(Mockito.any()))
-                .thenReturn("certificatePem");
-        certificateManager.setDeviceConfigurations(deviceConfigList);
-        Mockito.verify(mockCertificateDownloader, Mockito.times(1))
-                .downloadSingleDeviceCertificate(dc.getCertificateId());
-    }
-
-    @Test
-    public void GIVEN_new_devices_WHEN_setDeviceConfigurations_THEN_only_new_certificates_are_downloaded() {
-        List<DeviceConfig> deviceConfigList = new ArrayList<>();
-        DeviceConfig dc = new DeviceConfig("deviceArn", "certificateId");
-        deviceConfigList.add(dc);
-
-        Mockito.when(mockCertificateDownloader.downloadSingleDeviceCertificate(Mockito.any()))
-                .thenReturn("certificatePem");
-        certificateManager.setDeviceConfigurations(deviceConfigList);
-
-        DeviceConfig dc2 = new DeviceConfig("deviceArn2", "certificateId2");
-        deviceConfigList.add(dc2);
-
-        certificateManager.setDeviceConfigurations(deviceConfigList);
-        Mockito.verify(mockCertificateDownloader, Mockito.times(1))
-                .downloadSingleDeviceCertificate(dc.getCertificateId());
-        Mockito.verify(mockCertificateDownloader, Mockito.times(1))
-                .downloadSingleDeviceCertificate(dc2.getCertificateId());
-    }
-
-    @Test
-    public void GIVEN_device_list_containing_previously_downloaded_cert_WHEN_setDeviceConfigurations_THEN_certs_are_retrieved_from_disk() {
-        List<DeviceConfig> deviceConfigList = new ArrayList<>();
-        DeviceConfig dc = new DeviceConfig("deviceArn", "certificateId");
-        deviceConfigList.add(dc);
-
-        Mockito.when(mockCertificateDownloader.downloadSingleDeviceCertificate(Mockito.any()))
-                .thenReturn("certificatePem");
-        certificateManager.setDeviceConfigurations(deviceConfigList);
-
-        // Certificate is downloaded first time and stored to disk
-        Mockito.verify(mockCertificateDownloader, Mockito.times(1))
-                .downloadSingleDeviceCertificate(dc.getCertificateId());
-
-        // Remove device from config list
-        certificateManager.setDeviceConfigurations(new ArrayList<>());
-
-        // Certificate should be read from disk
-        certificateManager.setDeviceConfigurations(deviceConfigList);
-        Mockito.verify(mockCertificateDownloader, Mockito.times(1))
-                .downloadSingleDeviceCertificate(dc.getCertificateId());
-    }
-
-    @Test
-    public void GIVEN_deviceConfig_WHEN_getDeviceConfigurations_THEN_all_device_certs_returned() {
-        List<DeviceConfig> deviceConfigList = new ArrayList<>();
-        DeviceConfig dc = new DeviceConfig("deviceArn", "certificateId");
-        DeviceConfig dc2 = new DeviceConfig("deviceArn2", "certificateId2");
-        deviceConfigList.add(dc);
-        deviceConfigList.add(dc2);
-
-        Mockito.when(mockCertificateDownloader.downloadSingleDeviceCertificate(Mockito.any()))
-                .thenReturn("certificatePem");
-        certificateManager.setDeviceConfigurations(deviceConfigList);
-
-        Map<String, String> returnedDeviceCerts = certificateManager.getDeviceCertificates();
-        Assertions.assertEquals(returnedDeviceCerts.size(), deviceConfigList.size());
-        Assertions.assertTrue(returnedDeviceCerts.containsKey(dc.getDeviceArn()));
-        Assertions.assertTrue(returnedDeviceCerts.containsKey(dc2.getDeviceArn()));
-    }
-
-    @Test
-    public void GIVEN_fewer_deviceConfigs_WHEN_getDeviceConfigurations_THEN_fewer_device_certs_returned() {
-        List<DeviceConfig> deviceConfigList = new ArrayList<>();
-        DeviceConfig dc = new DeviceConfig("deviceArn", "certificateId");
-        DeviceConfig dc2 = new DeviceConfig("deviceArn2", "certificateId2");
-        deviceConfigList.add(dc);
-        deviceConfigList.add(dc2);
-
-        Mockito.when(mockCertificateDownloader.downloadSingleDeviceCertificate(Mockito.any()))
-                .thenReturn("certificatePem");
-        certificateManager.setDeviceConfigurations(deviceConfigList);
-
-        deviceConfigList.remove(dc2);
-        certificateManager.setDeviceConfigurations(deviceConfigList);
-        Map<String, String> returnedDeviceCerts = certificateManager.getDeviceCertificates();
-        Assertions.assertEquals(returnedDeviceCerts.size(), deviceConfigList.size());
-        Assertions.assertTrue(returnedDeviceCerts.containsKey(dc.getDeviceArn()));
-    }
-
-    @Test
-    public void GIVEN_deviceCertificates_WHEN_import_into_keystore_THEN_success() {
-        List<DeviceConfig> deviceConfigList = new ArrayList<>();
-        DeviceConfig dc = new DeviceConfig("deviceArn", "certificateId");
-        deviceConfigList.add(dc);
-
-        Mockito.when(mockCertificateDownloader.downloadSingleDeviceCertificate(Mockito.any()))
-                .thenReturn(IOT_CERT_RESPONSE);
-        certificateManager.setDeviceConfigurations(deviceConfigList);
-
-        Map<String, String> returnedDeviceCerts = certificateManager.getDeviceCertificates();
-        try {
-            KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-            ks.load(null, null);
-            ks.setCertificateEntry("deviceArn", pemToX509Certificate(returnedDeviceCerts.get("deviceArn")));
-        } catch (KeyStoreException | IOException | NoSuchAlgorithmException | CertificateException e) {
-            Assertions.fail(e);
         }
     }
 
