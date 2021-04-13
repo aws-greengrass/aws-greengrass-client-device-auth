@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.device.iot;
 
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,7 +22,7 @@ import software.amazon.awssdk.services.iot.model.ListThingPrincipalsResponse;
 import java.util.Arrays;
 import java.util.List;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class IotAuthClientTest {
     @Mock
     private IotClient mockIotClient;

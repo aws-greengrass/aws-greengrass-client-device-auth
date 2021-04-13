@@ -5,12 +5,13 @@
 
 package com.aws.greengrass.device.iot;
 
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class ThingTest {
     @Test
     public void GIVEN_validThingName_WHEN_Thing_THEN_objectIsCreated() {
