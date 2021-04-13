@@ -9,6 +9,7 @@ import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.attribute.StringLiteralAttribute;
 import com.aws.greengrass.device.Session;
 import com.aws.greengrass.device.configuration.ExpressionVisitor;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +20,7 @@ import java.io.StringReader;
 
 import static org.mockito.ArgumentMatchers.any;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class RuleExpressionEvaluationTest {
 
     ASTStart getTree(String expressionString) throws ParseException {

@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.device.configuration.parser;
 
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,7 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.StringReader;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class RuleExpressionASTTest {
 
     ASTStart getTree(String expressionString) throws ParseException {

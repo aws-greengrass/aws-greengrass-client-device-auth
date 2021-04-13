@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.device.iot;
 
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,14 +22,14 @@ import software.amazon.awssdk.services.iot.model.ListThingPrincipalsResponse;
 import java.util.Arrays;
 import java.util.List;
 
-@ExtendWith({MockitoExtension.class})
-public class IotControlPlaneBetaClientTest {
+@ExtendWith({MockitoExtension.class, GGExtension.class})
+public class IotAuthClientTest {
     @Mock
     private IotClient mockIotClient;
 
     @Test
     public void GIVEN_certificateId_WHEN_downloadSingleDeviceCertificate_THEN_certificatePemIsReturned() {
-        IotControlPlaneBetaClient betaClient = new IotControlPlaneBetaClient(mockIotClient);
+        IotAuthClient.Default betaClient = new IotAuthClient.Default(mockIotClient);
 
         Mockito.when(mockIotClient.describeCertificate(Mockito.any(DescribeCertificateRequest.class)))
                 .thenAnswer(i -> {
@@ -46,7 +47,7 @@ public class IotControlPlaneBetaClientTest {
 
     @Test
     public void GIVEN_ThingWithSingleCertPrincipal_WHEN_listThingCertificatePrincipals_THEN_certIdIsReturned() {
-        IotControlPlaneBetaClient betaClient = new IotControlPlaneBetaClient(mockIotClient);
+        IotAuthClient.Default betaClient = new IotAuthClient.Default(mockIotClient);
         ListThingPrincipalsResponse mockListThingPrincipalsResponse = Mockito.mock(ListThingPrincipalsResponse.class);
 
         Mockito.when(mockIotClient.listThingPrincipals((ListThingPrincipalsRequest) Mockito.any()))
@@ -60,7 +61,7 @@ public class IotControlPlaneBetaClientTest {
 
     @Test
     public void GIVEN_ThingWithMultiplePrincipals_WHEN_listThingCertificatePrincipals_THEN_certIdsAreReturned() {
-        IotControlPlaneBetaClient betaClient = new IotControlPlaneBetaClient(mockIotClient);
+        IotAuthClient.Default betaClient = new IotAuthClient.Default(mockIotClient);
         ListThingPrincipalsResponse mockListThingPrincipalsResponse = Mockito.mock(ListThingPrincipalsResponse.class);
 
         Mockito.when(mockIotClient.listThingPrincipals((ListThingPrincipalsRequest) Mockito.any()))
@@ -77,7 +78,7 @@ public class IotControlPlaneBetaClientTest {
 
     @Test
     public void GIVEN_ThingWithNoCertPrincipals_WHEN_listThingCertificatePrincipals_THEN_emptyListIsReturned() {
-        IotControlPlaneBetaClient betaClient = new IotControlPlaneBetaClient(mockIotClient);
+        IotAuthClient.Default betaClient = new IotAuthClient.Default(mockIotClient);
         ListThingPrincipalsResponse mockListThingPrincipalsResponse = Mockito.mock(ListThingPrincipalsResponse.class);
 
         Mockito.when(mockIotClient.listThingPrincipals((ListThingPrincipalsRequest) Mockito.any()))
