@@ -6,7 +6,7 @@
 package com.aws.greengrass.device;
 
 import com.aws.greengrass.device.iot.Certificate;
-import com.aws.greengrass.device.iot.IotControlPlaneBetaClient;
+import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
@@ -18,7 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class SessionTest {
     @Mock
-    private IotControlPlaneBetaClient mockIotClient;
+    private IotAuthClient mockIotClient;
 
     @Test
     public void GIVEN_sessionWithThingAndCert_WHEN_getSessionAttributes_THEN_attributesAreReturned() {

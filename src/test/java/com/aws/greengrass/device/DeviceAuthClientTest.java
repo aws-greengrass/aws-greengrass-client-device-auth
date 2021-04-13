@@ -9,7 +9,7 @@ import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.Certificate;
-import com.aws.greengrass.device.iot.IotControlPlaneBetaClient;
+import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.hamcrest.collection.IsMapContaining;
@@ -45,7 +45,7 @@ public class DeviceAuthClientTest {
     private GroupManager groupManager;
 
     @Mock
-    private IotControlPlaneBetaClient iotClient;
+    private IotAuthClient iotClient;
 
     @Test
     void GIVEN_emptySessionManager_WHEN_createSession_THEN_sessionReturned() {
