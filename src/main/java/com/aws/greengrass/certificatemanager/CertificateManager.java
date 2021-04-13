@@ -114,6 +114,47 @@ public class CertificateManager {
     }
 
     /**
+     * Subscribe to client certificate updates.
+     * <p>
+     * The certificate manager will save the given CSR and generate a new certificate under the following scenarios:
+     *   1) The previous certificate is nearing expiry
+     * Certificates will continue to be generated until the client calls unsubscribeFromCertificateUpdates.
+     * </p>
+     *
+     * @param csr Certificate signing request
+     * @param cb  Certificate consumer
+     * @throws KeyStoreException if unable to access KeyStore
+     * @throws CsrProcessingException if unable to process CSR
+     */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
+            throws KeyStoreException, CsrProcessingException {
+        // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
+        // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
+        try {
+            Instant now = Instant.now();
+            PKCS10CertificationRequest pkcs10CertificationRequest =
+                    CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
+            X509Certificate certificate = CertificateHelper.signClientCertificateRequest(
+                    certificateStore.getCACertificate(),
+                    certificateStore.getCAPrivateKey(),
+                    pkcs10CertificationRequest,
+                    Date.from(now),
+                    Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
+
+            // TODO: Save cb
+            // For now, just generate certificate and accept it
+            cb.accept(certificate);
+        } catch (KeyStoreException e) {
+            logger.atError().setCause(e).log("unable to subscribe to certificate update");
+            throw e;
+        } catch (RuntimeException | OperatorCreationException | NoSuchAlgorithmException | CertificateException
+                | InvalidKeyException | IOException e) {
+            throw new CsrProcessingException(csr, e);
+        }
+    }
+
+    /**
      * Unsubscribe from server certificate updates.
      *
      * @param cb Certificate consumer
