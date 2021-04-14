@@ -18,7 +18,11 @@ import software.amazon.awssdk.services.iot.model.DescribeCertificateResponse;
 import software.amazon.awssdk.services.iot.model.ListThingPrincipalsRequest;
 import software.amazon.awssdk.services.iot.model.ListThingPrincipalsResponse;
 
+import java.io.ByteArrayInputStream;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
@@ -62,11 +66,22 @@ public interface IotAuthClient {
         public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
             List<String> attachedIds = listThingCertificatePrincipals(thing.getThingName());
 
-            for (String certificateId : attachedIds) {
-                String iotCertificate = downloadSingleDeviceCertificate(certificateId);
-                if (iotCertificate.equals(certificate.getCertificatePem())) {
-                    return true;
+            try {
+                CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                java.security.cert.Certificate certObj =
+                        cf.generateCertificate(new ByteArrayInputStream(
+                                certificate.getCertificatePem().getBytes(StandardCharsets.UTF_8)));
+
+                for (String certificateId : attachedIds) {
+                    String iotCertificate = downloadSingleDeviceCertificate(certificateId);
+                    java.security.cert.Certificate iotCertObj = cf.generateCertificate(
+                            new ByteArrayInputStream(iotCertificate.getBytes(StandardCharsets.UTF_8)));
+                    if (certObj.equals(iotCertObj)) {
+                        return true;
+                    }
                 }
+            } catch (CertificateException e) {
+                return false;
             }
 
             return false;
