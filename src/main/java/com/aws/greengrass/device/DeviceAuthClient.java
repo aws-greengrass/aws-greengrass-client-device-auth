@@ -10,10 +10,13 @@ import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 
 import javax.inject.Inject;
 
 public class DeviceAuthClient {
+    private final Logger logger = LogManager.getLogger(DeviceAuthClient.class);
 
     private final SessionManager sessionManager;
     private final GroupManager groupManager;
@@ -55,8 +58,14 @@ public class DeviceAuthClient {
         Thing thing = new Thing(request.getClientId());
         // if thing name is already cached, proceed;
         // otherwise validate thing name with certificate, then cache thing name
-        session.computeIfAbsent(thing.getNamespace(),
-                (k) -> iotAuthClient.isThingAttachedToCertificate(thing, certificate) ? thing : null);
+        session.computeIfAbsent(thing.getNamespace(), (k) -> {
+            if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
+                return thing;
+            }
+            logger.atWarn().kv("sessionId", request.getSessionId()).kv("thing", request.getClientId())
+                    .log("unable to validate Thing");
+            return null;
+        });
         return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
                 groupManager.getApplicablePolicyPermissions(session));
     }
