@@ -8,15 +8,16 @@ package com.aws.greengrass.device.configuration;
 import com.aws.greengrass.device.Session;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
- * a singleton manager class for managing device group roles. It listens to configuration update through nucleus, On the
- * hand, for each request in a session, it iterate through the configurations to find match group(s), returning the
- * authorization policies of group(s).
+ * Singleton manager class for managing device group roles and retrieving permissions associated
+ * with Sessions. To determine device permissions, the GroupManager first determines which device
+ * groups a Session belongs to, and then merges device group permissions.
  */
 public class GroupManager {
     private final AtomicReference<GroupConfiguration> groupConfigurationRef = new AtomicReference<>();
@@ -42,7 +43,7 @@ public class GroupManager {
     }
 
     private Set<String> findMatchingGroups(Map<String, GroupDefinition> groupDefinitionMap, Session session) {
-        Set<String> matchingGroups = Collections.emptySet();
+        Set<String> matchingGroups = new HashSet<>();
 
         for (String groupName : groupDefinitionMap.keySet()) {
             GroupDefinition group = groupDefinitionMap.get(groupName);
