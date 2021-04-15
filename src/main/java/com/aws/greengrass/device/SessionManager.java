@@ -1,5 +1,6 @@
 package com.aws.greengrass.device;
 
+import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.Certificate;
 
 import java.util.UUID;
@@ -15,6 +16,7 @@ public class SessionManager {
 
     /**
      * find session by id.
+     *
      * @param sessionId session identifier
      * @return session or null
      */
@@ -24,6 +26,7 @@ public class SessionManager {
 
     /**
      * create session with certificate.
+     *
      * @param certificate certificate stored in session
      * @return session id
      */
@@ -31,6 +34,19 @@ public class SessionManager {
         String sessionId = generateSessionId();
         sessionMap.put(sessionId, new Session(certificate));
         return sessionId;
+    }
+
+    /**
+     * close the session by id.
+     *
+     * @param sessionId session identifier
+     * @throws AuthorizationException if no session associated with sessionId
+     */
+    public synchronized void closeSession(String sessionId) throws AuthorizationException {
+        if (!sessionMap.containsKey(sessionId)) {
+            throw new AuthorizationException(String.format("No session is associated with session id (%s)", sessionId));
+        }
+        sessionMap.remove(sessionId);
     }
 
     private String generateSessionId() {

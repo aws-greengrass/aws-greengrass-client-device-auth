@@ -120,4 +120,11 @@ public class DeviceAuthClientTest {
         return AuthorizationRequest.builder().sessionId("sessionId").clientId("clientId").operation("mqtt:publish")
                 .resource("mqtt:topic:foo").build();
     }
+
+    @Test
+    void GIVEN_session_id_WHEN_close_session_THEN_invoke_session_manager_close_session() throws Exception {
+        authClient.closeSession("id");
+
+        verify(sessionManager).closeSession("id");
+    }
 }

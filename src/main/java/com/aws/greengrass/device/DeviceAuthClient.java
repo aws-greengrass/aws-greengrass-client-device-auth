@@ -40,6 +40,10 @@ public class DeviceAuthClient {
         return sessionManager.createSession(new Certificate(certificatePem, iotAuthClient));
     }
 
+    public void closeSession(String sessionId) throws AuthorizationException {
+        sessionManager.closeSession(sessionId);
+    }
+
     /**
      * Determine whether the requested device operation is allowed.
      *
