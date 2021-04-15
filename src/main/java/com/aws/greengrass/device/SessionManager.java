@@ -42,11 +42,11 @@ public class SessionManager {
      * @param sessionId session identifier
      * @throws AuthorizationException if no session associated with sessionId
      */
-    public synchronized void closeSession(String sessionId) throws AuthorizationException {
-        if (!sessionMap.containsKey(sessionId)) {
+    public void closeSession(String sessionId) throws AuthorizationException {
+        Session session = sessionMap.get(sessionId);
+        if (!sessionMap.remove(sessionId, session)) {
             throw new AuthorizationException(String.format("No session is associated with session id (%s)", sessionId));
         }
-        sessionMap.remove(sessionId);
     }
 
     private String generateSessionId() {
