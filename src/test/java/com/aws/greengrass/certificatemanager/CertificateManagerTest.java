@@ -7,6 +7,7 @@ package com.aws.greengrass.certificatemanager;
 
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +35,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateManagerTest {
     private static final String RSA_KEY = "-----BEGIN PRIVATE KEY-----\n" +
             "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC9PUlisa3uJNA0\n" +
@@ -89,7 +90,7 @@ public class CertificateManagerTest {
     private CertificateManager certificateManager;
 
     @BeforeEach
-    public void beforeEach() throws KeyStoreException {
+    void beforeEach() throws KeyStoreException {
         certificateManager = new CertificateManager(new CertificateStore(tmpPath));
         certificateManager.update("", CertificateStore.CAType.RSA_2048);
     }
@@ -103,14 +104,14 @@ public class CertificateManagerTest {
     }
 
     @Test
-    public void GIVEN_default_cert_manager_WHEN_getCACertificates_THEN_single_ca_returned()
+    void GIVEN_default_cert_manager_WHEN_getCACertificates_THEN_single_ca_returned()
             throws CertificateEncodingException, KeyStoreException, IOException {
         List<String> caPemList = certificateManager.getCACertificates();
         Assertions.assertEquals(1, caPemList.size(), "expected single CA certificate");
     }
 
     @Test
-    public void GIVEN_valid_csr_WHEN_subscribeToCertificateUpdates_THEN_certificate_received()
+    void GIVEN_valid_csr_WHEN_subscribeToCertificateUpdates_THEN_certificate_received()
             throws InterruptedException, KeyStoreException, CsrProcessingException {
         CountDownLatch certificateReceived = new CountDownLatch(1);
         Consumer<X509Certificate> cb = t -> {
@@ -122,7 +123,7 @@ public class CertificateManagerTest {
     }
 
     @Test
-    public void GIVEN_generatedCertificate_WHEN_importing_into_java_keystore_THEN_success()
+    void GIVEN_generatedCertificate_WHEN_importing_into_java_keystore_THEN_success()
             throws KeyStoreException, CsrProcessingException {
         Consumer<X509Certificate> cb = t -> {
             try {
@@ -139,7 +140,24 @@ public class CertificateManagerTest {
     }
 
     @Test
-    public void GIVEN_null_parameters_WHEN_subscribeToCertificateUpdates_THEN_throws_npe() {
+    void GIVEN_generatedClientCertificate_WHEN_importing_into_java_keystore_THEN_imported_both_key_and_certificate_chain()
+            throws KeyStoreException, CsrProcessingException {
+        Consumer<X509Certificate[]> cb = t -> {
+            try {
+                KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+                ks.load(null, null);
+                ks.setKeyEntry("key", getRsaPrivateKeyFromPem(RSA_KEY), "".toCharArray(), t);
+            } catch (KeyStoreException | IOException | NoSuchAlgorithmException
+                    | CertificateException | InvalidKeySpecException e) {
+                Assertions.fail(e);
+            }
+        };
+
+        certificateManager.subscribeToClientCertificateUpdates(RSA_CSR, cb);
+    }
+
+    @Test
+    void GIVEN_null_parameters_WHEN_subscribeToCertificateUpdates_THEN_throws_npe() {
         Consumer<X509Certificate> cb = t -> {};
         Assertions.assertThrows(NullPointerException.class, () ->
                 certificateManager.subscribeToServerCertificateUpdates(null, cb));
@@ -148,14 +166,14 @@ public class CertificateManagerTest {
     }
 
     @Test
-    public void GIVEN_invalid_pem_WHEN_subscribeToCertificateUpdates_THEN_throws_CsrProcessingException() {
+    void GIVEN_invalid_pem_WHEN_subscribeToCertificateUpdates_THEN_throws_CsrProcessingException() {
         Consumer<X509Certificate> cb = t -> {};
         Assertions.assertThrows(CsrProcessingException.class, () ->
                 certificateManager.subscribeToServerCertificateUpdates("INVALID_PEM", cb));
     }
 
     @Test
-    public void GIVEN_corrupt_csr_WHEN_subscribeToCertificateUpdates_THEN_throws_CsrProcessingException() {
+    void GIVEN_corrupt_csr_WHEN_subscribeToCertificateUpdates_THEN_throws_CsrProcessingException() {
         Consumer<X509Certificate> cb = t -> {};
         String badCsr = "-----BEGIN CERTIFICATE REQUEST-----\n" +
                 "MIICXzCCAUcCAQAwGjELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAldBMIIBIjANBgkq\n" +

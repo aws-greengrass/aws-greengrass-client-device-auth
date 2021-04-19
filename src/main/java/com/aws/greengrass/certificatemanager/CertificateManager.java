@@ -127,7 +127,7 @@ public class CertificateManager {
      * @throws CsrProcessingException if unable to process CSR
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
+    public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate[]> cb)
             throws KeyStoreException, CsrProcessingException {
         // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
         // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
@@ -135,16 +135,17 @@ public class CertificateManager {
             Instant now = Instant.now();
             PKCS10CertificationRequest pkcs10CertificationRequest =
                     CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
-            X509Certificate certificate = CertificateHelper.signClientCertificateRequest(
-                    certificateStore.getCACertificate(),
+            X509Certificate caCertificate = certificateStore.getCACertificate();
+            X509Certificate clientCertificate = CertificateHelper.signClientCertificateRequest(
+                    caCertificate,
                     certificateStore.getCAPrivateKey(),
                     pkcs10CertificationRequest,
                     Date.from(now),
                     Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
-
+            X509Certificate[] chain = {clientCertificate, caCertificate};
             // TODO: Save cb
             // For now, just generate certificate and accept it
-            cb.accept(certificate);
+            cb.accept(chain);
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
