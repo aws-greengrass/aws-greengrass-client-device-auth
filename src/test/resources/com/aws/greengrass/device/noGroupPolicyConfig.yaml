@@ -21,14 +21,14 @@ services:
         policies:
           policyNameTypo:
             policyStatement1:
-              policyDescription: "mqtt connect"
+              statementDescription: "mqtt connect"
               effect: ALLOW
               operations:
                 - "mqtt:connect"
               resources:
                 - "mqtt:broker:localBroker"
             policyStatement2:
-              policyDescription: "mqtt publish"
+              statementDescription: "mqtt publish"
               effect: ALLOW
               operations:
                 - "mqtt:publish"

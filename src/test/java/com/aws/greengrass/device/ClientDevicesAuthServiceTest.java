@@ -176,7 +176,7 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_GG_with_dsc_WHEN_subscribing_to_ca_updates_THEN_get_list_of_certs() throws Exception {
+    void GIVEN_GG_with_cda_WHEN_subscribing_to_ca_updates_THEN_get_list_of_certs() throws Exception {
         startNucleusWithConfig("config.yaml");
         CountDownLatch countDownLatch = new CountDownLatch(1);
 
@@ -222,7 +222,7 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_GG_with_dsc_WHEN_restart_kernel_THEN_ca_is_persisted()
+    void GIVEN_GG_with_cda_WHEN_restart_kernel_THEN_ca_is_persisted()
             throws InterruptedException, CertificateEncodingException, KeyStoreException, IOException,
             ServiceLoadException {
         startNucleusWithConfig("config.yaml");
@@ -260,7 +260,7 @@ class ClientDevicesAuthServiceTest {
 
 
     @Test
-    void GIVEN_GG_with_dsc_WHEN_updated_ca_type_THEN_ca_is_updated()
+    void GIVEN_GG_with_cda_WHEN_updated_ca_type_THEN_ca_is_updated()
             throws InterruptedException, ServiceLoadException, KeyStoreException, CertificateException, IOException {
         startNucleusWithConfig("config.yaml");
 
@@ -302,7 +302,7 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_GG_with_dsc_WHEN_ca_type_provided_in_config_THEN_valid_ca_created()
+    void GIVEN_GG_with_cda_WHEN_ca_type_provided_in_config_THEN_valid_ca_created()
             throws IOException, InterruptedException, ServiceLoadException, CertificateException, KeyStoreException {
         startNucleusWithConfig("config_with_ec_ca.yaml");
 

@@ -18,7 +18,7 @@ import java.util.Set;
 @JsonDeserialize(builder = AuthorizationPolicyStatement.AuthorizationPolicyStatementBuilder.class)
 public class AuthorizationPolicyStatement {
 
-    String policyDescription;
+    String statementDescription;
 
     @Builder.Default
     Effect effect = Effect.ALLOW;
