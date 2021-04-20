@@ -7,6 +7,8 @@ package com.aws.greengrass.certificatemanager;
 
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
+import com.aws.greengrass.dcmclient.Client;
+import com.aws.greengrass.dcmclient.ClientException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Assertions;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
@@ -84,6 +87,9 @@ public class CertificateManagerTest {
             "-----END CERTIFICATE REQUEST-----";
     private static final int TEST_TIME_OUT_SEC = 1;
 
+    @Mock
+    Client mockClient;
+
     @TempDir
     Path tmpPath;
 
@@ -91,7 +97,7 @@ public class CertificateManagerTest {
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
-        certificateManager = new CertificateManager(new CertificateStore(tmpPath));
+        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockClient);
         certificateManager.update("", CertificateStore.CAType.RSA_2048);
     }
 
@@ -112,7 +118,7 @@ public class CertificateManagerTest {
 
     @Test
     void GIVEN_valid_csr_WHEN_subscribeToCertificateUpdates_THEN_certificate_received()
-            throws InterruptedException, KeyStoreException, CsrProcessingException {
+            throws InterruptedException, KeyStoreException, CsrProcessingException, ClientException {
         CountDownLatch certificateReceived = new CountDownLatch(1);
         Consumer<X509Certificate> cb = t -> {
             certificateReceived.countDown();
@@ -124,7 +130,7 @@ public class CertificateManagerTest {
 
     @Test
     void GIVEN_generatedCertificate_WHEN_importing_into_java_keystore_THEN_success()
-            throws KeyStoreException, CsrProcessingException {
+            throws KeyStoreException, CsrProcessingException, ClientException {
         Consumer<X509Certificate> cb = t -> {
             try {
                 KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -141,7 +147,7 @@ public class CertificateManagerTest {
 
     @Test
     void GIVEN_generatedClientCertificate_WHEN_importing_into_java_keystore_THEN_imported_both_key_and_certificate_chain()
-            throws KeyStoreException, CsrProcessingException {
+            throws KeyStoreException, CsrProcessingException, ClientException {
         Consumer<X509Certificate[]> cb = t -> {
             try {
                 KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());

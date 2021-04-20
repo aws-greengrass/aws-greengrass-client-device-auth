@@ -1,6 +1,10 @@
 package com.aws.greengrass.dcmclient;
 
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.SdkClient;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoRequest;
+import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoResponse;
 import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoRequest;
 import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoResponse;
 
@@ -18,6 +22,12 @@ public interface DataPlaneClient extends SdkClient {
 
     default UpdateConnectivityInfoResponse updateConnectivityInfo(
             UpdateConnectivityInfoRequest updateConnectivityInfoRequest) {
+        throw new UnsupportedOperationException();
+    }
+
+    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
+    default GetConnectivityInfoResponse getConnectivityInfo(GetConnectivityInfoRequest getConnectivityInfoRequest)
+            throws AwsServiceException, SdkClientException {
         throw new UnsupportedOperationException();
     }
 }

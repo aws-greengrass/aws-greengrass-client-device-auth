@@ -8,6 +8,7 @@ import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
 import software.amazon.awssdk.core.client.config.SdkClientOption;
 import software.amazon.awssdk.core.client.handler.ClientExecutionParams;
 import software.amazon.awssdk.core.client.handler.SyncClientHandler;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.http.HttpResponseHandler;
 import software.amazon.awssdk.core.metrics.CoreMetric;
 import software.amazon.awssdk.metrics.MetricCollector;
@@ -19,6 +20,8 @@ import software.amazon.awssdk.protocols.json.AwsJsonProtocolFactory;
 import software.amazon.awssdk.protocols.json.BaseAwsJsonProtocolFactory;
 import software.amazon.awssdk.protocols.json.JsonOperationMetadata;
 import software.amazon.awssdk.services.greengrass.model.BadRequestException;
+import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoRequest;
+import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoResponse;
 import software.amazon.awssdk.services.greengrass.model.GreengrassException;
 import software.amazon.awssdk.services.greengrass.model.InternalServerErrorException;
 import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoRequest;
@@ -33,7 +36,8 @@ public class DataPlaneDefaultClient implements DataPlaneClient {
     private static final String ERROR_CODE_BAD_REQUEST = "BadRequestException";
     private static final String INTERNAL_SERVER_ERROR_EXCEPTION = "InternalServerErrorException";
     private static final String SERVICE_NAME = "greengrass";
-    private static final String OPERATION_NAME = "UpdateConnectivityInfo";
+    private static final String UPDATE_OPERATION_NAME = "UpdateConnectivityInfo";
+    private static final String GET_OPERATION_NAME = "GetConnectivityInfo";
     private static final String API_CALL = "ApiCall";
 
     private final SyncClientHandler clientHandler;
@@ -115,13 +119,14 @@ public class DataPlaneDefaultClient implements DataPlaneClient {
         try {
             apiCallMetricCollector.reportMetric(CoreMetric.SERVICE_ID, "Greengrass");
             apiCallMetricCollector.reportMetric(CoreMetric.OPERATION_NAME,
-                    OPERATION_NAME);
+                    UPDATE_OPERATION_NAME);
             updateConnectivityInfoResponse = (UpdateConnectivityInfoResponse)this.clientHandler
-                    .execute(new ClientExecutionParams().withOperationName(OPERATION_NAME)
+                    .execute(new ClientExecutionParams().withOperationName(UPDATE_OPERATION_NAME)
                             .withResponseHandler(responseHandler).withErrorResponseHandler(errorResponseHandler)
                             .withInput(updateConnectivityInfoRequest)
                             .withMetricCollector(apiCallMetricCollector)
-                            .withMarshaller(new  DataPlaneClientMarshaller(this.protocolFactory)));
+                            .withMarshaller(
+                                    new DataPlaneUpdateConnectivityInfoRequestMarshaller(this.protocolFactory)));
         } finally {
             metricPublishers.forEach((p) -> {
                 p.publish(apiCallMetricCollector.collect());
@@ -129,6 +134,51 @@ public class DataPlaneDefaultClient implements DataPlaneClient {
         }
 
         return updateConnectivityInfoResponse;
+    }
+
+    /**
+     * Get connectivity information about the device.
+     *
+     * @param getConnectivityInfoRequest connectivity info request to get the connectivity information
+     * @return connectivity info response containing connectivity information
+     * @throws AwsServiceException AwsServiceException
+     * @throws SdkClientException  SdkClientException
+     */
+    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
+    @Override
+    public GetConnectivityInfoResponse getConnectivityInfo(GetConnectivityInfoRequest getConnectivityInfoRequest)
+            throws AwsServiceException, SdkClientException {
+        if (getConnectivityInfoRequest == null) {
+            return null;
+        }
+
+        JsonOperationMetadata operationMetadata = JsonOperationMetadata.builder().hasStreamingSuccessResponse(false)
+                .isPayloadJson(true).build();
+        HttpResponseHandler<GetConnectivityInfoResponse> responseHandler = this.protocolFactory
+                .createResponseHandler(operationMetadata, GetConnectivityInfoResponse::builder);
+        HttpResponseHandler<AwsServiceException> errorResponseHandler = this.createErrorResponseHandler(
+                this.protocolFactory, operationMetadata);
+        List<MetricPublisher> metricPublishers = resolveMetricPublishers(this.clientConfiguration,
+                getConnectivityInfoRequest.overrideConfiguration().orElse(null));
+        MetricCollector apiCallMetricCollector = metricPublishers.isEmpty() ? NoOpMetricCollector.create()
+                : MetricCollector.create(API_CALL);
+
+        GetConnectivityInfoResponse getConnectivityInfoResponse;
+        try {
+            apiCallMetricCollector.reportMetric(CoreMetric.SERVICE_ID, "Greengrass");
+            apiCallMetricCollector.reportMetric(CoreMetric.OPERATION_NAME, GET_OPERATION_NAME);
+            getConnectivityInfoResponse = (GetConnectivityInfoResponse)this.clientHandler
+                    .execute(new ClientExecutionParams().withOperationName(GET_OPERATION_NAME)
+                            .withResponseHandler(responseHandler).withErrorResponseHandler(errorResponseHandler)
+                            .withInput(getConnectivityInfoRequest).withMetricCollector(apiCallMetricCollector)
+                            .withMarshaller(new DataPlaneGetConnectivityInfoRequestMarshaller(this.protocolFactory)));
+        } finally {
+            metricPublishers.forEach((p) -> {
+                p.publish(apiCallMetricCollector.collect());
+            });
+        }
+
+        return getConnectivityInfoResponse;
     }
 
     private HttpResponseHandler<AwsServiceException> createErrorResponseHandler(

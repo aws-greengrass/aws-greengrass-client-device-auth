@@ -8,19 +8,22 @@ package com.aws.greengrass.certificatemanager.certificate;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore.CAType;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.services.greengrass.model.ConnectivityInfo;
 
-import java.net.InetAddress;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -47,14 +50,17 @@ public class CertificateHelperTest {
         certificateStore = new CertificateStore(tmpPath);
     }
 
-    private X509Certificate signServerCSRWithCA(String csr) throws Exception {
+    private X509Certificate signServerCSRWithCA(String csr, List<ConnectivityInfo> connectivityInfos) throws Exception {
         Instant now = Instant.now();
         PKCS10CertificationRequest pkcs10CertificationRequest =
                 CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
+        JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
         X509Certificate certificate = CertificateHelper.signServerCertificateRequest(
                 certificateStore.getCACertificate(),
                 certificateStore.getCAPrivateKey(),
-                pkcs10CertificationRequest,
+                jcaRequest.getSubject(),
+                jcaRequest.getPublicKey(),
+                connectivityInfos,
                 Date.from(now),
                 Date.from(now.plusSeconds(60)));
 
@@ -73,7 +79,7 @@ public class CertificateHelperTest {
         KeyPair kp = CertificateStore.newRSAKeyPair();
         String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
 
-        X509Certificate certificate = signServerCSRWithCA(csr);
+        X509Certificate certificate = signServerCSRWithCA(csr, Collections.emptyList());
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
     }
 
@@ -85,7 +91,7 @@ public class CertificateHelperTest {
         KeyPair kp = CertificateStore.newECKeyPair();
         String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
 
-        X509Certificate certificate = signServerCSRWithCA(csr);
+        X509Certificate certificate = signServerCSRWithCA(csr, Collections.emptyList());
         assertThat(certificate.getSigAlgName(), equalTo(ECDSA_CERT_SIG_ALG));
     }
 
@@ -97,7 +103,7 @@ public class CertificateHelperTest {
         KeyPair kp = CertificateStore.newRSAKeyPair();
         String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
 
-        X509Certificate certificate = signServerCSRWithCA(csr);
+        X509Certificate certificate = signServerCSRWithCA(csr, Collections.emptyList());
         assertThat(certificate.getSigAlgName(), equalTo(ECDSA_CERT_SIG_ALG));
     }
 
@@ -109,7 +115,7 @@ public class CertificateHelperTest {
         KeyPair kp = CertificateStore.newECKeyPair();
         String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
 
-        X509Certificate certificate = signServerCSRWithCA(csr);
+        X509Certificate certificate = signServerCSRWithCA(csr, Collections.emptyList());
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
     }
 
@@ -140,12 +146,13 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.RSA_2048);
 
         KeyPair kp = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN,
-                Arrays.asList(InetAddress.getByName("127.0.0.1")), null);
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
+                .metadata("").id("172.8.8.10").portNumber(8883).build();
 
-        X509Certificate certificate = signServerCSRWithCA(csr);
+        X509Certificate certificate = signServerCSRWithCA(csr, Collections.singletonList(connectivityInfo));
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
-        assertThat(certificate.getSubjectAlternativeNames().toString(), containsString("127.0.0.1"));
+        assertThat(certificate.getSubjectAlternativeNames().toString(), containsString("172.8.8.10"));
     }
 
     @Test
@@ -154,9 +161,11 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.RSA_2048);
 
         KeyPair kp = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, Arrays.asList("localhost"));
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("localhost")
+                .metadata("").id("localhost").portNumber(8883).build();
 
-        X509Certificate certificate = signServerCSRWithCA(csr);
+        X509Certificate certificate = signServerCSRWithCA(csr, Collections.singletonList(connectivityInfo));
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
         assertThat(certificate.getSubjectAlternativeNames().toString(), containsString("localhost"));
     }
@@ -168,12 +177,15 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.RSA_2048);
 
         KeyPair kp = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN,
-                Arrays.asList(InetAddress.getByName("127.0.0.1")), Arrays.asList("localhost"));
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
+                .metadata("").id("172.8.8.10").portNumber(8883).build();
+        ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
+                .metadata("").id("localhost").portNumber(8883).build();
 
-        X509Certificate certificate = signServerCSRWithCA(csr);
+        X509Certificate certificate = signServerCSRWithCA(csr, Arrays.asList(connectivityInfo, connectivityInfo1));
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
-        assertThat(certificate.getSubjectAlternativeNames().toString(), containsString("127.0.0.1"));
+        assertThat(certificate.getSubjectAlternativeNames().toString(), containsString("172.8.8.10"));
         assertThat(certificate.getSubjectAlternativeNames().toString(), containsString("localhost"));
     }
 
@@ -188,10 +200,12 @@ public class CertificateHelperTest {
         Instant now = Instant.now();
         PKCS10CertificationRequest pkcs10CertificationRequest =
                 CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
+        JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
         X509Certificate certificate = CertificateHelper.signClientCertificateRequest(
                 certificateStore.getCACertificate(),
                 certificateStore.getCAPrivateKey(),
-                pkcs10CertificationRequest,
+                jcaRequest.getSubject(),
+                jcaRequest.getPublicKey(),
                 Date.from(now),
                 Date.from(now.plusSeconds(60)));
 

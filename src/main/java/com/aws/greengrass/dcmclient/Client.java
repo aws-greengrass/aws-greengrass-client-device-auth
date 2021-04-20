@@ -7,14 +7,19 @@ import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.Utils;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.greengrass.model.ConnectivityInfo;
+import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoRequest;
+import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoResponse;
 import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoRequest;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import javax.inject.Inject;
 
@@ -61,6 +66,28 @@ public class Client {
         greengrassClient.updateConnectivityInfo(updateConnectivityInfoRequest);
     }
 
+    /**
+     * Get connectivity info.
+     *
+     * @return list of connectivity info items
+     * @throws ClientException ClientException
+     */
+    public List<ConnectivityInfo> getConnectivityInfo() throws ClientException {
+        GetConnectivityInfoRequest getConnectivityInfoRequest = GetConnectivityInfoRequest.builder()
+                .thingName(Coerce.toString(deviceConfiguration.getThingName())).build();
+
+        try {
+            GetConnectivityInfoResponse getConnectivityInfoResponse = greengrassClient
+                    .getConnectivityInfo(getConnectivityInfoRequest);
+            if (getConnectivityInfoResponse.hasConnectivityInfo()) {
+                return getConnectivityInfoResponse.connectivityInfo();
+            } else {
+                return Collections.emptyList();
+            }
+        } catch (AwsServiceException | SdkClientException e) {
+            throw new ClientException(e);
+        }
+    }
 
     @SuppressWarnings("PMD.ConfusingTernary")
     private void configureClient() {

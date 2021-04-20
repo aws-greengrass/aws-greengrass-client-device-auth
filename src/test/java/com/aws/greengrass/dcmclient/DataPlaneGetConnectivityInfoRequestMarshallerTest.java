@@ -16,12 +16,10 @@ import software.amazon.awssdk.protocols.core.OperationInfo;
 import software.amazon.awssdk.protocols.json.BaseAwsJsonProtocolFactory;
 import software.amazon.awssdk.protocols.json.SdkJsonGenerator;
 import software.amazon.awssdk.protocols.json.internal.marshall.JsonProtocolMarshallerBuilder;
-import software.amazon.awssdk.services.greengrass.model.ConnectivityInfo;
-import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoRequest;
+import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoRequest;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -29,27 +27,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith({MockitoExtension.class})
-public class DataPlaneClientMarshallerTest {
+public class DataPlaneGetConnectivityInfoRequestMarshallerTest {
 
+    private DataPlaneGetConnectivityInfoRequestMarshaller dataPlaneGetConnectivityInfoRequestMarshaller;
 
-    private DataPlaneClientMarshaller dataPlaneClientMarshaller;
     @Mock
     private BaseAwsJsonProtocolFactory baseAwsJsonProtocolFactory;
 
     @Test
-    public void GIVEN_update_connectivity_request_WHEN_valid_THEN_marshall_request_returned() throws URISyntaxException {
-        UpdateConnectivityInfoRequest updateConnectivityInfoRequest = UpdateConnectivityInfoRequest.builder()
+    public void GIVEN_get_connectivity_request_WHEN_valid_THEN_marshall_request_returned() throws URISyntaxException {
+        GetConnectivityInfoRequest getConnectivityInfoRequest = GetConnectivityInfoRequest.builder()
                 .thingName("thingName")
-                .connectivityInfo(new ArrayList<>())
                 .overrideConfiguration(AwsRequestOverrideConfiguration.builder()
                         .credentialsProvider(DefaultCredentialsProvider.builder().build()).build())
-                .connectivityInfo(ConnectivityInfo.builder().hostAddress(TestConstants.IP_2).portNumber(0)
-                        .id(TestConstants.IP_2).build())
                 .build();
 
         OperationInfo operationInfo = OperationInfo.builder()
                 .requestUri(String.format("/%s/%s", TestConstants.PATH, TestConstants.THING_NAME))
-                .httpMethod(SdkHttpMethod.POST).hasExplicitPayloadMember(false).hasPayloadMembers(true).build();
+                .httpMethod(SdkHttpMethod.GET).hasExplicitPayloadMember(false).hasPayloadMembers(false).build();
 
         Mockito.doReturn(JsonProtocolMarshallerBuilder.create()
                 .endpoint(new URI(String.format("%s://%s", TestConstants.PROTOCOL, TestConstants.IP_2)))
@@ -58,18 +53,18 @@ public class DataPlaneClientMarshallerTest {
                 .operationInfo(operationInfo).build())
                 .when(baseAwsJsonProtocolFactory).createProtocolMarshaller(any());
 
-        dataPlaneClientMarshaller = new DataPlaneClientMarshaller(baseAwsJsonProtocolFactory);
-        SdkHttpFullRequest marshall = dataPlaneClientMarshaller.marshall(updateConnectivityInfoRequest);
+        dataPlaneGetConnectivityInfoRequestMarshaller = new DataPlaneGetConnectivityInfoRequestMarshaller(baseAwsJsonProtocolFactory);
+        SdkHttpFullRequest marshall = dataPlaneGetConnectivityInfoRequestMarshaller.marshall(getConnectivityInfoRequest);
         assertEquals(String.format("%s://%s/%s/%s", TestConstants.PROTOCOL, TestConstants.IP_2, TestConstants.PATH,
                 TestConstants.THING_NAME), marshall.getUri().toString());
     }
 
     @Test
-    public void GIVEN_update_connectivity_request_WHEN_invalid_THEN_throws_exception() throws URISyntaxException {
+    public void GIVEN_get_connectivity_request_WHEN_invalid_THEN_throws_exception() throws URISyntaxException {
 
         OperationInfo operationInfo = OperationInfo.builder()
                 .requestUri(String.format("/%s/%s", TestConstants.PATH, TestConstants.THING_NAME))
-                .httpMethod(SdkHttpMethod.POST).hasExplicitPayloadMember(false).hasPayloadMembers(true).build();
+                .httpMethod(SdkHttpMethod.GET).hasExplicitPayloadMember(false).hasPayloadMembers(false).build();
 
         Mockito.lenient().doReturn(JsonProtocolMarshallerBuilder.create()
                 .endpoint(new URI(String.format("%s://%s", TestConstants.PROTOCOL, TestConstants.IP_2)))
@@ -78,10 +73,10 @@ public class DataPlaneClientMarshallerTest {
                 .operationInfo(operationInfo).build())
                 .when(baseAwsJsonProtocolFactory).createProtocolMarshaller(any());
 
-        dataPlaneClientMarshaller = new DataPlaneClientMarshaller(baseAwsJsonProtocolFactory);
+        dataPlaneGetConnectivityInfoRequestMarshaller = new DataPlaneGetConnectivityInfoRequestMarshaller(baseAwsJsonProtocolFactory);
         NullPointerException ex = Assertions.assertThrows(NullPointerException.class,
-                () -> dataPlaneClientMarshaller.marshall(null));
+                () -> dataPlaneGetConnectivityInfoRequestMarshaller.marshall(null));
 
-        assertThat(ex.getMessage(), containsString("updateConnectivityInfoRequest must not be null"));
+        assertThat(ex.getMessage(), containsString("getConnectivityInfoRequest must not be null"));
     }
 }

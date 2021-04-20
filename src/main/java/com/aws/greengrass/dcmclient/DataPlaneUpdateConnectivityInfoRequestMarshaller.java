@@ -12,7 +12,7 @@ import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoRe
 import software.amazon.awssdk.utils.Validate;
 
 
-public class DataPlaneClientMarshaller  implements Marshaller<UpdateConnectivityInfoRequest> {
+public class DataPlaneUpdateConnectivityInfoRequestMarshaller implements Marshaller<UpdateConnectivityInfoRequest> {
     private static final OperationInfo SDK_OPERATION_BINDING;
     private final BaseAwsJsonProtocolFactory protocolFactory;
 
@@ -21,7 +21,7 @@ public class DataPlaneClientMarshaller  implements Marshaller<UpdateConnectivity
      *
      * @param protocolFactory protocol factory to set the protocol information
      */
-    public DataPlaneClientMarshaller(BaseAwsJsonProtocolFactory protocolFactory) {
+    public DataPlaneUpdateConnectivityInfoRequestMarshaller(BaseAwsJsonProtocolFactory protocolFactory) {
         this.protocolFactory = protocolFactory;
     }
 
