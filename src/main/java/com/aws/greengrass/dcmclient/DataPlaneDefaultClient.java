@@ -1,18 +1,13 @@
 package com.aws.greengrass.dcmclient;
 
-import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.awscore.client.handler.AwsSyncClientHandler;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.RequestOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
 import software.amazon.awssdk.core.client.config.SdkClientOption;
-import software.amazon.awssdk.core.client.handler.ClientExecutionParams;
 import software.amazon.awssdk.core.client.handler.SyncClientHandler;
 import software.amazon.awssdk.core.http.HttpResponseHandler;
-import software.amazon.awssdk.core.metrics.CoreMetric;
-import software.amazon.awssdk.metrics.MetricCollector;
 import software.amazon.awssdk.metrics.MetricPublisher;
-import software.amazon.awssdk.metrics.NoOpMetricCollector;
 import software.amazon.awssdk.protocols.core.ExceptionMetadata;
 import software.amazon.awssdk.protocols.json.AwsJsonProtocol;
 import software.amazon.awssdk.protocols.json.AwsJsonProtocolFactory;
@@ -21,19 +16,17 @@ import software.amazon.awssdk.protocols.json.JsonOperationMetadata;
 import software.amazon.awssdk.services.greengrass.model.BadRequestException;
 import software.amazon.awssdk.services.greengrass.model.GreengrassException;
 import software.amazon.awssdk.services.greengrass.model.InternalServerErrorException;
-import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoRequest;
-import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoResponse;
 
 import java.util.Collections;
 import java.util.List;
 
+@SuppressWarnings({"PMD.UnusedPrivateField", "PMD.UnusedPrivateMethod"})
 public class DataPlaneDefaultClient implements DataPlaneClient {
 
     private static final String PROTOCOL_VERSION = "1.1";
     private static final String ERROR_CODE_BAD_REQUEST = "BadRequestException";
     private static final String INTERNAL_SERVER_ERROR_EXCEPTION = "InternalServerErrorException";
     private static final String SERVICE_NAME = "greengrass";
-    private static final String OPERATION_NAME = "UpdateConnectivityInfo";
     private static final String API_CALL = "ApiCall";
 
     private final SyncClientHandler clientHandler;
@@ -80,56 +73,6 @@ public class DataPlaneDefaultClient implements DataPlaneClient {
 
         return publishers;
    }
-
-    /**
-     * Update connectivity information about the device.
-     *
-     * @param updateConnectivityInfoRequest connectivity info request to send the connectivity information
-     */
-    @Override
-    public UpdateConnectivityInfoResponse updateConnectivityInfo(
-            UpdateConnectivityInfoRequest updateConnectivityInfoRequest) {
-        if (updateConnectivityInfoRequest == null) {
-            return null;
-        }
-
-        JsonOperationMetadata operationMetadata = JsonOperationMetadata.builder()
-                .hasStreamingSuccessResponse(false).isPayloadJson(true).build();
-
-        HttpResponseHandler<UpdateConnectivityInfoResponse> responseHandler
-                = this.protocolFactory.createResponseHandler(operationMetadata,
-                UpdateConnectivityInfoResponse::builder);
-
-        HttpResponseHandler<AwsServiceException> errorResponseHandler = this
-                .createErrorResponseHandler(this.protocolFactory, operationMetadata);
-
-        List<MetricPublisher> metricPublishers
-                = resolveMetricPublishers(this.clientConfiguration,
-                updateConnectivityInfoRequest.overrideConfiguration()
-                        .orElse(AwsRequestOverrideConfiguration.builder().build()));
-
-        MetricCollector apiCallMetricCollector = metricPublishers.isEmpty() ? NoOpMetricCollector.create()
-                : MetricCollector.create(API_CALL);
-
-        UpdateConnectivityInfoResponse updateConnectivityInfoResponse;
-        try {
-            apiCallMetricCollector.reportMetric(CoreMetric.SERVICE_ID, "Greengrass");
-            apiCallMetricCollector.reportMetric(CoreMetric.OPERATION_NAME,
-                    OPERATION_NAME);
-            updateConnectivityInfoResponse = (UpdateConnectivityInfoResponse)this.clientHandler
-                    .execute(new ClientExecutionParams().withOperationName(OPERATION_NAME)
-                            .withResponseHandler(responseHandler).withErrorResponseHandler(errorResponseHandler)
-                            .withInput(updateConnectivityInfoRequest)
-                            .withMetricCollector(apiCallMetricCollector)
-                            .withMarshaller(new  DataPlaneClientMarshaller(this.protocolFactory)));
-        } finally {
-            metricPublishers.forEach((p) -> {
-                p.publish(apiCallMetricCollector.collect());
-            });
-        }
-
-        return updateConnectivityInfoResponse;
-    }
 
     private HttpResponseHandler<AwsServiceException> createErrorResponseHandler(
             BaseAwsJsonProtocolFactory protocolFactory, JsonOperationMetadata operationMetadata) {
