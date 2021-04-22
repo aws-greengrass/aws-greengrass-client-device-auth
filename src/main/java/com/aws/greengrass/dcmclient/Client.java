@@ -11,11 +11,8 @@ import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.greengrass.model.ConnectivityInfo;
-import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoRequest;
 
 import java.net.URI;
-import java.util.List;
 import javax.inject.Inject;
 
 public class Client {
@@ -41,24 +38,6 @@ public class Client {
     Client(DeviceConfiguration deviceConfiguration, DataPlaneClient greengrassClient) {
         this.deviceConfiguration = deviceConfiguration;
         this.greengrassClient = greengrassClient;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param connectivityInfoItems list of connectivity info items
-     */
-    public void updateConnectivityInfo(List<ConnectivityInfo> connectivityInfoItems) {
-        if (connectivityInfoItems == null || connectivityInfoItems.isEmpty()) {
-            return;
-        }
-
-        UpdateConnectivityInfoRequest updateConnectivityInfoRequest = UpdateConnectivityInfoRequest.builder()
-                .thingName(Coerce.toString(deviceConfiguration.getThingName()))
-                .connectivityInfo(connectivityInfoItems)
-                .build();
-
-        greengrassClient.updateConnectivityInfo(updateConnectivityInfoRequest);
     }
 
 
