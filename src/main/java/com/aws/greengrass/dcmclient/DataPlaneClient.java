@@ -1,8 +1,6 @@
 package com.aws.greengrass.dcmclient;
 
 import software.amazon.awssdk.core.SdkClient;
-import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoRequest;
-import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoResponse;
 
 public interface DataPlaneClient extends SdkClient {
     /*
@@ -14,10 +12,5 @@ public interface DataPlaneClient extends SdkClient {
     * */
     static DataPlaneClientDefaultBuilder builder() {
         return new DataPlaneClientDefaultBuilder();
-    }
-
-    default UpdateConnectivityInfoResponse updateConnectivityInfo(
-            UpdateConnectivityInfoRequest updateConnectivityInfoRequest) {
-        throw new UnsupportedOperationException();
     }
 }
