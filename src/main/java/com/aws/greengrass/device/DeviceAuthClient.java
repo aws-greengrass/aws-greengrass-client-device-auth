@@ -13,6 +13,7 @@ import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.utils.StringInputStream;
 
 import java.io.IOException;
@@ -149,22 +150,28 @@ public class DeviceAuthClient {
 
         Session session = sessionManager.findSession(request.getSessionId());
         if (session == null) {
-            throw new AuthorizationException(
-                    String.format("invalid session id (%s)", request.getSessionId()));
+            throw new AuthorizationException(String.format("invalid session id (%s)", request.getSessionId()));
         }
 
         Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
         Thing thing = new Thing(request.getClientId());
-        // if thing name is already cached, proceed;
-        // otherwise validate thing name with certificate, then cache thing name
-        session.computeIfAbsent(thing.getNamespace(), (k) -> {
-            if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
-                return thing;
-            }
-            logger.atWarn().kv("sessionId", request.getSessionId()).kv("thing", request.getClientId())
-                    .log("unable to validate Thing");
-            return null;
-        });
+        try {
+            // if thing name is already cached, proceed;
+            // otherwise validate thing name with certificate, then cache thing name
+            session.computeIfAbsent(thing.getNamespace(), (k) -> {
+                if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
+                    return thing;
+                }
+                logger.atWarn().kv("sessionId", request.getSessionId()).kv("thing", request.getClientId())
+                        .log("unable to validate Thing");
+                return null;
+            });
+        } catch (SdkException e) {
+            logger.atError().kv("sessionId", request.getSessionId()).kv("thing", request.getClientId()).cause(e)
+                    .log("error occurred when validating Thing");
+            throw new AuthorizationException(
+                    String.format("error occurred when validating thing %s", request.getClientId()), e);
+        }
         return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
                 groupManager.getApplicablePolicyPermissions(session));
     }

@@ -19,14 +19,15 @@ import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.hamcrest.collection.IsMapContaining;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.services.iot.model.ResourceNotFoundException;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -39,10 +40,12 @@ import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.emptyOrNullString;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -71,25 +74,27 @@ public class DeviceAuthClientTest {
 
     @Test
     void GIVEN_emptySessionManager_WHEN_createSession_THEN_sessionReturned() {
-        DeviceAuthClient deviceAuthClient = new DeviceAuthClient(new SessionManager(), new GroupManager(), iotClient, certificateStore);
+        DeviceAuthClient deviceAuthClient =
+                new DeviceAuthClient(new SessionManager(), new GroupManager(), iotClient, certificateStore);
         String sessionId = deviceAuthClient.createSession("FAKE_PEM");
         assertThat(sessionId, not(emptyOrNullString()));
     }
 
     @Test
     void GIVEN_invalidSessionId_WHEN_canDevicePerform_THEN_authorizationExceptionThrown() {
-        DeviceAuthClient deviceAuthClient = new DeviceAuthClient(new SessionManager(), new GroupManager(), iotClient, certificateStore);
+        DeviceAuthClient deviceAuthClient =
+                new DeviceAuthClient(new SessionManager(), new GroupManager(), iotClient, certificateStore);
         String sessionId = "FAKE_SESSION";
         AuthorizationRequest authorizationRequest =
                 new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId, "clientId");
-        Assertions.assertThrows(AuthorizationException.class,
-                () -> deviceAuthClient.canDevicePerform(authorizationRequest));
+        assertThrows(AuthorizationException.class, () -> deviceAuthClient.canDevicePerform(authorizationRequest));
     }
 
     @Test
     void GIVEN_missingDevicePermission_WHEN_canDevicePerform_THEN_authorizationExceptionThrown()
             throws AuthorizationException {
-        DeviceAuthClient deviceAuthClient = new DeviceAuthClient(new SessionManager(), new GroupManager(), iotClient, certificateStore);
+        DeviceAuthClient deviceAuthClient =
+                new DeviceAuthClient(new SessionManager(), new GroupManager(), iotClient, certificateStore);
         String sessionId = deviceAuthClient.createSession("FAKE_PEM");
         AuthorizationRequest authorizationRequest =
                 new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId, "clientId");
@@ -111,6 +116,26 @@ public class DeviceAuthClientTest {
         assertThat(authorized, is(true));
         assertThat(session, IsMapContaining.hasKey("Thing"));
         assertThat(session.getSessionAttribute("Thing", "ThingName").toString(), is("clientId"));
+        ArgumentCaptor<Thing> thingArgumentCaptor = ArgumentCaptor.forClass(Thing.class);
+        ArgumentCaptor<Certificate> certificateArgumentCaptor = ArgumentCaptor.forClass(Certificate.class);
+        verify(iotClient)
+                .isThingAttachedToCertificate(thingArgumentCaptor.capture(), certificateArgumentCaptor.capture());
+        assertThat(thingArgumentCaptor.getValue().getThingName(), is("clientId"));
+        assertThat(certificateArgumentCaptor.getValue().getCertificatePem(), is("certificatePem"));
+    }
+
+    @Test
+    void GIVEN_session_no_thing_WHEN_receive_authorization_request_and_validate_thing_error_THEN_throw_authorization_exception(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, ResourceNotFoundException.class);
+
+        Session session = new Session(new Certificate("certificatePem", iotClient));
+        when(sessionManager.findSession("sessionId")).thenReturn(session);
+        when(iotClient.isThingAttachedToCertificate(any(), any())).thenThrow(ResourceNotFoundException.class);
+
+        assertThrows(AuthorizationException.class, () -> authClient.canDevicePerform(constructAuthorizationRequest()));
+
+        assertThat(session, not(IsMapContaining.hasKey("Thing")));
         ArgumentCaptor<Thing> thingArgumentCaptor = ArgumentCaptor.forClass(Thing.class);
         ArgumentCaptor<Certificate> certificateArgumentCaptor = ArgumentCaptor.forClass(Certificate.class);
         verify(iotClient)
@@ -152,8 +177,8 @@ public class DeviceAuthClientTest {
 
     @Test
     void GIVEN_greengrassComponentCertChainPem_WHEN_createSession_THEN_allowAllSessionIdReturned()
-            throws KeyStoreException, NoSuchAlgorithmException, IOException,
-            OperatorCreationException, CsrProcessingException, AuthorizationException, CertificateEncodingException {
+            throws KeyStoreException, NoSuchAlgorithmException, IOException, OperatorCreationException,
+            CsrProcessingException, AuthorizationException, CertificateEncodingException {
         CertificateStore certificateStore = new CertificateStore(tempDir);
         certificateStore.update("password", CertificateStore.CAType.RSA_2048);
         CertificateManager certificateManager = new CertificateManager(certificateStore);
@@ -168,12 +193,13 @@ public class DeviceAuthClientTest {
 
         authClient = new DeviceAuthClient(sessionManager, groupManager, iotClient, certificateStore);
 
-        String certificatePem = CertificateHelper.toPem(clientCertChain.get()[0]) + CertificateHelper.toPem(clientCertChain.get()[1]);
+        String certificatePem =
+                CertificateHelper.toPem(clientCertChain.get()[0]) + CertificateHelper.toPem(clientCertChain.get()[1]);
         assertThat(authClient.createSession(certificatePem), is("ALLOW_ALL"));
 
-        AuthorizationRequest authorizationRequest = AuthorizationRequest.builder()
-                .sessionId("ALLOW_ALL").clientId("clientId")
-                .operation("mqtt:publish").resource("mqtt:topic:foo").build();
+        AuthorizationRequest authorizationRequest =
+                AuthorizationRequest.builder().sessionId("ALLOW_ALL").clientId("clientId").operation("mqtt:publish")
+                        .resource("mqtt:topic:foo").build();
         assertThat(authClient.canDevicePerform(authorizationRequest), is(true));
     }
 }
