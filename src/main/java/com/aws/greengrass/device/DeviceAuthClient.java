@@ -84,13 +84,19 @@ public class DeviceAuthClient {
                     try {
                         certificateList.add((X509Certificate) cf.generateCertificate(is));
                     } catch (CertificateException e) {
+                        // This doesn't necessarily mean there's a bad certificate.
+                        // It could be that the string just has some extra newlines
+                        // characters. Log warning and continue. If this is a meaningful
+                        // failure, then let chain validation catch it.
+                        logger.atWarn().log("Unable to parse entire certificate chain");
                         break;
                     }
                 }
                 return isGreengrassComponent(cf.generateCertPath(certificateList));
             }
         } catch (CertificateException | IOException e) {
-            logger.atInfo().kv("pem", certificatePem).log("Unable to parse certificate");
+            logger.atError().cause(e).kv("pem", certificatePem)
+                    .log("Unable to parse certificate");
         }
         return false;
     }
