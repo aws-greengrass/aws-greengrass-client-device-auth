@@ -140,12 +140,6 @@ public class ClientDevicesAuthService extends PluginService {
             List<String> caCerts = certificateManager.getCACertificates();
             uploadCoreDeviceCertificates(caCerts);
             updateCACertificateConfig(caCerts);
-        } catch (InterruptedException e) {
-            // callback interface doesn't declare throw checked exception
-            // interrupt the current thread so that higher-level interrupt handlers can take care of it
-            // then rethrow runtime exception
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Thread interrupted", e);
         } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException
                 | CloudServiceInteractionException e) {
             serviceErrored(e);
@@ -165,7 +159,7 @@ public class ClientDevicesAuthService extends PluginService {
 
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidRethrowingException"})
     private void uploadCoreDeviceCertificates(List<String> certificatePemList)
-            throws CloudServiceInteractionException, InterruptedException {
+            throws CloudServiceInteractionException {
         String thingName = Coerce.toString(deviceConfiguration.getThingName());
         PutCertificateAuthoritiesRequest request =
                 PutCertificateAuthoritiesRequest.builder().coreDeviceThingName(thingName)
@@ -176,7 +170,9 @@ public class ClientDevicesAuthService extends PluginService {
                     () -> clientFactory.getGreengrassV2DataClient().putCertificateAuthorities(request),
                     "put-core-ca-certificate", logger);
         } catch (InterruptedException e) {
-            throw e;
+            logger.atError().cause(e).log("Put core CA certificates got interrupted");
+            // interrupt the current thread so that higher-level interrupt handlers can take care of it
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
             logger.atError().setCause(e)
                     .kv("coreThingName", thingName)
