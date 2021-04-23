@@ -22,7 +22,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
@@ -64,11 +64,7 @@ public class CertificateManager {
      * @throws CertificateEncodingException if unable to get certificate encoding
      */
     public List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
-        List<String> caList = new ArrayList<>();
-        String caPem = CertificateHelper.toPem(certificateStore.getCACertificate());
-        caList.add(caPem);
-
-        return caList;
+        return Collections.singletonList(CertificateHelper.toPem(certificateStore.getCACertificate()));
     }
 
     /**

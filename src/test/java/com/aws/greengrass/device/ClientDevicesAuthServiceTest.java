@@ -16,6 +16,7 @@ import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsMapContaining;
 import org.hamcrest.collection.IsMapWithSize;
@@ -30,6 +31,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
+import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuthoritiesRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -49,18 +53,23 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class ClientDevicesAuthServiceTest {
@@ -75,16 +84,25 @@ class ClientDevicesAuthServiceTest {
     private GroupManager groupManager;
 
     @Mock
-    private SessionManager sessionManager;
+    private GreengrassServiceClientFactory clientFactory;
+
+    @Mock
+    private GreengrassV2DataClient client;
 
     @Captor
-    ArgumentCaptor<GroupConfiguration> configurationCaptor;
+    private ArgumentCaptor<GroupConfiguration> configurationCaptor;
+
+    @Captor
+    private ArgumentCaptor<PutCertificateAuthoritiesRequest> putCARequestArgumentCaptor;
+
 
     @BeforeEach
     void setup() {
         kernel = new Kernel();
         kernel.getContext().put(GroupManager.class, groupManager);
-        kernel.getContext().put(SessionManager.class, sessionManager);
+        kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
+
+        lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
     }
 
     @AfterEach
@@ -92,13 +110,18 @@ class ClientDevicesAuthServiceTest {
         kernel.shutdown();
     }
 
-    private void startNucleusWithConfig(String configFileName) throws InterruptedException, IOException {
+    private void startNucleusWithConfig(String configFileName) throws InterruptedException {
+        startNucleusWithConfig(configFileName, State.RUNNING);
+    }
+
+
+    private void startNucleusWithConfig(String configFileName, State expectedServiceState) throws InterruptedException {
         CountDownLatch authServiceRunning = new CountDownLatch(1);
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
             if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName()) && service.getState()
-                    .equals(State.RUNNING)) {
+                    .equals(expectedServiceState)) {
                 authServiceRunning.countDown();
             }
         });
@@ -234,6 +257,7 @@ class ClientDevicesAuthServiceTest {
 
         kernel.shutdown();
         kernel = new Kernel().parseArgs("-r", rootDir.toAbsolutePath().toString());
+        kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
         startNucleusWithConfig("config.yaml");
 
         String finalPassphrase = getCaPassphrase();
@@ -289,16 +313,13 @@ class ClientDevicesAuthServiceTest {
         X509Certificate thirdCA = pemToX509Certificate(thirdCACerts.get(0));
         assertThat(thirdCA.getSigAlgName(), is(CertificateHelper.ECDSA_SIGNING_ALGORITHM));
         assertThat(initialCA, is(not(thirdCA)));
-    }
 
-    private X509Certificate pemToX509Certificate(String certPem) throws IOException, CertificateException {
-        byte[] certBytes = certPem.getBytes(StandardCharsets.UTF_8);
-        CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
-        X509Certificate cert;
-        try (InputStream certStream = new ByteArrayInputStream(certBytes)) {
-            cert = (X509Certificate) certFactory.generateCertificate(certStream);
-        }
-        return cert;
+        verify(client, times(3)).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
+        List<List<String>> certificatesInRequests =
+                putCARequestArgumentCaptor.getAllValues().stream().map(
+                        PutCertificateAuthoritiesRequest::coreDeviceCertificates).collect(
+                        Collectors.toList());
+        assertThat(certificatesInRequests, contains(initialCACerts, secondCACerts, thirdCACerts));
     }
 
     @Test
@@ -309,5 +330,28 @@ class ClientDevicesAuthServiceTest {
         List<String> initialCACerts = getCaCertificates();
         X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
         assertThat(initialCA.getSigAlgName(), is(CertificateHelper.ECDSA_SIGNING_ALGORITHM));
+        verify(client).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
+        PutCertificateAuthoritiesRequest request = putCARequestArgumentCaptor.getValue();
+        assertThat(request.coreDeviceCertificates(), is(initialCACerts));
+    }
+
+    @Test
+    void GIVEN_cloud_service_error_WHEN_update_ca_type_THEN_service_in_error_state(ExtensionContext context)
+            throws InterruptedException {
+        ignoreExceptionOfType(context, ResourceNotFoundException.class);
+
+        when(client.putCertificateAuthorities(any(PutCertificateAuthoritiesRequest.class))).thenThrow(
+                ResourceNotFoundException.class);
+        startNucleusWithConfig("config_with_ec_ca.yaml", State.ERRORED);
+    }
+
+    private X509Certificate pemToX509Certificate(String certPem) throws IOException, CertificateException {
+        byte[] certBytes = certPem.getBytes(StandardCharsets.UTF_8);
+        CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+        X509Certificate cert;
+        try (InputStream certStream = new ByteArrayInputStream(certBytes)) {
+            cert = (X509Certificate) certFactory.generateCertificate(certStream);
+        }
+        return cert;
     }
 }
