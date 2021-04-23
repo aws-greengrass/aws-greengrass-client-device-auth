@@ -140,8 +140,14 @@ public class ClientDevicesAuthService extends PluginService {
             List<String> caCerts = certificateManager.getCACertificates();
             uploadCoreDeviceCertificates(caCerts);
             updateCACertificateConfig(caCerts);
+        } catch (InterruptedException e) {
+            // callback interface doesn't declare throw checked exception
+            // interrupt the current thread so that higher-level interrupt handlers can take care of it
+            // then rethrow runtime exception
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Thread interrupted", e);
         } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException
-                | InterruptedException | CloudServiceInteractionException e) {
+                | CloudServiceInteractionException e) {
             serviceErrored(e);
         }
     }
