@@ -6,113 +6,102 @@
 
 package com.aws.greengrass.device.iot;
 
-import com.aws.greengrass.deployment.DeviceConfiguration;
-import com.aws.greengrass.tes.LazyCredentialProvider;
-import com.aws.greengrass.util.Coerce;
-import com.aws.greengrass.util.IotSdkClientFactory;
-import com.aws.greengrass.util.exceptions.InvalidEnvironmentStageException;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.iot.IotClient;
-import software.amazon.awssdk.services.iot.model.DescribeCertificateRequest;
-import software.amazon.awssdk.services.iot.model.DescribeCertificateResponse;
-import software.amazon.awssdk.services.iot.model.ListThingPrincipalsRequest;
-import software.amazon.awssdk.services.iot.model.ListThingPrincipalsResponse;
+import com.aws.greengrass.device.exception.CloudServiceInteractionException;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import com.aws.greengrass.util.RetryUtils;
+import com.aws.greengrass.util.Utils;
+import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityResponse;
+import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIoTCertificateAssociationRequest;
 
-import java.io.ByteArrayInputStream;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.util.List;
-import java.util.stream.Collectors;
 import javax.inject.Inject;
+
+import static com.aws.greengrass.device.ClientDevicesAuthService.SERVICE_EXCEPTION_RETRY_CONFIG;
 
 public interface IotAuthClient {
     String getActiveCertificateId(String certificatePem);
 
     boolean isThingAttachedToCertificate(Thing thing, Certificate certificate);
 
-    class Default implements IotAuthClient {  //Beta impl which invokes iot control plane APIs with sigv4
-        private final IotClient iotClient;
+    class Default implements IotAuthClient {
+        private static final Logger logger = LogManager.getLogger(Default.class);
+
+        private final GreengrassServiceClientFactory clientFactory;
 
         /**
-         * CertificateDownloader constructor.
+         * Default IotAuthClient constructor.
          *
-         * @param credentialsProvider AWS SDK credentials provider
-         * @param deviceConfiguration Greengrass device configuration
-         * @throws InvalidEnvironmentStageException if environment stage is invalid
-         * @throws URISyntaxException               if unable to build iot client
+         * @param clientFactory greengrass cloud service client factory
          */
         @Inject
-        Default(final LazyCredentialProvider credentialsProvider, final DeviceConfiguration deviceConfiguration)
-                throws InvalidEnvironmentStageException, URISyntaxException {
-            Region awsRegion = Region.of(Coerce.toString(deviceConfiguration.getAWSRegion()));
-            IotSdkClientFactory.EnvironmentStage stage = IotSdkClientFactory.EnvironmentStage
-                    .fromString(Coerce.toString(deviceConfiguration.getEnvironmentStage()));
-            iotClient = IotSdkClientFactory.getIotClient(awsRegion, stage, credentialsProvider);
-        }
-
-        Default(final IotClient iotClient) {
-            this.iotClient = iotClient;
+        Default(GreengrassServiceClientFactory clientFactory) {
+            this.clientFactory = clientFactory;
         }
 
         @Override
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         public String getActiveCertificateId(String certificatePem) {
-            // TODO
-            return null;
-        }
-
-        @Override
-        public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
-            List<String> attachedIds = listThingCertificatePrincipals(thing.getThingName());
-
-            try {
-                CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                java.security.cert.Certificate certObj =
-                        cf.generateCertificate(new ByteArrayInputStream(
-                                certificate.getCertificatePem().getBytes(StandardCharsets.UTF_8)));
-
-                for (String certificateId : attachedIds) {
-                    String iotCertificate = downloadSingleDeviceCertificate(certificateId);
-                    java.security.cert.Certificate iotCertObj = cf.generateCertificate(
-                            new ByteArrayInputStream(iotCertificate.getBytes(StandardCharsets.UTF_8)));
-                    if (certObj.equals(iotCertObj)) {
-                        return true;
-                    }
-                }
-            } catch (CertificateException e) {
-                return false;
+            if (Utils.isEmpty(certificatePem)) {
+                throw new IllegalArgumentException("Certificate PEM is empty");
             }
 
-            return false;
+            VerifyClientDeviceIdentityRequest request =
+                    VerifyClientDeviceIdentityRequest.builder().clientDeviceCertificate(certificatePem).build();
+            try {
+                VerifyClientDeviceIdentityResponse response = RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
+                        () -> clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(request),
+                        "verify-client-device-identity", logger);
+                return response.clientDeviceCertificateId();
+            } catch (InterruptedException e) {
+                logger.atError().cause(e).log("Verify client device identity got interrupted");
+                // interrupt the current thread so that higher-level interrupt handlers can take care of it
+                Thread.currentThread().interrupt();
+                throw new CloudServiceInteractionException(
+                        "Failed to verify client device identity, process got interrupted", e);
+            } catch (Exception e) {
+                logger.atError().cause(e).kv("certificatePem", certificatePem)
+                        .log("Failed to verify client device identity with cloud");
+                throw new CloudServiceInteractionException("Failed to verify client device identity", e);
+            }
         }
 
-        /**
-         * Download single IoT device certificate.
-         *
-         * @param certificateId Device certificateId to download
-         * @return Certificate as PEM encoded string
-         */
-        String downloadSingleDeviceCertificate(String certificateId) {
-            DescribeCertificateRequest request =
-                    DescribeCertificateRequest.builder().certificateId(certificateId).build();
+        @Override
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
+            String thingName = thing.getThingName();
+            if (Utils.isEmpty(thingName)) {
+                throw new IllegalArgumentException("No thing name available to validate");
+            }
 
-            DescribeCertificateResponse response = iotClient.describeCertificate(request);
-            return response.certificateDescription().certificatePem();
-        }
+            String iotCertificateId = certificate.getIotCertificateId();
+            if (Utils.isEmpty(iotCertificateId)) {
+                throw new IllegalArgumentException("No IoT certificate ID available to validate");
+            }
 
-        /**
-         * List certificate principals associated with a given Thing.
-         *
-         * @param thingName Iot Thing Name
-         * @return List of certificate principals
-         */
-        List<String> listThingCertificatePrincipals(String thingName) {
-            ListThingPrincipalsRequest request = ListThingPrincipalsRequest.builder().thingName(thingName).build();
-
-            ListThingPrincipalsResponse response = iotClient.listThingPrincipals(request);
-            return response.principals().stream().filter(p -> p.contains("cert")).map(p -> p.split("/")[1])
-                    .collect(Collectors.toList());
+            VerifyClientDeviceIoTCertificateAssociationRequest request =
+                    VerifyClientDeviceIoTCertificateAssociationRequest.builder().clientDeviceThingName(thingName)
+                            .clientDeviceCertificateId(iotCertificateId).build();
+            try {
+                RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
+                        () -> clientFactory.getGreengrassV2DataClient()
+                                .verifyClientDeviceIoTCertificateAssociation(request),
+                        "verify-certificate-thing-association", logger);
+                return true;
+            } catch (InterruptedException e) {
+                logger.atError().cause(e).log("Verify certificate thing association got interrupted");
+                // interrupt the current thread so that higher-level interrupt handlers can take care of it
+                Thread.currentThread().interrupt();
+                throw new CloudServiceInteractionException(
+                        "Failed to verify certificate thing association, process got interrupted", e);
+            } catch (Exception e) {
+                logger.atError().cause(e).kv("thingName", thingName).kv("certificateId", iotCertificateId)
+                        .log("Failed to verify certificate thing association");
+                throw new CloudServiceInteractionException(
+                        String.format("Failed to verify certificate %s thing %s association", iotCertificateId,
+                                thingName), e);
+            }
         }
     }
 }

@@ -48,7 +48,7 @@ public class ClientDevicesAuthService extends PluginService {
     public static final String AUTHORITIES_TOPIC = "authorities";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
-    private static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
+    public static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
             RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(3)
                     .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
                     .build();
@@ -157,14 +157,12 @@ public class ClientDevicesAuthService extends PluginService {
         return Coerce.toString(caPassphrase);
     }
 
-    @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidRethrowingException"})
-    private void uploadCoreDeviceCertificates(List<String> certificatePemList)
-            throws CloudServiceInteractionException {
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private void uploadCoreDeviceCertificates(List<String> certificatePemList) {
         String thingName = Coerce.toString(deviceConfiguration.getThingName());
         PutCertificateAuthoritiesRequest request =
                 PutCertificateAuthoritiesRequest.builder().coreDeviceThingName(thingName)
                         .coreDeviceCertificates(certificatePemList).build();
-
         try {
             RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
                     () -> clientFactory.getGreengrassV2DataClient().putCertificateAuthorities(request),
@@ -174,12 +172,11 @@ public class ClientDevicesAuthService extends PluginService {
             // interrupt the current thread so that higher-level interrupt handlers can take care of it
             Thread.currentThread().interrupt();
         } catch (Exception e) {
-            logger.atError().setCause(e)
+            logger.atError().cause(e)
                     .kv("coreThingName", thingName)
                     .log("Failed to put core CA certificates to cloud");
             throw new CloudServiceInteractionException(
                     String.format("Failed to put core %s CA certificates to cloud", thingName), e);
         }
-
     }
 }
