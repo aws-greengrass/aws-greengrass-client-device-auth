@@ -70,19 +70,18 @@ public interface IotAuthClient {
         @Override
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
         public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
-            String thingName = thing.getThingName();
-            if (Utils.isEmpty(thingName)) {
+            if (thing == null || Utils.isEmpty(thing.getThingName())) {
                 throw new IllegalArgumentException("No thing name available to validate");
             }
 
-            String iotCertificateId = certificate.getIotCertificateId();
-            if (Utils.isEmpty(iotCertificateId)) {
+            if (certificate == null || Utils.isEmpty(certificate.getIotCertificateId())) {
                 throw new IllegalArgumentException("No IoT certificate ID available to validate");
             }
 
             VerifyClientDeviceIoTCertificateAssociationRequest request =
-                    VerifyClientDeviceIoTCertificateAssociationRequest.builder().clientDeviceThingName(thingName)
-                            .clientDeviceCertificateId(iotCertificateId).build();
+                    VerifyClientDeviceIoTCertificateAssociationRequest.builder()
+                            .clientDeviceThingName(thing.getThingName())
+                            .clientDeviceCertificateId(certificate.getIotCertificateId()).build();
             try {
                 RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
                         () -> clientFactory.getGreengrassV2DataClient()
@@ -96,11 +95,12 @@ public interface IotAuthClient {
                 throw new CloudServiceInteractionException(
                         "Failed to verify certificate thing association, process got interrupted", e);
             } catch (Exception e) {
-                logger.atError().cause(e).kv("thingName", thingName).kv("certificateId", iotCertificateId)
+                logger.atError().cause(e).kv("thingName", thing.getThingName())
+                        .kv("certificateId", certificate.getIotCertificateId())
                         .log("Failed to verify certificate thing association");
                 throw new CloudServiceInteractionException(
-                        String.format("Failed to verify certificate %s thing %s association", iotCertificateId,
-                                thingName), e);
+                        String.format("Failed to verify certificate %s thing %s association",
+                                certificate.getIotCertificateId(), thing.getThingName()), e);
             }
         }
     }
