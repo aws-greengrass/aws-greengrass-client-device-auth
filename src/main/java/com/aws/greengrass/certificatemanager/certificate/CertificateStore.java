@@ -14,6 +14,7 @@ import lombok.Getter;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.operator.OperatorCreationException;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -45,7 +46,6 @@ public class CertificateStore {
     private static final String CA_KEY_ALIAS = "CA";
     private static final String DEVICE_CERTIFICATE_DIR = "devices";
     private static final String DEFAULT_KEYSTORE_FILENAME = "ca.jks";
-    private static final String DEFAULT_CA_CERTIFICATE_FILENAME = "ca.pem";
 
     // Current NIST recommendation is to provide at least 112 bits
     // of security strength through 2030
@@ -251,10 +251,13 @@ public class CertificateStore {
             keyStore.store(writeStream, getPassphrase());
         }
 
-        // TODO: Clean this up
-        // Temporarily store public CA since CA information is not yet available in cloud
-        X509Certificate caCert = getCACertificate();
-        saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME), CertificateHelper.toPem(caCert));
+        setOwnerOnlyReadPermission(caPath);
+    }
+
+    @SuppressWarnings("PMD.LinguisticNaming")
+    private boolean setOwnerOnlyReadPermission(Path filePath) {
+        File file = filePath.toFile();
+        return file.setReadable(false, false) && file.setReadable(true, true);
     }
 
     private String loadCertificatePem(Path filePath) throws IOException {
