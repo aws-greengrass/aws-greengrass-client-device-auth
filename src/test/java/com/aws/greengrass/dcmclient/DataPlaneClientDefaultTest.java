@@ -10,14 +10,11 @@ import software.amazon.awssdk.core.client.handler.SyncClientHandler;
 import software.amazon.awssdk.services.greengrass.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoRequest;
 import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoResponse;
-import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoRequest;
-import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoResponse;
 
 import java.util.Arrays;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,29 +24,6 @@ public class DataPlaneClientDefaultTest {
     private DataPlaneDefaultClient dataPlaneClient;
     @Mock
     private SyncClientHandler clientHandler;
-
-    @Test
-    public void GIVEN_update_connectivity_request_WHEN_valid_THEN_update_connectivity_info_response_returned() {
-
-        UpdateConnectivityInfoRequest updateConnectivityInfoRequest = UpdateConnectivityInfoRequest.builder().build();
-        Mockito.doReturn(UpdateConnectivityInfoResponse.builder().version("1.0")
-                .build()).when(clientHandler).execute(any());
-
-        dataPlaneClient = new DataPlaneDefaultClient(SdkClientConfiguration.builder().build(), clientHandler);
-        UpdateConnectivityInfoResponse updateConnectivityInfoResponse =
-                dataPlaneClient.updateConnectivityInfo(updateConnectivityInfoRequest);
-
-        assertEquals(updateConnectivityInfoResponse.version(), "1.0");
-    }
-
-    @Test
-    public void GIVEN_update_connectivity_request_WHEN_null_THEN_null_returned() {
-        dataPlaneClient = new DataPlaneDefaultClient(SdkClientConfiguration.builder().build(), clientHandler);
-        UpdateConnectivityInfoResponse updateConnectivityInfoResponse =
-                dataPlaneClient.updateConnectivityInfo(null);
-
-        assertNull(updateConnectivityInfoResponse);
-    }
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     @Test

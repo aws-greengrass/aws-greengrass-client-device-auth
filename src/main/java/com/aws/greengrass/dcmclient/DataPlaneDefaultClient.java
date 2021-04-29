@@ -1,6 +1,5 @@
 package com.aws.greengrass.dcmclient;
 
-import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.awscore.client.handler.AwsSyncClientHandler;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.RequestOverrideConfiguration;
@@ -24,8 +23,6 @@ import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoReque
 import software.amazon.awssdk.services.greengrass.model.GetConnectivityInfoResponse;
 import software.amazon.awssdk.services.greengrass.model.GreengrassException;
 import software.amazon.awssdk.services.greengrass.model.InternalServerErrorException;
-import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoRequest;
-import software.amazon.awssdk.services.greengrass.model.UpdateConnectivityInfoResponse;
 
 import java.util.Collections;
 import java.util.List;
@@ -36,7 +33,6 @@ public class DataPlaneDefaultClient implements DataPlaneClient {
     private static final String ERROR_CODE_BAD_REQUEST = "BadRequestException";
     private static final String INTERNAL_SERVER_ERROR_EXCEPTION = "InternalServerErrorException";
     private static final String SERVICE_NAME = "greengrass";
-    private static final String UPDATE_OPERATION_NAME = "UpdateConnectivityInfo";
     private static final String GET_OPERATION_NAME = "GetConnectivityInfo";
     private static final String API_CALL = "ApiCall";
 
@@ -84,57 +80,6 @@ public class DataPlaneDefaultClient implements DataPlaneClient {
 
         return publishers;
    }
-
-    /**
-     * Update connectivity information about the device.
-     *
-     * @param updateConnectivityInfoRequest connectivity info request to send the connectivity information
-     */
-    @Override
-    public UpdateConnectivityInfoResponse updateConnectivityInfo(
-            UpdateConnectivityInfoRequest updateConnectivityInfoRequest) {
-        if (updateConnectivityInfoRequest == null) {
-            return null;
-        }
-
-        JsonOperationMetadata operationMetadata = JsonOperationMetadata.builder()
-                .hasStreamingSuccessResponse(false).isPayloadJson(true).build();
-
-        HttpResponseHandler<UpdateConnectivityInfoResponse> responseHandler
-                = this.protocolFactory.createResponseHandler(operationMetadata,
-                UpdateConnectivityInfoResponse::builder);
-
-        HttpResponseHandler<AwsServiceException> errorResponseHandler = this
-                .createErrorResponseHandler(this.protocolFactory, operationMetadata);
-
-        List<MetricPublisher> metricPublishers
-                = resolveMetricPublishers(this.clientConfiguration,
-                updateConnectivityInfoRequest.overrideConfiguration()
-                        .orElse(AwsRequestOverrideConfiguration.builder().build()));
-
-        MetricCollector apiCallMetricCollector = metricPublishers.isEmpty() ? NoOpMetricCollector.create()
-                : MetricCollector.create(API_CALL);
-
-        UpdateConnectivityInfoResponse updateConnectivityInfoResponse;
-        try {
-            apiCallMetricCollector.reportMetric(CoreMetric.SERVICE_ID, "Greengrass");
-            apiCallMetricCollector.reportMetric(CoreMetric.OPERATION_NAME,
-                    UPDATE_OPERATION_NAME);
-            updateConnectivityInfoResponse = (UpdateConnectivityInfoResponse)this.clientHandler
-                    .execute(new ClientExecutionParams().withOperationName(UPDATE_OPERATION_NAME)
-                            .withResponseHandler(responseHandler).withErrorResponseHandler(errorResponseHandler)
-                            .withInput(updateConnectivityInfoRequest)
-                            .withMetricCollector(apiCallMetricCollector)
-                            .withMarshaller(
-                                    new DataPlaneUpdateConnectivityInfoRequestMarshaller(this.protocolFactory)));
-        } finally {
-            metricPublishers.forEach((p) -> {
-                p.publish(apiCallMetricCollector.collect());
-            });
-        }
-
-        return updateConnectivityInfoResponse;
-    }
 
     /**
      * Get connectivity information about the device.

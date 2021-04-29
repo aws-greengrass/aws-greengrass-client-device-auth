@@ -1,6 +1,5 @@
 package com.aws.greengrass.dcmclient;
 
-import com.aws.greengrass.utils.TestConstants;
 import com.fasterxml.jackson.core.JsonFactory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -26,8 +25,13 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 
+@SuppressWarnings("PMD.AvoidUsingHardCodedIP")
 @ExtendWith({MockitoExtension.class})
 public class DataPlaneGetConnectivityInfoRequestMarshallerTest {
+    private static final String PATH = "greengrass/connectivityInfo/thing";
+    private static final String THING_NAME = "thingName";
+    private static final String PROTOCOL = "https";
+    private static final String IP = "0.61.124.18";
 
     private DataPlaneGetConnectivityInfoRequestMarshaller dataPlaneGetConnectivityInfoRequestMarshaller;
 
@@ -43,11 +47,11 @@ public class DataPlaneGetConnectivityInfoRequestMarshallerTest {
                 .build();
 
         OperationInfo operationInfo = OperationInfo.builder()
-                .requestUri(String.format("/%s/%s", TestConstants.PATH, TestConstants.THING_NAME))
+                .requestUri(String.format("/%s/%s", PATH, THING_NAME))
                 .httpMethod(SdkHttpMethod.GET).hasExplicitPayloadMember(false).hasPayloadMembers(false).build();
 
         Mockito.doReturn(JsonProtocolMarshallerBuilder.create()
-                .endpoint(new URI(String.format("%s://%s", TestConstants.PROTOCOL, TestConstants.IP_2)))
+                .endpoint(new URI(String.format("%s://%s", PROTOCOL, IP)))
                 .jsonGenerator(new SdkJsonGenerator(JsonFactory.builder()
                         .build(), "json"))
                 .operationInfo(operationInfo).build())
@@ -55,19 +59,18 @@ public class DataPlaneGetConnectivityInfoRequestMarshallerTest {
 
         dataPlaneGetConnectivityInfoRequestMarshaller = new DataPlaneGetConnectivityInfoRequestMarshaller(baseAwsJsonProtocolFactory);
         SdkHttpFullRequest marshall = dataPlaneGetConnectivityInfoRequestMarshaller.marshall(getConnectivityInfoRequest);
-        assertEquals(String.format("%s://%s/%s/%s", TestConstants.PROTOCOL, TestConstants.IP_2, TestConstants.PATH,
-                TestConstants.THING_NAME), marshall.getUri().toString());
+        assertEquals(String.format("%s://%s/%s/%s", PROTOCOL, IP, PATH, THING_NAME), marshall.getUri().toString());
     }
 
     @Test
     public void GIVEN_get_connectivity_request_WHEN_invalid_THEN_throws_exception() throws URISyntaxException {
 
         OperationInfo operationInfo = OperationInfo.builder()
-                .requestUri(String.format("/%s/%s", TestConstants.PATH, TestConstants.THING_NAME))
+                .requestUri(String.format("/%s/%s", PATH, THING_NAME))
                 .httpMethod(SdkHttpMethod.GET).hasExplicitPayloadMember(false).hasPayloadMembers(false).build();
 
         Mockito.lenient().doReturn(JsonProtocolMarshallerBuilder.create()
-                .endpoint(new URI(String.format("%s://%s", TestConstants.PROTOCOL, TestConstants.IP_2)))
+                .endpoint(new URI(String.format("%s://%s", PROTOCOL, IP)))
                 .jsonGenerator(new SdkJsonGenerator(JsonFactory.builder()
                         .build(), "json"))
                 .operationInfo(operationInfo).build())
