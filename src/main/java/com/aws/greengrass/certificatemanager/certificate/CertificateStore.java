@@ -9,12 +9,13 @@ import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.FileSystemPermission;
+import com.aws.greengrass.util.platforms.Platform;
 import lombok.AccessLevel;
 import lombok.Getter;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.operator.OperatorCreationException;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -54,6 +55,8 @@ public class CertificateStore {
     // NIST-P256 (secp256r1) provides 128 bits
     private static final int    RSA_KEY_LENGTH = 2048;
     private static final String EC_DEFAULT_CURVE = "secp256r1";
+    private static final FileSystemPermission OWNER_RW_ONLY =  FileSystemPermission.builder()
+            .ownerRead(true).ownerWrite(true).build();
 
     private final Logger logger = LogManager.getLogger(CertificateStore.class);
     @Getter
@@ -61,6 +64,7 @@ public class CertificateStore {
     @Getter(AccessLevel.PRIVATE)
     private char[] passphrase;
     private final Path workPath;
+    private final Platform platform = Platform.getInstance();
 
     public enum CAType {
         RSA_2048, ECDSA_P256
@@ -251,13 +255,7 @@ public class CertificateStore {
             keyStore.store(writeStream, getPassphrase());
         }
 
-        setOwnerOnlyReadPermission(caPath);
-    }
-
-    @SuppressWarnings("PMD.LinguisticNaming")
-    private boolean setOwnerOnlyReadPermission(Path filePath) {
-        File file = filePath.toFile();
-        return file.setReadable(false, false) && file.setReadable(true, true);
+        platform.setPermissions(OWNER_RW_ONLY, caPath);
     }
 
     private String loadCertificatePem(Path filePath) throws IOException {
