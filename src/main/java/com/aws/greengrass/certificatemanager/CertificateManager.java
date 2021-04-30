@@ -71,6 +71,10 @@ public class CertificateManager {
         return caList;
     }
 
+    public String getCaPassPhrase() {
+        return certificateStore.getCaPassphrase();
+    }
+
     /**
      * Subscribe to server certificate updates.
      * <p>

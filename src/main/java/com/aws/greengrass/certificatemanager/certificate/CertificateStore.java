@@ -76,6 +76,10 @@ public class CertificateStore {
         this.workPath = workPath;
     }
 
+    public String getCaPassphrase() {
+        return passphrase == null ? null : new String(passphrase);
+    }
+
     /**
      * Initialize CA keystore.
      *
@@ -170,6 +174,8 @@ public class CertificateStore {
         } catch (IOException | NoSuchAlgorithmException | CertificateException e) {
             throw new KeyStoreException("unable to load CA keystore", e);
         }
+        // generate new passphrase for new CA certificate
+        passphrase = generateRandomPassphrase().toCharArray();
         Certificate[] certificateChain = { caCertificate };
         ks.setKeyEntry("CA", kp.getPrivate(), getPassphrase(), certificateChain);
         keyStore = ks;
@@ -273,7 +279,7 @@ public class CertificateStore {
      *
      * @return ASCII passphrase
      */
-    public static String generateRandomPassphrase() {
+    static String generateRandomPassphrase() {
         // Generate cryptographically secure sequence of bytes
         SecureRandom secureRandom = new SecureRandom();
         byte[] randomBytes = new byte[16];
