@@ -9,6 +9,8 @@ import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.FileSystemPermission;
+import com.aws.greengrass.util.platforms.Platform;
 import lombok.AccessLevel;
 import lombok.Getter;
 import org.bouncycastle.cert.CertIOException;
@@ -45,7 +47,6 @@ public class CertificateStore {
     private static final String CA_KEY_ALIAS = "CA";
     private static final String DEVICE_CERTIFICATE_DIR = "devices";
     private static final String DEFAULT_KEYSTORE_FILENAME = "ca.jks";
-    private static final String DEFAULT_CA_CERTIFICATE_FILENAME = "ca.pem";
 
     // Current NIST recommendation is to provide at least 112 bits
     // of security strength through 2030
@@ -54,6 +55,8 @@ public class CertificateStore {
     // NIST-P256 (secp256r1) provides 128 bits
     private static final int    RSA_KEY_LENGTH = 2048;
     private static final String EC_DEFAULT_CURVE = "secp256r1";
+    private static final FileSystemPermission OWNER_RW_ONLY =  FileSystemPermission.builder()
+            .ownerRead(true).ownerWrite(true).build();
 
     private final Logger logger = LogManager.getLogger(CertificateStore.class);
     @Getter
@@ -61,6 +64,7 @@ public class CertificateStore {
     @Getter(AccessLevel.PRIVATE)
     private char[] passphrase;
     private final Path workPath;
+    private final Platform platform = Platform.getInstance();
 
     public enum CAType {
         RSA_2048, ECDSA_P256
@@ -257,10 +261,7 @@ public class CertificateStore {
             keyStore.store(writeStream, getPassphrase());
         }
 
-        // TODO: Clean this up
-        // Temporarily store public CA since CA information is not yet available in cloud
-        X509Certificate caCert = getCACertificate();
-        saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME), CertificateHelper.toPem(caCert));
+        platform.setPermissions(OWNER_RW_ONLY, caPath);
     }
 
     private String loadCertificatePem(Path filePath) throws IOException {
