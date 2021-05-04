@@ -102,8 +102,8 @@ public class CertificateManager {
                     CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
-                    jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore, cisClient);
-            certificateGenerator.generateCertificate(true);
+                    jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
+            certificateGenerator.generateCertificate(cisClient.getConnectivityInfo());
         } catch (KeyStoreException | ClientException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
@@ -138,7 +138,7 @@ public class CertificateManager {
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ClientCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
-            certificateGenerator.generateCertificate(true);
+            certificateGenerator.generateCertificate();
         } catch (KeyStoreException | ClientException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;

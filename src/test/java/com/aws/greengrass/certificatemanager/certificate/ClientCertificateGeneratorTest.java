@@ -1,6 +1,5 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
-import com.aws.greengrass.dcmclient.Client;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +19,6 @@ import java.util.function.Consumer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -32,9 +30,6 @@ public class ClientCertificateGeneratorTest {
 
     @Mock
     private Consumer<X509Certificate[]> mockCallback;
-
-    @Mock
-    private Client mockClient;
 
     private PublicKey publicKey;
     private CertificateGenerator certificateGenerator;
@@ -55,9 +50,8 @@ public class ClientCertificateGeneratorTest {
     @Test
     public void GIVEN_ClientCertificateGenerator_WHEN_generateCertificate_THEN_certificate_generated()
             throws Exception {
-        certificateGenerator.generateCertificate(false);
+        certificateGenerator.generateCertificate();
 
-        verify(mockClient, never()).getConnectivityInfo();
         X509Certificate generatedCert = certificateGenerator.getCertificate();
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
         assertThat(new KeyPurposeId(generatedCert.getExtendedKeyUsage().get(0)), is(KeyPurposeId.id_kp_clientAuth));
@@ -65,8 +59,7 @@ public class ClientCertificateGeneratorTest {
         verify(mockCallback, times(1))
                 .accept(new X509Certificate[]{generatedCert, certificateStore.getCACertificate()});
 
-        certificateGenerator.generateCertificate(true);
-        verify(mockClient, never()).getConnectivityInfo();
+        certificateGenerator.generateCertificate();
         X509Certificate secondGeneratedCert = certificateGenerator.getCertificate();
         assertThat(secondGeneratedCert, is(not(generatedCert)));
     }

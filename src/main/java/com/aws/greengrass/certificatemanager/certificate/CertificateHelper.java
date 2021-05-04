@@ -5,9 +5,8 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.util.ParseIPAddress;
 import com.aws.greengrass.util.Utils;
-import inet.ipaddr.AddressStringException;
-import inet.ipaddr.IPAddressString;
 import lombok.NonNull;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
@@ -242,10 +241,9 @@ public final class CertificateHelper {
         final List<GeneralName> generalNamesArray = new ArrayList<>();
         for (ConnectivityInfo connectivityInfo : connectivityInfoItems) {
             String host = connectivityInfo.hostAddress();
-            try {
-                new IPAddressString(host).toAddress();
+            if (ParseIPAddress.isValidIP(host)) {
                 generalNamesArray.add(new GeneralName(GeneralName.iPAddress, host));
-            } catch (AddressStringException e) {
+            } else {
                 generalNamesArray.add(new GeneralName(GeneralName.dNSName, host));
             }
         }
