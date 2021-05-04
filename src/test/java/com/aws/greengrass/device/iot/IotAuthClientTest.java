@@ -18,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
+import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest;
@@ -134,13 +135,25 @@ public class IotAuthClientTest {
     }
 
     @Test
-    void GIVEN_cloudThrowException_WHEN_isThingAttachedToCertificate_THEN_throwCloudInteractionException(
+    void GIVEN_cloudThrowValidationException_WHEN_isThingAttachedToCertificate_THEN_returnFalse(
             ExtensionContext context) {
         ignoreExceptionOfType(context, ValidationException.class);
         when(thing.getThingName()).thenReturn("thingName");
         when(certificate.getIotCertificateId()).thenReturn("certificateId");
         when(client.verifyClientDeviceIoTCertificateAssociation(
                 any(VerifyClientDeviceIoTCertificateAssociationRequest.class))).thenThrow(ValidationException.class);
+
+        assertThat(iotAuthClient.isThingAttachedToCertificate(thing, certificate), is(false));
+    }
+
+    @Test
+    void GIVEN_cloudThrowException_WHEN_isThingAttachedToCertificate_THEN_throwCloudInteractionException(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, AccessDeniedException.class);
+        when(thing.getThingName()).thenReturn("thingName");
+        when(certificate.getIotCertificateId()).thenReturn("certificateId");
+        when(client.verifyClientDeviceIoTCertificateAssociation(
+                any(VerifyClientDeviceIoTCertificateAssociationRequest.class))).thenThrow(AccessDeniedException.class);
 
         assertThrows(CloudServiceInteractionException.class,
                 () -> iotAuthClient.isThingAttachedToCertificate(thing, certificate));

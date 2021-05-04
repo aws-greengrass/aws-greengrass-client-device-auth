@@ -12,6 +12,8 @@ import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
 import com.aws.greengrass.util.Utils;
+import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityResponse;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIoTCertificateAssociationRequest;
@@ -87,6 +89,9 @@ public interface IotAuthClient {
                         () -> clientFactory.getGreengrassV2DataClient()
                                 .verifyClientDeviceIoTCertificateAssociation(request),
                         "verify-certificate-thing-association", logger);
+                logger.atDebug().kv("thingName", thing.getThingName())
+                        .kv("certificateId", certificate.getIotCertificateId())
+                        .log("Thing is attached to certificate");
                 return true;
             } catch (InterruptedException e) {
                 logger.atError().cause(e).log("Verify certificate thing association got interrupted");
@@ -94,6 +99,11 @@ public interface IotAuthClient {
                 Thread.currentThread().interrupt();
                 throw new CloudServiceInteractionException(
                         "Failed to verify certificate thing association, process got interrupted", e);
+            } catch (ValidationException | ResourceNotFoundException e) {
+                logger.atDebug().cause(e).kv("thingName", thing.getThingName())
+                        .kv("certificateId", certificate.getIotCertificateId())
+                        .log("Thing is not attached to certificate");
+                return false;
             } catch (Exception e) {
                 logger.atError().cause(e).kv("thingName", thing.getThingName())
                         .kv("certificateId", certificate.getIotCertificateId())
