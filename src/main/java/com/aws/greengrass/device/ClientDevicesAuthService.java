@@ -48,8 +48,8 @@ public class ClientDevicesAuthService extends PluginService {
     public static final String AUTHORITIES_TOPIC = "authorities";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
-    public static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
-            RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(3)
+    private static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
+            RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(10)
                     .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
                     .build();
 

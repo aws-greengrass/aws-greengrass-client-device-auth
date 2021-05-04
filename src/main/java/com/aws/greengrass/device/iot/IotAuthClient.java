@@ -12,15 +12,17 @@ import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
 import com.aws.greengrass.util.Utils;
+import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityResponse;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIoTCertificateAssociationRequest;
 
+import java.time.Duration;
+import java.util.Arrays;
 import javax.inject.Inject;
-
-import static com.aws.greengrass.device.ClientDevicesAuthService.SERVICE_EXCEPTION_RETRY_CONFIG;
 
 public interface IotAuthClient {
     String getActiveCertificateId(String certificatePem);
@@ -29,6 +31,10 @@ public interface IotAuthClient {
 
     class Default implements IotAuthClient {
         private static final Logger logger = LogManager.getLogger(Default.class);
+        private static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
+                RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofMillis(100)).maxAttempt(3)
+                        .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
+                        .build();
 
         private final GreengrassServiceClientFactory clientFactory;
 
