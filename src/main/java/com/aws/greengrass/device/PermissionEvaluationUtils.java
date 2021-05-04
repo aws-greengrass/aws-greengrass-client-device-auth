@@ -23,14 +23,15 @@ public final class PermissionEvaluationUtils {
     private static final String SERVICE_PATTERN_STRING = "([a-zA-Z]+)";
     private static final String SERVICE_OPERATION_PATTERN_STRING = "([a-zA-Z0-9-_]+)";
     private static final String SERVICE_RESOURCE_TYPE_PATTERN_STRING = "([a-zA-Z]+)";
-    private static final String SERVICE_RESOURCE_NAME_PATTERN_STRING = "([a-zA-Z0-9-_$/+]+)";
+    // Characters, digits, special chars, space (Allowed in MQTT topics)
+    private static final String SERVICE_RESOURCE_NAME_PATTERN_STRING = "([\\w -\\/:-@\\[-\\`{-~]+)";
     private static final String SERVICE_OPERATION_FORMAT = "%s:%s";
     private static final String SERVICE_RESOURCE_FORMAT = "%s:%s:%s";
     private static final Pattern SERVICE_OPERATION_PATTERN = Pattern.compile(
             String.format(SERVICE_OPERATION_FORMAT, SERVICE_PATTERN_STRING, SERVICE_OPERATION_PATTERN_STRING));
     private static final Pattern SERVICE_RESOURCE_PATTERN = Pattern.compile(
             String.format(SERVICE_RESOURCE_FORMAT, SERVICE_PATTERN_STRING, SERVICE_RESOURCE_TYPE_PATTERN_STRING,
-                    SERVICE_RESOURCE_NAME_PATTERN_STRING));
+                    SERVICE_RESOURCE_NAME_PATTERN_STRING), Pattern.UNICODE_CHARACTER_CLASS);
 
 
     private PermissionEvaluationUtils() {
