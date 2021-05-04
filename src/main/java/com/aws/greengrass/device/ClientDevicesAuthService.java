@@ -116,7 +116,7 @@ public class ClientDevicesAuthService extends PluginService {
 
             List<String> caCerts = certificateManager.getCACertificates();
             updateCACertificateConfig(caCerts);
-            updateCaPassphrase(certificateManager.getCaPassPhrase());
+            updateCaPassphraseConfig(certificateManager.getCaPassPhrase());
         } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException e) {
             serviceErrored(e);
         }
@@ -127,13 +127,13 @@ public class ClientDevicesAuthService extends PluginService {
         caCertsTopic.withValue(caCerts);
     }
 
-    void updateCaPassphrase(String passphrase) {
+    void updateCaPassphraseConfig(String passphrase) {
         Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE);
+        // TODO: This passphrase needs to be encrypted prior to storing in TLOG
         caPassphrase.withValue(passphrase);
     }
 
     private String getPassphrase() {
-        // TODO: This passphrase needs to be encrypted prior to storing in TLOG
         Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE).dflt("");
         return Coerce.toString(caPassphrase);
     }
