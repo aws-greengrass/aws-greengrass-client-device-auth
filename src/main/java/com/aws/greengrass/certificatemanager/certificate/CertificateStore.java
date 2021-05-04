@@ -47,6 +47,7 @@ public class CertificateStore {
     private static final String CA_KEY_ALIAS = "CA";
     private static final String DEVICE_CERTIFICATE_DIR = "devices";
     private static final String DEFAULT_KEYSTORE_FILENAME = "ca.jks";
+    private static final String DEFAULT_CA_CERTIFICATE_FILENAME = "ca.pem";
 
     // Current NIST recommendation is to provide at least 112 bits
     // of security strength through 2030
@@ -262,6 +263,11 @@ public class CertificateStore {
         }
 
         platform.setPermissions(OWNER_RW_ONLY, caPath);
+
+        // TODO: Clean this up
+        // Temporarily store public CA since CA information is not yet available in cloud
+        X509Certificate caCert = getCACertificate();
+        saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME), CertificateHelper.toPem(caCert));
     }
 
     private String loadCertificatePem(Path filePath) throws IOException {
