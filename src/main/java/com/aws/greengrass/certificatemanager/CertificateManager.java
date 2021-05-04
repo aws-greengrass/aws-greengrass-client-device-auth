@@ -67,6 +67,10 @@ public class CertificateManager {
         return Collections.singletonList(CertificateHelper.toPem(certificateStore.getCACertificate()));
     }
 
+    public String getCaPassPhrase() {
+        return certificateStore.getCaPassphrase();
+    }
+
     /**
      * Subscribe to server certificate updates.
      * <p>
