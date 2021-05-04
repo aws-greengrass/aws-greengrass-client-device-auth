@@ -62,6 +62,10 @@ public interface IotAuthClient {
                 Thread.currentThread().interrupt();
                 throw new CloudServiceInteractionException(
                         "Failed to verify client device identity, process got interrupted", e);
+            } catch (ValidationException | ResourceNotFoundException e) {
+                logger.atDebug().cause(e).kv("certificatePem", certificatePem)
+                        .log("Certificate doesn't exist or isn't active");
+                return null;
             } catch (Exception e) {
                 logger.atError().cause(e).kv("certificatePem", certificatePem)
                         .log("Failed to verify client device identity with cloud");

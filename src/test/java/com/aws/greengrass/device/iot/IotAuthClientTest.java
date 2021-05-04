@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -82,11 +83,21 @@ public class IotAuthClientTest {
     }
 
     @Test
-    void GIVEN_cloudThrowException_WHEN_getActiveCertificateId_THEN_throwCloudInteractionException(
+    void GIVEN_cloudThrowValidationException_WHEN_getActiveCertificateId_THEN_returnNull(
             ExtensionContext context) {
         ignoreExceptionOfType(context, ValidationException.class);
         when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class)))
                 .thenThrow(ValidationException.class);
+
+        assertThat(iotAuthClient.getActiveCertificateId("certificatePem"), nullValue());
+    }
+
+    @Test
+    void GIVEN_cloudThrowException_WHEN_getActiveCertificateId_THEN_throwCloudInteractionException(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, AccessDeniedException.class);
+        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class)))
+                .thenThrow(AccessDeniedException.class);
 
         assertThrows(CloudServiceInteractionException.class,
                 () -> iotAuthClient.getActiveCertificateId("certificatePem"));
