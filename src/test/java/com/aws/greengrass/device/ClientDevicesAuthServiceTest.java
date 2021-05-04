@@ -267,6 +267,7 @@ class ClientDevicesAuthServiceTest {
         List<String> initialCACerts = getCaCertificates();
         X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
         assertThat(initialCA.getSigAlgName(), is(CertificateHelper.RSA_SIGNING_ALGORITHM));
+        String initialCaPassPhrase = getCaPassphrase();
 
         kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
                 .find(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
@@ -278,6 +279,7 @@ class ClientDevicesAuthServiceTest {
         X509Certificate secondCA = pemToX509Certificate(secondCACerts.get(0));
         assertThat(secondCA.getSigAlgName(), is(CertificateHelper.RSA_SIGNING_ALGORITHM));
         assertThat(initialCA, is(secondCA));
+        assertThat(getCaPassphrase(), is(initialCaPassPhrase));
 
         kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
                 .find(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
@@ -288,7 +290,8 @@ class ClientDevicesAuthServiceTest {
         List<String> thirdCACerts = getCaCertificates();
         X509Certificate thirdCA = pemToX509Certificate(thirdCACerts.get(0));
         assertThat(thirdCA.getSigAlgName(), is(CertificateHelper.ECDSA_SIGNING_ALGORITHM));
-        assertThat(initialCA, is(not(thirdCA)));
+        assertThat(initialCA, not(thirdCA));
+        assertThat(getCaPassphrase(), not(initialCaPassPhrase));
     }
 
     private X509Certificate pemToX509Certificate(String certPem) throws IOException, CertificateException {
