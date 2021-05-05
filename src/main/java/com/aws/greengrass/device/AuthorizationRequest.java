@@ -10,5 +10,5 @@ public class AuthorizationRequest {
     @NonNull String operation;
     @NonNull String resource;
     @NonNull String sessionId;
-    @NonNull String clientId;
+    String clientId;
 }
