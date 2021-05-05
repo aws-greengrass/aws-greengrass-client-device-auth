@@ -71,18 +71,13 @@ public class DeviceAuthClient {
      * @return Session ID
      * @throws AuthenticationException if failed to authenticate
      */
-    public String createSession(String certificatePem) {
+    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
+    public String createSession(String certificatePem) throws AuthenticationException {
         logger.atInfo().log("Creating new session");
         if (isGreengrassComponent(certificatePem)) {
             return ALLOW_ALL_SESSION;
         }
-        try {
-            return createSessionForClientDevice(certificatePem);
-        } catch (AuthenticationException e) {
-            // TODO for backward compatibility reason, remove the try catch once broker handling exception change
-            // pushed in
-            return null;
-        }
+        return createSessionForClientDevice(certificatePem);
     }
 
     private boolean isGreengrassComponent(String certificatePem) {
@@ -134,6 +129,7 @@ public class DeviceAuthClient {
         return false;
     }
 
+    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
     private String createSessionForClientDevice(String certificatePem) throws AuthenticationException {
         Optional<String> certificateId;
         try {
@@ -177,6 +173,7 @@ public class DeviceAuthClient {
      * @param thingName IoT Thing Name
      * @throws AuthenticationException if session not valid or verify thing identity error out
      */
+    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
     public void attachThing(String sessionId, String thingName) throws AuthenticationException {
         logger.atDebug()
                 .kv("sessionId", sessionId)

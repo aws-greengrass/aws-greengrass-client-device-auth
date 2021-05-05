@@ -40,6 +40,7 @@ import java.util.function.Consumer;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -91,8 +92,7 @@ public class DeviceAuthClientTest {
                 new DeviceAuthClient(new SessionManager(), groupManager, iotClient, certificateStore);
         when(iotClient.getActiveCertificateId(certificatePem)).thenReturn(Optional.empty());
 
-        assertThat(deviceAuthClient.createSession(certificatePem), nullValue());
-        //assertThrows(AuthenticationException.class, () -> deviceAuthClient.createSession(certificatePem));
+        assertThrows(AuthenticationException.class, () -> deviceAuthClient.createSession(certificatePem));
     }
 
     @Test
@@ -102,8 +102,7 @@ public class DeviceAuthClientTest {
                 new DeviceAuthClient(new SessionManager(), groupManager, iotClient, certificateStore);
         when(iotClient.getActiveCertificateId(certificatePem)).thenThrow(CloudServiceInteractionException.class);
 
-        assertThat(deviceAuthClient.createSession(certificatePem), nullValue());
-        //assertThrows(AuthenticationException.class, () -> deviceAuthClient.createSession(certificatePem));
+        assertThrows(AuthenticationException.class, () -> deviceAuthClient.createSession(certificatePem));
     }
 
     @Test
@@ -116,10 +115,9 @@ public class DeviceAuthClientTest {
         when(iotClient.getActiveCertificateId(certificatePem)).thenReturn(Optional.of("certificateId"));
         doThrow(IOException.class).when(certificateStore).storeDeviceCertificateIfNotPresent(any(), any());
 
-        assertThat(deviceAuthClient.createSession(certificatePem), nullValue());
-//        Exception e =
-//                assertThrows(AuthenticationException.class, () -> deviceAuthClient.createSession(certificatePem));
-//        assertThat(e.getMessage(), containsString("Failed to store"));
+        Exception e =
+                assertThrows(AuthenticationException.class, () -> deviceAuthClient.createSession(certificatePem));
+        assertThat(e.getMessage(), containsString("Failed to store"));
     }
 
     @Test

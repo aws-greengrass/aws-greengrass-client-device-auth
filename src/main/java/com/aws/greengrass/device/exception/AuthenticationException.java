@@ -1,6 +1,8 @@
 package com.aws.greengrass.device.exception;
 
-public class AuthenticationException extends Exception {
+// unchecked exception for backward compatibility
+// TODO change to checked exception once broker exception handling change pushed in
+public class AuthenticationException extends RuntimeException {
 
     static final long serialVersionUID = -1L;
 
