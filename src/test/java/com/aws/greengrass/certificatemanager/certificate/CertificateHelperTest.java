@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.junit.jupiter.MockitoExtension;
-import software.amazon.awssdk.services.greengrass.model.ConnectivityInfo;
+import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.nio.file.Path;
 import java.security.KeyPair;

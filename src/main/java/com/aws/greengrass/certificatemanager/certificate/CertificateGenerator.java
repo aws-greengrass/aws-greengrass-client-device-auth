@@ -1,12 +1,12 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
-import com.aws.greengrass.dcmclient.ClientException;
+import com.aws.greengrass.cisclient.CISClientException;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
-import software.amazon.awssdk.services.greengrass.model.ConnectivityInfo;
+import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.io.IOException;
 import java.security.KeyStoreException;
@@ -45,10 +45,10 @@ public abstract class CertificateGenerator {
     }
 
     public abstract void generateCertificate(List<ConnectivityInfo> connectivityInfos) throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException, ClientException;
+            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException, CISClientException;
 
     public abstract void generateCertificate() throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException, ClientException;
+            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException, CISClientException;
 
     /**
      * Checks if certificate needs to be regenerated.

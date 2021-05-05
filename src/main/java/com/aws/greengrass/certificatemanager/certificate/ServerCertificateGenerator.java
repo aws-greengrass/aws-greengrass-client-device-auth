@@ -2,7 +2,7 @@ package com.aws.greengrass.certificatemanager.certificate;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
-import software.amazon.awssdk.services.greengrass.model.ConnectivityInfo;
+import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.io.IOException;
 import java.security.KeyStoreException;
