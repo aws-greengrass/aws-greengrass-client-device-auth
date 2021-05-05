@@ -71,12 +71,18 @@ public class DeviceAuthClient {
      * @return Session ID
      * @throws AuthenticationException if failed to authenticate
      */
-    public String createSession(String certificatePem) throws AuthenticationException {
+    public String createSession(String certificatePem) {
         logger.atInfo().log("Creating new session");
         if (isGreengrassComponent(certificatePem)) {
             return ALLOW_ALL_SESSION;
         }
-        return createSessionForClientDevice(certificatePem);
+        try {
+            return createSessionForClientDevice(certificatePem);
+        } catch (AuthenticationException e) {
+            // TODO for backward compatibility reason, remove the try catch once broker handling exception change
+            // pushed in
+            return null;
+        }
     }
 
     private boolean isGreengrassComponent(String certificatePem) {
