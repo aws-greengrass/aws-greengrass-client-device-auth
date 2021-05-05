@@ -316,7 +316,6 @@ class ClientDevicesAuthServiceTest {
         assertThat(thirdCA.getSigAlgName(), is(CertificateHelper.ECDSA_SIGNING_ALGORITHM));
         assertThat(initialCA, not(thirdCA));
         assertThat(getCaPassphrase(), not(initialCaPassPhrase));
-    }
 
         verify(client, times(3)).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
         List<List<String>> certificatesInRequests =

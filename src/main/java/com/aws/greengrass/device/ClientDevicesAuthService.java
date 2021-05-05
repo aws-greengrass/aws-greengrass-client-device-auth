@@ -49,7 +49,7 @@ public class ClientDevicesAuthService extends PluginService {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
     private static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
-            RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(10)
+            RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(Integer.MAX_VALUE)
                     .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
                     .build();
 
@@ -138,7 +138,7 @@ public class ClientDevicesAuthService extends PluginService {
             }
 
             List<String> caCerts = certificateManager.getCACertificates();
-            uploadCoreDeviceCertificates(caCerts);
+            uploadCoreDeviceCAs(caCerts);
             updateCACertificateConfig(caCerts);
             updateCaPassphraseConfig(certificateManager.getCaPassPhrase());
         } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException
@@ -164,7 +164,7 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private void uploadCoreDeviceCertificates(List<String> certificatePemList) {
+    private void uploadCoreDeviceCAs(List<String> certificatePemList) {
         String thingName = Coerce.toString(deviceConfiguration.getThingName());
         PutCertificateAuthoritiesRequest request =
                 PutCertificateAuthoritiesRequest.builder().coreDeviceThingName(thingName)

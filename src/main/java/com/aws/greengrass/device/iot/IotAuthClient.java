@@ -69,7 +69,7 @@ public interface IotAuthClient {
                 throw new CloudServiceInteractionException(
                         "Failed to verify client device identity, process got interrupted", e);
             } catch (ValidationException | ResourceNotFoundException e) {
-                logger.atDebug().cause(e).kv("certificatePem", certificatePem)
+                logger.atWarn().cause(e).kv("certificatePem", certificatePem)
                         .log("Certificate doesn't exist or isn't active");
                 return null;
             } catch (Exception e) {
@@ -104,7 +104,7 @@ public interface IotAuthClient {
                         .log("Thing is attached to certificate");
                 return true;
             } catch (InterruptedException e) {
-                logger.atError().cause(e).log("Verify certificate thing association got interrupted");
+                logger.atWarn().cause(e).log("Verify certificate thing association got interrupted");
                 // interrupt the current thread so that higher-level interrupt handlers can take care of it
                 Thread.currentThread().interrupt();
                 throw new CloudServiceInteractionException(
