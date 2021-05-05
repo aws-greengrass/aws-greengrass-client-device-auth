@@ -8,18 +8,18 @@ package com.aws.greengrass.device.iot;
 import com.aws.greengrass.device.attribute.AttributeProvider;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.attribute.StringLiteralAttribute;
-import lombok.Getter;
+import lombok.Value;
 
 import java.util.Collections;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+@Value
 public class Thing implements AttributeProvider {
     public static final String NAMESPACE = "Thing";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
 
-    @Getter
-    private final String thingName;
+    String thingName;
 
     /**
      * Constructor.

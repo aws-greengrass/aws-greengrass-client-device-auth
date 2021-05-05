@@ -22,10 +22,11 @@ import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDevice
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Optional;
 import javax.inject.Inject;
 
 public interface IotAuthClient {
-    String getActiveCertificateId(String certificatePem);
+    Optional<String> getActiveCertificateId(String certificatePem);
 
     boolean isThingAttachedToCertificate(Thing thing, Certificate certificate);
 
@@ -50,7 +51,7 @@ public interface IotAuthClient {
 
         @Override
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
-        public String getActiveCertificateId(String certificatePem) {
+        public Optional<String> getActiveCertificateId(String certificatePem) {
             if (Utils.isEmpty(certificatePem)) {
                 throw new IllegalArgumentException("Certificate PEM is empty");
             }
@@ -61,7 +62,7 @@ public interface IotAuthClient {
                 VerifyClientDeviceIdentityResponse response = RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
                         () -> clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(request),
                         "verify-client-device-identity", logger);
-                return response.clientDeviceCertificateId();
+                return Optional.of(response.clientDeviceCertificateId());
             } catch (InterruptedException e) {
                 logger.atError().cause(e).log("Verify client device identity got interrupted");
                 // interrupt the current thread so that higher-level interrupt handlers can take care of it
@@ -71,7 +72,7 @@ public interface IotAuthClient {
             } catch (ValidationException | ResourceNotFoundException e) {
                 logger.atWarn().cause(e).kv("certificatePem", certificatePem)
                         .log("Certificate doesn't exist or isn't active");
-                return null;
+                return Optional.empty();
             } catch (Exception e) {
                 logger.atError().cause(e).kv("certificatePem", certificatePem)
                         .log("Failed to verify client device identity with cloud");

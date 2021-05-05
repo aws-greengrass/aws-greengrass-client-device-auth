@@ -6,23 +6,19 @@
 package com.aws.greengrass.device;
 
 import com.aws.greengrass.device.iot.Certificate;
-import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class SessionTest {
-    @Mock
-    private IotAuthClient mockIotClient;
 
     @Test
     public void GIVEN_sessionWithThingAndCert_WHEN_getSessionAttributes_THEN_attributesAreReturned() {
-        Certificate cert = new Certificate("FAKE_PEM", mockIotClient);
+        Certificate cert = new Certificate("FAKE_PEM_HASH", "FAKE_CERT_ID");
         Thing thing = new Thing("MyThing");
         Session session = new Session(cert);
         session.put(thing.getNamespace(), thing);
