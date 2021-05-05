@@ -66,6 +66,7 @@ public class CertificateStoreTest {
 
         assertThat(pk.getAlgorithm(), equalTo(RSA_KEY_ALGORITHM));
         assertThat(cert.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
+        assertThat(certificateStore.getCaPassphrase(), not(DEFAULT_PASSPHRASE));
     }
 
     @Test
@@ -103,9 +104,10 @@ public class CertificateStoreTest {
             throws KeyStoreException {
         certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
         X509Certificate initialCert = certificateStore.getCACertificate();
+        String passphrase = certificateStore.getCaPassphrase();
 
         CertificateStore certificateStore2 = new CertificateStore(tmpPath);
-        certificateStore2.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
+        certificateStore2.update(passphrase, CAType.RSA_2048);
         X509Certificate secondCert = certificateStore2.getCACertificate();
 
         assertThat(initialCert, equalTo(secondCert));

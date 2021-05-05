@@ -9,6 +9,8 @@ import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.FileSystemPermission;
+import com.aws.greengrass.util.platforms.Platform;
 import lombok.AccessLevel;
 import lombok.Getter;
 import org.bouncycastle.cert.CertIOException;
@@ -54,6 +56,8 @@ public class CertificateStore {
     // NIST-P256 (secp256r1) provides 128 bits
     private static final int    RSA_KEY_LENGTH = 2048;
     private static final String EC_DEFAULT_CURVE = "secp256r1";
+    private static final FileSystemPermission OWNER_RW_ONLY =  FileSystemPermission.builder()
+            .ownerRead(true).ownerWrite(true).build();
 
     private final Logger logger = LogManager.getLogger(CertificateStore.class);
     @Getter
@@ -61,6 +65,7 @@ public class CertificateStore {
     @Getter(AccessLevel.PRIVATE)
     private char[] passphrase;
     private final Path workPath;
+    private final Platform platform = Platform.getInstance();
 
     public enum CAType {
         RSA_2048, ECDSA_P256
@@ -74,6 +79,10 @@ public class CertificateStore {
     // For unit tests
     public CertificateStore(Path workPath) {
         this.workPath = workPath;
+    }
+
+    public String getCaPassphrase() {
+        return passphrase == null ? null : new String(passphrase);
     }
 
     /**
@@ -170,6 +179,8 @@ public class CertificateStore {
         } catch (IOException | NoSuchAlgorithmException | CertificateException e) {
             throw new KeyStoreException("unable to load CA keystore", e);
         }
+        // generate new passphrase for new CA certificate
+        passphrase = generateRandomPassphrase().toCharArray();
         Certificate[] certificateChain = { caCertificate };
         ks.setKeyEntry("CA", kp.getPrivate(), getPassphrase(), certificateChain);
         keyStore = ks;
@@ -251,6 +262,8 @@ public class CertificateStore {
             keyStore.store(writeStream, getPassphrase());
         }
 
+        platform.setPermissions(OWNER_RW_ONLY, caPath);
+
         // TODO: Clean this up
         // Temporarily store public CA since CA information is not yet available in cloud
         X509Certificate caCert = getCACertificate();
@@ -273,7 +286,7 @@ public class CertificateStore {
      *
      * @return ASCII passphrase
      */
-    public static String generateRandomPassphrase() {
+    static String generateRandomPassphrase() {
         // Generate cryptographically secure sequence of bytes
         SecureRandom secureRandom = new SecureRandom();
         byte[] randomBytes = new byte[16];

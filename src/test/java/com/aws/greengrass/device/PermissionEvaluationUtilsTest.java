@@ -39,6 +39,10 @@ class PermissionEvaluationUtilsTest {
                 groupPermissions);
         assertThat(authorized, is(true));
 
+        authorized = PermissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:$foo .10bar/導À-baz/#",
+                groupPermissions);
+        assertThat(authorized, is(true));
+
         authorized = PermissionEvaluationUtils.isAuthorized("mqtt:connect", "mqtt:broker:localBroker",
                 groupPermissions);
         assertThat(authorized, is(true));

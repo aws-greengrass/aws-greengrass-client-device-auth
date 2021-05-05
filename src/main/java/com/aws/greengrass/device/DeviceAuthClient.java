@@ -36,8 +36,7 @@ import javax.inject.Inject;
 
 public class DeviceAuthClient {
     private static final String ALLOW_ALL_SESSION = "ALLOW_ALL";
-
-    private final Logger logger = LogManager.getLogger(DeviceAuthClient.class);
+    private static final Logger logger = LogManager.getLogger(DeviceAuthClient.class);
 
     private final SessionManager sessionManager;
     private final GroupManager groupManager;
