@@ -12,17 +12,26 @@ import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
 import com.aws.greengrass.dependency.ImplementsService;
+import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
+import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
+import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import com.aws.greengrass.util.RetryUtils;
 import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
+import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuthoritiesRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
 import java.io.IOException;
 import java.security.KeyStoreException;
 import java.security.cert.CertificateEncodingException;
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import javax.inject.Inject;
 
@@ -39,25 +48,39 @@ public class ClientDevicesAuthService extends PluginService {
     public static final String AUTHORITIES_TOPIC = "authorities";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
+    private static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
+            RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(Integer.MAX_VALUE)
+                    .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
+                    .build();
 
     private final GroupManager groupManager;
 
     private final CertificateManager certificateManager;
+
+    private final GreengrassServiceClientFactory clientFactory;
+
+    private final DeviceConfiguration deviceConfiguration;
 
     private Topics deviceGroupsTopics;
 
     /**
      * Constructor.
      *
-     * @param topics         Root Configuration topic for this service
-     * @param groupManager   Group configuration management
-     * @param certificateManager Certificate management
+     * @param topics             Root Configuration topic for this service
+     * @param groupManager       Group configuration management
+     * @param certificateManager  Certificate management
+     * @param clientFactory      Greengrass cloud service client factory
+     * @param deviceConfiguration core device configuration
      */
     @Inject
-    public ClientDevicesAuthService(Topics topics, GroupManager groupManager, CertificateManager certificateManager) {
+    public ClientDevicesAuthService(Topics topics, GroupManager groupManager, CertificateManager certificateManager,
+                                    GreengrassServiceClientFactory clientFactory,
+                                    DeviceConfiguration deviceConfiguration) {
         super(topics);
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
+        this.clientFactory = clientFactory;
+        this.deviceConfiguration = deviceConfiguration;
     }
 
     /**
@@ -92,8 +115,8 @@ public class ClientDevicesAuthService extends PluginService {
                     OBJECT_MAPPER.convertValue(this.deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
         } catch (IllegalArgumentException e) {
             logger.atError().kv("service", CLIENT_DEVICES_AUTH_SERVICE_NAME).kv("event", whatHappened)
-                    .kv("node", this.deviceGroupsTopics.getFullName()).kv("value", this.deviceGroupsTopics)
-                    .setCause(e).log("Unable to parse group configuration");
+                    .kv("node", this.deviceGroupsTopics.getFullName()).kv("value", this.deviceGroupsTopics).setCause(e)
+                    .log("Unable to parse group configuration");
         }
     }
 
@@ -115,9 +138,11 @@ public class ClientDevicesAuthService extends PluginService {
             }
 
             List<String> caCerts = certificateManager.getCACertificates();
+            uploadCoreDeviceCAs(caCerts);
             updateCACertificateConfig(caCerts);
             updateCaPassphraseConfig(certificateManager.getCaPassPhrase());
-        } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException e) {
+        } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException
+                | CloudServiceInteractionException e) {
             serviceErrored(e);
         }
     }
@@ -136,5 +161,28 @@ public class ClientDevicesAuthService extends PluginService {
     private String getPassphrase() {
         Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE).dflt("");
         return Coerce.toString(caPassphrase);
+    }
+
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private void uploadCoreDeviceCAs(List<String> certificatePemList) {
+        String thingName = Coerce.toString(deviceConfiguration.getThingName());
+        PutCertificateAuthoritiesRequest request =
+                PutCertificateAuthoritiesRequest.builder().coreDeviceThingName(thingName)
+                        .coreDeviceCertificates(certificatePemList).build();
+        try {
+            RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
+                    () -> clientFactory.getGreengrassV2DataClient().putCertificateAuthorities(request),
+                    "put-core-ca-certificate", logger);
+        } catch (InterruptedException e) {
+            logger.atError().cause(e).log("Put core CA certificates got interrupted");
+            // interrupt the current thread so that higher-level interrupt handlers can take care of it
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            logger.atError().cause(e)
+                    .kv("coreThingName", thingName)
+                    .log("Failed to put core CA certificates to cloud");
+            throw new CloudServiceInteractionException(
+                    String.format("Failed to put core %s CA certificates to cloud", thingName), e);
+        }
     }
 }
