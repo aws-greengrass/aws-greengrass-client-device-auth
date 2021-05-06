@@ -14,6 +14,9 @@ import java.util.Collections;
 import java.util.List;
 import javax.inject.Inject;
 
+/**
+ * Client for retrieving connectivity info from CIS - Connectivity Info Service.
+ */
 public class CISClient {
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassV2DataClient greengrassV2DataClient;

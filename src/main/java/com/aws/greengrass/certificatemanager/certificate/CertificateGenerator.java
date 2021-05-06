@@ -1,6 +1,5 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
-import com.aws.greengrass.cisclient.CISClientException;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
@@ -45,10 +44,10 @@ public abstract class CertificateGenerator {
     }
 
     public abstract void generateCertificate(List<ConnectivityInfo> connectivityInfos) throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException, CISClientException;
+            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException;
 
     public abstract void generateCertificate() throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException, CISClientException;
+            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException;
 
     /**
      * Checks if certificate needs to be regenerated.
