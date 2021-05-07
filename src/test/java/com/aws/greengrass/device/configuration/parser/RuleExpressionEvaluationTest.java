@@ -6,8 +6,8 @@
 package com.aws.greengrass.device.configuration.parser;
 
 import com.aws.greengrass.device.attribute.DeviceAttribute;
-import com.aws.greengrass.device.attribute.StringLiteralAttribute;
 import com.aws.greengrass.device.Session;
+import com.aws.greengrass.device.attribute.WildcardSuffixAttribute;
 import com.aws.greengrass.device.configuration.ExpressionVisitor;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
@@ -30,7 +30,7 @@ public class RuleExpressionEvaluationTest {
 
     Session getSessionWithThing(String thingName) {
         Session session = Mockito.mock(Session.class);
-        DeviceAttribute attribute = new StringLiteralAttribute(thingName);
+        DeviceAttribute attribute = new WildcardSuffixAttribute(thingName);
         Mockito.when(session.getSessionAttribute(any(), any())).thenReturn(attribute);
         return session;
     }
@@ -79,6 +79,25 @@ public class RuleExpressionEvaluationTest {
     public void GIVEN_logicalExpressionWithAndOr_WHEN_RuleExpressionEvaluatedWithSessionContainingThingInAND_THEN_EvaluatesFalse() throws ParseException {
         ASTStart tree = getTree("thingName: Thing AND thingName: Thing1 OR thingName: Thing2");
         Session session = getSessionWithThing("Thing");
+        RuleExpressionVisitor visitor = new ExpressionVisitor();
+        Assertions.assertFalse((Boolean) visitor.visit(tree, session));
+    }
+
+    @Test
+    public void GIVEN_unaryExpressionWithWildcard_WHEN_RuleExpressionEvaluated_THEN_EvaluatesTrue() throws ParseException {
+        ASTStart tree = getTree("thingName: Thing*");
+        Session session = getSessionWithThing("Thing1");
+        RuleExpressionVisitor visitor = new ExpressionVisitor();
+        Assertions.assertTrue((Boolean) visitor.visit(tree, session));
+
+        session = getSessionWithThing("ThingTwo");
+        Assertions.assertTrue((Boolean) visitor.visit(tree, session));
+    }
+
+    @Test
+    public void GIVEN_unaryExpressionWithWildcard_WHEN_RuleExpressionEvaluatedWithSessionNotContainingThing_THEN_EvaluatesFalse() throws ParseException {
+        ASTStart tree = getTree("thingName: Thing*");
+        Session session = getSessionWithThing("FirstThing");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
         Assertions.assertFalse((Boolean) visitor.visit(tree, session));
     }

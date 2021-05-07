@@ -7,7 +7,7 @@ package com.aws.greengrass.device.configuration;
 
 import com.aws.greengrass.device.Session;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
-import com.aws.greengrass.device.attribute.StringLiteralAttribute;
+import com.aws.greengrass.device.attribute.WildcardSuffixAttribute;
 import com.aws.greengrass.device.configuration.parser.ParseException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.device.iot.IotAuthClient;
@@ -31,7 +31,16 @@ public class GroupDefinitionTest {
     void GIVEN_groupDefinitionAndMatchingSession_WHEN_containsSession_THEN_returnsTrue() throws ParseException {
         GroupDefinition groupDefinition = new GroupDefinition("thingName: thing", "Policy1");
         Session session = Mockito.mock(Session.class);
-        DeviceAttribute attribute = new StringLiteralAttribute("thing");
+        DeviceAttribute attribute = new WildcardSuffixAttribute("thing");
+        Mockito.when(session.getSessionAttribute(any(), any())).thenReturn(attribute);
+        assertThat(groupDefinition.containsClientDevice(session), is(true));
+    }
+
+    @Test
+    void GIVEN_groupDefinitionWithWildcardAndMatchingSession_WHEN_containsSession_THEN_returnsTrue() throws ParseException {
+        GroupDefinition groupDefinition = new GroupDefinition("thingName: thing*", "Policy1");
+        Session session = Mockito.mock(Session.class);
+        DeviceAttribute attribute = new WildcardSuffixAttribute("thing-A");
         Mockito.when(session.getSessionAttribute(any(), any())).thenReturn(attribute);
         assertThat(groupDefinition.containsClientDevice(session), is(true));
     }
