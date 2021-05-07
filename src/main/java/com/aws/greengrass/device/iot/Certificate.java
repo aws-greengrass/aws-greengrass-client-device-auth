@@ -20,7 +20,7 @@ public class Certificate implements AttributeProvider {
     public static final String NAMESPACE = "Certificate";
 
     @Getter
-    private String certificatePem;
+    private final String certificatePem;
     private String certificateId; // Needed in case we cannot talk to IoT
     private String iotCertificateId; // Needed for certificate revocation
     private final IotAuthClient iotAuthClient;
@@ -54,6 +54,7 @@ public class Certificate implements AttributeProvider {
      * @return AWS IoT Certificate ID
      */
     public String getIotCertificateId() {
+        //TODO fix thread safety
         if (iotCertificateId == null) {
             iotCertificateId = iotAuthClient.getActiveCertificateId(certificatePem);
         }

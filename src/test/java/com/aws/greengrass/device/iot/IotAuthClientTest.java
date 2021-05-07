@@ -5,88 +5,189 @@
 
 package com.aws.greengrass.device.iot;
 
+import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import org.junit.jupiter.api.Assertions;
+import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import software.amazon.awssdk.services.iot.IotClient;
-import software.amazon.awssdk.services.iot.model.CertificateDescription;
-import software.amazon.awssdk.services.iot.model.DescribeCertificateRequest;
-import software.amazon.awssdk.services.iot.model.DescribeCertificateResponse;
-import software.amazon.awssdk.services.iot.model.ListThingPrincipalsRequest;
-import software.amazon.awssdk.services.iot.model.ListThingPrincipalsResponse;
+import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
+import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
+import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
+import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
+import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityResponse;
+import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIoTCertificateAssociationRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIoTCertificateAssociationResponse;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class IotAuthClientTest {
+    private static final long TEST_TIME_OUT_SEC = 5L;
+
+    @InjectMocks
+    private IotAuthClient.Default iotAuthClient;
+
     @Mock
-    private IotClient mockIotClient;
+    private GreengrassServiceClientFactory clientFactory;
 
-    @Test
-    public void GIVEN_certificateId_WHEN_downloadSingleDeviceCertificate_THEN_certificatePemIsReturned() {
-        IotAuthClient.Default betaClient = new IotAuthClient.Default(mockIotClient);
+    @Mock
+    private GreengrassV2DataClient client;
 
-        Mockito.when(mockIotClient.describeCertificate(Mockito.any(DescribeCertificateRequest.class)))
-                .thenAnswer(i -> {
-                    DescribeCertificateRequest request = i.getArgument(0);
-                    DescribeCertificateResponse response = Mockito.mock(DescribeCertificateResponse.class);
-                    CertificateDescription mockDescription = Mockito.mock(CertificateDescription.class);
-                    Mockito.when(response.certificateDescription()).thenReturn(mockDescription);
-                    Mockito.when(mockDescription.certificatePem()).thenReturn(request.certificateId() + "-CERT");
-                    return response;
-                });
+    @Captor
+    private ArgumentCaptor<VerifyClientDeviceIdentityRequest> identityRequestCaptor;
 
-        String certPem = betaClient.downloadSingleDeviceCertificate("testCertId");
-        Assertions.assertEquals("testCertId-CERT", certPem);
+    @Mock
+    private Thing thing;
+
+    @Mock
+    private Certificate certificate;
+
+    @Captor
+    private ArgumentCaptor<VerifyClientDeviceIoTCertificateAssociationRequest> associationRequestCaptor;
+
+    @BeforeEach
+    void beforeEach() {
+        lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
     }
 
     @Test
-    public void GIVEN_ThingWithSingleCertPrincipal_WHEN_listThingCertificatePrincipals_THEN_certIdIsReturned() {
-        IotAuthClient.Default betaClient = new IotAuthClient.Default(mockIotClient);
-        ListThingPrincipalsResponse mockListThingPrincipalsResponse = Mockito.mock(ListThingPrincipalsResponse.class);
+    void GIVEN_certificatePem_and_cloudProperResponse_WHEN_getActiveCertificateId_THEN_certificateIdReturned() {
+        VerifyClientDeviceIdentityResponse response =
+                VerifyClientDeviceIdentityResponse.builder().clientDeviceCertificateId("certificateId").build();
+        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class))).thenReturn(response);
 
-        Mockito.when(mockIotClient.listThingPrincipals((ListThingPrincipalsRequest) Mockito.any()))
-                .thenReturn(mockListThingPrincipalsResponse);
-        Mockito.when(mockListThingPrincipalsResponse.principals())
-                .thenReturn(Arrays.asList("arn:aws:iot:us-west-2:123456789012:cert/33475ac865079a5ffd5ecd44240640349293facc760642d7d8d5dbb6b4c86893"));
+        String certificateId = iotAuthClient.getActiveCertificateId("certificatePem");
 
-        List<String> certPrincipals = betaClient.listThingCertificatePrincipals("testThing");
-        Assertions.assertEquals("33475ac865079a5ffd5ecd44240640349293facc760642d7d8d5dbb6b4c86893", certPrincipals.get(0));
+        assertThat(certificateId, is("certificateId"));
+        verify(client).verifyClientDeviceIdentity(identityRequestCaptor.capture());
+        assertThat(identityRequestCaptor.getValue().clientDeviceCertificate(), is("certificatePem"));
     }
 
     @Test
-    public void GIVEN_ThingWithMultiplePrincipals_WHEN_listThingCertificatePrincipals_THEN_certIdsAreReturned() {
-        IotAuthClient.Default betaClient = new IotAuthClient.Default(mockIotClient);
-        ListThingPrincipalsResponse mockListThingPrincipalsResponse = Mockito.mock(ListThingPrincipalsResponse.class);
+    void GIVEN_cloudThrowValidationException_WHEN_getActiveCertificateId_THEN_returnNull(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, ValidationException.class);
+        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class)))
+                .thenThrow(ValidationException.class);
 
-        Mockito.when(mockIotClient.listThingPrincipals((ListThingPrincipalsRequest) Mockito.any()))
-                .thenReturn(mockListThingPrincipalsResponse);
-        Mockito.when(mockListThingPrincipalsResponse.principals())
-                .thenReturn(Arrays.asList("arn:aws:iot:us-west-2:123456789012:cert/33475ac865079a5ffd5ecd44240640349293facc760642d7d8d5dbb6b4c86893",
-                        "arn:aws:cognito-identity:us-west-2:123456789012:identitypool/cognito_id",
-                        "arn:aws:iot:us-west-2:123456789012:cert/33475ac865079a5ffd5ecd44240640349293facc760642d7d8d5dbb6b4c86894"));
-
-        List<String> certPrincipals = betaClient.listThingCertificatePrincipals("testThing");
-        Assertions.assertEquals("33475ac865079a5ffd5ecd44240640349293facc760642d7d8d5dbb6b4c86893", certPrincipals.get(0));
-        Assertions.assertEquals("33475ac865079a5ffd5ecd44240640349293facc760642d7d8d5dbb6b4c86894", certPrincipals.get(1));
+        assertThat(iotAuthClient.getActiveCertificateId("certificatePem"), nullValue());
     }
 
     @Test
-    public void GIVEN_ThingWithNoCertPrincipals_WHEN_listThingCertificatePrincipals_THEN_emptyListIsReturned() {
-        IotAuthClient.Default betaClient = new IotAuthClient.Default(mockIotClient);
-        ListThingPrincipalsResponse mockListThingPrincipalsResponse = Mockito.mock(ListThingPrincipalsResponse.class);
+    void GIVEN_cloudThrowException_WHEN_getActiveCertificateId_THEN_throwCloudInteractionException(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, AccessDeniedException.class);
+        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class)))
+                .thenThrow(AccessDeniedException.class);
 
-        Mockito.when(mockIotClient.listThingPrincipals((ListThingPrincipalsRequest) Mockito.any()))
-                .thenReturn(mockListThingPrincipalsResponse);
-        Mockito.when(mockListThingPrincipalsResponse.principals())
-                .thenReturn(Arrays.asList("arn:aws:cognito-identity:us-west-2:123456789012:identitypool/cognito_id"));
+        assertThrows(CloudServiceInteractionException.class,
+                () -> iotAuthClient.getActiveCertificateId("certificatePem"));
+    }
 
-        List<String> certPrincipals = betaClient.listThingCertificatePrincipals("testThing");
-        Assertions.assertTrue(certPrincipals.isEmpty());
+    @Test
+    void GIVEN_certificatePemEmpty_WHEN_getActiveCertificateId_THEN_throwIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () -> iotAuthClient.getActiveCertificateId(""));
+    }
+
+    @Test
+    void GIVEN_threadGotInterrupted_WHEN_getActiveCertificateId_THEN_throwCloudInteractionException(
+            ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, InterruptedException.class);
+        ignoreExceptionOfType(context, InternalServerException.class);
+        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class)))
+                .thenThrow(InternalServerException.class);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        Thread thread = new Thread(() -> {
+            try {
+                iotAuthClient.getActiveCertificateId("certificatePem");
+            } catch (CloudServiceInteractionException e) {
+                latch.countDown();
+            }
+        });
+        thread.start();
+        Thread.sleep(1000);
+        thread.interrupt();
+        assertThat(latch.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS), is(true));
+    }
+
+    @Test
+    void GIVEN_certificateAndThing_and_cloudVerificationSuccess_WHEN_isThingAttachedToCertificate_THEN_returnTrue() {
+        when(thing.getThingName()).thenReturn("thingName");
+        when(certificate.getIotCertificateId()).thenReturn("certificateId");
+        when(client.verifyClientDeviceIoTCertificateAssociation(
+                any(VerifyClientDeviceIoTCertificateAssociationRequest.class)))
+                .thenReturn(VerifyClientDeviceIoTCertificateAssociationResponse.builder().build());
+
+        assertThat(iotAuthClient.isThingAttachedToCertificate(thing, certificate), is(true));
+        verify(client).verifyClientDeviceIoTCertificateAssociation(associationRequestCaptor.capture());
+        VerifyClientDeviceIoTCertificateAssociationRequest request = associationRequestCaptor.getValue();
+        assertThat(request.clientDeviceCertificateId(), is("certificateId"));
+        assertThat(request.clientDeviceThingName(), is("thingName"));
+    }
+
+    @Test
+    void GIVEN_cloudThrowValidationException_WHEN_isThingAttachedToCertificate_THEN_returnFalse(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, ValidationException.class);
+        when(thing.getThingName()).thenReturn("thingName");
+        when(certificate.getIotCertificateId()).thenReturn("certificateId");
+        when(client.verifyClientDeviceIoTCertificateAssociation(
+                any(VerifyClientDeviceIoTCertificateAssociationRequest.class))).thenThrow(ValidationException.class);
+
+        assertThat(iotAuthClient.isThingAttachedToCertificate(thing, certificate), is(false));
+    }
+
+    @Test
+    void GIVEN_cloudThrowException_WHEN_isThingAttachedToCertificate_THEN_throwCloudInteractionException(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, AccessDeniedException.class);
+        when(thing.getThingName()).thenReturn("thingName");
+        when(certificate.getIotCertificateId()).thenReturn("certificateId");
+        when(client.verifyClientDeviceIoTCertificateAssociation(
+                any(VerifyClientDeviceIoTCertificateAssociationRequest.class))).thenThrow(AccessDeniedException.class);
+
+        assertThrows(CloudServiceInteractionException.class,
+                () -> iotAuthClient.isThingAttachedToCertificate(thing, certificate));
+    }
+
+    @Test
+    void GIVEN_thingNameEmpty_WHEN_isThingAttachedToCertificate_THEN_throwIllegalArgumentException(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, IllegalArgumentException.class);
+        when(thing.getThingName()).thenReturn("");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> iotAuthClient.isThingAttachedToCertificate(thing, certificate));
+    }
+
+    @Test
+    void GIVEN_iotCertificateIdEmpty_WHEN_isThingAttachedToCertificate_THEN_throwIllegalArgumentException(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, IllegalArgumentException.class);
+        when(thing.getThingName()).thenReturn("thingName");
+        when(certificate.getIotCertificateId()).thenReturn("");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> iotAuthClient.isThingAttachedToCertificate(thing, certificate));
     }
 }
