@@ -7,12 +7,15 @@ package com.aws.greengrass.device;
 
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.device.configuration.GroupManager;
+import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.exception.AuthorizationException;
+import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Digest;
 import software.amazon.awssdk.utils.StringInputStream;
 
 import java.io.IOException;
@@ -32,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import javax.inject.Inject;
 
 public class DeviceAuthClient {
@@ -63,22 +67,24 @@ public class DeviceAuthClient {
     /**
      * Create session from certificate PEM.
      *
-     * @param certificatePem Certificate PEM
+     * @param certificatePem Client device/component certificate PEM
      * @return Session ID
+     * @throws AuthenticationException if failed to authenticate
      */
-    public String createSession(String certificatePem) {
+    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
+    public String createSession(String certificatePem) throws AuthenticationException {
         logger.atInfo().log("Creating new session");
         if (isGreengrassComponent(certificatePem)) {
             return ALLOW_ALL_SESSION;
         }
-        return sessionManager.createSession(new Certificate(certificatePem, iotAuthClient));
+        return createSessionForClientDevice(certificatePem);
     }
 
     private boolean isGreengrassComponent(String certificatePem) {
         try {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             try (InputStream is = new StringInputStream(certificatePem)) {
-                List<X509Certificate> certificateList = new ArrayList();
+                List<X509Certificate> certificateList = new ArrayList<>();
                 while (is.available() > 0) {
                     try {
                         certificateList.add((X509Certificate) cf.generateCertificate(is));
@@ -123,8 +129,84 @@ public class DeviceAuthClient {
         return false;
     }
 
+    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
+    private String createSessionForClientDevice(String certificatePem) throws AuthenticationException {
+        Optional<String> certificateId;
+        try {
+            certificateId = iotAuthClient.getActiveCertificateId(certificatePem);
+        } catch (CloudServiceInteractionException e) {
+            throw new AuthenticationException("Failed to verify certificate with cloud", e);
+        }
+        if (!certificateId.isPresent()) {
+            throw new AuthenticationException("Certificate isn't active");
+        }
+
+        String certificateHash = computeCertificatePemHash(certificatePem);
+        // for simplicity, synchronously store the PEM on disk.
+        try {
+            certificateStore.storeDeviceCertificateIfNotPresent(certificateHash, certificatePem);
+        } catch (IOException e) {
+            // allow to continue even failed to store, session health check will invalid the session later
+            logger.atError().cause(e).kv("certificatePem", certificatePem)
+                    .log("Failed to store certificate on disk");
+        }
+        return sessionManager.createSession(new Certificate(certificateHash, certificateId.get()));
+    }
+
+    private String computeCertificatePemHash(String certificatePem) {
+        try {
+            return Digest.calculateWithUrlEncoderNoPadding(certificatePem);
+        } catch (NoSuchAlgorithmException e) {
+            //the exception shouldn't happen, even happens it's valid runtime exception case that should report bug
+            throw new RuntimeException("Can't compute hash of certificate", e);
+        }
+    }
+
     public void closeSession(String sessionId) throws AuthorizationException {
         sessionManager.closeSession(sessionId);
+    }
+
+    /**
+     * Attach thing to session in order to authorize.
+     *
+     * @param sessionId Session ID
+     * @param thingName IoT Thing Name
+     * @throws AuthenticationException if session not valid or verify thing identity error out
+     */
+    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
+    public void attachThing(String sessionId, String thingName) throws AuthenticationException {
+        logger.atDebug()
+                .kv("sessionId", sessionId)
+                .kv("thingName", thingName)
+                .log("Attaching thing to session");
+
+        // Workaround for bridge component
+        if (ALLOW_ALL_SESSION.equals(sessionId)) {
+            return;
+        }
+
+        Session session = sessionManager.findSession(sessionId);
+        if (session == null) {
+            throw new AuthenticationException(
+                    String.format("invalid session id (%s)", sessionId));
+        }
+
+        Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
+        try {
+            session.computeIfAbsent(Thing.NAMESPACE, k -> getValidThing(thingName, certificate));
+        } catch (CloudServiceInteractionException e) {
+            throw new AuthenticationException("Failed to verify thing identity with cloud", e);
+        }
+    }
+
+    private Thing getValidThing(String thingName, Certificate certificate) {
+        Thing thing = new Thing(thingName);
+        if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
+            return thing;
+        }
+        logger.atWarn().kv("iotCertificateId", certificate.getIotCertificateId()).kv("thing", thingName)
+                .log("unable to validate Thing");
+        return null;
     }
 
     /**
@@ -153,17 +235,10 @@ public class DeviceAuthClient {
         }
 
         Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
-        Thing thing = new Thing(request.getClientId());
         // if thing name is already cached, proceed;
         // otherwise validate thing name with certificate, then cache thing name
-        session.computeIfAbsent(thing.getNamespace(), (k) -> {
-            if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
-                return thing;
-            }
-            logger.atWarn().kv("sessionId", request.getSessionId()).kv("thing", request.getClientId())
-                    .log("unable to validate Thing");
-            return null;
-        });
+        session.computeIfAbsent(Thing.NAMESPACE, (k) -> getValidThing(request.getClientId(), certificate));
+
         return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
                 groupManager.getApplicablePolicyPermissions(session));
     }

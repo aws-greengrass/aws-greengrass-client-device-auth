@@ -9,12 +9,10 @@ import com.aws.greengrass.device.Session;
 import com.aws.greengrass.device.configuration.parser.ParseException;
 import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.Certificate;
-import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
@@ -103,7 +101,7 @@ public class GroupManagerTest {
 
     private Session getSessionFromThing(String thingName) {
         Thing thing = new Thing(thingName);
-        Session session = new Session(new Certificate("FAKE_PEM", Mockito.mock(IotAuthClient.Default.class)));
+        Session session = new Session(new Certificate("FAKE_PEM_HASH", "FAKE_CERT_ID"));
         session.put(thing.getNamespace(), thing);
         return session;
     }
