@@ -9,6 +9,7 @@ import com.aws.greengrass.certificatemanager.CertificateManager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateRequestGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
+import com.aws.greengrass.cisclient.CISClient;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.device.exception.AuthenticationException;
@@ -40,7 +41,6 @@ import java.util.function.Consumer;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -109,7 +109,7 @@ public class DeviceAuthClientTest {
     }
 
     @Test
-    void GIVEN_storeCertificateThrowException_WHEN_createSession_THEN_throwAuthenticationException(
+    void GIVEN_storeCertificateThrowException_WHEN_createSession_THEN_continueSessionCreation(
             ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, IOException.class);
         String certificatePem = "FAKE_PEM";
@@ -118,9 +118,8 @@ public class DeviceAuthClientTest {
         when(iotClient.getActiveCertificateId(certificatePem)).thenReturn(Optional.of("certificateId"));
         doThrow(IOException.class).when(certificateStore).storeDeviceCertificateIfNotPresent(any(), any());
 
-        Exception e =
-                assertThrows(AuthenticationException.class, () -> deviceAuthClient.createSession(certificatePem));
-        assertThat(e.getMessage(), containsString("Failed to store"));
+        String sessionId = deviceAuthClient.createSession(certificatePem);
+        assertThat(sessionId, not(emptyOrNullString()));
     }
 
     @Test

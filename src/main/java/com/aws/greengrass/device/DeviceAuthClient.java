@@ -146,9 +146,9 @@ public class DeviceAuthClient {
         try {
             certificateStore.storeDeviceCertificateIfNotPresent(certificateHash, certificatePem);
         } catch (IOException e) {
+            // allow to continue even failed to store, session health check will invalid the session later
             logger.atError().cause(e).kv("certificatePem", certificatePem)
                     .log("Failed to store certificate on disk");
-            throw new AuthenticationException("Failed to store client certificate", e);
         }
         return sessionManager.createSession(new Certificate(certificateHash, certificateId.get()));
     }
