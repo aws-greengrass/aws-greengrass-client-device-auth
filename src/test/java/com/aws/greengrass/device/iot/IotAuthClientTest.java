@@ -26,13 +26,13 @@ import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDevice
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIoTCertificateAssociationRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIoTCertificateAssociationResponse;
 
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -75,9 +75,9 @@ public class IotAuthClientTest {
                 VerifyClientDeviceIdentityResponse.builder().clientDeviceCertificateId("certificateId").build();
         when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class))).thenReturn(response);
 
-        String certificateId = iotAuthClient.getActiveCertificateId("certificatePem");
+        Optional<String> certificateId = iotAuthClient.getActiveCertificateId("certificatePem");
 
-        assertThat(certificateId, is("certificateId"));
+        assertThat(certificateId.get(), is("certificateId"));
         verify(client).verifyClientDeviceIdentity(identityRequestCaptor.capture());
         assertThat(identityRequestCaptor.getValue().clientDeviceCertificate(), is("certificatePem"));
     }
@@ -89,7 +89,7 @@ public class IotAuthClientTest {
         when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class)))
                 .thenThrow(ValidationException.class);
 
-        assertThat(iotAuthClient.getActiveCertificateId("certificatePem"), nullValue());
+        assertThat(iotAuthClient.getActiveCertificateId("certificatePem"), is(Optional.empty()));
     }
 
     @Test

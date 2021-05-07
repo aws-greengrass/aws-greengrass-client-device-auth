@@ -5,17 +5,17 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.util.ParseIPAddress;
+import com.aws.greengrass.util.Utils;
 import lombok.NonNull;
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.pkcs.Attribute;
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
@@ -29,8 +29,8 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
+import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.io.BufferedReader;
@@ -41,17 +41,18 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.Enumeration;
+import java.util.List;
 
 
 public final class CertificateHelper {
@@ -120,27 +121,29 @@ public final class CertificateHelper {
     /**
      * Generate server certificate from CSR.
      *
-     * @param caCert        CA Certificate
-     * @param caPrivateKey  CA Private Key
-     * @param csr           PKCS10 Certificate Signing Request
-     * @param notBefore     Certificate notBefore Date
-     * @param notAfter      Certificate notAfter Date
-     * @return              X509 certificate
+     * @param caCert                CA Certificate
+     * @param caPrivateKey          CA Private Key
+     * @param subject               server's subject
+     * @param publicKey             server's public key
+     * @param connectivityInfoItems GGC's connectivity info
+     * @param notBefore             Certificate notBefore Date
+     * @param notAfter              Certificate notAfter Date
+     * @return                      X509 certificate
      * @throws NoSuchAlgorithmException   NoSuchAlgorithmException
-     * @throws InvalidKeyException        InvalidKeyException
      * @throws OperatorCreationException  OperatorCreationException
      * @throws CertificateException       CertificateException
-     * @throws CertIOException            CertIOException
+     * @throws IOException                IOException
      */
     public static X509Certificate signServerCertificateRequest(@NonNull X509Certificate caCert,
-                                                         @NonNull PrivateKey caPrivateKey,
-                                                         @NonNull PKCS10CertificationRequest csr,
-                                                         @NonNull Date notBefore,
-                                                         @NonNull Date notAfter) throws
-            NoSuchAlgorithmException, InvalidKeyException, OperatorCreationException,
-            CertificateException, CertIOException {
-        return signCertificateRequest(caCert, caPrivateKey, csr, notBefore, notAfter,
-                new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+                                                               @NonNull PrivateKey caPrivateKey,
+                                                               @NonNull X500Name subject,
+                                                               @NonNull PublicKey publicKey,
+                                                               @NonNull List<ConnectivityInfo> connectivityInfoItems,
+                                                               @NonNull Date notBefore,
+                                                               @NonNull Date notAfter)
+                        throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+        return signCertificateRequest(caCert, caPrivateKey, subject, publicKey, connectivityInfoItems, notBefore,
+                notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
     }
 
     /**
@@ -148,49 +151,49 @@ public final class CertificateHelper {
      *
      * @param caCert        CA Certificate
      * @param caPrivateKey  CA Private Key
-     * @param csr           PKCS10 Certificate Signing Request
+     * @param subject       client's subject
+     * @param publicKey     client's public key
      * @param notBefore     Certificate notBefore Date
      * @param notAfter      Certificate notAfter Date
      * @return              X509 certificate
      * @throws NoSuchAlgorithmException   NoSuchAlgorithmException
-     * @throws InvalidKeyException        InvalidKeyException
      * @throws OperatorCreationException  OperatorCreationException
      * @throws CertificateException       CertificateException
-     * @throws CertIOException            CertIOException
+     * @throws IOException                IOException
      */
     public static X509Certificate signClientCertificateRequest(@NonNull X509Certificate caCert,
-                                                         @NonNull PrivateKey caPrivateKey,
-                                                         @NonNull PKCS10CertificationRequest csr,
-                                                         @NonNull Date notBefore,
-                                                         @NonNull Date notAfter) throws
-            NoSuchAlgorithmException, InvalidKeyException, OperatorCreationException,
-            CertificateException, CertIOException {
-        return signCertificateRequest(caCert, caPrivateKey, csr, notBefore, notAfter,
-                new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth));
+                                                               @NonNull PrivateKey caPrivateKey,
+                                                               @NonNull X500Name subject,
+                                                               @NonNull PublicKey publicKey,
+                                                               @NonNull Date notBefore,
+                                                               @NonNull Date notAfter)
+            throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+        return signCertificateRequest(caCert, caPrivateKey, subject, publicKey, null, notBefore,
+                notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth));
     }
 
     private static X509Certificate signCertificateRequest(@NonNull X509Certificate caCert,
                                                           @NonNull PrivateKey caPrivateKey,
-                                                          @NonNull PKCS10CertificationRequest csr,
+                                                          @NonNull X500Name subject,
+                                                          @NonNull PublicKey publicKey,
+                                                          List<ConnectivityInfo> connectivityInfoItems,
                                                           @NonNull Date notBefore,
                                                           @NonNull Date notAfter,
-                                                          @NonNull ExtendedKeyUsage keyUsage) throws
-            NoSuchAlgorithmException, InvalidKeyException, OperatorCreationException,
-            CertificateException, CertIOException {
-        JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(csr);
+                                                          @NonNull ExtendedKeyUsage keyUsage)
+            throws NoSuchAlgorithmException, CertificateException, IOException, OperatorCreationException {
         X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                caCert, newSerialNumber(), notBefore,
-                notAfter, jcaRequest.getSubject(), jcaRequest.getPublicKey()
+                caCert, newSerialNumber(), notBefore, notAfter, subject, publicKey
         );
 
         JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
         builder.addExtension(Extension.authorityKeyIdentifier, false, extUtils.createAuthorityKeyIdentifier(caCert))
                 .addExtension(Extension.basicConstraints, true, new BasicConstraints(false))
-                .addExtension(Extension.subjectKeyIdentifier, false,
-                        extUtils.createSubjectKeyIdentifier(jcaRequest.getPublicKey()))
+                .addExtension(Extension.subjectKeyIdentifier, false, extUtils.createSubjectKeyIdentifier(publicKey))
                 .addExtension(Extension.extendedKeyUsage, true, keyUsage);
 
-        addSANFromCSRToCertificate(csr, builder);
+        if (!Utils.isEmpty(connectivityInfoItems)) {
+            addSANFromConnectivityInfoToCertificate(connectivityInfoItems, builder);
+        }
 
         final ContentSigner contentSigner = new JcaContentSignerBuilder(
                 caCert.getSigAlgName()).setProvider("BC").build(caPrivateKey);
@@ -233,24 +236,19 @@ public final class CertificateHelper {
         }
     }
 
-    private static void addSANFromCSRToCertificate(final PKCS10CertificationRequest csr,
-                                                   final X509v3CertificateBuilder builder) throws CertIOException {
-        Attribute[] attributes = csr.getAttributes();
-
-        for (Attribute attr : attributes) {
-            if (attr.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
-                Extensions extensions = Extensions.getInstance(attr.getAttrValues().getObjectAt(0));
-                Enumeration e = extensions.oids();
-                while (e.hasMoreElements()) {
-                    ASN1ObjectIdentifier oid = (ASN1ObjectIdentifier) e.nextElement();
-                    if (Extension.subjectAlternativeName.equals(oid)) {
-                        Extension ext = extensions.getExtension(oid);
-                        builder.addExtension(oid, ext.isCritical(), ext.getParsedValue());
-                        break;
-                    }
-                }
+    private static void addSANFromConnectivityInfoToCertificate(List<ConnectivityInfo> connectivityInfoItems,
+                                                                X509v3CertificateBuilder builder) throws IOException {
+        final List<GeneralName> generalNamesArray = new ArrayList<>();
+        for (ConnectivityInfo connectivityInfo : connectivityInfoItems) {
+            String host = connectivityInfo.hostAddress();
+            if (ParseIPAddress.isValidIP(host)) {
+                generalNamesArray.add(new GeneralName(GeneralName.iPAddress, host));
+            } else {
+                generalNamesArray.add(new GeneralName(GeneralName.dNSName, host));
             }
         }
+        final GeneralNames generalNames = new GeneralNames(generalNamesArray.toArray(new GeneralName[0]));
+        builder.addExtension(Extension.subjectAlternativeName, false, generalNames);
     }
 
     private static X500Name getIssuer(String commonName) {
