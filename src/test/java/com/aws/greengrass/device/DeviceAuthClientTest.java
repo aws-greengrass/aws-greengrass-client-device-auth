@@ -70,6 +70,9 @@ public class DeviceAuthClientTest {
     @Mock
     private CertificateStore certificateStore;
 
+    @Mock
+    private CISClient mockCISClient;
+
     @TempDir
     Path tempDir;
 
@@ -232,7 +235,7 @@ public class DeviceAuthClientTest {
     void GIVEN_greengrassComponentCertChainPem_WHEN_createSession_THEN_allowAllSessionIdReturned() throws Exception {
         CertificateStore certificateStore = new CertificateStore(tempDir);
         certificateStore.update("password", CertificateStore.CAType.RSA_2048);
-        CertificateManager certificateManager = new CertificateManager(certificateStore);
+        CertificateManager certificateManager = new CertificateManager(certificateStore, mockCISClient);
         KeyPair clientKeyPair = CertificateStore.newRSAKeyPair();
         String csr = CertificateRequestGenerator.createCSR(clientKeyPair, "Thing", null, null);
 
