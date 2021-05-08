@@ -19,6 +19,7 @@ import lombok.NonNull;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -94,7 +95,7 @@ public class CertificateManager {
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToServerCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
-            throws KeyStoreException, CsrProcessingException, CISClientException {
+            throws KeyStoreException, CsrProcessingException {
         // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
         // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
         try {
@@ -103,9 +104,14 @@ public class CertificateManager {
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
-            certificateGenerator.generateCertificate(cisClient.getConnectivityInfo());
-            //TODO: retry for CISClientException
-        } catch (KeyStoreException | CISClientException e) {
+            try {
+                List<ConnectivityInfo> connectivityInfoList = cisClient.getConnectivityInfo();
+                certificateGenerator.generateCertificate(connectivityInfoList);
+            } catch (CISClientException e) {
+                //TODO: retry for CISClientException
+                certificateGenerator.generateCertificate();
+            }
+        } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
         } catch (RuntimeException | OperatorCreationException | NoSuchAlgorithmException | CertificateException
