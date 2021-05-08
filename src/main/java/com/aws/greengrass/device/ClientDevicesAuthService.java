@@ -57,6 +57,8 @@ public class ClientDevicesAuthService extends PluginService {
 
     private final CertificateManager certificateManager;
 
+    private final SessionManager sessionManager;
+
     private final GreengrassServiceClientFactory clientFactory;
 
     private final DeviceConfiguration deviceConfiguration;
@@ -69,16 +71,18 @@ public class ClientDevicesAuthService extends PluginService {
      * @param topics             Root Configuration topic for this service
      * @param groupManager       Group configuration management
      * @param certificateManager  Certificate management
+     * @param sessionManager     Session Manager
      * @param clientFactory      Greengrass cloud service client factory
      * @param deviceConfiguration core device configuration
      */
     @Inject
     public ClientDevicesAuthService(Topics topics, GroupManager groupManager, CertificateManager certificateManager,
-                                    GreengrassServiceClientFactory clientFactory,
+                                    SessionManager sessionManager, GreengrassServiceClientFactory clientFactory,
                                     DeviceConfiguration deviceConfiguration) {
         super(topics);
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
+        this.sessionManager = sessionManager;
         this.clientFactory = clientFactory;
         this.deviceConfiguration = deviceConfiguration;
     }
@@ -102,6 +106,18 @@ public class ClientDevicesAuthService extends PluginService {
         this.deviceGroupsTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
         this.deviceGroupsTopics.subscribe(this::handleConfigurationChange);
         this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC).subscribe(this::updateCAType);
+    }
+
+    @Override
+    protected void startup() throws InterruptedException {
+        super.startup();
+        sessionManager.startSessionCheck();
+    }
+
+    @Override
+    protected void shutdown() throws InterruptedException {
+        sessionManager.stopSessionCheck();
+        super.shutdown();
     }
 
     public CertificateManager getCertificateManager() {

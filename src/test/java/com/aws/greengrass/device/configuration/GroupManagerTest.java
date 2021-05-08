@@ -6,6 +6,7 @@
 package com.aws.greengrass.device.configuration;
 
 import com.aws.greengrass.device.Session;
+import com.aws.greengrass.device.SessionImpl;
 import com.aws.greengrass.device.configuration.parser.ParseException;
 import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.Certificate;
@@ -101,7 +102,7 @@ public class GroupManagerTest {
 
     private Session getSessionFromThing(String thingName) {
         Thing thing = new Thing(thingName);
-        Session session = new Session(new Certificate("FAKE_PEM_HASH", "FAKE_CERT_ID"));
+        Session session = new SessionImpl(new Certificate("FAKE_PEM_HASH", "FAKE_CERT_ID"));
         session.put(thing.getNamespace(), thing);
         return session;
     }

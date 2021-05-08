@@ -14,13 +14,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
-public class SessionTest {
+public class SessionImplTest {
 
     @Test
     public void GIVEN_sessionWithThingAndCert_WHEN_getSessionAttributes_THEN_attributesAreReturned() {
         Certificate cert = new Certificate("FAKE_PEM_HASH", "FAKE_CERT_ID");
         Thing thing = new Thing("MyThing");
-        Session session = new Session(cert);
+        Session session = new SessionImpl(cert);
         session.put(thing.getNamespace(), thing);
 
         Assertions.assertEquals(session.getSessionAttribute("Certificate", "CertificateId").toString(),

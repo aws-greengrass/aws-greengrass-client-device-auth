@@ -15,7 +15,6 @@ import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import com.aws.greengrass.util.Digest;
 import software.amazon.awssdk.utils.StringInputStream;
 
 import java.io.IOException;
@@ -141,7 +140,7 @@ public class DeviceAuthClient {
             throw new AuthenticationException("Certificate isn't active");
         }
 
-        String certificateHash = computeCertificatePemHash(certificatePem);
+        String certificateHash = CertificateStore.computeCertificatePemHash(certificatePem);
         // for simplicity, synchronously store the PEM on disk.
         try {
             certificateStore.storeDeviceCertificateIfNotPresent(certificateHash, certificatePem);
@@ -151,15 +150,6 @@ public class DeviceAuthClient {
                     .log("Failed to store certificate on disk");
         }
         return sessionManager.createSession(new Certificate(certificateHash, certificateId.get()));
-    }
-
-    private String computeCertificatePemHash(String certificatePem) {
-        try {
-            return Digest.calculateWithUrlEncoderNoPadding(certificatePem);
-        } catch (NoSuchAlgorithmException e) {
-            //the exception shouldn't happen, even happens it's valid runtime exception case that should report bug
-            throw new RuntimeException("Can't compute hash of certificate", e);
-        }
     }
 
     public void closeSession(String sessionId) throws AuthorizationException {

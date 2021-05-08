@@ -7,34 +7,44 @@ package com.aws.greengrass.device;
 
 import com.aws.greengrass.device.attribute.AttributeProvider;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
-import com.aws.greengrass.device.iot.Certificate;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
-public class Session extends ConcurrentHashMap<String, AttributeProvider> {
+public interface Session {
 
-    static final long serialVersionUID = -1L;
+    /**
+     * Get attribute provider by namespace.
+     *
+     * @param attributeProviderNameSpace Attribute namespace
+     * @return Attribute provider
+     */
+    AttributeProvider get(String attributeProviderNameSpace);
 
-    // TODO: Replace this with Principal abstraction
-    // so that a session can be instantiated using something else
-    // e.g. username/password
-    public Session(Certificate certificate) {
-        super();
-        this.put(certificate.getNamespace(), certificate);
-    }
+    /**
+     * Put attribute provider to the namespace.
+     *
+     * @param attributeProviderNameSpace  Attribute namespace
+     * @param attributeProvider Attribute provider
+     * @return Attribute provider put to the session
+     */
+    AttributeProvider put(String attributeProviderNameSpace, AttributeProvider attributeProvider);
+
+    /**
+     * Compute and put attribute provider if the namespace is not occupied.
+     *
+     * @param attributeProviderNameSpace Attribute namespace
+     * @param mappingFunction Mapping function to compute attribute provider
+     * @return Attribute provider put to the session
+     */
+    AttributeProvider computeIfAbsent(String attributeProviderNameSpace,
+                                      Function<? super String, ? extends AttributeProvider> mappingFunction);
 
     /**
      * Get session attribute.
      *
      * @param attributeNamespace Attribute namespace
      * @param attributeName      Attribute name
-     *
      * @return Session attribute
      */
-    public DeviceAttribute getSessionAttribute(String attributeNamespace, String attributeName) {
-        if (this.get(attributeNamespace) != null) {
-            return this.get(attributeNamespace).getDeviceAttributes().get(attributeName);
-        }
-        return null;
-    }
+    DeviceAttribute getSessionAttribute(String attributeNamespace, String attributeName);
 }

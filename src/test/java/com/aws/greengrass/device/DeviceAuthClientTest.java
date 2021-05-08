@@ -20,7 +20,6 @@ import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.Digest;
-import org.hamcrest.collection.IsMapContaining;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -41,9 +40,8 @@ import java.util.function.Consumer;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -79,33 +77,32 @@ public class DeviceAuthClientTest {
     @Test
     void GIVEN_emptySessionManager_WHEN_createSession_THEN_sessionReturned() throws Exception {
         String certificatePem = "FAKE_PEM";
-        DeviceAuthClient deviceAuthClient =
-                new DeviceAuthClient(new SessionManager(), groupManager, iotClient, certificateStore);
         when(iotClient.getActiveCertificateId(certificatePem)).thenReturn(Optional.of("certificateId"));
-        String sessionId = deviceAuthClient.createSession(certificatePem);
-        assertThat(sessionId, not(emptyOrNullString()));
+        when(sessionManager.createSession(any())).thenReturn("sessionId");
+        String sessionId = authClient.createSession(certificatePem);
+        assertThat(sessionId, is("sessionId"));
         String certificateHash = Digest.calculateWithUrlEncoderNoPadding(certificatePem);
         verify(certificateStore).storeDeviceCertificateIfNotPresent(certificateHash, certificatePem);
+        ArgumentCaptor<Certificate> certificateArgumentCaptor = ArgumentCaptor.forClass(Certificate.class);
+        verify(sessionManager).createSession(certificateArgumentCaptor.capture());
+        Certificate certificate = certificateArgumentCaptor.getValue();
+        assertThat(certificate.getIotCertificateId(), is("certificateId"));
     }
 
     @Test
     void GIVEN_noActiveCertificateId_WHEN_createSession_THEN_throwAuthenticationException() {
         String certificatePem = "FAKE_PEM";
-        DeviceAuthClient deviceAuthClient =
-                new DeviceAuthClient(new SessionManager(), groupManager, iotClient, certificateStore);
         when(iotClient.getActiveCertificateId(certificatePem)).thenReturn(Optional.empty());
 
-        assertThrows(AuthenticationException.class, () -> deviceAuthClient.createSession(certificatePem));
+        assertThrows(AuthenticationException.class, () -> authClient.createSession(certificatePem));
     }
 
     @Test
     void GIVEN_getActiveCertificateIdThrowException_WHEN_createSession_THEN_throwAuthenticationException() {
         String certificatePem = "FAKE_PEM";
-        DeviceAuthClient deviceAuthClient =
-                new DeviceAuthClient(new SessionManager(), groupManager, iotClient, certificateStore);
         when(iotClient.getActiveCertificateId(certificatePem)).thenThrow(CloudServiceInteractionException.class);
 
-        assertThrows(AuthenticationException.class, () -> deviceAuthClient.createSession(certificatePem));
+        assertThrows(AuthenticationException.class, () -> authClient.createSession(certificatePem));
     }
 
     @Test
@@ -113,20 +110,19 @@ public class DeviceAuthClientTest {
             ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, IOException.class);
         String certificatePem = "FAKE_PEM";
-        DeviceAuthClient deviceAuthClient =
-                new DeviceAuthClient(new SessionManager(), groupManager, iotClient, certificateStore);
         when(iotClient.getActiveCertificateId(certificatePem)).thenReturn(Optional.of("certificateId"));
         doThrow(IOException.class).when(certificateStore).storeDeviceCertificateIfNotPresent(any(), any());
+        when(sessionManager.createSession(any())).thenReturn("sessionId");
 
-        String sessionId = deviceAuthClient.createSession(certificatePem);
-        assertThat(sessionId, not(emptyOrNullString()));
+        String sessionId = authClient.createSession(certificatePem);
+        assertThat(sessionId, is("sessionId"));
     }
 
     @Test
     void GIVEN_thingAssociatedWithCertificate_WHEN_attachThing_THEN_thingAddedToSession() throws Exception {
         String sessionId = "sessionId";
         String thingName = "thingName";
-        Session session = new Session(new Certificate("certificatePemHash", "certificateId"));
+        Session session = new SessionImpl(new Certificate("certificatePemHash", "certificateId"));
         when(sessionManager.findSession(sessionId)).thenReturn(session);
         when(iotClient.isThingAttachedToCertificate(any(), any())).thenReturn(true);
 
@@ -145,7 +141,7 @@ public class DeviceAuthClientTest {
     void GIVEN_verifyThingAssociationException_WHEN_attachThing_THEN_throwsAuthenticationException() {
         String sessionId = "sessionId";
         String thingName = "thingName";
-        Session session = new Session(new Certificate("certificatePemHash", "certificateId"));
+        Session session = new SessionImpl(new Certificate("certificatePemHash", "certificateId"));
         when(sessionManager.findSession(sessionId)).thenReturn(session);
         when(iotClient.isThingAttachedToCertificate(any(), any())).thenThrow(CloudServiceInteractionException.class);
 
@@ -156,29 +152,26 @@ public class DeviceAuthClientTest {
 
     @Test
     void GIVEN_invalidSessionId_WHEN_canDevicePerform_THEN_authorizationExceptionThrown() {
-        DeviceAuthClient deviceAuthClient =
-                new DeviceAuthClient(new SessionManager(), new GroupManager(), iotClient, certificateStore);
         String sessionId = "FAKE_SESSION";
+        when(sessionManager.findSession(sessionId)).thenReturn(null);
         AuthorizationRequest authorizationRequest =
                 new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId, "clientId");
-        assertThrows(AuthorizationException.class, () -> deviceAuthClient.canDevicePerform(authorizationRequest));
+        assertThrows(AuthorizationException.class, () -> authClient.canDevicePerform(authorizationRequest));
     }
 
     @Test
     void GIVEN_missingDevicePermission_WHEN_canDevicePerform_THEN_authorizationReturnFalse() throws Exception {
-        String certificatePem = "FAKE_PEM";
-        DeviceAuthClient deviceAuthClient =
-                new DeviceAuthClient(new SessionManager(), new GroupManager(), iotClient, certificateStore);
-        when(iotClient.getActiveCertificateId(certificatePem)).thenReturn(Optional.of("certificateId"));
-        String sessionId = deviceAuthClient.createSession(certificatePem);
+        String sessionId = "FAKE_SESSION";
+        Session session = new SessionImpl(new Certificate("certificatePemHash", "certificateId"));
+        when(sessionManager.findSession(sessionId)).thenReturn(session);
         AuthorizationRequest authorizationRequest =
                 new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId, "clientId");
-        assertThat(deviceAuthClient.canDevicePerform(authorizationRequest), is(false));
+        assertThat(authClient.canDevicePerform(authorizationRequest), is(false));
     }
 
     @Test
     void GIVEN_session_no_thing_WHEN_receive_authorization_request_THEN_thing_added_to_session() throws Exception {
-        Session session = new Session(new Certificate("certificatePemHash", "certificateId"));
+        Session session = new SessionImpl(new Certificate("certificatePemHash", "certificateId"));
         when(sessionManager.findSession("sessionId")).thenReturn(session);
         when(iotClient.isThingAttachedToCertificate(any(), any())).thenReturn(true);
         when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
@@ -189,7 +182,7 @@ public class DeviceAuthClientTest {
         boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());
 
         assertThat(authorized, is(true));
-        assertThat(session, IsMapContaining.hasKey("Thing"));
+        assertThat(session.get("Thing"), notNullValue());
         assertThat(session.getSessionAttribute("Thing", "ThingName").toString(), is("clientId"));
         ArgumentCaptor<Thing> thingArgumentCaptor = ArgumentCaptor.forClass(Thing.class);
         ArgumentCaptor<Certificate> certificateArgumentCaptor = ArgumentCaptor.forClass(Certificate.class);
@@ -202,7 +195,7 @@ public class DeviceAuthClientTest {
     @Test
     void GIVEN_session_has_thing_WHEN_receive_authorization_request_THEN_thing_in_session_not_changed()
             throws Exception {
-        Session session = new Session(new Certificate("certificatePemHash", "certificateId"));
+        Session session = new SessionImpl(new Certificate("certificatePemHash", "certificateId"));
         session.put(Thing.NAMESPACE, new Thing("baz"));
         when(sessionManager.findSession("sessionId")).thenReturn(session);
         when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
@@ -213,7 +206,7 @@ public class DeviceAuthClientTest {
         boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());
 
         assertThat(authorized, is(false));
-        assertThat(session, IsMapContaining.hasKey("Thing"));
+        assertThat(session.get("Thing"), notNullValue());
         assertThat(session.getSessionAttribute("Thing", "ThingName").toString(), is("baz"));
         verify(iotClient, never()).isThingAttachedToCertificate(any(), any());
     }
