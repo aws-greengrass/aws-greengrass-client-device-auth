@@ -7,7 +7,7 @@ package com.aws.greengrass.device.iot;
 
 import com.aws.greengrass.device.attribute.AttributeProvider;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
-import com.aws.greengrass.device.attribute.StringLiteralAttribute;
+import com.aws.greengrass.device.attribute.WildcardSuffixAttribute;
 import lombok.Value;
 
 import java.util.Collections;
@@ -40,6 +40,6 @@ public class Thing implements AttributeProvider {
 
     @Override
     public Map<String, DeviceAttribute> getDeviceAttributes() {
-        return Collections.singletonMap("ThingName", new StringLiteralAttribute(thingName));
+        return Collections.singletonMap("ThingName", new WildcardSuffixAttribute(thingName));
     }
 }

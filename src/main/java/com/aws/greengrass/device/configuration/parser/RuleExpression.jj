@@ -38,7 +38,7 @@ TOKEN:
 {
     < OR:           "OR" >
 |   < AND:          "AND" >
-|   < THINGNAME:    (<ALPHANUMERIC> | "-" | "_" | "\\:")+ > // Only allow escaped colons
+|   < THINGNAME:    (<ALPHANUMERIC> | "-" | "_" | "\\:")+("*")? > // Only allow escaped colons
 |   < ALPHANUMERIC: [ "a"-"z" ] | [ "A"-"Z" ] | [ "0"-"9" ] >
 }
 
