@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.device.attribute;
 
+import lombok.NonNull;
+
 public class WildcardSuffixAttribute implements DeviceAttribute {
     private final String value;
 
@@ -13,8 +15,8 @@ public class WildcardSuffixAttribute implements DeviceAttribute {
     }
 
     @Override
-    public boolean matches(String expr) {
-        if (expr != null && expr.endsWith("*")) {
+    public boolean matches(@NonNull String expr) {
+        if (expr.endsWith("*")) {
             return value.startsWith(expr.substring(0, expr.length() - 1));
         } else {
             return value.equals(expr);

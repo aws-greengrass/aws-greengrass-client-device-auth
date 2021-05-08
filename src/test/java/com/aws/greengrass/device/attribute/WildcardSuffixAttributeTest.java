@@ -20,21 +20,9 @@ public class WildcardSuffixAttributeTest {
     }
 
     @Test
-    public void GIVEN_emptyString_WHEN_matchesNull_THEN_returnsFalse() {
-        DeviceAttribute attribute = new WildcardSuffixAttribute("");
-        Assertions.assertFalse(attribute.matches(null));
-    }
-
-    @Test
     public void GIVEN_nonEmptyString_WHEN_matchesNonEmptyString_THEN_returnsTrue() {
         DeviceAttribute attribute = new WildcardSuffixAttribute("Value");
         Assertions.assertTrue(attribute.matches("Value"));
-    }
-
-    @Test
-    public void GIVEN_nonEmptyString_WHEN_matchesNull_THEN_returnsFalse() {
-        DeviceAttribute attribute = new WildcardSuffixAttribute("Value");
-        Assertions.assertFalse(attribute.matches(null));
     }
 
     @Test
