@@ -112,11 +112,13 @@ public class ClientDevicesAuthService extends PluginService {
     protected void startup() throws InterruptedException {
         super.startup();
         sessionManager.startSessionCheck();
+        sessionManager.startSessionExpiryCheck();
     }
 
     @Override
     protected void shutdown() throws InterruptedException {
         sessionManager.stopSessionCheck();
+        sessionManager.stopSessionExpiryCheck();
         super.shutdown();
     }
 

@@ -16,13 +16,14 @@ import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,9 @@ public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
     private static final long SESSION_CHECK_DELAY_IN_DAYS = 7L;
     private static final TimeUnit SESSION_CHECK_TIME_UNIT = TimeUnit.DAYS;
+    private static final long SESSION_EXPIRY_CHECK_DELAY_IN_MINUTES = 20L;
+    private static final TimeUnit SESSION_EXPIRY_CHECK_TIME_UNIT = TimeUnit.MINUTES;
+    private static final long ONE_HOUR_IN_MILLISECONDS = 60 * 60 * 1000L;
 
     private final IotAuthClient iotAuthClient;
     private final CertificateStore certificateStore;
@@ -53,11 +57,14 @@ public class SessionManager {
     @Setter(AccessLevel.PACKAGE) // for unit test
     private ScheduledFuture<?> sessionRefreshFuture;
 
+    @Setter(AccessLevel.PACKAGE) // for unit test
+    private ScheduledFuture<?> sessionExpiryCheckFuture;
+
     /**
      * Session Manager constructor.
      *
-     * @param iotAuthClient cloud service client
-     * @param certificateStore certificate store
+     * @param iotAuthClient            cloud service client
+     * @param certificateStore         certificate store
      * @param scheduledExecutorService scheduling service
      */
     @Inject
@@ -75,7 +82,12 @@ public class SessionManager {
      * @return session or null
      */
     public Session findSession(String sessionId) {
-        return sessionMap.getOrDefault(sessionId, null);
+        return sessionMap.computeIfPresent(sessionId, (k, v) -> {
+            // extend session expiry of cache hit
+            SessionDecorator session = (SessionDecorator) v;
+            session.setLastVisit(Instant.now());
+            return session;
+        });
     }
 
     /**
@@ -86,7 +98,7 @@ public class SessionManager {
      */
     public String createSession(Certificate certificate) {
         String sessionId = generateSessionId();
-        sessionMap.put(sessionId, new SessionDecorator(sessionId, new SessionImpl(certificate)));
+        sessionMap.put(sessionId, new SessionDecorator(sessionId, new SessionImpl(certificate), Instant.now()));
         return sessionId;
     }
 
@@ -121,8 +133,8 @@ public class SessionManager {
      * Start session healthy check.
      */
     public void startSessionCheck() {
-        sessionRefreshFuture = scheduledExecutorService.scheduleWithFixedDelay(this::refreshSession,
-                0, SESSION_CHECK_DELAY_IN_DAYS, SESSION_CHECK_TIME_UNIT);
+        sessionRefreshFuture = scheduledExecutorService
+                .scheduleWithFixedDelay(this::refreshSession, 0, SESSION_CHECK_DELAY_IN_DAYS, SESSION_CHECK_TIME_UNIT);
     }
 
     /**
@@ -179,8 +191,7 @@ public class SessionManager {
         }
 
         if (!certificatePemHash.equals(CertificateStore.computeCertificatePemHash(certificatePem))) {
-            logger.atError().kv("certificatePemHash", certificatePemHash)
-                    .log("certificate got modified.");
+            logger.atError().kv("certificatePemHash", certificatePemHash).log("certificate got modified.");
             return false;
         }
 
@@ -209,13 +220,48 @@ public class SessionManager {
         return true;
     }
 
+    /**
+     * Start session expiry check.
+     */
+    public void startSessionExpiryCheck() {
+        sessionExpiryCheckFuture = scheduledExecutorService
+                .scheduleWithFixedDelay(this::checkSessionExpiry, 0, SESSION_EXPIRY_CHECK_DELAY_IN_MINUTES,
+                        SESSION_EXPIRY_CHECK_TIME_UNIT);
+    }
+
+    /**
+     * Stop session expiry check.
+     */
+    public void stopSessionExpiryCheck() {
+        if (sessionExpiryCheckFuture != null) {
+            sessionExpiryCheckFuture.cancel(true);
+        }
+    }
+
+    void checkSessionExpiry() {
+        Instant now = Instant.now();
+        sessionMap.entrySet().removeIf(entry -> {
+            SessionDecorator session = (SessionDecorator) entry.getValue();
+            if (session.getLastVisit() != null && session.getLastVisit().plusMillis(ONE_HOUR_IN_MILLISECONDS)
+                    .isBefore(now)) {
+                logger.atDebug().kv("sessionId", session.getSessionId())
+                        .kv("lastVisit", session.getLastVisit())
+                        .kv("maxInactiveInterval", ONE_HOUR_IN_MILLISECONDS)
+                        .log("Session exceeds max inactive interval, close the session.");
+                return true;
+            }
+            return false;
+        });
+    }
+
+    @AllArgsConstructor
     @RequiredArgsConstructor
     @Getter
     static class SessionDecorator implements Session {
         private final String sessionId;
         private final Session session;
         @Setter
-        private Date expiry;
+        private Instant lastVisit;
 
         @Override
         public AttributeProvider get(String attributeProviderNameSpace) {

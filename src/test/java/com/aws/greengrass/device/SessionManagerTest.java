@@ -18,11 +18,13 @@ import org.hamcrest.collection.IsMapWithSize;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -71,7 +73,7 @@ class SessionManagerTest {
 
     @Test
     void GIVEN_sessionData_WHEN_refreshSession_THEN_invalidSessionClosed() throws Exception {
-        Map<String, Session> sessionMap = prepareSessionData();
+        Map<String, Session> sessionMap = prepareSessionHealthCheckData();
         sessionManager.setSessionMap(sessionMap);
         String pem1 = "pem1";
         String pem2 = "pem2";
@@ -85,7 +87,13 @@ class SessionManagerTest {
         when(iotAuthClient.isThingAttachedToCertificate(new Thing("thing2"), certificate)).thenReturn(true);
         when(iotAuthClient.isThingAttachedToCertificate(new Thing("thing4"), certificate)).thenReturn(false);
 
-        sessionManager.refreshSession();
+        sessionManager.startSessionCheck();
+
+        ArgumentCaptor<Runnable> runnableArgumentCaptor = ArgumentCaptor.forClass(Runnable.class);
+
+        verify(scheduledExecutorService)
+                .scheduleWithFixedDelay(runnableArgumentCaptor.capture(), eq(0L), eq(7L), eq(TimeUnit.DAYS));
+        runnableArgumentCaptor.getValue().run();
 
         assertThat(sessionMap, IsMapWithSize.aMapWithSize(1));
         assertThat(sessionMap, IsMapContaining.hasKey("2"));
@@ -157,7 +165,7 @@ class SessionManagerTest {
         assertThat(sessionMap, IsMapWithSize.aMapWithSize(1));
     }
 
-    private Map<String, Session> prepareSessionData() {
+    private Map<String, Session> prepareSessionHealthCheckData() {
         Map<String, Session> sessionMap = new HashMap<>();
         addToSessionMap("1", "pem1", "id1", "thing1", sessionMap);
         addToSessionMap("2", "pem2", "id2", "thing2", sessionMap);
@@ -168,17 +176,15 @@ class SessionManagerTest {
 
     private void addToSessionMap(String id, String certificate, String certificateId, String thingName,
                                  Map<String, Session> sessionMap) {
+        addToSessionMap(id, certificate, certificateId, thingName, null, sessionMap);
+    }
+
+    private void addToSessionMap(String id, String certificate, String certificateId, String thingName,
+                                 Instant lastVisit, Map<String, Session> sessionMap) {
         String certificateHash = CertificateStore.computeCertificatePemHash(certificate);
         Session session = new SessionImpl(new Certificate(certificateHash, certificateId));
         session.put(Thing.NAMESPACE, new Thing(thingName));
-        sessionMap.put(id, new SessionManager.SessionDecorator(id, session));
-    }
-
-    @Test
-    void GIVEN_mockedSchedulingService_WHEN_startSessionCheck_THEN_invokeProperMethod() {
-        sessionManager.startSessionCheck();
-
-        verify(scheduledExecutorService).scheduleWithFixedDelay(any(), eq(0L), eq(7L), eq(TimeUnit.DAYS));
+        sessionMap.put(id, new SessionManager.SessionDecorator(id, session, lastVisit));
     }
 
     @Test
@@ -187,6 +193,42 @@ class SessionManagerTest {
         sessionManager.setSessionRefreshFuture(future);
 
         sessionManager.stopSessionCheck();
+
+        verify(future).cancel(true);
+    }
+
+    @Test
+    void GIVEN_sessionExpired_WHEN_checkSessionExpiry_THEN_closeSession() {
+        long twoHoursInMillis = 2 * 60 * 60 * 1000L;
+        Map<String, Session> sessionMap = new HashMap<>();
+        addToSessionMap("1", "pem1", "id1", "thing1", Instant.now().minusMillis(twoHoursInMillis), sessionMap);
+        addToSessionMap("2", "pem2", "id2", "thing2", Instant.now(), sessionMap);
+        sessionManager.setSessionMap(sessionMap);
+
+        sessionManager.startSessionExpiryCheck();
+
+        ArgumentCaptor<Runnable> runnableArgumentCaptor = ArgumentCaptor.forClass(Runnable.class);
+        verify(scheduledExecutorService).scheduleWithFixedDelay(runnableArgumentCaptor.capture(), eq(0L), eq(20L),
+                eq(TimeUnit.MINUTES));
+        runnableArgumentCaptor.getValue().run();
+
+        assertThat(sessionMap, IsMapWithSize.aMapWithSize(1));
+        assertThat(sessionMap, IsMapContaining.hasKey("2"));
+    }
+
+    @Test
+    void GIVEN_mockedSchedulingService_WHEN_startSessionExpiryCheck_THEN_invokeProperMethod() {
+        sessionManager.startSessionExpiryCheck();
+
+        verify(scheduledExecutorService).scheduleWithFixedDelay(any(), eq(0L), eq(20L), eq(TimeUnit.MINUTES));
+    }
+
+    @Test
+    void GIVEN_scheduledSessionCheckFuture_WHEN_stopSessionExpiryCheck_THEN_cancelFuture() {
+        ScheduledFuture<?> future = mock(ScheduledFuture.class);
+        sessionManager.setSessionExpiryCheckFuture(future);
+
+        sessionManager.stopSessionExpiryCheck();
 
         verify(future).cancel(true);
     }
