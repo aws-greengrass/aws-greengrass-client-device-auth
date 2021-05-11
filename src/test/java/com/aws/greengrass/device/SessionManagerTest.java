@@ -15,6 +15,7 @@ import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.hamcrest.collection.IsMapContaining;
 import org.hamcrest.collection.IsMapWithSize;
+import org.hamcrest.core.Is;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -57,6 +58,18 @@ class SessionManagerTest {
 
     @Mock
     private ScheduledExecutorService scheduledExecutorService;
+
+    @Test
+    void GIVEN_createdSession_WHEN_findSession_THEN_sessionLastVisitUpdated() throws Exception {
+        String id = sessionManager.createSession(new Certificate("pem", "certificateId"));
+        SessionManager.SessionDecorator session = (SessionManager.SessionDecorator) sessionManager.findSession(id);
+        Instant firstVisit = session.getLastVisit();
+        Thread.sleep(100);
+        session = (SessionManager.SessionDecorator) sessionManager.findSession(id);
+        Instant secondVisit = session.getLastVisit();
+
+        assertThat(secondVisit.isAfter(firstVisit), Is.is(true));
+    }
 
     @Test
     void GIVEN_session_exist_WHEN_close_session_THEN_succeed() throws Exception {

@@ -51,13 +51,13 @@ public class SessionManager {
     private final CertificateStore certificateStore;
     private final ScheduledExecutorService scheduledExecutorService;
 
-    @Setter(AccessLevel.PACKAGE) // for unit test
+    @Setter(AccessLevel.PACKAGE)
     private Map<String, Session> sessionMap = new ConcurrentHashMap<>();
 
-    @Setter(AccessLevel.PACKAGE) // for unit test
+    @Setter(AccessLevel.PACKAGE)
     private ScheduledFuture<?> sessionRefreshFuture;
 
-    @Setter(AccessLevel.PACKAGE) // for unit test
+    @Setter(AccessLevel.PACKAGE)
     private ScheduledFuture<?> sessionExpiryCheckFuture;
 
     /**
