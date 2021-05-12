@@ -133,6 +133,7 @@ public class ClientDevicesAuthService extends PluginService {
             logger.atError().kv("service", CLIENT_DEVICES_AUTH_SERVICE_NAME).kv("event", whatHappened)
                     .kv("node", this.deviceGroupsTopics.getFullName()).kv("value", this.deviceGroupsTopics).setCause(e)
                     .log("Unable to parse group configuration");
+            serviceErrored(e);
         }
     }
 

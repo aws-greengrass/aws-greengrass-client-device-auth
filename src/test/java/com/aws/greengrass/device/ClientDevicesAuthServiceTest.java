@@ -13,10 +13,12 @@ import com.aws.greengrass.device.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.configuration.Permission;
+import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsMapContaining;
 import org.hamcrest.collection.IsMapWithSize;
@@ -141,11 +143,12 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_bad_group_configuration_WHEN_start_service_THEN_no_configuration_update(ExtensionContext context)
+    void GIVEN_bad_group_configuration_WHEN_start_service_THEN_service_in_error_state(ExtensionContext context)
             throws Exception {
         ignoreExceptionOfType(context, IllegalArgumentException.class);
+        ignoreExceptionOfType(context, UnrecognizedPropertyException.class);
 
-        startNucleusWithConfig("badGroupConfig.yaml");
+        startNucleusWithConfig("badGroupConfig.yaml", State.ERRORED);
 
         verify(groupManager, never()).setGroupConfiguration(any());
     }
@@ -192,8 +195,9 @@ class ClientDevicesAuthServiceTest {
     void GIVEN_group_has_no_policy_WHEN_start_service_THEN_no_configuration_update(ExtensionContext context)
             throws Exception {
         ignoreExceptionOfType(context, IllegalArgumentException.class);
+        ignoreExceptionOfType(context, AuthorizationException.class);
 
-        startNucleusWithConfig("noGroupPolicyConfig.yaml");
+        startNucleusWithConfig("noGroupPolicyConfig.yaml", State.ERRORED);
 
         verify(groupManager, never()).setGroupConfiguration(any());
     }
