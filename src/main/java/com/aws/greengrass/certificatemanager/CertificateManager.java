@@ -12,14 +12,12 @@ import com.aws.greengrass.certificatemanager.certificate.ClientCertificateGenera
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.certificatemanager.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.cisclient.CISClient;
-import com.aws.greengrass.cisclient.CISClientException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.NonNull;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
-import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -91,7 +89,6 @@ public class CertificateManager {
      * @param cb  Certificate consumer
      * @throws KeyStoreException if unable to access KeyStore
      * @throws CsrProcessingException if unable to process CSR
-     * @throws CISClientException if unable to get connectivity info
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToServerCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
@@ -104,13 +101,7 @@ public class CertificateManager {
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
-            try {
-                List<ConnectivityInfo> connectivityInfoList = cisClient.getConnectivityInfo();
-                certificateGenerator.generateCertificate(connectivityInfoList);
-            } catch (CISClientException e) {
-                //TODO: retry for CISClientException
-                certificateGenerator.generateCertificate();
-            }
+            certificateGenerator.generateCertificate(cisClient.getCachedConnectivityInfo());
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
@@ -132,7 +123,6 @@ public class CertificateManager {
      * @param cb  Certificate consumer
      * @throws KeyStoreException if unable to access KeyStore
      * @throws CsrProcessingException if unable to process CSR
-     * @throws CISClientException if unable to get connectivity info
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate[]> cb)

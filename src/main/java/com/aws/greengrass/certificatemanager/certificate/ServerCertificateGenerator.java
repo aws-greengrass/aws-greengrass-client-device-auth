@@ -20,8 +20,6 @@ public class ServerCertificateGenerator extends CertificateGenerator {
 
     private final Consumer<X509Certificate> callback;
 
-    private List<ConnectivityInfo> connectivityInfoItems = Collections.emptyList();
-
     /**
      * Constructor.
      *
@@ -37,7 +35,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
     }
 
     /**
-     * Regenerates certificate.
+     * Regenerates certificate with connectivity info.
      *
      * @param connectivityInfos CIS connectivity info list
      * @throws KeyStoreException         KeyStoreException
@@ -47,14 +45,23 @@ public class ServerCertificateGenerator extends CertificateGenerator {
      * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
      */
     @Override
-    public void generateCertificate(List<ConnectivityInfo> connectivityInfos) throws
+    public synchronized void generateCertificate(List<ConnectivityInfo> connectivityInfos) throws
             KeyStoreException, OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
-        connectivityInfoItems = connectivityInfos;
-        generateCertificate();
+        Instant now = Instant.now(clock);
+        certificate = CertificateHelper.signServerCertificateRequest(
+                certificateStore.getCACertificate(),
+                certificateStore.getCAPrivateKey(),
+                subject,
+                publicKey,
+                connectivityInfos,
+                Date.from(now),
+                Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
+
+        callback.accept(certificate);
     }
 
     /**
-     * Regenerates certificate.
+     * Regenerates certificate with no connectivity info.
      *
      * @throws KeyStoreException         KeyStoreException
      * @throws OperatorCreationException OperatorCreationException
@@ -63,18 +70,8 @@ public class ServerCertificateGenerator extends CertificateGenerator {
      * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
      */
     @Override
-    public synchronized void generateCertificate() throws
+    public void generateCertificate() throws
             KeyStoreException, OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
-        Instant now = Instant.now(clock);
-        certificate = CertificateHelper.signServerCertificateRequest(
-                certificateStore.getCACertificate(),
-                certificateStore.getCAPrivateKey(),
-                subject,
-                publicKey,
-                connectivityInfoItems,
-                Date.from(now),
-                Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
-
-        callback.accept(certificate);
+        generateCertificate(Collections.emptyList());
     }
 }

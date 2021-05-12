@@ -3,34 +3,47 @@ package com.aws.greengrass.cisclient;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.deployment.DeviceConfiguration;
+import com.aws.greengrass.device.exception.CloudServiceInteractionException;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
+import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoResponse;
+import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
+import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static com.aws.greengrass.deployment.DeviceConfiguration.DEVICE_PARAM_THING_NAME;
+import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CISClientTest {
+    private static final long TEST_TIME_OUT_SEC = 5L;
+
     private CISClient cisClient;
     @Mock
     private DeviceConfiguration deviceConfiguration;
@@ -54,8 +67,7 @@ public class CISClientTest {
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     @Test
-    public void GIVEN_connectivity_info_WHEN_get_connectivity_info_THEN_connectivity_info_returned()
-            throws CISClientException {
+    public void GIVEN_connectivity_info_WHEN_get_connectivity_info_THEN_connectivity_info_returned() {
         ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
                 .metadata("").id("172.8.8.10").portNumber(8883).build();
         ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
@@ -72,8 +84,7 @@ public class CISClientTest {
     }
 
     @Test
-    public void GIVEN_no_connectivity_info_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned()
-            throws CISClientException {
+    public void GIVEN_no_connectivity_info_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned() {
         GetConnectivityInfoResponse getConnectivityInfoResponse = GetConnectivityInfoResponse.builder().build();
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
@@ -82,5 +93,64 @@ public class CISClientTest {
         verify(greengrassV2DataClient, times(1))
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
         assertThat(connectivityInfos, is(empty()));
+    }
+
+    @Test
+    void GIVEN_cloudThrowValidationException_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, ValidationException.class);
+        when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class)))
+                .thenThrow(ValidationException.class);
+
+        assertThat(cisClient.getConnectivityInfo(), is(empty()));
+    }
+
+    @Test
+    void GIVEN_cloudThrowException_WHEN_get_connectivity_info_THEN_throwCloudInteractionException(
+            ExtensionContext context) {
+        ignoreExceptionOfType(context, AccessDeniedException.class);
+        when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class)))
+                .thenThrow(AccessDeniedException.class);
+
+        assertThrows(CloudServiceInteractionException.class, () -> cisClient.getConnectivityInfo());
+    }
+
+    @Test
+    void GIVEN_threadGotInterrupted_WHEN_get_connectivity_info_THEN_throwCloudInteractionException(
+            ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, InterruptedException.class);
+        ignoreExceptionOfType(context, InternalServerException.class);
+        when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class)))
+                .thenThrow(InternalServerException.class);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        Thread thread = new Thread(() -> {
+            try {
+                cisClient.getConnectivityInfo();
+            } catch (CloudServiceInteractionException e) {
+                latch.countDown();
+            }
+        });
+        thread.start();
+        Thread.sleep(1000);
+        thread.interrupt();
+        assertThat(latch.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS), is(true));
+    }
+
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
+    @Test
+    public void GIVEN_cached_connectivity_info_WHEN_get_cached_connectivity_info_THEN_connectivity_info_returned() {
+        ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
+                .metadata("").id("172.8.8.10").portNumber(8883).build();
+        ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
+                .metadata("").id("localhost").portNumber(8883).build();
+        GetConnectivityInfoResponse getConnectivityInfoResponse = GetConnectivityInfoResponse.builder()
+                .connectivityInfo(Arrays.asList(connectivityInfo, connectivityInfo1)).build();
+        doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
+                .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
+
+        cisClient.getConnectivityInfo();
+        List<ConnectivityInfo> connectivityInfos = cisClient.getCachedConnectivityInfo();
+        assertThat(connectivityInfos, containsInAnyOrder(connectivityInfo, connectivityInfo1));
     }
 }

@@ -8,7 +8,6 @@ package com.aws.greengrass.certificatemanager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.cisclient.CISClient;
-import com.aws.greengrass.cisclient.CISClientException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Assertions;
@@ -118,7 +117,7 @@ public class CertificateManagerTest {
 
     @Test
     void GIVEN_valid_csr_WHEN_subscribeToCertificateUpdates_THEN_certificate_received()
-            throws InterruptedException, KeyStoreException, CsrProcessingException, CISClientException {
+            throws InterruptedException, KeyStoreException, CsrProcessingException {
         CountDownLatch certificateReceived = new CountDownLatch(1);
         Consumer<X509Certificate> cb = t -> {
             certificateReceived.countDown();
@@ -130,7 +129,7 @@ public class CertificateManagerTest {
 
     @Test
     void GIVEN_generatedCertificate_WHEN_importing_into_java_keystore_THEN_success()
-            throws KeyStoreException, CsrProcessingException, CISClientException {
+            throws KeyStoreException, CsrProcessingException {
         Consumer<X509Certificate> cb = t -> {
             try {
                 KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -147,7 +146,7 @@ public class CertificateManagerTest {
 
     @Test
     void GIVEN_generatedClientCertificate_WHEN_importing_into_java_keystore_THEN_imported_both_key_and_certificate_chain()
-            throws KeyStoreException, CsrProcessingException, CISClientException {
+            throws KeyStoreException, CsrProcessingException {
         Consumer<X509Certificate[]> cb = t -> {
             try {
                 KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
