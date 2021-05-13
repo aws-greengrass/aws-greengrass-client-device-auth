@@ -2,7 +2,6 @@ package com.aws.greengrass.certificatemanager.certificate;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
-import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.io.IOException;
 import java.security.KeyStoreException;
@@ -12,7 +11,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.Date;
-import java.util.List;
 import java.util.function.Consumer;
 
 public class ClientCertificateGenerator extends CertificateGenerator {
@@ -31,22 +29,6 @@ public class ClientCertificateGenerator extends CertificateGenerator {
                                       CertificateStore certificateStore) {
         super(subject, publicKey, certificateStore);
         this.callback = callback;
-    }
-
-    /**
-     * Regenerates certificate.
-     *
-     * @param connectivityInfos CIS connectivity info list
-     * @throws KeyStoreException         KeyStoreException
-     * @throws OperatorCreationException OperatorCreationException
-     * @throws CertificateException      CertificateException
-     * @throws IOException               IOException
-     * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
-     */
-    @Override
-    public void generateCertificate(List<ConnectivityInfo> connectivityInfos) throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
-        generateCertificate();
     }
 
     /**
