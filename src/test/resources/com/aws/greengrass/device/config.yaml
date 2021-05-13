@@ -29,7 +29,6 @@ services:
                 - "mqtt:clientId:foo"
             policyStatement2:
               statementDescription: "mqtt publish"
-              effect: ALLOW
               operations:
                 - "mqtt:publish"
               resources:
