@@ -101,7 +101,8 @@ public class CertificateManager {
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
-            certificateGenerator.generateCertificate(cisClient.getCachedConnectivityInfo());
+            //TODO: here replace getConnectivityInfo with getCachedConnectivityInfo once CIS Shadow Monitor is in place
+            certificateGenerator.generateCertificate(cisClient.getConnectivityInfo());
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
