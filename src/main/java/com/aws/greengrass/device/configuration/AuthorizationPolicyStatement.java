@@ -34,6 +34,6 @@ public class AuthorizationPolicyStatement {
     }
 
     public enum Effect {
-        ALLOW, DENY
+        ALLOW
     }
 }
