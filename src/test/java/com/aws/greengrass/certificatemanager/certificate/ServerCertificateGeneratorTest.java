@@ -1,6 +1,5 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
-import com.aws.greengrass.cisclient.CISClient;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +18,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.function.Consumer;
 
 import static com.aws.greengrass.certificatemanager.certificate.CertificateGenerator.DEFAULT_CERT_EXPIRY_SECONDS;
@@ -39,9 +39,6 @@ public class ServerCertificateGeneratorTest {
     @Mock
     private Consumer<X509Certificate> mockCallback;
 
-    @Mock
-    private CISClient mockCISClient;
-
     private PublicKey publicKey;
     private CertificateGenerator certificateGenerator;
 
@@ -54,14 +51,13 @@ public class ServerCertificateGeneratorTest {
         publicKey = CertificateStore.newRSAKeyPair().getPublic();
         CertificateStore certificateStore = new CertificateStore(tmpPath);
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
-        certificateGenerator = new ServerCertificateGenerator(
-                subject, publicKey, mockCallback, certificateStore, mockCISClient);
+        certificateGenerator = new ServerCertificateGenerator(subject, publicKey, mockCallback, certificateStore);
     }
 
     @Test
     public void GIVEN_ServerCertificateGenerator_WHEN_generateCertificate_THEN_certificate_generated()
             throws Exception {
-        certificateGenerator.generateCertificate();
+        certificateGenerator.generateCertificate(Collections::emptyList);
 
         X509Certificate generatedCert = certificateGenerator.getCertificate();
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
@@ -69,7 +65,7 @@ public class ServerCertificateGeneratorTest {
         assertThat(generatedCert.getPublicKey(), is(publicKey));
         verify(mockCallback, times(1)).accept(generatedCert);
 
-        certificateGenerator.generateCertificate();
+        certificateGenerator.generateCertificate(Collections::emptyList);
         X509Certificate secondGeneratedCert = certificateGenerator.getCertificate();
         assertThat(secondGeneratedCert, is(not(generatedCert)));
     }
@@ -82,14 +78,14 @@ public class ServerCertificateGeneratorTest {
     @Test
     public void GIVEN_ServerCertificateGenerator_WHEN_valid_certificate_THEN_shouldRegenerate_returns_false()
             throws Exception {
-        certificateGenerator.generateCertificate();
+        certificateGenerator.generateCertificate(Collections::emptyList);
         assertFalse(certificateGenerator.shouldRegenerate());
     }
 
     @Test
     public void GIVEN_ServerCertificateGenerator_WHEN_expired_certificate_THEN_shouldRegenerate_returns_true()
             throws Exception {
-        certificateGenerator.generateCertificate();
+        certificateGenerator.generateCertificate(Collections::emptyList);
 
         Instant expirationTime = Instant.now().plus(Duration.ofSeconds(DEFAULT_CERT_EXPIRY_SECONDS));
         Clock mockClock = Clock.fixed(expirationTime, ZoneId.of("UTC"));

@@ -2,6 +2,7 @@ package com.aws.greengrass.certificatemanager.certificate;
 
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
+import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.io.IOException;
 import java.security.KeyStoreException;
@@ -11,7 +12,9 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class ClientCertificateGenerator extends CertificateGenerator {
 
@@ -34,6 +37,7 @@ public class ClientCertificateGenerator extends CertificateGenerator {
     /**
      * Regenerates certificate.
      *
+     * @param connectivityInfoSupplier ConnectivityInfo Supplier (not used in this implementation)
      * @throws KeyStoreException         KeyStoreException
      * @throws OperatorCreationException OperatorCreationException
      * @throws CertificateException      CertificateException
@@ -41,8 +45,8 @@ public class ClientCertificateGenerator extends CertificateGenerator {
      * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
      */
     @Override
-    public synchronized void generateCertificate() throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
+    public synchronized void generateCertificate(Supplier<List<ConnectivityInfo>> connectivityInfoSupplier) throws
+            KeyStoreException, OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
         Instant now = Instant.now(clock);
         certificate = CertificateHelper.signClientCertificateRequest(
                 certificateStore.getCACertificate(),

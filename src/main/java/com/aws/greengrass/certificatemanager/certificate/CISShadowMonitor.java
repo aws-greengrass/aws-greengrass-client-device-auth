@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
@@ -57,7 +58,6 @@ public class CISShadowMonitor {
     private MqttClientConnection connection;
     private IotShadowClient iotShadowClient;
     private int lastVersion = 0;
-    private int nextVersion = 0;
     private Future<?> subscribeTaskFuture;
     private CompletableFuture<Integer> getConnectivityFuture;
 
@@ -65,6 +65,7 @@ public class CISShadowMonitor {
     private final ExecutorService executorService;
     private final String shadowName;
     private final CISClient cisClient;
+    private final AtomicInteger nextVersion = new AtomicInteger(-1);
 
     private final MqttClientConnectionEvents callbacks = new MqttClientConnectionEvents() {
         @Override
@@ -199,8 +200,7 @@ public class CISShadowMonitor {
 
         LOGGER.atInfo().log("New CIS version: {}", newVersion);
 
-        nextVersion = newVersion;
-        if (getConnectivityFuture != null && !getConnectivityFuture.isDone()) {
+        if (nextVersion.getAndSet(newVersion) != -1) {
             LOGGER.atDebug().log("Retry workflow for getting connectivity info already in process");
             return;
         }
@@ -208,21 +208,23 @@ public class CISShadowMonitor {
         getConnectivityFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, cisClient::getConnectivityInfo,
-                        "update-subscriptions", LOGGER);
+                        "get-connectivity", LOGGER);
             } catch (InterruptedException e) {
                 LOGGER.atWarn().cause(e).log("Retry workflow for getting connectivity info interrupted");
                 Thread.currentThread().interrupt();
+                throw new CloudServiceInteractionException(
+                        "Failed to get connectivity info, process got interrupted", e);
             } catch (Exception e) {
                 LOGGER.atError().cause(e).log("Failed to get connectivity info from cloud");
                 throw new CloudServiceInteractionException("Failed to get connectivity info", e);
             }
-            return nextVersion;
+            return nextVersion.getAndSet(-1);
         }, executorService);
 
         getConnectivityFuture.thenAccept((version) -> {
             try {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
-                    cg.generateCertificate();
+                    cg.generateCertificate(cisClient::getCachedConnectivityInfo);
                 }
                 reportVersion(version);
                 lastVersion = version;
