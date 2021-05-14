@@ -5,7 +5,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
-import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.io.IOException;
 import java.security.KeyStoreException;
@@ -16,7 +15,6 @@ import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 
 public abstract class CertificateGenerator {
     static final long DEFAULT_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 1 week
@@ -43,9 +41,6 @@ public abstract class CertificateGenerator {
         this.certificateStore = certificateStore;
     }
 
-    public abstract void generateCertificate(List<ConnectivityInfo> connectivityInfos) throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException;
-
     public abstract void generateCertificate() throws KeyStoreException,
             OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException;
 
@@ -55,12 +50,21 @@ public abstract class CertificateGenerator {
      * @return true if certificate should be regenerated, else false
      */
     public boolean shouldRegenerate() {
+        Instant dayFromNow = Instant.now(clock).plus(1, ChronoUnit.DAYS);
+        Instant expiryTime = getExpiryTime();
+        return expiryTime.isBefore(dayFromNow);
+    }
+
+    /**
+     * Get expiry time of certificate.
+     *
+     * @return expiry time
+     */
+    public Instant getExpiryTime() {
         if (certificate == null) {
-            return true;
+            return Instant.now(clock);
         }
 
-        Instant dayFromNow = Instant.now(clock).plus(1, ChronoUnit.DAYS);
-        Instant expiryTime = certificate.getNotAfter().toInstant();
-        return expiryTime.isBefore(dayFromNow);
+        return certificate.getNotAfter().toInstant();
     }
 }

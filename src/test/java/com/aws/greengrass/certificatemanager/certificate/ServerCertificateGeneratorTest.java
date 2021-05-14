@@ -1,5 +1,6 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.cisclient.CISClient;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,9 @@ public class ServerCertificateGeneratorTest {
     @Mock
     private Consumer<X509Certificate> mockCallback;
 
+    @Mock
+    private CISClient mockCISClient;
+
     private PublicKey publicKey;
     private CertificateGenerator certificateGenerator;
 
@@ -50,7 +54,7 @@ public class ServerCertificateGeneratorTest {
         publicKey = CertificateStore.newRSAKeyPair().getPublic();
         CertificateStore certificateStore = new CertificateStore(tmpPath);
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
-        certificateGenerator = new ServerCertificateGenerator(subject, publicKey, mockCallback, certificateStore);
+        certificateGenerator = new ServerCertificateGenerator(subject, publicKey, mockCallback, certificateStore, mockCISClient);
     }
 
     @Test
