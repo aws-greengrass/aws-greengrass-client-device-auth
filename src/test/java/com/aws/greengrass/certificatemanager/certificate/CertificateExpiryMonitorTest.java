@@ -15,6 +15,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.Consumer;
@@ -50,16 +51,16 @@ public class CertificateExpiryMonitorTest {
 
         //start cert expiry monitor
         ScheduledExecutorService ses = new ScheduledThreadPoolExecutor(1);
-        CertificateExpiryMonitor certExpiryMonitor = new CertificateExpiryMonitor(ses);
+        CertificateExpiryMonitor certExpiryMonitor = new CertificateExpiryMonitor(ses, mockCISClient);
         certExpiryMonitor.startMonitor(TEST_CERT_EXPIRY_CHECK_SECONDS);
 
         //add certs to monitor
-        CertificateGenerator cg1 = new ServerCertificateGenerator(subject, key1, mockCallback, certificateStore, mockCISClient);
-        cg1.generateCertificate();
+        CertificateGenerator cg1 = new ServerCertificateGenerator(subject, key1, mockCallback, certificateStore);
+        cg1.generateCertificate(Collections::emptyList);
         certExpiryMonitor.addToMonitor(cg1);
         X509Certificate cert1initial = cg1.getCertificate();
-        CertificateGenerator cg2 = new ServerCertificateGenerator(subject, key2, mockCallback, certificateStore, mockCISClient);
-        cg2.generateCertificate();
+        CertificateGenerator cg2 = new ServerCertificateGenerator(subject, key2, mockCallback, certificateStore);
+        cg2.generateCertificate(Collections::emptyList);
         certExpiryMonitor.addToMonitor(cg2);
         X509Certificate cert2initial = cg2.getCertificate();
 

@@ -1,5 +1,6 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.cisclient.CISClient;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -24,6 +25,8 @@ public class CertificateExpiryMonitor {
 
     private final ScheduledExecutorService ses;
 
+    private final CISClient cisClient;
+
     private final PriorityBlockingQueue<CertificateGenerator> monitoredCertificateGenerators = new
             PriorityBlockingQueue<>(QUEUE_INITIAL_CAPACITY, Comparator.comparing(CertificateGenerator::getExpiryTime));
 
@@ -32,10 +35,12 @@ public class CertificateExpiryMonitor {
     /**
      * Constructor.
      * @param ses       ScheduledExecutorService to schedule cert expiry checks
+     * @param cisClient CIS Client
      */
     @Inject
-    public CertificateExpiryMonitor(ScheduledExecutorService ses) {
+    public CertificateExpiryMonitor(ScheduledExecutorService ses, CISClient cisClient) {
         this.ses = ses;
+        this.cisClient = cisClient;
     }
 
     /**
@@ -62,7 +67,7 @@ public class CertificateExpiryMonitor {
                 break;
             }
             try {
-                cg.generateCertificate();
+                cg.generateCertificate(cisClient::getCachedConnectivityInfo);
             } catch (KeyStoreException | OperatorCreationException | CertificateException | IOException
                     | NoSuchAlgorithmException e) {
                 LOGGER.atError().cause(e).log("Error generating certificate. Will be retried after {} seconds",
