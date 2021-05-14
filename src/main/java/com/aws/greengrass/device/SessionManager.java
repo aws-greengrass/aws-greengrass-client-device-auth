@@ -122,10 +122,13 @@ public class SessionManager {
 
     private void closeSession(Session session) {
         SessionDecorator sessionDecorator = (SessionDecorator) session;
+        logger.atInfo().kv("sessionId", sessionDecorator.getSessionId())
+                .kv("session", sessionDecorator.getSession())
+                .log("Closing the session");
         try {
             closeSession(sessionDecorator.getSessionId());
         } catch (AuthorizationException e) {
-            logger.atDebug().cause(e).kv("sessionId", sessionDecorator.getSessionId()).log("Session is already closed");
+            logger.atDebug().cause(e).kv("sessionId", sessionDecorator.getSessionId()).log(e.getMessage());
         }
     }
 
@@ -134,7 +137,7 @@ public class SessionManager {
      */
     public void startSessionCheck() {
         sessionRefreshFuture = scheduledExecutorService
-                .scheduleWithFixedDelay(this::refreshSession, 0, SESSION_CHECK_DELAY_IN_DAYS, SESSION_CHECK_TIME_UNIT);
+                .scheduleWithFixedDelay(this::refreshSessions, 0, SESSION_CHECK_DELAY_IN_DAYS, SESSION_CHECK_TIME_UNIT);
     }
 
     /**
@@ -149,7 +152,7 @@ public class SessionManager {
     /**
      * refresh the session, close the session if certificate or thing is invalid.
      */
-    void refreshSession() {
+    void refreshSessions() {
         Map<String, List<Session>> certificateToSessionsMap = getCertificateToSessionsMap();
         for (Map.Entry<String, List<Session>> entry : certificateToSessionsMap.entrySet()) {
             if (isCertificateActive(entry.getKey())) {
@@ -157,11 +160,13 @@ public class SessionManager {
                     if (!isThingInSessionValid(session)) {
                         // thing no other attribute matching supported than thingName, close the session
                         // TODO detach the thing from the session
+                        logger.atInfo().log("Close the session since the thing is not associated with certificate");
                         closeSession(session);
                     }
                 }
             } else {
                 // close all sessions with this certificate
+                logger.atInfo().log("Close all the session associated with the invalid certificate");
                 for (Session session : entry.getValue()) {
                     closeSession(session);
                 }
@@ -173,9 +178,9 @@ public class SessionManager {
         Map<String, List<Session>> certificateToSessionsMap = new HashMap<>();
         for (Map.Entry<String, Session> entry : sessionMap.entrySet()) {
             Certificate certificate = (Certificate) entry.getValue().get(Certificate.NAMESPACE);
-            List<Session> sessionDecorators = certificateToSessionsMap
+            List<Session> sessions = certificateToSessionsMap
                     .computeIfAbsent(certificate.getCertificateHash(), (k) -> new ArrayList<>());
-            sessionDecorators.add(entry.getValue());
+            sessions.add(entry.getValue());
         }
         return certificateToSessionsMap;
     }

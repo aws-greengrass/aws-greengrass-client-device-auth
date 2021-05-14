@@ -121,7 +121,7 @@ class SessionManagerTest {
         when(certificateStore.loadDeviceCertificate(CertificateStore.computeCertificatePemHash("pem1")))
                 .thenThrow(IOException.class);
 
-        sessionManager.refreshSession();
+        sessionManager.refreshSessions();
 
         assertThat(sessionMap, IsMapWithSize.aMapWithSize(0));
     }
@@ -134,7 +134,7 @@ class SessionManagerTest {
         when(certificateStore.loadDeviceCertificate(CertificateStore.computeCertificatePemHash("pem1")))
                 .thenReturn("pem11");
 
-        sessionManager.refreshSession();
+        sessionManager.refreshSessions();
 
         assertThat(sessionMap, IsMapWithSize.aMapWithSize(0));
     }
@@ -153,7 +153,7 @@ class SessionManagerTest {
         Certificate certificate = new Certificate(pem1Hash, "id1");
         when(iotAuthClient.isThingAttachedToCertificate(new Thing("thing1"), certificate)).thenReturn(true);
 
-        sessionManager.refreshSession();
+        sessionManager.refreshSessions();
 
         assertThat(sessionMap, IsMapWithSize.aMapWithSize(1));
     }
@@ -173,7 +173,7 @@ class SessionManagerTest {
         when(iotAuthClient.isThingAttachedToCertificate(new Thing("thing1"), certificate))
                 .thenThrow(CloudServiceInteractionException.class);
 
-        sessionManager.refreshSession();
+        sessionManager.refreshSessions();
 
         assertThat(sessionMap, IsMapWithSize.aMapWithSize(1));
     }
