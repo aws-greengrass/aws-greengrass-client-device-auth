@@ -155,20 +155,20 @@ public class SessionManager {
     void refreshSessions() {
         Map<String, List<Session>> certificateToSessionsMap = getCertificateToSessionsMap();
         for (Map.Entry<String, List<Session>> entry : certificateToSessionsMap.entrySet()) {
-            if (isCertificateActive(entry.getKey())) {
+            if (shouldCloseSessionsForCertificate(entry.getKey())) {
+                // close all sessions with this certificate
+                logger.atInfo().log("Close all the session associated with the invalid certificate");
                 for (Session session : entry.getValue()) {
-                    if (!isThingInSessionValid(session)) {
+                    closeSession(session);
+                }
+            } else {
+                for (Session session : entry.getValue()) {
+                    if (shouldCloseSessionForThing(session)) {
                         // thing no other attribute matching supported than thingName, close the session
                         // TODO detach the thing from the session
                         logger.atInfo().log("Close the session since the thing is not associated with certificate");
                         closeSession(session);
                     }
-                }
-            } else {
-                // close all sessions with this certificate
-                logger.atInfo().log("Close all the session associated with the invalid certificate");
-                for (Session session : entry.getValue()) {
-                    closeSession(session);
                 }
             }
         }
@@ -185,36 +185,36 @@ public class SessionManager {
         return certificateToSessionsMap;
     }
 
-    private boolean isCertificateActive(String certificatePemHash) {
+    private boolean shouldCloseSessionsForCertificate(String certificatePemHash) {
         String certificatePem;
         try {
             certificatePem = certificateStore.loadDeviceCertificate(certificatePemHash);
         } catch (IOException e) {
             logger.atError().cause(e).kv("certificatePemHash", certificatePemHash)
                     .log("Failed to load certificate saved on disk");
-            return false;
+            return true;
         }
 
         if (!certificatePemHash.equals(CertificateStore.computeCertificatePemHash(certificatePem))) {
             logger.atError().kv("certificatePemHash", certificatePemHash).log("certificate got modified.");
-            return false;
+            return true;
         }
 
         try {
             Optional<String> certificateId = iotAuthClient.getActiveCertificateId(certificatePem);
-            return certificateId.isPresent();
+            return !certificateId.isPresent();
         } catch (CloudServiceInteractionException e) {
             logger.atError().cause(e).kv("certificatePem", certificatePem).log("Can't verify client certificate");
         }
-        return true;
+        return false;
     }
 
-    private boolean isThingInSessionValid(Session session) {
+    private boolean shouldCloseSessionForThing(Session session) {
         Thing thing = (Thing) session.get(Thing.NAMESPACE);
         if (thing != null) {
             Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
             try {
-                return iotAuthClient.isThingAttachedToCertificate(thing, certificate);
+                return !iotAuthClient.isThingAttachedToCertificate(thing, certificate);
             } catch (CloudServiceInteractionException e) {
                 // In case of cloud service availability issue, log the error but assume valid till next check
                 logger.atError().cause(e).kv("thingName", thing.getThingName())
@@ -222,7 +222,7 @@ public class SessionManager {
                         .log("Can't verify thing certificate association");
             }
         }
-        return true;
+        return false;
     }
 
     /**
