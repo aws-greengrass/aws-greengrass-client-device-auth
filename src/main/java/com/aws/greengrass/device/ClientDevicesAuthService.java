@@ -195,7 +195,8 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     @Override
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         certificateManager.stopMonitors();
+        super.shutdown();
     }
 }

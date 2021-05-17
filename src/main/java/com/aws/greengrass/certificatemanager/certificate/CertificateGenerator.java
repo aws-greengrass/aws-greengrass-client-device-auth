@@ -4,14 +4,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.operator.OperatorCreationException;
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
-import java.io.IOException;
 import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
@@ -45,7 +41,7 @@ public abstract class CertificateGenerator {
     }
 
     public abstract void generateCertificate(Supplier<List<ConnectivityInfo>> connectivityInfoSupplier) throws
-            KeyStoreException, OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException;
+            KeyStoreException, CertificateGenerationException;
 
     /**
      * Checks if certificate needs to be regenerated.
@@ -65,7 +61,7 @@ public abstract class CertificateGenerator {
      */
     public Instant getExpiryTime() {
         if (certificate == null) {
-            return Instant.now(clock);
+            return Instant.MIN;
         }
 
         return certificate.getNotAfter().toInstant();

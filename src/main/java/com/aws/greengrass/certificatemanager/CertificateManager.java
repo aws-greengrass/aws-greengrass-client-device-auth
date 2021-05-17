@@ -6,6 +6,7 @@
 package com.aws.greengrass.certificatemanager;
 
 import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonitor;
+import com.aws.greengrass.certificatemanager.certificate.CertificateGenerationException;
 import com.aws.greengrass.certificatemanager.certificate.CertificateGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
@@ -16,7 +17,6 @@ import com.aws.greengrass.cisclient.CISClient;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.NonNull;
-import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 
@@ -25,7 +25,6 @@ import java.security.InvalidKeyException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.List;
@@ -126,8 +125,8 @@ public class CertificateManager {
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
-        } catch (RuntimeException | OperatorCreationException | NoSuchAlgorithmException | CertificateException
-                | InvalidKeyException | IOException e) {
+        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException
+                | CertificateGenerationException e) {
             throw new CsrProcessingException(csr, e);
         }
     }
@@ -161,8 +160,8 @@ public class CertificateManager {
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
-        } catch (RuntimeException | OperatorCreationException | NoSuchAlgorithmException | CertificateException
-                | InvalidKeyException | IOException e) {
+        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException
+                | CertificateGenerationException e) {
             throw new CsrProcessingException(csr, e);
         }
     }
