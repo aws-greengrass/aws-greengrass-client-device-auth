@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.certificatemanager;
 
+import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
@@ -12,14 +13,12 @@ import com.aws.greengrass.certificatemanager.certificate.ClientCertificateGenera
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.certificatemanager.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.cisclient.CISClient;
-import com.aws.greengrass.cisclient.CISClientException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.NonNull;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
-import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -40,16 +39,21 @@ public class CertificateManager {
 
     private final CISClient cisClient;
 
+    private final CISShadowMonitor cisShadowMonitor;
+
     /**
      * Constructor.
      *
      * @param certificateStore      Helper class for managing certificate authorities
      * @param cisClient             CIS Client
+     * @param cisShadowMonitor      CIS Shadow Monitor
      */
     @Inject
-    public CertificateManager(CertificateStore certificateStore, CISClient cisClient) {
+    public CertificateManager(CertificateStore certificateStore, CISClient cisClient,
+                              CISShadowMonitor cisShadowMonitor) {
         this.certificateStore = certificateStore;
         this.cisClient = cisClient;
+        this.cisShadowMonitor = cisShadowMonitor;
     }
 
     /**
@@ -60,6 +64,20 @@ public class CertificateManager {
      */
     public void update(String caPassphrase, CertificateStore.CAType caType) throws KeyStoreException {
         certificateStore.update(caPassphrase, caType);
+    }
+
+    /**
+     * Start certificate monitors.
+     */
+    public void startMonitors() {
+        cisShadowMonitor.startMonitor();
+    }
+
+    /**
+     * Stop certificate monitors.
+     */
+    public void stopMonitors() {
+        cisShadowMonitor.stopMonitor();
     }
 
     /**
@@ -91,7 +109,6 @@ public class CertificateManager {
      * @param cb  Certificate consumer
      * @throws KeyStoreException if unable to access KeyStore
      * @throws CsrProcessingException if unable to process CSR
-     * @throws CISClientException if unable to get connectivity info
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToServerCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
@@ -104,13 +121,8 @@ public class CertificateManager {
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
-            try {
-                List<ConnectivityInfo> connectivityInfoList = cisClient.getConnectivityInfo();
-                certificateGenerator.generateCertificate(connectivityInfoList);
-            } catch (CISClientException e) {
-                //TODO: retry for CISClientException
-                certificateGenerator.generateCertificate();
-            }
+            certificateGenerator.generateCertificate(cisClient::getCachedConnectivityInfo);
+            cisShadowMonitor.addToMonitor(certificateGenerator);
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
@@ -132,7 +144,6 @@ public class CertificateManager {
      * @param cb  Certificate consumer
      * @throws KeyStoreException if unable to access KeyStore
      * @throws CsrProcessingException if unable to process CSR
-     * @throws CISClientException if unable to get connectivity info
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate[]> cb)
@@ -145,7 +156,7 @@ public class CertificateManager {
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ClientCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
-            certificateGenerator.generateCertificate();
+            certificateGenerator.generateCertificate(Collections::emptyList);
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;

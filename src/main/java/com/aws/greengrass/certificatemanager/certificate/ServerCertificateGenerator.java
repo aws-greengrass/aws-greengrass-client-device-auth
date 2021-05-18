@@ -11,16 +11,14 @@ import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class ServerCertificateGenerator extends CertificateGenerator {
 
     private final Consumer<X509Certificate> callback;
-
-    private List<ConnectivityInfo> connectivityInfoItems = Collections.emptyList();
 
     /**
      * Constructor.
@@ -39,7 +37,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
     /**
      * Regenerates certificate.
      *
-     * @param connectivityInfos CIS connectivity info list
+     * @param connectivityInfoSupplier ConnectivityInfo Supplier
      * @throws KeyStoreException         KeyStoreException
      * @throws OperatorCreationException OperatorCreationException
      * @throws CertificateException      CertificateException
@@ -47,23 +45,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
      * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
      */
     @Override
-    public void generateCertificate(List<ConnectivityInfo> connectivityInfos) throws
-            KeyStoreException, OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
-        connectivityInfoItems = connectivityInfos;
-        generateCertificate();
-    }
-
-    /**
-     * Regenerates certificate.
-     *
-     * @throws KeyStoreException         KeyStoreException
-     * @throws OperatorCreationException OperatorCreationException
-     * @throws CertificateException      CertificateException
-     * @throws IOException               IOException
-     * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
-     */
-    @Override
-    public synchronized void generateCertificate() throws
+    public synchronized void generateCertificate(Supplier<List<ConnectivityInfo>> connectivityInfoSupplier) throws
             KeyStoreException, OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
         Instant now = Instant.now(clock);
         certificate = CertificateHelper.signServerCertificateRequest(
@@ -71,7 +53,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                 certificateStore.getCAPrivateKey(),
                 subject,
                 publicKey,
-                connectivityInfoItems,
+                connectivityInfoSupplier.get(),
                 Date.from(now),
                 Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
 
