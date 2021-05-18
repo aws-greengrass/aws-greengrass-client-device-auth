@@ -12,7 +12,6 @@ import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
 import com.aws.greengrass.dependency.ImplementsService;
-import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
@@ -112,12 +111,14 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void startup() throws InterruptedException {
         super.startup();
+        certificateManager.startMonitors();
         sessionManager.startSessionCheck();
     }
 
     @Override
     protected void shutdown() throws InterruptedException {
         sessionManager.stopSessionCheck();
+        certificateManager.stopMonitors();
         super.shutdown();
     }
 
@@ -202,16 +203,5 @@ public class ClientDevicesAuthService extends PluginService {
             throw new CloudServiceInteractionException(
                     String.format("Failed to put core %s CA certificates to cloud", thingName), e);
         }
-    }
-
-    @Override
-    public void startup() {
-        certificateManager.startMonitors();
-        reportState(State.RUNNING);
-    }
-
-    @Override
-    public void shutdown() {
-        certificateManager.stopMonitors();
     }
 }
