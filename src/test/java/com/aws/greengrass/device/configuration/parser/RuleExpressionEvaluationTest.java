@@ -36,7 +36,7 @@ public class RuleExpressionEvaluationTest {
     }
 
     @Test
-    public void GIVEN_unaryExpressionWithSessionContainingThing_WHEN_RuleExpressionEvaluated_THEN_EvaluatesTrue() throws ParseException {
+    void GIVEN_unaryExpressionWithSessionContainingThing_WHEN_RuleExpressionEvaluated_THEN_EvaluatesTrue() throws ParseException {
         ASTStart tree = getTree("thingName: Thing");
         Session session = getSessionWithThing("Thing");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
@@ -44,7 +44,7 @@ public class RuleExpressionEvaluationTest {
     }
 
     @Test
-    public void GIVEN_unaryExpression_WHEN_RuleExpressionEvaluatedWithSessionNotContainingThing_THEN_EvaluatesFalse() throws ParseException {
+    void GIVEN_unaryExpression_WHEN_RuleExpressionEvaluatedWithSessionNotContainingThing_THEN_EvaluatesFalse() throws ParseException {
         ASTStart tree = getTree("thingName: Thing1");
         Session session = getSessionWithThing("Thing");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
@@ -52,7 +52,7 @@ public class RuleExpressionEvaluationTest {
     }
 
     @Test
-    public void GIVEN_basicOrExpression_WHEN_RuleExpressionEvaluatedWithSessionContainingOneThing_THEN_EvaluatesTrue() throws ParseException {
+    void GIVEN_basicOrExpression_WHEN_RuleExpressionEvaluatedWithSessionContainingOneThing_THEN_EvaluatesTrue() throws ParseException {
         ASTStart tree = getTree("thingName: Thing OR thingName: Thing1");
         Session session = getSessionWithThing("Thing");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
@@ -60,7 +60,7 @@ public class RuleExpressionEvaluationTest {
     }
 
     @Test
-    public void GIVEN_basicAndExpression_WHEN_RuleExpressionEvaluatedWithSessionContainingOneThing_THEN_EvaluatesFalse() throws ParseException {
+    void GIVEN_basicAndExpression_WHEN_RuleExpressionEvaluatedWithSessionContainingOneThing_THEN_EvaluatesFalse() throws ParseException {
         ASTStart tree = getTree("thingName: Thing AND thingName: Thing1");
         Session session = getSessionWithThing("Thing");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
@@ -68,7 +68,7 @@ public class RuleExpressionEvaluationTest {
     }
 
     @Test
-    public void GIVEN_logicalExpressionWithAndOr_WHEN_RuleExpressionEvaluatedWithSessionContainingThingInOR_THEN_EvaluatesTrue() throws ParseException {
+    void GIVEN_logicalExpressionWithAndOr_WHEN_RuleExpressionEvaluatedWithSessionContainingThingInOR_THEN_EvaluatesTrue() throws ParseException {
         ASTStart tree = getTree("thingName: Thing OR thingName: Thing1 AND thingName: Thing2");
         Session session = getSessionWithThing("Thing");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
@@ -76,7 +76,7 @@ public class RuleExpressionEvaluationTest {
     }
 
     @Test
-    public void GIVEN_logicalExpressionWithAndOr_WHEN_RuleExpressionEvaluatedWithSessionContainingThingInAND_THEN_EvaluatesFalse() throws ParseException {
+    void GIVEN_logicalExpressionWithAndOr_WHEN_RuleExpressionEvaluatedWithSessionContainingThingInAND_THEN_EvaluatesFalse() throws ParseException {
         ASTStart tree = getTree("thingName: Thing AND thingName: Thing1 OR thingName: Thing2");
         Session session = getSessionWithThing("Thing");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
@@ -84,7 +84,7 @@ public class RuleExpressionEvaluationTest {
     }
 
     @Test
-    public void GIVEN_unaryExpressionWithWildcard_WHEN_RuleExpressionEvaluated_THEN_EvaluatesTrue() throws ParseException {
+    void GIVEN_unaryExpressionWithWildcard_WHEN_RuleExpressionEvaluated_THEN_EvaluatesTrue() throws ParseException {
         ASTStart tree = getTree("thingName: Thing*");
         Session session = getSessionWithThing("Thing1");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
@@ -95,7 +95,18 @@ public class RuleExpressionEvaluationTest {
     }
 
     @Test
-    public void GIVEN_unaryExpressionWithWildcard_WHEN_RuleExpressionEvaluatedWithSessionNotContainingThing_THEN_EvaluatesFalse() throws ParseException {
+    void GIVEN_unaryExpressionWithWildcardThingName_WHEN_RuleExpressionEvaluated_THEN_EvaluatesTrue() throws ParseException {
+        ASTStart tree = getTree("thingName: *");
+        Session session = getSessionWithThing("Thing1");
+        RuleExpressionVisitor visitor = new ExpressionVisitor();
+        Assertions.assertTrue((Boolean) visitor.visit(tree, session));
+
+        session = getSessionWithThing("ThingTwo");
+        Assertions.assertTrue((Boolean) visitor.visit(tree, session));
+    }
+
+    @Test
+    void GIVEN_unaryExpressionWithWildcard_WHEN_RuleExpressionEvaluatedWithSessionNotContainingThing_THEN_EvaluatesFalse() throws ParseException {
         ASTStart tree = getTree("thingName: Thing*");
         Session session = getSessionWithThing("FirstThing");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
