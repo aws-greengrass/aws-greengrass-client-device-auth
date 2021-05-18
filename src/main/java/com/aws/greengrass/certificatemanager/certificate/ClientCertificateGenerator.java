@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class ClientCertificateGenerator extends CertificateGenerator {
 
@@ -36,7 +37,7 @@ public class ClientCertificateGenerator extends CertificateGenerator {
     /**
      * Regenerates certificate.
      *
-     * @param connectivityInfos CIS connectivity info list
+     * @param connectivityInfoSupplier ConnectivityInfo Supplier (not used in this implementation)
      * @throws KeyStoreException         KeyStoreException
      * @throws OperatorCreationException OperatorCreationException
      * @throws CertificateException      CertificateException
@@ -44,23 +45,8 @@ public class ClientCertificateGenerator extends CertificateGenerator {
      * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
      */
     @Override
-    public void generateCertificate(List<ConnectivityInfo> connectivityInfos) throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
-        generateCertificate();
-    }
-
-    /**
-     * Regenerates certificate.
-     *
-     * @throws KeyStoreException         KeyStoreException
-     * @throws OperatorCreationException OperatorCreationException
-     * @throws CertificateException      CertificateException
-     * @throws IOException               IOException
-     * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
-     */
-    @Override
-    public synchronized void generateCertificate() throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
+    public synchronized void generateCertificate(Supplier<List<ConnectivityInfo>> connectivityInfoSupplier) throws
+            KeyStoreException, OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
         Instant now = Instant.now(clock);
         certificate = CertificateHelper.signClientCertificateRequest(
                 certificateStore.getCACertificate(),

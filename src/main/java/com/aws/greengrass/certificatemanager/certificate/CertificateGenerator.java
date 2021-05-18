@@ -17,6 +17,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.function.Supplier;
 
 public abstract class CertificateGenerator {
     static final long DEFAULT_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 1 week
@@ -43,11 +44,8 @@ public abstract class CertificateGenerator {
         this.certificateStore = certificateStore;
     }
 
-    public abstract void generateCertificate(List<ConnectivityInfo> connectivityInfos) throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException;
-
-    public abstract void generateCertificate() throws KeyStoreException,
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException;
+    public abstract void generateCertificate(Supplier<List<ConnectivityInfo>> connectivityInfoSupplier) throws
+            KeyStoreException, OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException;
 
     /**
      * Checks if certificate needs to be regenerated.
