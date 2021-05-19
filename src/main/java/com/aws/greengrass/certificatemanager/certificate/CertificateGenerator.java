@@ -40,8 +40,8 @@ public abstract class CertificateGenerator {
         this.certificateStore = certificateStore;
     }
 
-    public abstract void generateCertificate(Supplier<List<ConnectivityInfo>> connectivityInfoSupplier) throws
-            KeyStoreException, CertificateGenerationException;
+    public abstract void generateCertificate(Supplier<List<ConnectivityInfo>> connectivityInfoSupplier)
+            throws KeyStoreException;
 
     /**
      * Checks if certificate needs to be regenerated.

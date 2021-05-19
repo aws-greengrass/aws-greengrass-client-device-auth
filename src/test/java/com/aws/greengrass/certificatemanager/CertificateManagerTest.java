@@ -6,6 +6,7 @@
 package com.aws.greengrass.certificatemanager;
 
 import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonitor;
+import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.cisclient.CISClient;
@@ -93,6 +94,9 @@ public class CertificateManagerTest {
     @Mock
     CertificateExpiryMonitor mockCertExpiryMonitor;
 
+    @Mock
+    CISShadowMonitor mockShadowMonitor;
+
     @TempDir
     Path tmpPath;
 
@@ -100,7 +104,8 @@ public class CertificateManagerTest {
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
-        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockCISClient, mockCertExpiryMonitor);
+        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockCISClient, mockCertExpiryMonitor,
+                mockShadowMonitor);
         certificateManager.update("", CertificateStore.CAType.RSA_2048);
     }
 

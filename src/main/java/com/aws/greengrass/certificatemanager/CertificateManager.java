@@ -5,8 +5,8 @@
 
 package com.aws.greengrass.certificatemanager;
 
+import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonitor;
-import com.aws.greengrass.certificatemanager.certificate.CertificateGenerationException;
 import com.aws.greengrass.certificatemanager.certificate.CertificateGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
@@ -40,19 +40,23 @@ public class CertificateManager {
 
     private final CertificateExpiryMonitor certExpiryMonitor;
 
+    private final CISShadowMonitor cisShadowMonitor;
+
     /**
      * Constructor.
      *
      * @param certificateStore      Helper class for managing certificate authorities
      * @param cisClient             CIS Client
      * @param certExpiryMonitor     Certificate Expiry Monitor
+     * @param cisShadowMonitor      CIS Shadow Monitor
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore, CISClient cisClient,
-                              CertificateExpiryMonitor certExpiryMonitor) {
+                              CertificateExpiryMonitor certExpiryMonitor, CISShadowMonitor cisShadowMonitor) {
         this.certificateStore = certificateStore;
         this.cisClient = cisClient;
         this.certExpiryMonitor = certExpiryMonitor;
+        this.cisShadowMonitor = cisShadowMonitor;
     }
 
     /**
@@ -70,6 +74,7 @@ public class CertificateManager {
      */
     public void startMonitors() {
         certExpiryMonitor.startMonitor();
+        cisShadowMonitor.startMonitor();
     }
 
     /**
@@ -77,6 +82,7 @@ public class CertificateManager {
      */
     public void stopMonitors() {
         certExpiryMonitor.stopMonitor();
+        cisShadowMonitor.stopMonitor();
     }
 
     /**
@@ -122,11 +128,11 @@ public class CertificateManager {
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
             certificateGenerator.generateCertificate(cisClient::getCachedConnectivityInfo);
             certExpiryMonitor.addToMonitor(certificateGenerator);
+            cisShadowMonitor.addToMonitor(certificateGenerator);
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
-        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException
-                | CertificateGenerationException e) {
+        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException e) {
             throw new CsrProcessingException(csr, e);
         }
     }
@@ -160,8 +166,7 @@ public class CertificateManager {
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
-        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException
-                | CertificateGenerationException e) {
+        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException e) {
             throw new CsrProcessingException(csr, e);
         }
     }
