@@ -38,23 +38,23 @@ public class ClientCertificateGenerator extends CertificateGenerator {
      * Regenerates certificate.
      *
      * @param connectivityInfoSupplier ConnectivityInfo Supplier (not used in this implementation)
-     * @throws KeyStoreException         KeyStoreException
-     * @throws OperatorCreationException OperatorCreationException
-     * @throws CertificateException      CertificateException
-     * @throws IOException               IOException
-     * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
+     * @throws KeyStoreException if unable to retrieve CA key/cert
      */
     @Override
-    public synchronized void generateCertificate(Supplier<List<ConnectivityInfo>> connectivityInfoSupplier) throws
-            KeyStoreException, OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
+    public synchronized void generateCertificate(Supplier<List<ConnectivityInfo>> connectivityInfoSupplier)
+            throws KeyStoreException {
         Instant now = Instant.now(clock);
-        certificate = CertificateHelper.signClientCertificateRequest(
-                certificateStore.getCACertificate(),
-                certificateStore.getCAPrivateKey(),
-                subject,
-                publicKey,
-                Date.from(now),
-                Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
+        try {
+            certificate = CertificateHelper.signClientCertificateRequest(
+                    certificateStore.getCACertificate(),
+                    certificateStore.getCAPrivateKey(),
+                    subject,
+                    publicKey,
+                    Date.from(now),
+                    Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
+        } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException e) {
+            throw new CertificateGenerationException(e);
+        }
 
         X509Certificate caCertificate = certificateStore.getCACertificate();
         X509Certificate[] chain = {certificate, caCertificate};

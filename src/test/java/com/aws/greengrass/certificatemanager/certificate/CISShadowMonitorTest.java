@@ -2,7 +2,6 @@ package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.cisclient.CISClient;
 import com.aws.greengrass.mqttclient.MqttClient;
-import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,10 +19,7 @@ import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedSubscriptionRequest;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
 
-import java.io.IOException;
 import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -120,8 +116,7 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    public void GIVEN_CISShadowMonitor_WHEN_update_delta_version_THEN_cert_generated() throws
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, KeyStoreException, IOException {
+    public void GIVEN_CISShadowMonitor_WHEN_update_delta_version_THEN_cert_generated() throws KeyStoreException {
         CISShadowMonitor cisShadowMonitor = new CISShadowMonitor(mockMqttClient, mockConnection, mockShadowClient,
                 mockExecutor, SHADOW_NAME, mockCISClient);
         when(mockShadowClient.SubscribeToShadowDeltaUpdatedEvents(any(), any(), any(), any()))
@@ -160,8 +155,7 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    public void GIVEN_CISShadowMonitor_WHEN_get_accepted_version_THEN_cert_generated() throws
-            OperatorCreationException, CertificateException, NoSuchAlgorithmException, KeyStoreException, IOException {
+    public void GIVEN_CISShadowMonitor_WHEN_get_accepted_version_THEN_cert_generated() throws KeyStoreException {
         CISShadowMonitor cisShadowMonitor = new CISShadowMonitor(mockMqttClient, mockConnection, mockShadowClient,
                 mockExecutor, SHADOW_NAME, mockCISClient);
         when(mockShadowClient.SubscribeToShadowDeltaUpdatedEvents(any(), any(), any(), any()))
