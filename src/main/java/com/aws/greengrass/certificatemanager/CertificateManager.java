@@ -6,6 +6,7 @@
 package com.aws.greengrass.certificatemanager;
 
 import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
+import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
@@ -16,7 +17,6 @@ import com.aws.greengrass.cisclient.CISClient;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.NonNull;
-import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 
@@ -25,7 +25,6 @@ import java.security.InvalidKeyException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.List;
@@ -39,6 +38,8 @@ public class CertificateManager {
 
     private final CISClient cisClient;
 
+    private final CertificateExpiryMonitor certExpiryMonitor;
+
     private final CISShadowMonitor cisShadowMonitor;
 
     /**
@@ -46,13 +47,15 @@ public class CertificateManager {
      *
      * @param certificateStore      Helper class for managing certificate authorities
      * @param cisClient             CIS Client
+     * @param certExpiryMonitor     Certificate Expiry Monitor
      * @param cisShadowMonitor      CIS Shadow Monitor
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore, CISClient cisClient,
-                              CISShadowMonitor cisShadowMonitor) {
+                              CertificateExpiryMonitor certExpiryMonitor, CISShadowMonitor cisShadowMonitor) {
         this.certificateStore = certificateStore;
         this.cisClient = cisClient;
+        this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
     }
 
@@ -70,6 +73,7 @@ public class CertificateManager {
      * Start certificate monitors.
      */
     public void startMonitors() {
+        certExpiryMonitor.startMonitor();
         cisShadowMonitor.startMonitor();
     }
 
@@ -77,6 +81,7 @@ public class CertificateManager {
      * Stop certificate monitors.
      */
     public void stopMonitors() {
+        certExpiryMonitor.stopMonitor();
         cisShadowMonitor.stopMonitor();
     }
 
@@ -122,12 +127,12 @@ public class CertificateManager {
             CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
             certificateGenerator.generateCertificate(cisClient::getCachedConnectivityInfo);
+            certExpiryMonitor.addToMonitor(certificateGenerator);
             cisShadowMonitor.addToMonitor(certificateGenerator);
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
-        } catch (RuntimeException | OperatorCreationException | NoSuchAlgorithmException | CertificateException
-                | InvalidKeyException | IOException e) {
+        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException e) {
             throw new CsrProcessingException(csr, e);
         }
     }
@@ -157,11 +162,11 @@ public class CertificateManager {
             CertificateGenerator certificateGenerator = new ClientCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
             certificateGenerator.generateCertificate(Collections::emptyList);
+            certExpiryMonitor.addToMonitor(certificateGenerator);
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;
-        } catch (RuntimeException | OperatorCreationException | NoSuchAlgorithmException | CertificateException
-                | InvalidKeyException | IOException e) {
+        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException e) {
             throw new CsrProcessingException(csr, e);
         }
     }

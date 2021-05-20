@@ -9,7 +9,6 @@ import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.mqttclient.WrapperMqttClientConnection;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.RetryUtils;
-import org.bouncycastle.operator.OperatorCreationException;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 import software.amazon.awssdk.crt.mqtt.MqttException;
@@ -22,10 +21,7 @@ import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
-import java.io.IOException;
 import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -228,8 +224,7 @@ public class CISShadowMonitor {
                 }
                 reportVersion(version);
                 lastVersion = version;
-            } catch (KeyStoreException | OperatorCreationException | CertificateException | IOException
-                    | NoSuchAlgorithmException e) {
+            } catch (KeyStoreException e) {
                 LOGGER.atError().cause(e).log("failed to generate new certificates");
             }
         });

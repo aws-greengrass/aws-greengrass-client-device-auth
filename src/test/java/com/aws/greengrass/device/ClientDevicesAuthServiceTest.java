@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.device;
 
+import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
@@ -91,6 +92,9 @@ class ClientDevicesAuthServiceTest {
     @Mock
     private GreengrassV2DataClient client;
 
+    @Mock
+    CertificateExpiryMonitor certExpiryMonitor;
+
     @Captor
     private ArgumentCaptor<GroupConfiguration> configurationCaptor;
 
@@ -102,6 +106,7 @@ class ClientDevicesAuthServiceTest {
     void setup() {
         kernel = new Kernel();
         kernel.getContext().put(GroupManager.class, groupManager);
+        kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitor);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
         lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
@@ -261,6 +266,7 @@ class ClientDevicesAuthServiceTest {
 
         kernel.shutdown();
         kernel = new Kernel().parseArgs("-r", rootDir.toAbsolutePath().toString());
+        kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitor);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
         startNucleusWithConfig("config.yaml");
 
