@@ -110,16 +110,16 @@ public class ClientDevicesAuthService extends PluginService {
 
     @Override
     protected void startup() throws InterruptedException {
-        super.startup();
         certificateManager.startMonitors();
         sessionManager.startSessionCheck();
+        super.startup();
     }
 
     @Override
     protected void shutdown() throws InterruptedException {
+        super.shutdown();
         sessionManager.stopSessionCheck();
         certificateManager.stopMonitors();
-        super.shutdown();
     }
 
     public CertificateManager getCertificateManager() {
