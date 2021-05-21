@@ -12,8 +12,10 @@ import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInf
 import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 /**
@@ -46,6 +48,17 @@ public class CISClient {
      */
     public List<ConnectivityInfo> getCachedConnectivityInfo() {
         return cachedConnectivityInfo;
+    }
+
+    /**
+     * Get cached host addresses.
+     *
+     * @return list of cached host addresses from connectivity info items
+     */
+    public List<String> getCachedHostAddresses() {
+        return new ArrayList<>(cachedConnectivityInfo.stream()
+                .map(ci -> ci.hostAddress())
+                .collect(Collectors.toSet()));
     }
 
     /**

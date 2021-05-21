@@ -126,7 +126,16 @@ public class CertificateManager {
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
-            certificateGenerator.generateCertificate(cisClient::getCachedConnectivityInfo);
+
+            // Always include "localhost" in server certificates so that components can
+            // authenticate servers without disabling peer verification. The certificate
+            // generator will de-duplicate hostnames if localhost is already present in
+            // the CIS info.
+            certificateGenerator.generateCertificate(() -> {
+                List<String> hostAddresses = cisClient.getCachedHostAddresses();
+                hostAddresses.add("localhost");
+                return hostAddresses;
+            });
             certExpiryMonitor.addToMonitor(certificateGenerator);
             cisShadowMonitor.addToMonitor(certificateGenerator);
         } catch (KeyStoreException e) {

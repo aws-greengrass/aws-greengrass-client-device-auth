@@ -30,7 +30,6 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
-import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.io.BufferedReader;
@@ -52,7 +51,9 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 
 public final class CertificateHelper {
@@ -138,7 +139,7 @@ public final class CertificateHelper {
                                                                @NonNull PrivateKey caPrivateKey,
                                                                @NonNull X500Name subject,
                                                                @NonNull PublicKey publicKey,
-                                                               @NonNull List<ConnectivityInfo> connectivityInfoItems,
+                                                               @NonNull List<String> connectivityInfoItems,
                                                                @NonNull Date notBefore,
                                                                @NonNull Date notAfter)
                         throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
@@ -176,7 +177,7 @@ public final class CertificateHelper {
                                                           @NonNull PrivateKey caPrivateKey,
                                                           @NonNull X500Name subject,
                                                           @NonNull PublicKey publicKey,
-                                                          List<ConnectivityInfo> connectivityInfoItems,
+                                                          List<String> connectivityInfoItems,
                                                           @NonNull Date notBefore,
                                                           @NonNull Date notAfter,
                                                           @NonNull ExtendedKeyUsage keyUsage)
@@ -236,15 +237,18 @@ public final class CertificateHelper {
         }
     }
 
-    private static void addSANFromConnectivityInfoToCertificate(List<ConnectivityInfo> connectivityInfoItems,
+    private static void addSANFromConnectivityInfoToCertificate(List<String> connectivityInfoItems,
                                                                 X509v3CertificateBuilder builder) throws IOException {
         final List<GeneralName> generalNamesArray = new ArrayList<>();
-        for (ConnectivityInfo connectivityInfo : connectivityInfoItems) {
-            String host = connectivityInfo.hostAddress();
-            if (ParseIPAddress.isValidIP(host)) {
-                generalNamesArray.add(new GeneralName(GeneralName.iPAddress, host));
-            } else {
-                generalNamesArray.add(new GeneralName(GeneralName.dNSName, host));
+        final Set<String> addedSANs = new HashSet<>();
+        for (String connectivityInfo : connectivityInfoItems) {
+            if (!addedSANs.contains(connectivityInfo)) {
+                addedSANs.add(connectivityInfo);
+                if (ParseIPAddress.isValidIP(connectivityInfo)) {
+                    generalNamesArray.add(new GeneralName(GeneralName.iPAddress, connectivityInfo));
+                } else {
+                    generalNamesArray.add(new GeneralName(GeneralName.dNSName, connectivityInfo));
+                }
             }
         }
         final GeneralNames generalNames = new GeneralNames(generalNamesArray.toArray(new GeneralName[0]));

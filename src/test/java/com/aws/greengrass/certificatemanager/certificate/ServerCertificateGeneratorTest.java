@@ -61,7 +61,7 @@ public class ServerCertificateGeneratorTest {
 
         X509Certificate generatedCert = certificateGenerator.getCertificate();
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
-        assertThat(new KeyPurposeId(generatedCert.getExtendedKeyUsage().get(0)), is(KeyPurposeId.id_kp_serverAuth));
+        assertThat(generatedCert.getExtendedKeyUsage().get(0), is(KeyPurposeId.id_kp_serverAuth.getId()));
         assertThat(generatedCert.getPublicKey(), is(publicKey));
         verify(mockCallback, times(1)).accept(generatedCert);
 
