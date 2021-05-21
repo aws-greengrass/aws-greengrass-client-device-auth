@@ -46,6 +46,7 @@ public class SessionManager {
     private static final long SESSION_EXPIRY_CHECK_DELAY_IN_MINUTES = 20L;
     private static final TimeUnit SESSION_EXPIRY_CHECK_TIME_UNIT = TimeUnit.MINUTES;
     private static final long ONE_HOUR_IN_MILLISECONDS = 60 * 60 * 1000L;
+    public static final String SESSION_ID = "sessionId";
 
     private final IotAuthClient iotAuthClient;
     private final CertificateStore certificateStore;
@@ -99,6 +100,7 @@ public class SessionManager {
     public String createSession(Certificate certificate) {
         String sessionId = generateSessionId();
         sessionMap.put(sessionId, new SessionDecorator(sessionId, new SessionImpl(certificate), Instant.now()));
+        logger.atInfo().kv(SESSION_ID, sessionId).log("Created the session");
         return sessionId;
     }
 
@@ -114,21 +116,21 @@ public class SessionManager {
      * @throws AuthorizationException if no session associated with sessionId
      */
     public void closeSession(String sessionId) throws AuthorizationException {
+        logger.atInfo().kv(SESSION_ID, sessionId).log("Closing the session");
         Session session = sessionMap.get(sessionId);
         if (!sessionMap.remove(sessionId, session)) {
             throw new AuthorizationException(String.format("No session is associated with session id (%s)", sessionId));
         }
     }
 
-    private void closeSession(Session session) {
+    private void closeSession(Session session, String reason) {
         SessionDecorator sessionDecorator = (SessionDecorator) session;
-        logger.atInfo().kv("sessionId", sessionDecorator.getSessionId())
-                .kv("session", sessionDecorator.getSession())
-                .log("Closing the session");
+        logger.atInfo().kv("session", sessionDecorator.getSession())
+                .log(String.format("Close the session because %s", reason));
         try {
             closeSession(sessionDecorator.getSessionId());
         } catch (AuthorizationException e) {
-            logger.atDebug().cause(e).kv("sessionId", sessionDecorator.getSessionId()).log(e.getMessage());
+            logger.atInfo().cause(e).kv(SESSION_ID, sessionDecorator.getSessionId()).log(e.getMessage());
         }
     }
 
@@ -157,17 +159,15 @@ public class SessionManager {
         for (Map.Entry<String, List<Session>> entry : certificateToSessionsMap.entrySet()) {
             if (shouldCloseSessionsForCertificate(entry.getKey())) {
                 // close all sessions with this certificate
-                logger.atInfo().log("Close all the session associated with the invalid certificate");
                 for (Session session : entry.getValue()) {
-                    closeSession(session);
+                    closeSession(session, "certificate is not valid");
                 }
             } else {
                 for (Session session : entry.getValue()) {
                     if (shouldCloseSessionForThing(session)) {
                         // thing no other attribute matching supported than thingName, close the session
                         // TODO detach the thing from the session
-                        logger.atInfo().log("Close the session since the thing is not associated with certificate");
-                        closeSession(session);
+                        closeSession(session, "thing is not associated with certificate");
                     }
                 }
             }
@@ -177,7 +177,7 @@ public class SessionManager {
     private Map<String, List<Session>> getCertificateToSessionsMap() {
         Map<String, List<Session>> certificateToSessionsMap = new HashMap<>();
         for (Map.Entry<String, Session> entry : sessionMap.entrySet()) {
-            Certificate certificate = (Certificate) entry.getValue().get(Certificate.NAMESPACE);
+            Certificate certificate = (Certificate) entry.getValue().getAttributeProvider(Certificate.NAMESPACE);
             List<Session> sessions = certificateToSessionsMap
                     .computeIfAbsent(certificate.getCertificateHash(), (k) -> new ArrayList<>());
             sessions.add(entry.getValue());
@@ -210,9 +210,9 @@ public class SessionManager {
     }
 
     private boolean shouldCloseSessionForThing(Session session) {
-        Thing thing = (Thing) session.get(Thing.NAMESPACE);
+        Thing thing = (Thing) session.getAttributeProvider(Thing.NAMESPACE);
         if (thing != null) {
-            Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
+            Certificate certificate = (Certificate) session.getAttributeProvider(Certificate.NAMESPACE);
             try {
                 return !iotAuthClient.isThingAttachedToCertificate(thing, certificate);
             } catch (CloudServiceInteractionException e) {
@@ -249,7 +249,7 @@ public class SessionManager {
             SessionDecorator session = (SessionDecorator) entry.getValue();
             if (session.getLastVisit() != null && session.getLastVisit().plusMillis(ONE_HOUR_IN_MILLISECONDS)
                     .isBefore(now)) {
-                logger.atDebug().kv("sessionId", session.getSessionId())
+                logger.atDebug().kv(SESSION_ID, session.getSessionId())
                         .kv("lastVisit", session.getLastVisit())
                         .kv("maxInactiveInterval", ONE_HOUR_IN_MILLISECONDS)
                         .log("Session exceeds max inactive interval, close the session.");
@@ -269,20 +269,21 @@ public class SessionManager {
         private Instant lastVisit;
 
         @Override
-        public AttributeProvider get(String attributeProviderNameSpace) {
-            return session.get(attributeProviderNameSpace);
+        public AttributeProvider getAttributeProvider(String attributeProviderNameSpace) {
+            return session.getAttributeProvider(attributeProviderNameSpace);
         }
 
         @Override
-        public AttributeProvider put(String attributeProviderNameSpace, AttributeProvider attributeProvider) {
-            return session.put(attributeProviderNameSpace, attributeProvider);
+        public AttributeProvider putAttributeProvider(String attributeProviderNameSpace,
+                                                      AttributeProvider attributeProvider) {
+            return session.putAttributeProvider(attributeProviderNameSpace, attributeProvider);
         }
 
         @Override
-        public AttributeProvider computeIfAbsent(String key,
-                                                 Function<? super String, ? extends AttributeProvider>
-                                                         mappingFunction) {
-            return session.computeIfAbsent(key, mappingFunction);
+        public AttributeProvider computeAttributeProviderIfAbsent(String key,
+                                                                  Function<? super String, ? extends AttributeProvider>
+                                                                          mappingFunction) {
+            return session.computeAttributeProviderIfAbsent(key, mappingFunction);
         }
 
         @Override

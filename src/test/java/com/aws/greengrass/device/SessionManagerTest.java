@@ -196,7 +196,7 @@ class SessionManagerTest {
                                  Instant lastVisit, Map<String, Session> sessionMap) {
         String certificateHash = CertificateStore.computeCertificatePemHash(certificate);
         Session session = new SessionImpl(new Certificate(certificateHash, certificateId));
-        session.put(Thing.NAMESPACE, new Thing(thingName));
+        session.putAttributeProvider(Thing.NAMESPACE, new Thing(thingName));
         sessionMap.put(id, new SessionManager.SessionDecorator(id, session, lastVisit));
     }
 

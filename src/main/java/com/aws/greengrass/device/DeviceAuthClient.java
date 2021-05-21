@@ -181,9 +181,9 @@ public class DeviceAuthClient {
                     String.format("invalid session id (%s)", sessionId));
         }
 
-        Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
+        Certificate certificate = (Certificate) session.getAttributeProvider(Certificate.NAMESPACE);
         try {
-            session.computeIfAbsent(Thing.NAMESPACE, k -> getValidThing(thingName, certificate));
+            session.computeAttributeProviderIfAbsent(Thing.NAMESPACE, k -> getValidThing(thingName, certificate));
         } catch (CloudServiceInteractionException e) {
             throw new AuthenticationException("Failed to verify thing identity with cloud", e);
         }
@@ -223,11 +223,6 @@ public class DeviceAuthClient {
             throw new AuthorizationException(
                     String.format("invalid session id (%s)", request.getSessionId()));
         }
-
-        Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
-        // if thing name is already cached, proceed;
-        // otherwise validate thing name with certificate, then cache thing name
-        session.computeIfAbsent(Thing.NAMESPACE, (k) -> getValidThing(request.getClientId(), certificate));
 
         return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
                 groupManager.getApplicablePolicyPermissions(session));

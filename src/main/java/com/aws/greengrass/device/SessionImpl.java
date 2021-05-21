@@ -5,6 +5,7 @@ import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.iot.Certificate;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 public class SessionImpl extends ConcurrentHashMap<String, AttributeProvider> implements Session {
 
@@ -19,9 +20,21 @@ public class SessionImpl extends ConcurrentHashMap<String, AttributeProvider> im
     }
 
     @Override
-    @SuppressWarnings("PMD.UselessOverridingMethod")
-    public AttributeProvider get(String attributeProviderNameSpace) {
-        return super.get(attributeProviderNameSpace);
+    public AttributeProvider getAttributeProvider(String attributeProviderNameSpace) {
+        return this.get(attributeProviderNameSpace);
+    }
+
+    @Override
+    public AttributeProvider putAttributeProvider(String attributeProviderNameSpace,
+                                                  AttributeProvider attributeProvider) {
+        return this.put(attributeProviderNameSpace, attributeProvider);
+    }
+
+    @Override
+    public AttributeProvider computeAttributeProviderIfAbsent(String attributeProviderNameSpace,
+                                                              Function<? super String, ? extends AttributeProvider>
+                                                                      mappingFunction) {
+        return computeIfAbsent(attributeProviderNameSpace, mappingFunction);
     }
 
     /**
@@ -29,13 +42,12 @@ public class SessionImpl extends ConcurrentHashMap<String, AttributeProvider> im
      *
      * @param attributeNamespace Attribute namespace
      * @param attributeName      Attribute name
-     *
      * @return Session attribute
      */
     @Override
     public DeviceAttribute getSessionAttribute(String attributeNamespace, String attributeName) {
-        if (this.get(attributeNamespace) != null) {
-            return this.get(attributeNamespace).getDeviceAttributes().get(attributeName);
+        if (this.getAttributeProvider(attributeNamespace) != null) {
+            return this.getAttributeProvider(attributeNamespace).getDeviceAttributes().get(attributeName);
         }
         return null;
     }

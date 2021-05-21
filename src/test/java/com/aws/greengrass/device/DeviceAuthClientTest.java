@@ -43,7 +43,6 @@ import java.util.function.Consumer;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -163,7 +162,7 @@ public class DeviceAuthClientTest {
         String sessionId = "FAKE_SESSION";
         when(sessionManager.findSession(sessionId)).thenReturn(null);
         AuthorizationRequest authorizationRequest =
-                new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId, "clientId");
+                new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId);
         assertThrows(AuthorizationException.class, () -> authClient.canDevicePerform(authorizationRequest));
     }
 
@@ -173,15 +172,14 @@ public class DeviceAuthClientTest {
         Session session = new SessionImpl(new Certificate("certificatePemHash", "certificateId"));
         when(sessionManager.findSession(sessionId)).thenReturn(session);
         AuthorizationRequest authorizationRequest =
-                new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId, "clientId");
+                new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId);
         assertThat(authClient.canDevicePerform(authorizationRequest), is(false));
     }
 
     @Test
-    void GIVEN_session_no_thing_WHEN_receive_authorization_request_THEN_thing_added_to_session() throws Exception {
+    void GIVEN_sessionHasPermission_WHEN_canDevicePerform_THEN_authorizationReturnTrue() throws Exception {
         Session session = new SessionImpl(new Certificate("certificatePemHash", "certificateId"));
         when(sessionManager.findSession("sessionId")).thenReturn(session);
-        when(iotClient.isThingAttachedToCertificate(any(), any())).thenReturn(true);
         when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
                 Collections.singleton(
                         Permission.builder().operation("mqtt:publish").resource("mqtt:topic:foo").principal("group1")
@@ -190,37 +188,11 @@ public class DeviceAuthClientTest {
         boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());
 
         assertThat(authorized, is(true));
-        assertThat(session.get("Thing"), notNullValue());
-        assertThat(session.getSessionAttribute("Thing", "ThingName").toString(), is("clientId"));
-        ArgumentCaptor<Thing> thingArgumentCaptor = ArgumentCaptor.forClass(Thing.class);
-        ArgumentCaptor<Certificate> certificateArgumentCaptor = ArgumentCaptor.forClass(Certificate.class);
-        verify(iotClient)
-                .isThingAttachedToCertificate(thingArgumentCaptor.capture(), certificateArgumentCaptor.capture());
-        assertThat(thingArgumentCaptor.getValue().getThingName(), is("clientId"));
-        assertThat(certificateArgumentCaptor.getValue().getCertificateHash(), is("certificatePemHash"));
-    }
-
-    @Test
-    void GIVEN_session_has_thing_WHEN_receive_authorization_request_THEN_thing_in_session_not_changed()
-            throws Exception {
-        Session session = new SessionImpl(new Certificate("certificatePemHash", "certificateId"));
-        session.put(Thing.NAMESPACE, new Thing("baz"));
-        when(sessionManager.findSession("sessionId")).thenReturn(session);
-        when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
-                Collections.singleton(
-                        Permission.builder().operation("mqtt:publish").resource("mqtt:topic:bar").principal("group1")
-                                .build())));
-
-        boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());
-
-        assertThat(authorized, is(false));
-        assertThat(session.get("Thing"), notNullValue());
-        assertThat(session.getSessionAttribute("Thing", "ThingName").toString(), is("baz"));
         verify(iotClient, never()).isThingAttachedToCertificate(any(), any());
     }
 
     private AuthorizationRequest constructAuthorizationRequest() {
-        return AuthorizationRequest.builder().sessionId("sessionId").clientId("clientId").operation("mqtt:publish")
+        return AuthorizationRequest.builder().sessionId("sessionId").operation("mqtt:publish")
                 .resource("mqtt:topic:foo").build();
     }
 
@@ -253,7 +225,7 @@ public class DeviceAuthClientTest {
         assertThat(authClient.createSession(certificatePem), is("ALLOW_ALL"));
 
         AuthorizationRequest authorizationRequest =
-                AuthorizationRequest.builder().sessionId("ALLOW_ALL").clientId("clientId").operation("mqtt:publish")
+                AuthorizationRequest.builder().sessionId("ALLOW_ALL").operation("mqtt:publish")
                         .resource("mqtt:topic:foo").build();
         assertThat(authClient.canDevicePerform(authorizationRequest), is(true));
     }
