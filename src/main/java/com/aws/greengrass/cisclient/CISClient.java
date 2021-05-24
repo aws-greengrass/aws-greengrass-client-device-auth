@@ -27,7 +27,7 @@ public class CISClient {
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassV2DataClient greengrassV2DataClient;
 
-    private List<ConnectivityInfo> cachedConnectivityInfo = Collections.emptyList();
+    private List<String> cachedHostAddresses = Collections.emptyList();
 
     /**
      * Constructor.
@@ -46,19 +46,8 @@ public class CISClient {
      *
      * @return list of cached connectivity info items
      */
-    public List<ConnectivityInfo> getCachedConnectivityInfo() {
-        return cachedConnectivityInfo;
-    }
-
-    /**
-     * Get cached host addresses.
-     *
-     * @return list of cached host addresses from connectivity info items
-     */
     public List<String> getCachedHostAddresses() {
-        return new ArrayList<>(cachedConnectivityInfo.stream()
-                .map(ci -> ci.hostAddress())
-                .collect(Collectors.toSet()));
+        return cachedHostAddresses;
     }
 
     /**
@@ -69,20 +58,22 @@ public class CISClient {
     public List<ConnectivityInfo> getConnectivityInfo() {
         GetConnectivityInfoRequest getConnectivityInfoRequest = GetConnectivityInfoRequest.builder()
                 .thingName(Coerce.toString(deviceConfiguration.getThingName())).build();
+        List<ConnectivityInfo> connectivityInfoList = Collections.emptyList();
 
         try {
             GetConnectivityInfoResponse getConnectivityInfoResponse = greengrassV2DataClient.getConnectivityInfo(
                     getConnectivityInfoRequest);
             if (getConnectivityInfoResponse.hasConnectivityInfo()) {
-                cachedConnectivityInfo = getConnectivityInfoResponse.connectivityInfo();
-            } else {
-                cachedConnectivityInfo = Collections.emptyList();
+                // Filter out port and metadata since it is not needed
+                connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
+                cachedHostAddresses = new ArrayList<>(connectivityInfoList.stream()
+                        .map(ci -> ci.hostAddress())
+                        .collect(Collectors.toSet()));
             }
         } catch (ValidationException | ResourceNotFoundException e) {
             LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
-            cachedConnectivityInfo = Collections.emptyList();
         }
 
-        return cachedConnectivityInfo;
+        return connectivityInfoList;
     }
 }

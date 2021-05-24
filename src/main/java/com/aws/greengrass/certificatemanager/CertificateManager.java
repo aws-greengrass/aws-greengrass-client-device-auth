@@ -127,15 +127,7 @@ public class CertificateManager {
             CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
 
-            // Always include "localhost" in server certificates so that components can
-            // authenticate servers without disabling peer verification. The certificate
-            // generator will de-duplicate hostnames if localhost is already present in
-            // the CIS info.
-            certificateGenerator.generateCertificate(() -> {
-                List<String> hostAddresses = cisClient.getCachedHostAddresses();
-                hostAddresses.add("localhost");
-                return hostAddresses;
-            });
+            certificateGenerator.generateCertificate(cisClient::getCachedHostAddresses);
             certExpiryMonitor.addToMonitor(certificateGenerator);
             cisShadowMonitor.addToMonitor(certificateGenerator);
         } catch (KeyStoreException e) {
