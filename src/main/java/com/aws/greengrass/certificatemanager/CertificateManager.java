@@ -126,7 +126,7 @@ public class CertificateManager {
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
-            certificateGenerator.generateCertificate(cisClient::getCachedConnectivityInfo);
+            certificateGenerator.generateCertificate(cisClient::getCachedHostAddresses);
             certExpiryMonitor.addToMonitor(certificateGenerator);
             cisShadowMonitor.addToMonitor(certificateGenerator);
         } catch (KeyStoreException e) {

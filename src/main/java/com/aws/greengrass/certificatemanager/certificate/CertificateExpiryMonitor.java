@@ -64,7 +64,7 @@ public class CertificateExpiryMonitor {
                 break;
             }
             try {
-                cg.generateCertificate(cisClient::getCachedConnectivityInfo);
+                cg.generateCertificate(cisClient::getCachedHostAddresses);
             } catch (KeyStoreException e) {
                 LOGGER.atError().cause(e).log("Error generating certificate. Will be retried after {} seconds",
                         DEFAULT_CERT_EXPIRY_CHECK_SECONDS);
