@@ -23,13 +23,16 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 
 import static com.aws.greengrass.certificatemanager.certificate.CertificateGenerator.DEFAULT_CERT_EXPIRY_SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.times;
@@ -51,7 +54,7 @@ public class ServerCertificateGeneratorTest {
     Path tmpPath;
 
     @BeforeEach
-    public void setup() throws KeyStoreException, NoSuchAlgorithmException {
+    void setup() throws KeyStoreException, NoSuchAlgorithmException {
         X500Name subject = new X500Name(SUBJECT_PRINCIPAL);
         publicKey = CertificateStore.newRSAKeyPair().getPublic();
         CertificateStore certificateStore = new CertificateStore(tmpPath);
@@ -60,13 +63,13 @@ public class ServerCertificateGeneratorTest {
     }
 
     @Test
-    public void GIVEN_ServerCertificateGenerator_WHEN_generateCertificate_THEN_certificate_generated()
+    void GIVEN_ServerCertificateGenerator_WHEN_generateCertificate_THEN_certificate_generated()
             throws Exception {
         certificateGenerator.generateCertificate(Collections::emptyList);
 
         X509Certificate generatedCert = certificateGenerator.getCertificate();
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
-        assertThat(new KeyPurposeId(generatedCert.getExtendedKeyUsage().get(0)), is(KeyPurposeId.id_kp_serverAuth));
+        assertThat(generatedCert.getExtendedKeyUsage().get(0), is(KeyPurposeId.id_kp_serverAuth.getId()));
         assertThat(generatedCert.getPublicKey(), is(publicKey));
         verify(mockCallback, times(1)).accept(generatedCert);
 
@@ -76,19 +79,19 @@ public class ServerCertificateGeneratorTest {
     }
 
     @Test
-    public void GIVEN_ServerCertificateGenerator_WHEN_no_certificate_THEN_shouldRegenerate_returns_true() {
+    void GIVEN_ServerCertificateGenerator_WHEN_no_certificate_THEN_shouldRegenerate_returns_true() {
         assertTrue(certificateGenerator.shouldRegenerate());
     }
 
     @Test
-    public void GIVEN_ServerCertificateGenerator_WHEN_valid_certificate_THEN_shouldRegenerate_returns_false()
+    void GIVEN_ServerCertificateGenerator_WHEN_valid_certificate_THEN_shouldRegenerate_returns_false()
             throws Exception {
         certificateGenerator.generateCertificate(Collections::emptyList);
         assertFalse(certificateGenerator.shouldRegenerate());
     }
 
     @Test
-    public void GIVEN_ServerCertificateGenerator_WHEN_expired_certificate_THEN_shouldRegenerate_returns_true()
+    void GIVEN_ServerCertificateGenerator_WHEN_expired_certificate_THEN_shouldRegenerate_returns_true()
             throws Exception {
         certificateGenerator.generateCertificate(Collections::emptyList);
 
@@ -96,5 +99,20 @@ public class ServerCertificateGeneratorTest {
         Clock mockClock = Clock.fixed(expirationTime, ZoneId.of("UTC"));
         certificateGenerator.setClock(mockClock);
         assertTrue(certificateGenerator.shouldRegenerate());
+    }
+
+    @Test
+    void GIVEN_emptyConnectivityInfoList_WHEN_generateCertificate_THEN_certificateContainsLocalhost()
+            throws Exception {
+        certificateGenerator.generateCertificate(Collections::emptyList);
+
+        X509Certificate generatedCert = certificateGenerator.getCertificate();
+        Collection<List<?>> subjectAlternativeNames = generatedCert.getSubjectAlternativeNames();
+        assertThat(subjectAlternativeNames, is(notNullValue()));
+        assertThat(subjectAlternativeNames.size(), is(1));
+        // getSubjectAlternativeNames returns a collection of Lists, each containing
+        // the general name type, followed by the name itself. E.g. [2, localhost]
+        List<?> firstSAN = (List<?>) subjectAlternativeNames.toArray()[0];
+        assertThat(firstSAN.get(1), is("localhost"));
     }
 }

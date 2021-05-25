@@ -225,7 +225,7 @@ public class CISShadowMonitor {
         getConnectivityFuture.thenAccept((version) -> {
             try {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
-                    cg.generateCertificate(cisClient::getCachedConnectivityInfo);
+                    cg.generateCertificate(cisClient::getCachedHostAddresses);
                 }
                 reportVersion(version);
                 lastVersion = version;

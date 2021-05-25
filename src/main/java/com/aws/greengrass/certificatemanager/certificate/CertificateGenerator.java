@@ -9,7 +9,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.bouncycastle.asn1.x500.X500Name;
-import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.security.KeyStoreException;
 import java.security.PublicKey;
@@ -45,7 +44,7 @@ public abstract class CertificateGenerator {
         this.certificateStore = certificateStore;
     }
 
-    public abstract void generateCertificate(Supplier<List<ConnectivityInfo>> connectivityInfoSupplier)
+    public abstract void generateCertificate(Supplier<List<String>> connectivityInfoSupplier)
             throws KeyStoreException;
 
     /**
