@@ -27,7 +27,7 @@ public class CISClient {
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassV2DataClient greengrassV2DataClient;
 
-    private List<String> cachedHostAddresses = Collections.emptyList();
+    private volatile List<String> cachedHostAddresses = Collections.emptyList();
 
     /**
      * Constructor.
