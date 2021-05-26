@@ -60,7 +60,7 @@ public class CISClientTest {
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     @Test
-    public void GIVEN_connectivity_info_WHEN_get_connectivity_info_THEN_connectivity_info_returned() {
+    void GIVEN_connectivity_info_WHEN_get_connectivity_info_THEN_connectivity_info_returned() {
         ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
                 .metadata("").id("172.8.8.10").portNumber(8883).build();
         ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
@@ -77,7 +77,7 @@ public class CISClientTest {
     }
 
     @Test
-    public void GIVEN_no_connectivity_info_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned() {
+    void GIVEN_no_connectivity_info_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned() {
         GetConnectivityInfoResponse getConnectivityInfoResponse = GetConnectivityInfoResponse.builder().build();
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
@@ -100,7 +100,7 @@ public class CISClientTest {
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     @Test
-    public void GIVEN_cached_connectivity_info_WHEN_get_cached_connectivity_info_THEN_connectivity_info_returned() {
+    void GIVEN_cached_connectivity_info_WHEN_get_cached_connectivity_info_THEN_connectivity_info_returned() {
         ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
                 .metadata("").id("172.8.8.10").portNumber(8883).build();
         ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
@@ -111,7 +111,7 @@ public class CISClientTest {
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
         cisClient.getConnectivityInfo();
-        List<ConnectivityInfo> connectivityInfos = cisClient.getCachedConnectivityInfo();
-        assertThat(connectivityInfos, containsInAnyOrder(connectivityInfo, connectivityInfo1));
+        List<String> connectivityInfos = cisClient.getCachedHostAddresses();
+        assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
     }
 }
