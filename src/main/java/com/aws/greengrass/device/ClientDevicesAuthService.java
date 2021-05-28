@@ -57,8 +57,6 @@ public class ClientDevicesAuthService extends PluginService {
 
     private final CertificateManager certificateManager;
 
-    private final SessionManager sessionManager;
-
     private final GreengrassServiceClientFactory clientFactory;
 
     private final DeviceConfiguration deviceConfiguration;
@@ -71,18 +69,16 @@ public class ClientDevicesAuthService extends PluginService {
      * @param topics             Root Configuration topic for this service
      * @param groupManager       Group configuration management
      * @param certificateManager  Certificate management
-     * @param sessionManager     Session Manager
      * @param clientFactory      Greengrass cloud service client factory
      * @param deviceConfiguration core device configuration
      */
     @Inject
     public ClientDevicesAuthService(Topics topics, GroupManager groupManager, CertificateManager certificateManager,
-                                    SessionManager sessionManager, GreengrassServiceClientFactory clientFactory,
+                                    GreengrassServiceClientFactory clientFactory,
                                     DeviceConfiguration deviceConfiguration) {
         super(topics);
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
-        this.sessionManager = sessionManager;
         this.clientFactory = clientFactory;
         this.deviceConfiguration = deviceConfiguration;
     }
@@ -111,14 +107,12 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void startup() throws InterruptedException {
         certificateManager.startMonitors();
-        sessionManager.startSessionCheck();
         super.startup();
     }
 
     @Override
     protected void shutdown() throws InterruptedException {
         super.shutdown();
-        sessionManager.stopSessionCheck();
         certificateManager.stopMonitors();
     }
 
