@@ -9,8 +9,6 @@ import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import lombok.AccessLevel;
-import lombok.Setter;
 
 import java.util.Map;
 import java.util.UUID;
@@ -23,8 +21,7 @@ public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
     public static final String SESSION_ID = "sessionId";
 
-    @Setter(AccessLevel.PACKAGE)
-    private Map<String, Session> sessionMap = new ConcurrentHashMap<>();
+    private final Map<String, Session> sessionMap = new ConcurrentHashMap<>();
 
     /**
      * find session by id.
