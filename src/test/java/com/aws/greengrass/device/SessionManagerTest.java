@@ -9,19 +9,26 @@ package com.aws.greengrass.device;
 import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.hamcrest.collection.IsMapContaining;
+import org.hamcrest.collection.IsMapWithSize;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class SessionManagerTest {
 
-    private final SessionManager sessionManager = new SessionManager();
+    @Spy
+    private SessionManager sessionManager;
 
     @Test
     void GIVEN_session_exist_WHEN_close_session_THEN_succeed() throws Exception {
@@ -34,5 +41,17 @@ class SessionManagerTest {
     @Test
     void GIVEN_session_not_exist_WHEN_close_session_THEN_throw_exception() {
         assertThrows(AuthorizationException.class, () -> sessionManager.closeSession("id"));
+    }
+
+    @Test
+    void Given_generateIdCollision_WHEN_createSession_THEN_retryTillUniqueId() {
+        when(sessionManager.generateSessionId()).thenReturn("id1", "id1", "id1", "id2");
+        sessionManager.createSession(new Certificate("pem", "certificateId"));
+        sessionManager.createSession(new Certificate("pem", "certificateId"));
+
+        Map<String, Session> sessionMap = sessionManager.getSessionMap();
+        assertThat(sessionMap, IsMapWithSize.aMapWithSize(2));
+        assertThat(sessionMap, IsMapContaining.hasKey("id1"));
+        assertThat(sessionMap, IsMapContaining.hasKey("id2"));
     }
 }
