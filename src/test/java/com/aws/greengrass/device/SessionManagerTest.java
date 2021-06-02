@@ -21,10 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class SessionManagerTest {
 
-    private final SessionManager sessionManager = new SessionManager();
-
     @Test
     void GIVEN_session_exist_WHEN_close_session_THEN_succeed() throws Exception {
+        SessionManager sessionManager = new SessionManager();
         String id = sessionManager.createSession(new Certificate("pem", "certificateId"));
         assertThat(sessionManager.findSession(id), notNullValue());
         sessionManager.closeSession(id);
@@ -32,7 +31,9 @@ class SessionManagerTest {
     }
 
     @Test
-    void GIVEN_session_not_exist_WHEN_close_session_THEN_throw_exception() {
+    void GIVEN_session_not_exist_WHEN_close_session_THEN_throw_exception() throws Exception {
+        SessionManager sessionManager = new SessionManager();
         assertThrows(AuthorizationException.class, () -> sessionManager.closeSession("id"));
     }
+
 }

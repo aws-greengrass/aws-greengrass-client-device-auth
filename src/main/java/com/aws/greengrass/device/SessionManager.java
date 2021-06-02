@@ -7,21 +7,17 @@ package com.aws.greengrass.device;
 
 import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.Certificate;
-import com.aws.greengrass.logging.api.Logger;
-import com.aws.greengrass.logging.impl.LogManager;
 
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Singleton class for managing AuthN and AuthZ session.
  */
 public class SessionManager {
-    private static final Logger logger = LogManager.getLogger(SessionManager.class);
-    public static final String SESSION_ID = "sessionId";
 
-    private final Map<String, Session> sessionMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Session> sessionMap = new ConcurrentHashMap<>();
 
     /**
      * find session by id.
@@ -41,14 +37,8 @@ public class SessionManager {
      */
     public String createSession(Certificate certificate) {
         String sessionId = generateSessionId();
-        sessionMap.put(sessionId, new SessionImpl(certificate));
-        logger.atInfo().kv(SESSION_ID, sessionId).log("Created the session");
+        sessionMap.put(sessionId, new Session(certificate));
         return sessionId;
-    }
-
-    private String generateSessionId() {
-        //TODO better session id format?
-        return UUID.randomUUID().toString();
     }
 
     /**
@@ -58,10 +48,14 @@ public class SessionManager {
      * @throws AuthorizationException if no session associated with sessionId
      */
     public void closeSession(String sessionId) throws AuthorizationException {
-        logger.atInfo().kv(SESSION_ID, sessionId).log("Closing the session");
         Session session = sessionMap.get(sessionId);
         if (!sessionMap.remove(sessionId, session)) {
             throw new AuthorizationException(String.format("No session is associated with session id (%s)", sessionId));
         }
+    }
+
+    private String generateSessionId() {
+        //TODO better session id format?
+        return UUID.randomUUID().toString();
     }
 }

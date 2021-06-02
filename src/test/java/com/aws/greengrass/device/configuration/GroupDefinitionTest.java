@@ -6,7 +6,6 @@
 package com.aws.greengrass.device.configuration;
 
 import com.aws.greengrass.device.Session;
-import com.aws.greengrass.device.SessionImpl;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.attribute.WildcardSuffixAttribute;
 import com.aws.greengrass.device.configuration.parser.ParseException;
@@ -46,6 +45,6 @@ public class GroupDefinitionTest {
     void GIVEN_groupDefinitionAndNonMatchingSession_WHEN_containsSession_THEN_returnsFalse() throws ParseException {
         GroupDefinition groupDefinition = new GroupDefinition("thingName: thing", "Policy1");
         assertThat(groupDefinition.containsClientDevice(
-                new SessionImpl(new Certificate("FAKE_PEM_HASH", "FAKE_CERT_ID"))), is(false));
+                new Session(new Certificate("FAKE_PEM_HASH", "FAKE_CERT_ID"))), is(false));
     }
 }

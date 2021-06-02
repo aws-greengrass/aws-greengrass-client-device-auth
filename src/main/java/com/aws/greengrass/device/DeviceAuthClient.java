@@ -15,6 +15,7 @@ import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Digest;
 import software.amazon.awssdk.utils.StringInputStream;
 
 import java.io.IOException;
@@ -140,7 +141,7 @@ public class DeviceAuthClient {
             throw new AuthenticationException("Certificate isn't active");
         }
 
-        String certificateHash = CertificateStore.computeCertificatePemHash(certificatePem);
+        String certificateHash = computeCertificatePemHash(certificatePem);
         // for simplicity, synchronously store the PEM on disk.
         try {
             certificateStore.storeDeviceCertificateIfNotPresent(certificateHash, certificatePem);
@@ -150,6 +151,15 @@ public class DeviceAuthClient {
                     .log("Failed to store certificate on disk");
         }
         return sessionManager.createSession(new Certificate(certificateHash, certificateId.get()));
+    }
+
+    private String computeCertificatePemHash(String certificatePem) {
+        try {
+            return Digest.calculateWithUrlEncoderNoPadding(certificatePem);
+        } catch (NoSuchAlgorithmException e) {
+            //the exception shouldn't happen, even happens it's valid runtime exception case that should report bug
+            throw new RuntimeException("Can't compute hash of certificate", e);
+        }
     }
 
     public void closeSession(String sessionId) throws AuthorizationException {
@@ -181,9 +191,9 @@ public class DeviceAuthClient {
                     String.format("invalid session id (%s)", sessionId));
         }
 
-        Certificate certificate = (Certificate) session.getAttributeProvider(Certificate.NAMESPACE);
+        Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
         try {
-            session.computeAttributeProviderIfAbsent(Thing.NAMESPACE, k -> getValidThing(thingName, certificate));
+            session.computeIfAbsent(Thing.NAMESPACE, k -> getValidThing(thingName, certificate));
         } catch (CloudServiceInteractionException e) {
             throw new AuthenticationException("Failed to verify thing identity with cloud", e);
         }
@@ -223,6 +233,11 @@ public class DeviceAuthClient {
             throw new AuthorizationException(
                     String.format("invalid session id (%s)", request.getSessionId()));
         }
+
+        Certificate certificate = (Certificate) session.get(Certificate.NAMESPACE);
+        // if thing name is already cached, proceed;
+        // otherwise validate thing name with certificate, then cache thing name
+        session.computeIfAbsent(Thing.NAMESPACE, (k) -> getValidThing(request.getClientId(), certificate));
 
         return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
                 groupManager.getApplicablePolicyPermissions(session));

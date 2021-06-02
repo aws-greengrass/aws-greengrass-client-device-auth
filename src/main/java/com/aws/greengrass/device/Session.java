@@ -7,45 +7,34 @@ package com.aws.greengrass.device;
 
 import com.aws.greengrass.device.attribute.AttributeProvider;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
+import com.aws.greengrass.device.iot.Certificate;
 
-import java.util.function.Function;
+import java.util.concurrent.ConcurrentHashMap;
 
-public interface Session {
+public class Session extends ConcurrentHashMap<String, AttributeProvider> {
 
-    /**
-     * Get attribute provider by namespace.
-     *
-     * @param attributeProviderNameSpace Attribute namespace
-     * @return Attribute provider
-     */
-    AttributeProvider getAttributeProvider(String attributeProviderNameSpace);
+    static final long serialVersionUID = -1L;
 
-    /**
-     * Put attribute provider to the namespace.
-     *
-     * @param attributeProviderNameSpace Attribute namespace
-     * @param attributeProvider          Attribute provider
-     * @return Attribute provider put to the session
-     */
-    AttributeProvider putAttributeProvider(String attributeProviderNameSpace, AttributeProvider attributeProvider);
-
-    /**
-     * Compute and put attribute provider if the namespace is not occupied.
-     *
-     * @param attributeProviderNameSpace Attribute namespace
-     * @param mappingFunction            Mapping function to compute attribute provider
-     * @return Attribute provider put to the session
-     */
-    AttributeProvider computeAttributeProviderIfAbsent(String attributeProviderNameSpace,
-                                                       Function<? super String, ? extends AttributeProvider>
-                                                               mappingFunction);
+    // TODO: Replace this with Principal abstraction
+    // so that a session can be instantiated using something else
+    // e.g. username/password
+    public Session(Certificate certificate) {
+        super();
+        this.put(certificate.getNamespace(), certificate);
+    }
 
     /**
      * Get session attribute.
      *
      * @param attributeNamespace Attribute namespace
      * @param attributeName      Attribute name
+     *
      * @return Session attribute
      */
-    DeviceAttribute getSessionAttribute(String attributeNamespace, String attributeName);
+    public DeviceAttribute getSessionAttribute(String attributeNamespace, String attributeName) {
+        if (this.get(attributeNamespace) != null) {
+            return this.get(attributeNamespace).getDeviceAttributes().get(attributeName);
+        }
+        return null;
+    }
 }
