@@ -9,6 +9,7 @@ import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Digest;
 import com.aws.greengrass.util.FileSystemPermission;
 import com.aws.greengrass.util.platforms.Platform;
 import lombok.AccessLevel;
@@ -301,5 +302,21 @@ public class CertificateStore {
     // Map random byte into ASCII space
     static char byteToAsciiCharacter(byte randomByte) {
         return (char) ((randomByte & 0x7F) % ('~' - ' ') + ' ');
+    }
+
+    /**
+     * Compute certificate hash.
+     *
+     * @param certificatePem certificate pem
+     * @return certificate hash
+     * @throws RuntimeException if no algorithm to compute the hash
+     */
+    public static String computeCertificatePemHash(String certificatePem) {
+        try {
+            return Digest.calculateWithUrlEncoderNoPadding(certificatePem);
+        } catch (NoSuchAlgorithmException e) {
+            //the exception shouldn't happen, even happens it's valid runtime exception case that should report bug
+            throw new RuntimeException("Can't compute hash of certificate", e);
+        }
     }
 }
