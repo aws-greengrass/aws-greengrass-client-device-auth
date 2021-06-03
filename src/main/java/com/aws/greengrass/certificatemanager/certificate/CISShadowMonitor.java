@@ -212,8 +212,8 @@ public class CISShadowMonitor {
                         "Failed to get connectivity info, process got interrupted", e);
             } catch (Exception e) {
                 LOGGER.atError().cause(e)
-                        .log("Failed to get connectivity info from cloud. Check that the core device's IoT policy " +
-                                "grants the greengrass:GetConnectivityInfo permission.");
+                        .log("Failed to get connectivity info from cloud. Check that the core device's IoT policy "
+                                + "grants the greengrass:GetConnectivityInfo permission.");
                 throw new CloudServiceInteractionException("Failed to get connectivity info", e);
             }
             return nextVersion.getAndSet(-1);

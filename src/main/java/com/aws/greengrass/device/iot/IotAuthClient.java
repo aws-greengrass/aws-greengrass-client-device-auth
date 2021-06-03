@@ -75,8 +75,8 @@ public interface IotAuthClient {
                 return Optional.empty();
             } catch (Exception e) {
                 logger.atError().cause(e).kv("certificatePem", certificatePem)
-                        .log("Failed to verify client device identity with cloud. Check that the core device's IoT " +
-                                "policy grants the greengrass:VerifyClientDeviceIdentity permission.");
+                        .log("Failed to verify client device identity with cloud. Check that the core device's IoT "
+                                + "policy grants the greengrass:VerifyClientDeviceIdentity permission.");
                 throw new CloudServiceInteractionException("Failed to verify client device identity", e);
             }
         }
@@ -119,8 +119,8 @@ public interface IotAuthClient {
             } catch (Exception e) {
                 logger.atError().cause(e).kv("thingName", thing.getThingName())
                         .kv("certificateId", certificate.getIotCertificateId())
-                        .log("Failed to verify certificate thing association. Check that the core device's IoT policy" +
-                                " grants the greengrass:VerifyClientDeviceIoTCertificateAssociation permission.");
+                        .log("Failed to verify certificate thing association. Check that the core device's IoT policy"
+                                + " grants the greengrass:VerifyClientDeviceIoTCertificateAssociation permission.");
                 throw new CloudServiceInteractionException(
                         String.format("Failed to verify certificate %s thing %s association",
                                 certificate.getIotCertificateId(), thing.getThingName()), e);
