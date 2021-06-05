@@ -121,7 +121,7 @@ public final class PermissionEvaluationUtils {
 
     private static Operation parseOperation(String operationStr) {
         if (Utils.isEmpty(operationStr)) {
-            throw new IllegalArgumentException("operation can't be empty");
+            throw new IllegalArgumentException("Operation can't be empty");
         }
 
         Matcher matcher = SERVICE_OPERATION_PATTERN.matcher(operationStr);

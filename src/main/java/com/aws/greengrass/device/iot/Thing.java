@@ -28,7 +28,7 @@ public class Thing implements AttributeProvider {
      */
     public Thing(String thingName) {
         if (!Pattern.matches(thingNamePattern, thingName)) {
-            throw new IllegalArgumentException("Invalid ThingName");
+            throw new IllegalArgumentException("Invalid thing name. The thing name must match \"[a-zA-Z0-9\\-_:]+\".");
         }
         this.thingName = thingName;
     }

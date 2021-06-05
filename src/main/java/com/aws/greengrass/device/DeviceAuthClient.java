@@ -178,7 +178,7 @@ public class DeviceAuthClient {
         Session session = sessionManager.findSession(sessionId);
         if (session == null) {
             throw new AuthenticationException(
-                    String.format("invalid session id (%s)", sessionId));
+                    String.format("Invalid session ID (%s)", sessionId));
         }
 
         Certificate certificate = (Certificate) session.getAttributeProvider(Certificate.NAMESPACE);
@@ -195,7 +195,7 @@ public class DeviceAuthClient {
             return thing;
         }
         logger.atWarn().kv("iotCertificateId", certificate.getIotCertificateId()).kv("thing", thingName)
-                .log("unable to validate Thing");
+                .log("Unable to validate thing");
         return null;
     }
 
@@ -221,7 +221,7 @@ public class DeviceAuthClient {
         Session session = sessionManager.findSession(request.getSessionId());
         if (session == null) {
             throw new AuthorizationException(
-                    String.format("invalid session id (%s)", request.getSessionId()));
+                    String.format("Invalid session ID (%s)", request.getSessionId()));
         }
 
         return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),

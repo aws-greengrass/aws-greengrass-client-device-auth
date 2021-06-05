@@ -193,7 +193,8 @@ public class ClientDevicesAuthService extends PluginService {
         } catch (Exception e) {
             logger.atError().cause(e)
                     .kv("coreThingName", thingName)
-                    .log("Failed to put core CA certificates to cloud");
+                    .log("Failed to put core CA certificates to cloud. Check that the core device's IoT policy grants"
+                            + " the greengrass:PutCertificateAuthorities permission.");
             throw new CloudServiceInteractionException(
                     String.format("Failed to put core %s CA certificates to cloud", thingName), e);
         }
