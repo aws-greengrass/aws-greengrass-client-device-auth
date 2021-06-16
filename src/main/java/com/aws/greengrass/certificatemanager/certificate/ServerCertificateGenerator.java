@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
 
@@ -22,7 +24,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class ServerCertificateGenerator extends CertificateGenerator {
-
+    private static final Logger logger = LogManager.getLogger(ServerCertificateGenerator.class);
     private final Consumer<X509Certificate> callback;
 
     /**
@@ -57,6 +59,8 @@ public class ServerCertificateGenerator extends CertificateGenerator {
         List<String> connectivityInfo = new ArrayList<>(connectivityInfoSupplier.get());
         connectivityInfo.add("localhost");
 
+        logger.atInfo().kv("subject", subject).kv("connectivityInfo", connectivityInfo)
+                .log("Generating new server certificate");
         try {
             certificate = CertificateHelper.signServerCertificateRequest(
                     certificateStore.getCACertificate(),
@@ -67,6 +71,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                     Date.from(now),
                     Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
         } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException e) {
+            logger.atError().cause(e).log("Failed to generate new server certificate");
             throw new CertificateGenerationException(e);
         }
 

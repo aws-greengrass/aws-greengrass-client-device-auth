@@ -126,9 +126,13 @@ public class CertificateManager {
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
-            certificateGenerator.generateCertificate(cisClient::getCachedHostAddresses);
+
+            // Add certificate generator to monitors first in order to avoid missing events
+            // that happen while the initial certificate is being generated.
             certExpiryMonitor.addToMonitor(certificateGenerator);
             cisShadowMonitor.addToMonitor(certificateGenerator);
+
+            certificateGenerator.generateCertificate(cisClient::getCachedHostAddresses);
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;

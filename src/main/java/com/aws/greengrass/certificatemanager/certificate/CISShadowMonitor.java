@@ -206,6 +206,9 @@ public class CISShadowMonitor {
             return;
         }
 
+        // NOTE: This method executes in an MQTT CRT thread. Since certificate generation is a compute intensive
+        // operation (particularly on low end devices) it is imperative that we process this event asynchronously
+        // to avoid blocking other MQTT subscribers in the Nucleus
         getConnectivityFuture = CompletableFuture.supplyAsync(() -> {
             try {
                 RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, cisClient::getConnectivityInfo,
