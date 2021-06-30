@@ -46,7 +46,7 @@ public class CertificateManager {
      * Constructor.
      *
      * @param certificateStore      Helper class for managing certificate authorities
-     * @param connectivityInfoProvider             CIS Client
+     * @param connectivityInfoProvider             Connectivity Info Provider
      * @param certExpiryMonitor     Certificate Expiry Monitor
      * @param cisShadowMonitor      CIS Shadow Monitor
      */

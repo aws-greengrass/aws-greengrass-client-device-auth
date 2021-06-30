@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 /**
- * Client for retrieving connectivity info from CIS - Connectivity Info Service.
+ * Retrieving connectivity info from CIS - Connectivity Info Service.
  */
 public class ConnectivityInfoProvider {
     private static final Logger LOGGER = LogManager.getLogger(ConnectivityInfoProvider.class);

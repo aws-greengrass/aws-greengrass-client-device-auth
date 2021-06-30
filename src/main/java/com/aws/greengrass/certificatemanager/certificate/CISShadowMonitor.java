@@ -88,7 +88,7 @@ public class CISShadowMonitor {
      * @param mqttClient          IoT MQTT client
      * @param executorService     Executor service
      * @param deviceConfiguration Device configuration
-     * @param connectivityInfoProvider           CIS Client
+     * @param connectivityInfoProvider           Connectivity Info Provider
      */
     @Inject
     public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,

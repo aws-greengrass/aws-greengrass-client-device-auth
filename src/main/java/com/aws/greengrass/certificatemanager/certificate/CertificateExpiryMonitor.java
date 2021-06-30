@@ -37,7 +37,7 @@ public class CertificateExpiryMonitor {
     /**
      * Constructor.
      * @param ses       ScheduledExecutorService to schedule cert expiry checks
-     * @param connectivityInfoProvider CIS Client
+     * @param connectivityInfoProvider Connectivity Info Provider
      */
     @Inject
     public CertificateExpiryMonitor(ScheduledExecutorService ses, ConnectivityInfoProvider connectivityInfoProvider) {
