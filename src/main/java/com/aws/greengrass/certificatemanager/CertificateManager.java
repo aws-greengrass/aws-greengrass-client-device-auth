@@ -13,7 +13,7 @@ import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.certificatemanager.certificate.ServerCertificateGenerator;
-import com.aws.greengrass.cisclient.CISClient;
+import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.NonNull;
@@ -36,7 +36,7 @@ public class CertificateManager {
 
     private final CertificateStore certificateStore;
 
-    private final CISClient cisClient;
+    private final ConnectivityInfoProvider connectivityInfoProvider;
 
     private final CertificateExpiryMonitor certExpiryMonitor;
 
@@ -46,15 +46,15 @@ public class CertificateManager {
      * Constructor.
      *
      * @param certificateStore      Helper class for managing certificate authorities
-     * @param cisClient             CIS Client
+     * @param connectivityInfoProvider             CIS Client
      * @param certExpiryMonitor     Certificate Expiry Monitor
      * @param cisShadowMonitor      CIS Shadow Monitor
      */
     @Inject
-    public CertificateManager(CertificateStore certificateStore, CISClient cisClient,
+    public CertificateManager(CertificateStore certificateStore, ConnectivityInfoProvider connectivityInfoProvider,
                               CertificateExpiryMonitor certExpiryMonitor, CISShadowMonitor cisShadowMonitor) {
         this.certificateStore = certificateStore;
-        this.cisClient = cisClient;
+        this.connectivityInfoProvider = connectivityInfoProvider;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
     }
@@ -132,7 +132,7 @@ public class CertificateManager {
             certExpiryMonitor.addToMonitor(certificateGenerator);
             cisShadowMonitor.addToMonitor(certificateGenerator);
 
-            certificateGenerator.generateCertificate(cisClient::getCachedHostAddresses);
+            certificateGenerator.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");
             throw e;

@@ -9,7 +9,7 @@ import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonito
 import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
-import com.aws.greengrass.cisclient.CISClient;
+import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Assertions;
@@ -89,7 +89,7 @@ public class CertificateManagerTest {
     private static final int TEST_TIME_OUT_SEC = 1;
 
     @Mock
-    CISClient mockCISClient;
+    ConnectivityInfoProvider mockConnectivityInfoProvider;
 
     @Mock
     CertificateExpiryMonitor mockCertExpiryMonitor;
@@ -104,7 +104,7 @@ public class CertificateManagerTest {
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
-        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockCISClient, mockCertExpiryMonitor,
+        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider, mockCertExpiryMonitor,
                 mockShadowMonitor);
         certificateManager.update("", CertificateStore.CAType.RSA_2048);
     }

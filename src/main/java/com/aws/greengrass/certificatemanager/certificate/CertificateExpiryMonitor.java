@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
-import com.aws.greengrass.cisclient.CISClient;
+import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
@@ -27,7 +27,7 @@ public class CertificateExpiryMonitor {
 
     private final ScheduledExecutorService ses;
 
-    private final CISClient cisClient;
+    private final ConnectivityInfoProvider connectivityInfoProvider;
 
     private final Queue<CertificateGenerator> monitoredCertificateGenerators = new
             PriorityBlockingQueue<>(QUEUE_INITIAL_CAPACITY, Comparator.comparing(CertificateGenerator::getExpiryTime));
@@ -37,12 +37,12 @@ public class CertificateExpiryMonitor {
     /**
      * Constructor.
      * @param ses       ScheduledExecutorService to schedule cert expiry checks
-     * @param cisClient CIS Client
+     * @param connectivityInfoProvider CIS Client
      */
     @Inject
-    public CertificateExpiryMonitor(ScheduledExecutorService ses, CISClient cisClient) {
+    public CertificateExpiryMonitor(ScheduledExecutorService ses, ConnectivityInfoProvider connectivityInfoProvider) {
         this.ses = ses;
-        this.cisClient = cisClient;
+        this.connectivityInfoProvider = connectivityInfoProvider;
     }
 
     /**
@@ -69,7 +69,7 @@ public class CertificateExpiryMonitor {
                 break;
             }
             try {
-                cg.generateCertificate(cisClient::getCachedHostAddresses);
+                cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
             } catch (KeyStoreException e) {
                 LOGGER.atError().cause(e).log("Error generating certificate. Will be retried after {} seconds",
                         DEFAULT_CERT_EXPIRY_CHECK_SECONDS);
