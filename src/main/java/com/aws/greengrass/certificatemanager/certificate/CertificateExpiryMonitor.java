@@ -29,6 +29,7 @@ public class CertificateExpiryMonitor {
 
     private final CISClient cisClient;
 
+    // use thread-safety collection since certificate expiry watchers are added and updated in the different threads.
     private final Queue<CertificateGenerator> monitoredCertificateGenerators = new
             PriorityBlockingQueue<>(QUEUE_INITIAL_CAPACITY, Comparator.comparing(CertificateGenerator::getExpiryTime));
 
@@ -56,6 +57,7 @@ public class CertificateExpiryMonitor {
         if (monitorFuture != null) {
             monitorFuture.cancel(true);
         }
+        // run the monitor job in a separate thread at the fixed interval
         monitorFuture = ses.scheduleAtFixedRate(this::watchForCertExpiryOnce, certExpiryCheckSeconds,
                 certExpiryCheckSeconds, TimeUnit.SECONDS);
     }

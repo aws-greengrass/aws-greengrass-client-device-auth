@@ -62,6 +62,7 @@ public class CISShadowMonitor {
     private Future<?> subscribeTaskFuture;
     private CompletableFuture<Integer> getConnectivityFuture;
 
+    // use thread-safety collection since connectivity watchers are added and updated in the different threads.
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
     private final String shadowName;
@@ -116,6 +117,7 @@ public class CISShadowMonitor {
         if (subscribeTaskFuture != null) {
             subscribeTaskFuture.cancel(true);
         }
+        // start shadow monitoring on a separate thread
         subscribeTaskFuture = executorService.submit(() -> {
             try {
                 subscribeToShadowTopics();

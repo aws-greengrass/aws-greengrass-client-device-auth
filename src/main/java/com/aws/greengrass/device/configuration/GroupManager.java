@@ -20,6 +20,8 @@ import java.util.stream.Collectors;
  * groups a Session belongs to, and then merges device group permissions.
  */
 public class GroupManager {
+    // group configuration is updated from nucleus configuration update thread
+    // the configuration is consumed on broker auth threads, so need to ensure thread visibility
     private final AtomicReference<GroupConfiguration> groupConfigurationRef = new AtomicReference<>();
 
     public void setGroupConfiguration(GroupConfiguration groupConfiguration) {

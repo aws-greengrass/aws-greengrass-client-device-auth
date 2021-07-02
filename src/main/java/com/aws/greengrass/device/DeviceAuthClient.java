@@ -37,6 +37,10 @@ import java.util.List;
 import java.util.Optional;
 import javax.inject.Inject;
 
+/**
+ * DeviceAuthClient contains the public APIs for the broker to delegate AuthN and AuthZ to the component.
+ * The APIs are invoked synchronously on broker execution threads.
+ */
 public class DeviceAuthClient {
     private static final String ALLOW_ALL_SESSION = "ALLOW_ALL";
     private static final Logger logger = LogManager.getLogger(DeviceAuthClient.class);

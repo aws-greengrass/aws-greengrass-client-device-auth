@@ -17,7 +17,6 @@ import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInf
 import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,6 +31,8 @@ public class CISClient {
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassV2DataClient greengrassV2DataClient;
 
+    // The latest connectivity info is retrieved and updated from a separated thread spawn from mqtt callback thread.
+    // Ensure thread safety on cached host addresses
     private volatile List<String> cachedHostAddresses = Collections.emptyList();
 
     /**
@@ -71,9 +72,8 @@ public class CISClient {
             if (getConnectivityInfoResponse.hasConnectivityInfo()) {
                 // Filter out port and metadata since it is not needed
                 connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
-                cachedHostAddresses = new ArrayList<>(connectivityInfoList.stream()
-                        .map(ci -> ci.hostAddress())
-                        .collect(Collectors.toSet()));
+                cachedHostAddresses = connectivityInfoList.stream().map(ConnectivityInfo::hostAddress).distinct()
+                        .collect(Collectors.toList());
             }
         } catch (ValidationException | ResourceNotFoundException e) {
             LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
