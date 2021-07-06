@@ -64,6 +64,8 @@ public class CISClient {
     public List<ConnectivityInfo> getConnectivityInfo() {
         GetConnectivityInfoRequest getConnectivityInfoRequest = GetConnectivityInfoRequest.builder()
                 .thingName(Coerce.toString(deviceConfiguration.getThingName())).build();
+        LOGGER.atInfo().kv("thingName", getConnectivityInfoRequest.thingName())
+                .log("Get broker connectivity info from cloud");
         List<ConnectivityInfo> connectivityInfoList = Collections.emptyList();
 
         try {
@@ -74,6 +76,9 @@ public class CISClient {
                 connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
                 cachedHostAddresses = connectivityInfoList.stream().map(ConnectivityInfo::hostAddress).distinct()
                         .collect(Collectors.toList());
+                LOGGER.atInfo().kv("thingName", getConnectivityInfoRequest.thingName())
+                        .kv("hostAddresses", cachedHostAddresses)
+                        .log("Got broker connectivity info from cloud");
             }
         } catch (ValidationException | ResourceNotFoundException e) {
             LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");

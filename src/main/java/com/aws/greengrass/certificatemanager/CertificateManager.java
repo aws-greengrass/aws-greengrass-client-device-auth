@@ -120,6 +120,7 @@ public class CertificateManager {
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToServerCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
             throws KeyStoreException, CsrProcessingException {
+        logger.atInfo().log("Subscribe to service certificate update");
         // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
         // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
         try {
@@ -161,6 +162,7 @@ public class CertificateManager {
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate[]> cb)
             throws KeyStoreException, CsrProcessingException {
+        logger.atInfo().log("Subscribe to client certificate update");
         // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
         // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
         try {

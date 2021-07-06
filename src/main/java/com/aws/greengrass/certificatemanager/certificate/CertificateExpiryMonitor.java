@@ -54,6 +54,7 @@ public class CertificateExpiryMonitor {
     }
 
     void startMonitor(long certExpiryCheckSeconds) {
+        LOGGER.atInfo().log("Start certificate expiry monitor");
         if (monitorFuture != null) {
             monitorFuture.cancel(true);
         }
@@ -67,6 +68,8 @@ public class CertificateExpiryMonitor {
 
         for (CertificateGenerator cg = monitoredCertificateGenerators.peek(); cg != null;
              cg = monitoredCertificateGenerators.peek()) {
+            LOGGER.atInfo().kv("certificateSubject", cg.subject)
+                    .log("Checking certificate expiry, regenerate if necessary");
             if (!cg.shouldRegenerate()) {
                 break;
             }
@@ -88,6 +91,7 @@ public class CertificateExpiryMonitor {
      * @param cg CertificateGenerator instance for the certificate
      */
     public void addToMonitor(CertificateGenerator cg) {
+        LOGGER.atInfo().log("Add certificate generator to the watcher queue");
         monitoredCertificateGenerators.add(cg);
     }
 
@@ -95,6 +99,7 @@ public class CertificateExpiryMonitor {
      * Stop cert expiry monitor.
      */
     public void stopMonitor() {
+        LOGGER.atInfo().log("Stop certificate expiry monitor");
         if (monitorFuture != null) {
             monitorFuture.cancel(true);
         }

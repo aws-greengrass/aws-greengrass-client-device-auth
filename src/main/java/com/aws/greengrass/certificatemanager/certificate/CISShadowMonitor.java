@@ -117,6 +117,7 @@ public class CISShadowMonitor {
         if (subscribeTaskFuture != null) {
             subscribeTaskFuture.cancel(true);
         }
+        LOGGER.atInfo().log("Start connectivity info shadow update monitor");
         // start shadow monitoring on a separate thread
         subscribeTaskFuture = executorService.submit(() -> {
             try {
@@ -133,6 +134,7 @@ public class CISShadowMonitor {
      * Stop shadow monitor.
      */
     public void stopMonitor() {
+        LOGGER.atInfo().log("Stop connectivity info shadow update monitor");
         if (subscribeTaskFuture != null) {
             subscribeTaskFuture.cancel(true);
         }
@@ -145,6 +147,7 @@ public class CISShadowMonitor {
      * @param certificateGenerator CertificateGenerator instance for the certificate
      */
     public void addToMonitor(CertificateGenerator certificateGenerator) {
+        LOGGER.atInfo().log("Add server certificate generator to the watcher queue");
         monitoredCertificateGenerators.add(certificateGenerator);
     }
 

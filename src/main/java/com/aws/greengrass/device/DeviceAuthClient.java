@@ -78,6 +78,7 @@ public class DeviceAuthClient {
     public String createSession(String certificatePem) throws AuthenticationException {
         logger.atInfo().log("Creating new session");
         if (isGreengrassComponent(certificatePem)) {
+            logger.atInfo().log("Greengrass trust component, allow creating session");
             return ALLOW_ALL_SESSION;
         }
         return createSessionForClientDevice(certificatePem);
@@ -169,13 +170,14 @@ public class DeviceAuthClient {
      */
     @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
     public void attachThing(String sessionId, String thingName) throws AuthenticationException {
-        logger.atDebug()
+        logger.atInfo()
                 .kv("sessionId", sessionId)
                 .kv("thingName", thingName)
                 .log("Attaching thing to session");
 
         // Workaround for bridge component
         if (ALLOW_ALL_SESSION.equals(sessionId)) {
+            logger.atInfo().log("Skip attach thing action for the greengrass component");
             return;
         }
 

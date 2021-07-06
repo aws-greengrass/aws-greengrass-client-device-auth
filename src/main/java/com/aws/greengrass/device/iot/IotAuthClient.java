@@ -36,6 +36,9 @@ public interface IotAuthClient {
                 RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofMillis(100)).maxAttempt(3)
                         .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
                         .build();
+        public static final String CERTIFICATE_ID = "certificateId";
+        public static final String THING_NAME = "thingName";
+        public static final String CERTIFICATE_PEM = "certificatePem";
 
         private final GreengrassServiceClientFactory clientFactory;
 
@@ -62,7 +65,11 @@ public interface IotAuthClient {
                 VerifyClientDeviceIdentityResponse response = RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
                         () -> clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(request),
                         "verify-client-device-identity", logger);
-                return Optional.of(response.clientDeviceCertificateId());
+                String certificateId = response.clientDeviceCertificateId();
+                logger.atInfo().kv(CERTIFICATE_PEM, certificatePem)
+                        .kv(CERTIFICATE_ID, certificateId)
+                        .log("Client device certificate is valid");
+                return Optional.of(certificateId);
             } catch (InterruptedException e) {
                 logger.atError().cause(e).log("Verify client device identity got interrupted");
                 // interrupt the current thread so that higher-level interrupt handlers can take care of it
@@ -70,11 +77,11 @@ public interface IotAuthClient {
                 throw new CloudServiceInteractionException(
                         "Failed to verify client device identity, process got interrupted", e);
             } catch (ValidationException | ResourceNotFoundException e) {
-                logger.atWarn().cause(e).kv("certificatePem", certificatePem)
+                logger.atWarn().cause(e).kv(CERTIFICATE_PEM, certificatePem)
                         .log("Certificate doesn't exist or isn't active");
                 return Optional.empty();
             } catch (Exception e) {
-                logger.atError().cause(e).kv("certificatePem", certificatePem)
+                logger.atError().cause(e).kv(CERTIFICATE_PEM, certificatePem)
                         .log("Failed to verify client device identity with cloud. Check that the core device's IoT "
                                 + "policy grants the greengrass:VerifyClientDeviceIdentity permission.");
                 throw new CloudServiceInteractionException("Failed to verify client device identity", e);
@@ -101,8 +108,8 @@ public interface IotAuthClient {
                         () -> clientFactory.getGreengrassV2DataClient()
                                 .verifyClientDeviceIoTCertificateAssociation(request),
                         "verify-certificate-thing-association", logger);
-                logger.atDebug().kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificate.getIotCertificateId())
+                logger.atInfo().kv(THING_NAME, thing.getThingName())
+                        .kv(CERTIFICATE_ID, certificate.getIotCertificateId())
                         .log("Thing is attached to certificate");
                 return true;
             } catch (InterruptedException e) {
@@ -112,13 +119,13 @@ public interface IotAuthClient {
                 throw new CloudServiceInteractionException(
                         "Failed to verify certificate thing association, process got interrupted", e);
             } catch (ValidationException | ResourceNotFoundException e) {
-                logger.atDebug().cause(e).kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificate.getIotCertificateId())
+                logger.atInfo().cause(e).kv(THING_NAME, thing.getThingName())
+                        .kv(CERTIFICATE_ID, certificate.getIotCertificateId())
                         .log("Thing is not attached to certificate");
                 return false;
             } catch (Exception e) {
-                logger.atError().cause(e).kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificate.getIotCertificateId())
+                logger.atError().cause(e).kv(THING_NAME, thing.getThingName())
+                        .kv(CERTIFICATE_ID, certificate.getIotCertificateId())
                         .log("Failed to verify certificate thing association. Check that the core device's IoT policy"
                                 + " grants the greengrass:VerifyClientDeviceIoTCertificateAssociation permission.");
                 throw new CloudServiceInteractionException(
