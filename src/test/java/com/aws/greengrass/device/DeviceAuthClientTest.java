@@ -11,7 +11,7 @@ import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateRequestGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
-import com.aws.greengrass.cisclient.CISClient;
+import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.device.exception.AuthenticationException;
@@ -70,7 +70,7 @@ public class DeviceAuthClientTest {
     private CertificateStore certificateStore;
 
     @Mock
-    private CISClient mockCISClient;
+    private ConnectivityInfoProvider mockConnectivityInfoProvider;
 
     @Mock
     CertificateExpiryMonitor mockCertExpiryMonitor;
@@ -207,7 +207,7 @@ public class DeviceAuthClientTest {
     void GIVEN_greengrassComponentCertChainPem_WHEN_createSession_THEN_allowAllSessionIdReturned() throws Exception {
         CertificateStore certificateStore = new CertificateStore(tempDir);
         certificateStore.update("password", CertificateStore.CAType.RSA_2048);
-        CertificateManager certificateManager = new CertificateManager(certificateStore, mockCISClient,
+        CertificateManager certificateManager = new CertificateManager(certificateStore, mockConnectivityInfoProvider,
                 mockCertExpiryMonitor, mockShadowMonitor);
         KeyPair clientKeyPair = CertificateStore.newRSAKeyPair();
         String csr = CertificateRequestGenerator.createCSR(clientKeyPair, "Thing", null, null);

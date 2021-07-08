@@ -10,7 +10,6 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
-import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoResponse;
@@ -23,13 +22,13 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 /**
- * Client for retrieving connectivity info from CIS - Connectivity Info Service.
+ * Retrieving connectivity info from CIS - Connectivity Info Service.
  */
-public class CISClient {
-    private static final Logger LOGGER = LogManager.getLogger(CISClient.class);
+public class ConnectivityInfoProvider {
+    private static final Logger LOGGER = LogManager.getLogger(ConnectivityInfoProvider.class);
 
     private final DeviceConfiguration deviceConfiguration;
-    private final GreengrassV2DataClient greengrassV2DataClient;
+    private final GreengrassServiceClientFactory clientFactory;
 
     // The latest connectivity info is retrieved and updated from a separated thread spawn from mqtt callback thread.
     // Ensure thread safety on cached host addresses
@@ -42,9 +41,10 @@ public class CISClient {
      * @param clientFactory       factory to get data plane client
      */
     @Inject
-    public CISClient(DeviceConfiguration deviceConfiguration, GreengrassServiceClientFactory clientFactory) {
+    public ConnectivityInfoProvider(DeviceConfiguration deviceConfiguration,
+                                    GreengrassServiceClientFactory clientFactory) {
         this.deviceConfiguration = deviceConfiguration;
-        this.greengrassV2DataClient = clientFactory.getGreengrassV2DataClient();
+        this.clientFactory = clientFactory;
     }
 
     /**
@@ -69,8 +69,8 @@ public class CISClient {
         List<ConnectivityInfo> connectivityInfoList = Collections.emptyList();
 
         try {
-            GetConnectivityInfoResponse getConnectivityInfoResponse = greengrassV2DataClient.getConnectivityInfo(
-                    getConnectivityInfoRequest);
+            GetConnectivityInfoResponse getConnectivityInfoResponse = clientFactory.getGreengrassV2DataClient()
+                    .getConnectivityInfo(getConnectivityInfoRequest);
             if (getConnectivityInfoResponse.hasConnectivityInfo()) {
                 // Filter out port and metadata since it is not needed
                 connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();

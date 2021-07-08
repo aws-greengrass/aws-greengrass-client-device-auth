@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
-import com.aws.greengrass.cisclient.CISClient;
+import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.logging.api.Logger;
@@ -66,7 +66,7 @@ public class CISShadowMonitor {
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
     private final String shadowName;
-    private final CISClient cisClient;
+    private final ConnectivityInfoProvider connectivityInfoProvider;
     private final AtomicInteger nextVersion = new AtomicInteger(-1);
 
     private final MqttClientConnectionEvents callbacks = new MqttClientConnectionEvents() {
@@ -89,25 +89,27 @@ public class CISShadowMonitor {
      * @param mqttClient          IoT MQTT client
      * @param executorService     Executor service
      * @param deviceConfiguration Device configuration
-     * @param cisClient           CIS Client
+     * @param connectivityInfoProvider           Connectivity Info Provider
      */
     @Inject
     public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
-                            DeviceConfiguration deviceConfiguration, CISClient cisClient) {
+                            DeviceConfiguration deviceConfiguration,
+                            ConnectivityInfoProvider connectivityInfoProvider) {
         this(mqttClient, null, null, executorService,
-                Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX, cisClient);
+                Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX, connectivityInfoProvider);
         this.connection = new WrapperMqttClientConnection(mqttClient);
         this.iotShadowClient = new IotShadowClient(this.connection);
     }
 
     CISShadowMonitor(MqttClient mqttClient, MqttClientConnection connection, IotShadowClient iotShadowClient,
-                     ExecutorService executorService, String shadowName, CISClient cisClient) {
+                     ExecutorService executorService, String shadowName,
+                     ConnectivityInfoProvider connectivityInfoProvider) {
         mqttClient.addToCallbackEvents(callbacks);
         this.connection = connection;
         this.iotShadowClient = iotShadowClient;
         this.executorService = executorService;
         this.shadowName = shadowName;
-        this.cisClient = cisClient;
+        this.connectivityInfoProvider = connectivityInfoProvider;
     }
 
     /**
@@ -216,7 +218,7 @@ public class CISShadowMonitor {
         // to avoid blocking other MQTT subscribers in the Nucleus
         getConnectivityFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, cisClient::getConnectivityInfo,
+                RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInfoProvider::getConnectivityInfo,
                         "get-connectivity", LOGGER);
             } catch (InterruptedException e) {
                 LOGGER.atWarn().cause(e).log("Retry workflow for getting connectivity info interrupted");
@@ -235,7 +237,7 @@ public class CISShadowMonitor {
         getConnectivityFuture.thenAccept((version) -> {
             try {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
-                    cg.generateCertificate(cisClient::getCachedHostAddresses);
+                    cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
                 }
                 reportVersion(version);
                 lastVersion = version;
