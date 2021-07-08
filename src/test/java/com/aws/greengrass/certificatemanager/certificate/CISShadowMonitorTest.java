@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
-import com.aws.greengrass.cisclient.CISClient;
+import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.mqttclient.MqttClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,7 +61,7 @@ public class CISShadowMonitorTest {
     private ExecutorService mockExecutor;
 
     @Mock
-    private CISClient mockCISClient;
+    private ConnectivityInfoProvider mockConnectivityInfoProvider;
 
     @BeforeEach
     void setup() {
@@ -77,7 +77,8 @@ public class CISShadowMonitorTest {
 
     @Test
     public void GIVEN_CISShadowMonitor_WHEN_connected_THEN_publish_to_get_topic() {
-        new CISShadowMonitor(mockMqttClient, mockConnection, mockShadowClient, mockExecutor, SHADOW_NAME, mockCISClient);
+        new CISShadowMonitor(mockMqttClient, mockConnection, mockShadowClient, mockExecutor, SHADOW_NAME,
+                mockConnectivityInfoProvider);
         ArgumentCaptor<MqttClientConnectionEvents> callbackArgumentCaptor = ArgumentCaptor.forClass(
                 MqttClientConnectionEvents.class);
         verify(mockMqttClient, times(1)).addToCallbackEvents(callbackArgumentCaptor.capture());
@@ -92,7 +93,7 @@ public class CISShadowMonitorTest {
     @Test
     public void GIVEN_CISShadowMonitor_WHEN_start_monitor_THEN_subscribe_and_publish_to_topics() {
         CISShadowMonitor cisShadowMonitor = new CISShadowMonitor(mockMqttClient, mockConnection, mockShadowClient,
-                mockExecutor, SHADOW_NAME, mockCISClient);
+                mockExecutor, SHADOW_NAME, mockConnectivityInfoProvider);
 
         when(mockShadowClient.SubscribeToShadowDeltaUpdatedEvents(any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(0));
@@ -123,7 +124,7 @@ public class CISShadowMonitorTest {
     @Test
     public void GIVEN_CISShadowMonitor_WHEN_update_delta_version_THEN_cert_generated() throws KeyStoreException {
         CISShadowMonitor cisShadowMonitor = new CISShadowMonitor(mockMqttClient, mockConnection, mockShadowClient,
-                mockExecutor, SHADOW_NAME, mockCISClient);
+                mockExecutor, SHADOW_NAME, mockConnectivityInfoProvider);
         when(mockShadowClient.SubscribeToShadowDeltaUpdatedEvents(any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(0));
         when(mockShadowClient.SubscribeToGetShadowAccepted(any(), any(), any(), any()))
@@ -162,7 +163,7 @@ public class CISShadowMonitorTest {
     @Test
     public void GIVEN_CISShadowMonitor_WHEN_get_accepted_version_THEN_cert_generated() throws KeyStoreException {
         CISShadowMonitor cisShadowMonitor = new CISShadowMonitor(mockMqttClient, mockConnection, mockShadowClient,
-                mockExecutor, SHADOW_NAME, mockCISClient);
+                mockExecutor, SHADOW_NAME, mockConnectivityInfoProvider);
         when(mockShadowClient.SubscribeToShadowDeltaUpdatedEvents(any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(0));
         when(mockShadowClient.SubscribeToGetShadowAccepted(any(), any(), any(), any()))
@@ -201,7 +202,7 @@ public class CISShadowMonitorTest {
     @Test
     public void GIVEN_CISShadowMonitor_WHEN_stop_monitor_THEN_unsubscribe_from_topics() {
         CISShadowMonitor cisShadowMonitor = new CISShadowMonitor(mockMqttClient, mockConnection, mockShadowClient,
-                mockExecutor, SHADOW_NAME, mockCISClient);
+                mockExecutor, SHADOW_NAME, mockConnectivityInfoProvider);
         when(mockShadowClient.SubscribeToShadowDeltaUpdatedEvents(any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(0));
         when(mockShadowClient.SubscribeToGetShadowAccepted(any(), any(), any(), any()))

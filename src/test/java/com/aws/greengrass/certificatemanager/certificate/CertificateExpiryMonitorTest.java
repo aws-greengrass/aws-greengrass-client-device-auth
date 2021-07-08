@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
-import com.aws.greengrass.cisclient.CISClient;
+import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,7 +41,7 @@ public class CertificateExpiryMonitorTest {
     private Consumer<X509Certificate> mockCallback;
 
     @Mock
-    private CISClient mockCISClient;
+    private ConnectivityInfoProvider mockConnectivityInfoProvider;
 
     @TempDir
     Path tmpPath;
@@ -56,7 +56,7 @@ public class CertificateExpiryMonitorTest {
 
         //start cert expiry monitor
         ScheduledExecutorService ses = new ScheduledThreadPoolExecutor(1);
-        CertificateExpiryMonitor certExpiryMonitor = new CertificateExpiryMonitor(ses, mockCISClient);
+        CertificateExpiryMonitor certExpiryMonitor = new CertificateExpiryMonitor(ses, mockConnectivityInfoProvider);
         certExpiryMonitor.startMonitor(TEST_CERT_EXPIRY_CHECK_SECONDS);
 
         //add certs to monitor

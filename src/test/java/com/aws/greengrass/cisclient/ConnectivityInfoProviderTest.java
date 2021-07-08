@@ -40,9 +40,9 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
-public class CISClientTest {
+public class ConnectivityInfoProviderTest {
 
-    private CISClient cisClient;
+    private ConnectivityInfoProvider connectivityInfoProvider;
     @Mock
     private DeviceConfiguration deviceConfiguration;
 
@@ -60,7 +60,7 @@ public class CISClientTest {
         Topic thingNameTopic = Topic.of(context, DEVICE_PARAM_THING_NAME, "testThing");
         lenient().doReturn(thingNameTopic).when(deviceConfiguration).getThingName();
         lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(greengrassV2DataClient);
-        cisClient = new CISClient(deviceConfiguration, clientFactory);
+        connectivityInfoProvider = new ConnectivityInfoProvider(deviceConfiguration, clientFactory);
     }
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
@@ -75,7 +75,7 @@ public class CISClientTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        List<ConnectivityInfo> connectivityInfos = cisClient.getConnectivityInfo();
+        List<ConnectivityInfo> connectivityInfos = connectivityInfoProvider.getConnectivityInfo();
         verify(greengrassV2DataClient, times(1))
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
         assertThat(connectivityInfos, containsInAnyOrder(connectivityInfo, connectivityInfo1));
@@ -87,7 +87,7 @@ public class CISClientTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        List<ConnectivityInfo> connectivityInfos = cisClient.getConnectivityInfo();
+        List<ConnectivityInfo> connectivityInfos = connectivityInfoProvider.getConnectivityInfo();
         verify(greengrassV2DataClient, times(1))
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
         assertThat(connectivityInfos, is(empty()));
@@ -100,7 +100,7 @@ public class CISClientTest {
         when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class)))
                 .thenThrow(ValidationException.class);
 
-        assertThat(cisClient.getConnectivityInfo(), is(empty()));
+        assertThat(connectivityInfoProvider.getConnectivityInfo(), is(empty()));
     }
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
@@ -115,8 +115,8 @@ public class CISClientTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        cisClient.getConnectivityInfo();
-        List<String> connectivityInfos = cisClient.getCachedHostAddresses();
+        connectivityInfoProvider.getConnectivityInfo();
+        List<String> connectivityInfos = connectivityInfoProvider.getCachedHostAddresses();
         assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
     }
 }
