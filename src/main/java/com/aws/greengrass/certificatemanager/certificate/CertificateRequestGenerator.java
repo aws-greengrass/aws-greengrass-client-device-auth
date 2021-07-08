@@ -28,7 +28,7 @@ import java.util.List;
 import javax.security.auth.x500.X500Principal;
 
 /**
- * Certificate Request Generator that creates a CSR for given key pair, CIS info and common name.
+ * Certificate Request Generator that creates a CSR for given key pair, connectivity info and common name.
  */
 public final class CertificateRequestGenerator {
     private static final String CSR_COUNTRY = "US";
