@@ -116,7 +116,8 @@ public class CertificateManager {
      * @throws CsrProcessingException if unable to process CSR
      */
     // the service certificate subscribe function is invoked on the thread starting broker, i.e. nucleus
-    // lifecycle management thread
+    // lifecycle management thread, the callback function is invoked in CertificateGenerator class function
+    // which could happen on the thread scheduled by connectivity info monitor
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToServerCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
             throws KeyStoreException, CsrProcessingException {
@@ -157,8 +158,9 @@ public class CertificateManager {
      * @throws KeyStoreException if unable to access KeyStore
      * @throws CsrProcessingException if unable to process CSR
      */
-    // the client certificate subscribe funtion is invoked on the thread starting component (such as bridge), i.e.
-    // nucleus lifecycle management thread
+    // the client certificate subscribe function is invoked on the thread starting component (such as bridge), i.e.
+    // nucleus lifecycle management thread, the callback function is invoked in CertificateGenerator class function
+    // which could happen on the thread scheduled by certificate expiry monitor
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate[]> cb)
             throws KeyStoreException, CsrProcessingException {

@@ -38,7 +38,6 @@ public interface IotAuthClient {
                         .build();
         public static final String CERTIFICATE_ID = "certificateId";
         public static final String THING_NAME = "thingName";
-        public static final String CERTIFICATE_PEM = "certificatePem";
 
         private final GreengrassServiceClientFactory clientFactory;
 
@@ -66,8 +65,7 @@ public interface IotAuthClient {
                         () -> clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(request),
                         "verify-client-device-identity", logger);
                 String certificateId = response.clientDeviceCertificateId();
-                logger.atInfo().kv(CERTIFICATE_PEM, certificatePem)
-                        .kv(CERTIFICATE_ID, certificateId)
+                logger.atInfo().kv(CERTIFICATE_ID, certificateId)
                         .log("Client device certificate is valid");
                 return Optional.of(certificateId);
             } catch (InterruptedException e) {
@@ -77,11 +75,11 @@ public interface IotAuthClient {
                 throw new CloudServiceInteractionException(
                         "Failed to verify client device identity, process got interrupted", e);
             } catch (ValidationException | ResourceNotFoundException e) {
-                logger.atWarn().cause(e).kv(CERTIFICATE_PEM, certificatePem)
+                logger.atWarn().cause(e)
                         .log("Certificate doesn't exist or isn't active");
                 return Optional.empty();
             } catch (Exception e) {
-                logger.atError().cause(e).kv(CERTIFICATE_PEM, certificatePem)
+                logger.atError().cause(e)
                         .log("Failed to verify client device identity with cloud. Check that the core device's IoT "
                                 + "policy grants the greengrass:VerifyClientDeviceIdentity permission.");
                 throw new CloudServiceInteractionException("Failed to verify client device identity", e);
@@ -119,7 +117,7 @@ public interface IotAuthClient {
                 throw new CloudServiceInteractionException(
                         "Failed to verify certificate thing association, process got interrupted", e);
             } catch (ValidationException | ResourceNotFoundException e) {
-                logger.atInfo().cause(e).kv(THING_NAME, thing.getThingName())
+                logger.atWarn().cause(e).kv(THING_NAME, thing.getThingName())
                         .kv(CERTIFICATE_ID, certificate.getIotCertificateId())
                         .log("Thing is not attached to certificate");
                 return false;
