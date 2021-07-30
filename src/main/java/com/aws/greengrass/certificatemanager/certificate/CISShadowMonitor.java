@@ -149,7 +149,8 @@ public class CISShadowMonitor {
      * @param certificateGenerator CertificateGenerator instance for the certificate
      */
     public void addToMonitor(CertificateGenerator certificateGenerator) {
-        LOGGER.atInfo().log("Add server certificate generator to the watcher queue");
+        LOGGER.atInfo().kv("Subject", certificateGenerator.getSubject())
+                .log("Add server certificate generator to the watcher queue");
         monitoredCertificateGenerators.add(certificateGenerator);
     }
 

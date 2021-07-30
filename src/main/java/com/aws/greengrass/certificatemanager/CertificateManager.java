@@ -102,7 +102,8 @@ public class CertificateManager {
     }
 
     /**
-     * Subscribe to server certificate updates.
+     * Subscribe to server certificate updates. It registered the callback function with the component for the
+     * server certificate update event, the callback could happen on another thread before this method call return.
      * <p>
      * The certificate manager will save the given CSR and generate a new certificate under the following scenarios:
      *   1) The previous certificate is nearing expiry
@@ -115,13 +116,10 @@ public class CertificateManager {
      * @throws KeyStoreException if unable to access KeyStore
      * @throws CsrProcessingException if unable to process CSR
      */
-    // the service certificate subscribe function is invoked on the thread starting broker, i.e. nucleus
-    // lifecycle management thread, the callback function is invoked in CertificateGenerator class function
-    // which could happen on the thread scheduled by connectivity info monitor
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToServerCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
             throws KeyStoreException, CsrProcessingException {
-        logger.atInfo().log("Subscribe to service certificate update");
+        logger.atInfo().kv("CSR", csr).log("Subscribe to server certificate update");
         // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
         // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
         try {
@@ -146,7 +144,8 @@ public class CertificateManager {
     }
 
     /**
-     * Subscribe to client certificate updates.
+     * Subscribe to client certificate updates. It registered the callback function with the component for the client
+     * certificate update event, the callback could happen on another thread.
      * <p>
      * The certificate manager will save the given CSR and generate a new certificate under the following scenarios:
      *   1) The previous certificate is nearing expiry
@@ -158,13 +157,10 @@ public class CertificateManager {
      * @throws KeyStoreException if unable to access KeyStore
      * @throws CsrProcessingException if unable to process CSR
      */
-    // the client certificate subscribe function is invoked on the thread starting component (such as bridge), i.e.
-    // nucleus lifecycle management thread, the callback function is invoked in CertificateGenerator class function
-    // which could happen on the thread scheduled by certificate expiry monitor
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate[]> cb)
             throws KeyStoreException, CsrProcessingException {
-        logger.atInfo().log("Subscribe to client certificate update");
+        logger.atInfo().kv("CSR", csr).log("Subscribe to client certificate update");
         // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
         // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
         try {
