@@ -33,7 +33,7 @@ jobs:
           AWS_REGION: us-west-2
         run: mvn -ntp -U clean verify
         shell: cmd
-        if: matrix.os != 'windows-latest'
+        if: matrix.os == 'windows-latest'
       - name: Upload Failed Test Report
         uses: actions/upload-artifact@v1.0.0
         if: failure()
