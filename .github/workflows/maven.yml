@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [windows-latest]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -31,7 +31,7 @@ jobs:
       - name: Build with Maven (Windows)
         env:
           AWS_REGION: us-west-2
-        run: mvn -ntp -U clean verify
+        run: mvn -ntp -U test -Dtest=ClientDevicesAuthServiceTest#GIVEN_GG_with_cda_WHEN_restart_kernel_THEN_ca_is_persisted
         shell: cmd
         if: matrix.os == 'windows-latest'
       - name: Upload Failed Test Report
