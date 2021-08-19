@@ -18,7 +18,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.equalToCompressingWhiteSpace;
 
 @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
 class CertificateRequestGeneratorTest {
@@ -103,8 +103,7 @@ class CertificateRequestGeneratorTest {
         // Assert Cert Request generation
         String expectedCSR = TEST_CERTIFICATE;
         String actualCSR = CertificateRequestGenerator.createCSR(keyPair, thingName, ipAddresses, dnsNames);
-        assertThat(actualCSR, is(expectedCSR));
-
+        assertThat(actualCSR, equalToCompressingWhiteSpace(expectedCSR));
     }
 
     // TODO: Add additional test cases
