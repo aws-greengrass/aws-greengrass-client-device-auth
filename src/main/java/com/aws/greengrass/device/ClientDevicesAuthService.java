@@ -61,8 +61,6 @@ public class ClientDevicesAuthService extends PluginService {
 
     private final DeviceConfiguration deviceConfiguration;
 
-    private Topics deviceGroupsTopics;
-
     /**
      * Constructor.
      *
@@ -99,9 +97,13 @@ public class ClientDevicesAuthService extends PluginService {
     protected void install() throws InterruptedException {
         super.install();
         //handleConfiguration
-        this.deviceGroupsTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
-        this.deviceGroupsTopics.subscribe(this::handleConfigurationChange);
-        this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC).subscribe(this::updateCAType);
+        this.config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe((whatHappened, node) -> {
+            handleConfigurationChange(
+                    whatHappened, this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS)
+            );
+            updateCAType(whatHappened, this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC));
+        });
+
     }
 
     @Override
@@ -121,13 +123,13 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    private void handleConfigurationChange(WhatHappened whatHappened, Node childNode) {
+    private void handleConfigurationChange(WhatHappened whatHappened, Node deviceGroupsTopics) {
         try {
             groupManager.setGroupConfiguration(
-                    OBJECT_MAPPER.convertValue(this.deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
+                    OBJECT_MAPPER.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
         } catch (IllegalArgumentException e) {
             logger.atError().kv("service", CLIENT_DEVICES_AUTH_SERVICE_NAME).kv("event", whatHappened)
-                    .kv("node", this.deviceGroupsTopics.getFullName()).kv("value", this.deviceGroupsTopics).setCause(e)
+                    .kv("node", deviceGroupsTopics.getFullName()).kv("value", deviceGroupsTopics).setCause(e)
                     .log("Unable to parse group configuration");
             serviceErrored(e);
         }
