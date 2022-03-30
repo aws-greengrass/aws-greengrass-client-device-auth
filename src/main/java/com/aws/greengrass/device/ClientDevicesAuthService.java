@@ -102,17 +102,16 @@ public class ClientDevicesAuthService extends PluginService {
             if (whatHappened == WhatHappened.timestampUpdated || whatHappened == WhatHappened.interiorAdded) {
                 return;
             }
-            logger.atDebug().kv("why", whatHappened).kv("node", node).log();
+            logger.atTrace().kv("why", whatHappened).kv("node", node).log();
             Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
             Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC);
 
-            // Node is null during initialize event, but we need to initialize both the topics.
-            if (node == null) {
+            if (whatHappened == WhatHappened.initialized) {
                 handleConfigurationChange(whatHappened, deviceGroupTopics);
                 updateCAType(whatHappened, caTypeTopic);
-            } else if (node.getName().equals(DEVICE_GROUPS_TOPICS)) {
+            } else if (DEVICE_GROUPS_TOPICS.equals(node.getName())) {
                 handleConfigurationChange(whatHappened, deviceGroupTopics);
-            } else if (node.getName().equals(CA_TYPE_TOPIC)) {
+            } else if (CA_TYPE_TOPIC.equals(node.getName())) {
                 // Skip the first duplicate event of childChanged that is received after initialize.
                 // This event is same as the one received in initialize. Skip doing duplicate work.
                 // Parse any further childChanged events.
