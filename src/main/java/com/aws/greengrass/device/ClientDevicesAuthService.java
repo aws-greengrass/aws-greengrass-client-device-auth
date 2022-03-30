@@ -7,7 +7,6 @@ package com.aws.greengrass.device;
 
 import com.aws.greengrass.certificatemanager.CertificateManager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
-import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
@@ -61,6 +60,8 @@ public class ClientDevicesAuthService extends PluginService {
 
     private final DeviceConfiguration deviceConfiguration;
 
+    private boolean hasChildChangedAfterInitialize = false;
+
     /**
      * Constructor.
      *
@@ -98,10 +99,29 @@ public class ClientDevicesAuthService extends PluginService {
         super.install();
         //handleConfiguration
         this.config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe((whatHappened, node) -> {
-            handleConfigurationChange(
-                    whatHappened, this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS)
-            );
-            updateCAType(whatHappened, this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC));
+            if (whatHappened == WhatHappened.timestampUpdated || whatHappened == WhatHappened.interiorAdded) {
+                return;
+            }
+            logger.atDebug().kv("why", whatHappened).kv("node", node).log();
+            Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
+            Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC);
+
+            // Node is null during initialize event, but we need to initialize both the topics.
+            if (node == null) {
+                handleConfigurationChange(whatHappened, deviceGroupTopics);
+                updateCAType(whatHappened, caTypeTopic);
+            } else if (node.getName().equals(DEVICE_GROUPS_TOPICS)) {
+                handleConfigurationChange(whatHappened, deviceGroupTopics);
+            } else if (node.getName().equals(CA_TYPE_TOPIC)) {
+                // Skip the first duplicate event of childChanged that is received after initialize.
+                // This event is same as the one received in initialize. Skip doing duplicate work.
+                // Parse any further childChanged events.
+                if (!hasChildChangedAfterInitialize && whatHappened == WhatHappened.childChanged) {
+                    hasChildChangedAfterInitialize = true;
+                    return;
+                }
+                updateCAType(whatHappened, caTypeTopic);
+            }
         });
 
     }
@@ -123,7 +143,7 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    private void handleConfigurationChange(WhatHappened whatHappened, Node deviceGroupsTopics) {
+    private void handleConfigurationChange(WhatHappened whatHappened, Topics deviceGroupsTopics) {
         try {
             groupManager.setGroupConfiguration(
                     OBJECT_MAPPER.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class));

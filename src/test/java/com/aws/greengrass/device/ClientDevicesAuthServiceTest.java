@@ -141,7 +141,7 @@ class ClientDevicesAuthServiceTest {
             throws Exception {
         startNucleusWithConfig("emptyGroupConfig.yaml");
 
-        verify(groupManager, times(2)).setGroupConfiguration(configurationCaptor.capture());
+        verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
         GroupConfiguration groupConfiguration = configurationCaptor.getValue();
         assertThat(groupConfiguration.getDefinitions(), IsMapWithSize.anEmptyMap());
         assertThat(groupConfiguration.getPolicies(), IsMapWithSize.anEmptyMap());
@@ -163,7 +163,7 @@ class ClientDevicesAuthServiceTest {
             throws Exception {
         startNucleusWithConfig("config.yaml");
 
-        verify(groupManager, times(2)).setGroupConfiguration(configurationCaptor.capture());
+        verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
         GroupConfiguration groupConfiguration = configurationCaptor.getValue();
         assertThat(groupConfiguration.getFormatVersion(), is(ConfigurationFormatVersion.MAR_05_2021));
         assertThat(groupConfiguration.getDefinitions(), IsMapWithSize.aMapWithSize(2));
@@ -327,12 +327,12 @@ class ClientDevicesAuthServiceTest {
         assertThat(initialCA, not(thirdCA));
         assertThat(getCaPassphrase(), not(initialCaPassPhrase));
 
-        verify(client, times(4)).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
+        verify(client, times(3)).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
         List<List<String>> certificatesInRequests =
                 putCARequestArgumentCaptor.getAllValues().stream().map(
                         PutCertificateAuthoritiesRequest::coreDeviceCertificates).collect(
                         Collectors.toList());
-        assertThat(certificatesInRequests, contains(initialCACerts, initialCACerts, secondCACerts, thirdCACerts));
+        assertThat(certificatesInRequests, contains(initialCACerts, secondCACerts, thirdCACerts));
     }
 
     @Test
@@ -343,7 +343,7 @@ class ClientDevicesAuthServiceTest {
         List<String> initialCACerts = getCaCertificates();
         X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
         assertThat(initialCA.getSigAlgName(), is(CertificateHelper.ECDSA_SIGNING_ALGORITHM));
-        verify(client, times(2)).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
+        verify(client).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
         PutCertificateAuthoritiesRequest request = putCARequestArgumentCaptor.getValue();
         assertThat(request.coreDeviceCertificates(), is(initialCACerts));
     }
