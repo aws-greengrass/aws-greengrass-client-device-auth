@@ -60,8 +60,6 @@ public class ClientDevicesAuthService extends PluginService {
 
     private final DeviceConfiguration deviceConfiguration;
 
-    private boolean hasChildChangedAfterInitialize = false;
-
     /**
      * Constructor.
      *
@@ -102,7 +100,7 @@ public class ClientDevicesAuthService extends PluginService {
             if (whatHappened == WhatHappened.timestampUpdated || whatHappened == WhatHappened.interiorAdded) {
                 return;
             }
-            logger.atTrace().kv("why", whatHappened).kv("node", node).log();
+            logger.atDebug().kv("why", whatHappened).kv("node", node).log();
             Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
             Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC);
 
@@ -112,11 +110,7 @@ public class ClientDevicesAuthService extends PluginService {
             } else if (DEVICE_GROUPS_TOPICS.equals(node.getName())) {
                 handleConfigurationChange(whatHappened, deviceGroupTopics);
             } else if (CA_TYPE_TOPIC.equals(node.getName())) {
-                // Skip the first duplicate event of childChanged that is received after initialize.
-                // This event is same as the one received in initialize. Skip doing duplicate work.
-                // Parse any further childChanged events.
-                if (!hasChildChangedAfterInitialize && whatHappened == WhatHappened.childChanged) {
-                    hasChildChangedAfterInitialize = true;
+                if (caTypeTopic.toPOJO() == null) {
                     return;
                 }
                 updateCAType(whatHappened, caTypeTopic);
