@@ -110,7 +110,10 @@ public class ClientDevicesAuthService extends PluginService {
             } else if (node.childOf(deviceGroupTopics.getName())) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
             } else if (node.childOf(caTypeTopic.getName())) {
-                if (caTypeTopic.toPOJO() == null) {
+                // Initialize event creates a childChanged event.
+                // Both events are trying to generate the cert.
+                // Skip the event until initialize event generates the cert.
+                if (Utils.isEmpty(Coerce.toStringList(caTypeTopic))) {
                     return;
                 }
                 updateCAType(whatHappened, caTypeTopic);
