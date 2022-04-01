@@ -6,6 +6,7 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore.CAType;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -33,7 +34,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateStoreTest {
     static final String RSA_KEY_ALGORITHM = "RSA";
     static final int    RSA_BIT_LENGTH = 2048;

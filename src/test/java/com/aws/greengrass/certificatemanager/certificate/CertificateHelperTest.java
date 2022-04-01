@@ -6,6 +6,7 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore.CAType;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
@@ -28,7 +29,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateHelperTest {
     private static final String TEST_PASSPHRASE = "testPassphrase";
     private static final String TEST_CN = "testCN";

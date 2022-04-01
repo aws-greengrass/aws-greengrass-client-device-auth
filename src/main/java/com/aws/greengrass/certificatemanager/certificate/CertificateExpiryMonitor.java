@@ -10,13 +10,9 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
 import java.security.KeyStoreException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Queue;
+import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -25,17 +21,14 @@ import javax.inject.Inject;
 public class CertificateExpiryMonitor {
     private static final Logger LOGGER = LogManager.getLogger(CertificateExpiryMonitor.class);
     private static final long DEFAULT_CERT_EXPIRY_CHECK_SECONDS = 30;
-    private static final int QUEUE_INITIAL_CAPACITY = 11;
 
     private final ScheduledExecutorService ses;
 
     private final ConnectivityInfoProvider connectivityInfoProvider;
 
-    private final Queue<CertificateGenerator> monitoredCertificateGenerators = new
-            PriorityBlockingQueue<>(QUEUE_INITIAL_CAPACITY, Comparator.comparing(CertificateGenerator::getExpiryTime));
+    private final Set<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArraySet<>();
 
     private ScheduledFuture<?> monitorFuture;
-    private final Set<CertificateGenerator> removedCgs = new CopyOnWriteArraySet<>();
 
     /**
      * Constructor.
@@ -52,24 +45,21 @@ public class CertificateExpiryMonitor {
      * Start cert expiry monitor.
      */
     public void startMonitor() {
-        startMonitor(DEFAULT_CERT_EXPIRY_CHECK_SECONDS);
+        startMonitor(Duration.ofSeconds(DEFAULT_CERT_EXPIRY_CHECK_SECONDS));
     }
 
-    void startMonitor(long certExpiryCheckSeconds) {
+    void startMonitor(Duration certExpiryCheck) {
         if (monitorFuture != null) {
             monitorFuture.cancel(true);
         }
-        monitorFuture = ses.scheduleAtFixedRate(this::watchForCertExpiryOnce, certExpiryCheckSeconds,
-                certExpiryCheckSeconds, TimeUnit.SECONDS);
+        monitorFuture = ses.scheduleAtFixedRate(this::watchForCertExpiryOnce, certExpiryCheck.toMillis(),
+                certExpiryCheck.toMillis(), TimeUnit.MILLISECONDS);
     }
 
     private void watchForCertExpiryOnce() {
-        List<CertificateGenerator> triedCertificateGenerators = new ArrayList<>();
-
-        for (CertificateGenerator cg = monitoredCertificateGenerators.peek(); cg != null;
-             cg = monitoredCertificateGenerators.peek()) {
+        for (CertificateGenerator cg : monitoredCertificateGenerators) {
             if (!cg.shouldRegenerate()) {
-                break;
+                continue;
             }
             try {
                 cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
@@ -77,14 +67,6 @@ public class CertificateExpiryMonitor {
                 LOGGER.atError().cause(e).log("Error generating certificate. Will be retried after {} seconds",
                         DEFAULT_CERT_EXPIRY_CHECK_SECONDS);
             }
-            triedCertificateGenerators.add(cg);
-            monitoredCertificateGenerators.poll();
-        }
-
-        synchronized (this) {
-            monitoredCertificateGenerators.addAll(triedCertificateGenerators);
-            monitoredCertificateGenerators.removeAll(removedCgs);
-            removedCgs.clear();
         }
     }
 
@@ -109,15 +91,7 @@ public class CertificateExpiryMonitor {
      * Remove cert from cert expiry monitor.
      * @param cg CertificateGenerator instance for the certificate
      */
-    public synchronized void removeFromMonitor(CertificateGenerator cg) {
-        // If this runs before the synchronized block in watchForCertExpiryOnce
-        // then monitoredCertificateGenerators will be correct because removedCgs will drop it again.
-
-        // If this runs after the synchronized block in watchForCertExpiryOnce then
-        // monitoredCertificateGenerators will be correct because we remove it from monitoredCertificateGenerators
-        // right here. removedCgs will get cleaned up the next time that watchForCertExpiryOnce runs. This does
-        // extend the lifetime of the CertificateGenerator by at most DEFAULT_CERT_EXPIRY_CHECK_SECONDS.
+    public void removeFromMonitor(CertificateGenerator cg) {
         monitoredCertificateGenerators.remove(cg);
-        removedCgs.add(cg);
     }
 }
