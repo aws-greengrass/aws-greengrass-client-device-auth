@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -33,6 +35,7 @@ public class CertificateExpiryMonitor {
             PriorityBlockingQueue<>(QUEUE_INITIAL_CAPACITY, Comparator.comparing(CertificateGenerator::getExpiryTime));
 
     private ScheduledFuture<?> monitorFuture;
+    private final Set<CertificateGenerator> removedCgs = new CopyOnWriteArraySet<>();
 
     /**
      * Constructor.
@@ -78,7 +81,11 @@ public class CertificateExpiryMonitor {
             monitoredCertificateGenerators.poll();
         }
 
-        monitoredCertificateGenerators.addAll(triedCertificateGenerators);
+        synchronized (this) {
+            monitoredCertificateGenerators.addAll(triedCertificateGenerators);
+            monitoredCertificateGenerators.removeAll(removedCgs);
+            removedCgs.clear();
+        }
     }
 
     /**
@@ -96,5 +103,21 @@ public class CertificateExpiryMonitor {
         if (monitorFuture != null) {
             monitorFuture.cancel(true);
         }
+    }
+
+    /**
+     * Remove cert from cert expiry monitor.
+     * @param cg CertificateGenerator instance for the certificate
+     */
+    public synchronized void removeFromMonitor(CertificateGenerator cg) {
+        // If this runs before the synchronized block in watchForCertExpiryOnce
+        // then monitoredCertificateGenerators will be correct because removedCgs will drop it again.
+
+        // If this runs after the synchronized block in watchForCertExpiryOnce then
+        // monitoredCertificateGenerators will be correct because we remove it from monitoredCertificateGenerators
+        // right here. removedCgs will get cleaned up the next time that watchForCertExpiryOnce runs. This does
+        // extend the lifetime of the CertificateGenerator by at most DEFAULT_CERT_EXPIRY_CHECK_SECONDS.
+        monitoredCertificateGenerators.remove(cg);
+        removedCgs.add(cg);
     }
 }
