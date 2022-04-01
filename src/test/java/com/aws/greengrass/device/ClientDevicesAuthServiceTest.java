@@ -303,9 +303,13 @@ class ClientDevicesAuthServiceTest {
         assertThat(initialCA.getSigAlgName(), is(CertificateHelper.RSA_SIGNING_ALGORITHM));
         String initialCaPassPhrase = getCaPassphrase();
 
-        kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
-                .find(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
-                        ClientDevicesAuthService.CA_TYPE_TOPIC).withValue(Collections.singletonList("RSA_2048"));
+        kernel.getContext().runOnPublishQueueAndWait(() -> {
+            kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
+                    .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, ClientDevicesAuthService.CA_TYPE_TOPIC);
+        });
+        Topic topic = kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
+                .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, ClientDevicesAuthService.CA_TYPE_TOPIC);
+        topic.withValue(Collections.singletonList("RSA_2048"));
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();
 
@@ -315,9 +319,7 @@ class ClientDevicesAuthServiceTest {
         assertThat(initialCA, is(secondCA));
         assertThat(getCaPassphrase(), is(initialCaPassPhrase));
 
-        kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
-                .find(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
-                        ClientDevicesAuthService.CA_TYPE_TOPIC).withValue(Collections.singletonList("ECDSA_P256"));
+        topic.withValue(Collections.singletonList("ECDSA_P256"));
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();
 

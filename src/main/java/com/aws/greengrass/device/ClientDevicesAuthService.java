@@ -106,17 +106,14 @@ public class ClientDevicesAuthService extends PluginService {
 
             if (whatHappened == WhatHappened.initialized) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-                updateCAType(whatHappened, caTypeTopic);
-            } else if (node.childOf(deviceGroupTopics.getName())) {
+                updateCAType(caTypeTopic);
+            } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-            } else if (node.childOf(caTypeTopic.getName())) {
-                // Initialize event creates a childChanged event.
-                // Both events are trying to generate the cert.
-                // Skip the event until initialize event generates the cert.
+            } else if (node.childOf(CA_TYPE_TOPIC)) {
                 if (caTypeTopic.getOnce() == null) {
                     return;
                 }
-                updateCAType(whatHappened, caTypeTopic);
+                updateCAType(caTypeTopic);
             }
         });
 
@@ -143,7 +140,7 @@ public class ClientDevicesAuthService extends PluginService {
             groupManager.setGroupConfiguration(
                     OBJECT_MAPPER.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
         } catch (IllegalArgumentException e) {
-            logger.atError().kv("service", CLIENT_DEVICES_AUTH_SERVICE_NAME).kv("event", whatHappened)
+            logger.atError().kv("event", whatHappened)
                     .kv("node", deviceGroupsTopics.getFullName())
                     .setCause(e)
                     .log("Unable to parse group configuration");
@@ -151,8 +148,7 @@ public class ClientDevicesAuthService extends PluginService {
         }
     }
 
-    @SuppressWarnings("PMD.UnusedFormalParameter")
-    private void updateCAType(WhatHappened what, Topic topic) {
+    private void updateCAType(Topic topic) {
         try {
             List<String> caTypeList = Coerce.toStringList(topic);
             logger.atDebug().kv("CA type", caTypeList).log("CA type list updated");
