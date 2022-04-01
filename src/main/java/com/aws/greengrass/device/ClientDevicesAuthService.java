@@ -7,7 +7,6 @@ package com.aws.greengrass.device;
 
 import com.aws.greengrass.certificatemanager.CertificateManager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
-import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
@@ -61,8 +60,6 @@ public class ClientDevicesAuthService extends PluginService {
 
     private final DeviceConfiguration deviceConfiguration;
 
-    private Topics deviceGroupsTopics;
-
     /**
      * Constructor.
      *
@@ -99,9 +96,27 @@ public class ClientDevicesAuthService extends PluginService {
     protected void install() throws InterruptedException {
         super.install();
         //handleConfiguration
-        this.deviceGroupsTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
-        this.deviceGroupsTopics.subscribe(this::handleConfigurationChange);
-        this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC).subscribe(this::updateCAType);
+        this.config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe((whatHappened, node) -> {
+            if (whatHappened == WhatHappened.timestampUpdated || whatHappened == WhatHappened.interiorAdded) {
+                return;
+            }
+            logger.atDebug().kv("why", whatHappened).kv("node", node).log();
+            Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
+            Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC);
+
+            if (whatHappened == WhatHappened.initialized) {
+                updateDeviceGroups(whatHappened, deviceGroupTopics);
+                updateCAType(caTypeTopic);
+            } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
+                updateDeviceGroups(whatHappened, deviceGroupTopics);
+            } else if (node.childOf(CA_TYPE_TOPIC)) {
+                if (caTypeTopic.getOnce() == null) {
+                    return;
+                }
+                updateCAType(caTypeTopic);
+            }
+        });
+
     }
 
     @Override
@@ -120,21 +135,20 @@ public class ClientDevicesAuthService extends PluginService {
         return certificateManager;
     }
 
-    @SuppressWarnings("PMD.UnusedFormalParameter")
-    private void handleConfigurationChange(WhatHappened whatHappened, Node childNode) {
+    private void updateDeviceGroups(WhatHappened whatHappened, Topics deviceGroupsTopics) {
         try {
             groupManager.setGroupConfiguration(
-                    OBJECT_MAPPER.convertValue(this.deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
+                    OBJECT_MAPPER.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
         } catch (IllegalArgumentException e) {
-            logger.atError().kv("service", CLIENT_DEVICES_AUTH_SERVICE_NAME).kv("event", whatHappened)
-                    .kv("node", this.deviceGroupsTopics.getFullName()).kv("value", this.deviceGroupsTopics).setCause(e)
+            logger.atError().kv("event", whatHappened)
+                    .kv("node", deviceGroupsTopics.getFullName())
+                    .setCause(e)
                     .log("Unable to parse group configuration");
             serviceErrored(e);
         }
     }
 
-    @SuppressWarnings("PMD.UnusedFormalParameter")
-    private void updateCAType(WhatHappened what, Topic topic) {
+    private void updateCAType(Topic topic) {
         try {
             List<String> caTypeList = Coerce.toStringList(topic);
             logger.atDebug().kv("CA type", caTypeList).log("CA type list updated");
