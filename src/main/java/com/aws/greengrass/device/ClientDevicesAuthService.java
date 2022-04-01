@@ -7,7 +7,6 @@ package com.aws.greengrass.device;
 
 import com.aws.greengrass.certificatemanager.CertificateManager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
-import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
@@ -108,9 +107,9 @@ public class ClientDevicesAuthService extends PluginService {
             if (whatHappened == WhatHappened.initialized) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
                 updateCAType(whatHappened, caTypeTopic);
-            } else if (isParentTopic(node, deviceGroupTopics)) {
+            } else if (node.childOf(deviceGroupTopics.getName())) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-            } else if (isParentTopic(node, caTypeTopic)) {
+            } else if (node.childOf(caTypeTopic.getName())) {
                 if (caTypeTopic.toPOJO() == null) {
                     return;
                 }
@@ -214,10 +213,5 @@ public class ClientDevicesAuthService extends PluginService {
             throw new CloudServiceInteractionException(
                     String.format("Failed to put core %s CA certificates to cloud", thingName), e);
         }
-    }
-
-    // Check if the changed node belongs to the topics.
-    private boolean isParentTopic(Node changedNode, Node topics) {
-        return changedNode != null && changedNode.getFullName().startsWith(topics.getFullName());
     }
 }
