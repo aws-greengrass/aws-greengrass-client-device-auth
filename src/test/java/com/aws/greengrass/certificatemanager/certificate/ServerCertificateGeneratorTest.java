@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class ServerCertificateGeneratorTest {
     private static final String TEST_PASSPHRASE = "testPassphrase";
     private static final String SUBJECT_PRINCIPAL

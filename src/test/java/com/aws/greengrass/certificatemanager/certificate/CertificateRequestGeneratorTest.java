@@ -5,6 +5,10 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
 import java.net.InetAddress;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -15,12 +19,12 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
+@ExtendWith(GGExtension.class)
 class CertificateRequestGeneratorTest {
 
     // TODO: Replace with Key Manager when ready
@@ -102,6 +106,8 @@ class CertificateRequestGeneratorTest {
         KeyPair keyPair = new KeyPair(publicKey, privateKey);
         // Assert Cert Request generation
         String expectedCSR = TEST_CERTIFICATE;
+        // Windows support
+        expectedCSR = expectedCSR.replace("\n", System.lineSeparator());
         String actualCSR = CertificateRequestGenerator.createCSR(keyPair, thingName, ipAddresses, dnsNames);
         assertThat(actualCSR, is(expectedCSR));
 
