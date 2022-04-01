@@ -5,12 +5,14 @@
 
 package com.aws.greengrass.certificatemanager;
 
-import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
+import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import com.aws.greengrass.testcommons.testutilities.TestUtils;
+import com.aws.greengrass.util.Pair;
 import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,8 +37,10 @@ import java.security.spec.EncodedKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -86,7 +90,6 @@ public class CertificateManagerTest {
             "g6FM9ak2LgmWO2UZvFV0dl+EUmYFZFXETrjE3gaM3svuYRIgWCtxYbkFjTocSTW+\n" +
             "xw6vjYSXhB49pvE=\n" +
             "-----END CERTIFICATE REQUEST-----";
-    private static final int TEST_TIME_OUT_SEC = 1;
 
     @Mock
     ConnectivityInfoProvider mockConnectivityInfoProvider;
@@ -126,14 +129,16 @@ public class CertificateManagerTest {
 
     @Test
     void GIVEN_valid_csr_WHEN_subscribeToCertificateUpdates_THEN_certificate_received()
-            throws InterruptedException, KeyStoreException, CsrProcessingException {
-        CountDownLatch certificateReceived = new CountDownLatch(1);
-        Consumer<X509Certificate> cb = t -> {
-            certificateReceived.countDown();
-        };
+            throws InterruptedException, KeyStoreException, CsrProcessingException, ExecutionException,
+            TimeoutException {
+        Pair<CompletableFuture<Void>, Consumer<X509Certificate>> con =
+                TestUtils.asyncAssertOnConsumer((a) -> {}, 3);
 
-        certificateManager.subscribeToServerCertificateUpdates(RSA_CSR, cb);
-        Assertions.assertTrue(certificateReceived.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS));
+        // Subscribe multiple times to show that a new certificate is generated on each call
+        certificateManager.subscribeToServerCertificateUpdates(RSA_CSR, con.getRight());
+        certificateManager.subscribeToServerCertificateUpdates(RSA_CSR, con.getRight());
+        certificateManager.subscribeToServerCertificateUpdates(RSA_CSR, con.getRight());
+        con.getLeft().get(1, TimeUnit.SECONDS);
     }
 
     @Test

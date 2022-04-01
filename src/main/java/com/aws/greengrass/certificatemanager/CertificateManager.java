@@ -28,6 +28,8 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
@@ -41,6 +43,9 @@ public class CertificateManager {
     private final CertificateExpiryMonitor certExpiryMonitor;
 
     private final CISShadowMonitor cisShadowMonitor;
+
+    private final Map<Consumer<X509Certificate>, CertificateGenerator> serverCertSubscriptions =
+            new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -114,30 +119,55 @@ public class CertificateManager {
      * @param cb  Certificate consumer
      * @throws KeyStoreException if unable to access KeyStore
      * @throws CsrProcessingException if unable to process CSR
+     * @throws RuntimeException for any unknown runtime error
      */
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.ExceptionAsFlowControl"})
     public void subscribeToServerCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
             throws KeyStoreException, CsrProcessingException {
-        // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
-        // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
+        // deduplicate subscriptions with the same callback
         try {
-            PKCS10CertificationRequest pkcs10CertificationRequest =
-                    CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
-            JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
-            CertificateGenerator certificateGenerator = new ServerCertificateGenerator(
-                    jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
+            serverCertSubscriptions.compute(cb, (k, v) -> {
+                // A subscription already exists, we will replace it so that a new certificate is generated immediately
+                if (v != null) {
+                    removeCGFromMonitors(v);
+                }
 
-            // Add certificate generator to monitors first in order to avoid missing events
-            // that happen while the initial certificate is being generated.
-            certExpiryMonitor.addToMonitor(certificateGenerator);
-            cisShadowMonitor.addToMonitor(certificateGenerator);
+                // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
+                // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
+                try {
+                    PKCS10CertificationRequest pkcs10CertificationRequest =
+                            CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
+                    JcaPKCS10CertificationRequest jcaRequest =
+                            new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
+                    CertificateGenerator certificateGenerator =
+                            new ServerCertificateGenerator(jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb,
+                                    certificateStore);
 
-            certificateGenerator.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
-        } catch (KeyStoreException e) {
-            logger.atError().setCause(e).log("unable to subscribe to certificate update");
+                    // Add certificate generator to monitors first in order to avoid missing events
+                    // that happen while the initial certificate is being generated.
+                    certExpiryMonitor.addToMonitor(certificateGenerator);
+                    cisShadowMonitor.addToMonitor(certificateGenerator);
+
+                    certificateGenerator.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
+                    return certificateGenerator;
+                } catch (KeyStoreException e) {
+                    logger.atError().setCause(e).log("unable to subscribe to certificate update");
+                    throw new RuntimeException(e);
+                } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException e) {
+                    throw new RuntimeException(new CsrProcessingException(csr, e));
+                }
+            });
+        } catch (RuntimeException e) {
+            if (e.getCause() != null) {
+                Throwable cause = e.getCause();
+                if (cause instanceof KeyStoreException) {
+                    throw (KeyStoreException) cause;
+                }
+                if (cause instanceof CsrProcessingException) {
+                    throw (CsrProcessingException) cause;
+                }
+            }
             throw e;
-        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException e) {
-            throw new CsrProcessingException(csr, e);
         }
     }
 
@@ -180,7 +210,15 @@ public class CertificateManager {
      *
      * @param cb Certificate consumer
      */
-    public void unsubscribeFromCertificateUpdates(@NonNull Consumer<String> cb) {
-        // TODO
+    public void unsubscribeFromServerCertificateUpdates(@NonNull Consumer<X509Certificate> cb) {
+        CertificateGenerator gen = serverCertSubscriptions.remove(cb);
+        if (gen != null) {
+            removeCGFromMonitors(gen);
+        }
+    }
+
+    private void removeCGFromMonitors(CertificateGenerator gen) {
+        certExpiryMonitor.removeFromMonitor(gen);
+        cisShadowMonitor.removeFromMonitor(gen);
     }
 }
