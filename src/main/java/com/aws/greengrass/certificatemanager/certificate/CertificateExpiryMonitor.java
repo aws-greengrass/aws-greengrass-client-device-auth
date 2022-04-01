@@ -10,11 +10,9 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
 import java.security.KeyStoreException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.PriorityBlockingQueue;
+import java.time.Duration;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -23,14 +21,12 @@ import javax.inject.Inject;
 public class CertificateExpiryMonitor {
     private static final Logger LOGGER = LogManager.getLogger(CertificateExpiryMonitor.class);
     private static final long DEFAULT_CERT_EXPIRY_CHECK_SECONDS = 30;
-    private static final int QUEUE_INITIAL_CAPACITY = 11;
 
     private final ScheduledExecutorService ses;
 
     private final ConnectivityInfoProvider connectivityInfoProvider;
 
-    private final Queue<CertificateGenerator> monitoredCertificateGenerators = new
-            PriorityBlockingQueue<>(QUEUE_INITIAL_CAPACITY, Comparator.comparing(CertificateGenerator::getExpiryTime));
+    private final Set<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArraySet<>();
 
     private ScheduledFuture<?> monitorFuture;
 
@@ -49,24 +45,21 @@ public class CertificateExpiryMonitor {
      * Start cert expiry monitor.
      */
     public void startMonitor() {
-        startMonitor(DEFAULT_CERT_EXPIRY_CHECK_SECONDS);
+        startMonitor(Duration.ofSeconds(DEFAULT_CERT_EXPIRY_CHECK_SECONDS));
     }
 
-    void startMonitor(long certExpiryCheckSeconds) {
+    void startMonitor(Duration certExpiryCheck) {
         if (monitorFuture != null) {
             monitorFuture.cancel(true);
         }
-        monitorFuture = ses.scheduleAtFixedRate(this::watchForCertExpiryOnce, certExpiryCheckSeconds,
-                certExpiryCheckSeconds, TimeUnit.SECONDS);
+        monitorFuture = ses.scheduleAtFixedRate(this::watchForCertExpiryOnce, certExpiryCheck.toMillis(),
+                certExpiryCheck.toMillis(), TimeUnit.MILLISECONDS);
     }
 
     private void watchForCertExpiryOnce() {
-        List<CertificateGenerator> triedCertificateGenerators = new ArrayList<>();
-
-        for (CertificateGenerator cg = monitoredCertificateGenerators.peek(); cg != null;
-             cg = monitoredCertificateGenerators.peek()) {
+        for (CertificateGenerator cg : monitoredCertificateGenerators) {
             if (!cg.shouldRegenerate()) {
-                break;
+                continue;
             }
             try {
                 cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
@@ -74,11 +67,7 @@ public class CertificateExpiryMonitor {
                 LOGGER.atError().cause(e).log("Error generating certificate. Will be retried after {} seconds",
                         DEFAULT_CERT_EXPIRY_CHECK_SECONDS);
             }
-            triedCertificateGenerators.add(cg);
-            monitoredCertificateGenerators.poll();
         }
-
-        monitoredCertificateGenerators.addAll(triedCertificateGenerators);
     }
 
     /**
@@ -96,5 +85,13 @@ public class CertificateExpiryMonitor {
         if (monitorFuture != null) {
             monitorFuture.cancel(true);
         }
+    }
+
+    /**
+     * Remove cert from cert expiry monitor.
+     * @param cg CertificateGenerator instance for the certificate
+     */
+    public void removeFromMonitor(CertificateGenerator cg) {
+        monitoredCertificateGenerators.remove(cg);
     }
 }

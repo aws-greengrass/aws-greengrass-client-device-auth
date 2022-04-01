@@ -148,6 +148,15 @@ public class CISShadowMonitor {
         monitoredCertificateGenerators.add(certificateGenerator);
     }
 
+    /**
+     * Remove cert from CIS shadow monitor.
+     *
+     * @param certificateGenerator CertificateGenerator instance for the certificate
+     */
+    public void removeFromMonitor(CertificateGenerator certificateGenerator) {
+        monitoredCertificateGenerators.remove(certificateGenerator);
+    }
+
     private void subscribeToShadowTopics() throws InterruptedException {
         while (true) {
             if (Thread.currentThread().isInterrupted()) {

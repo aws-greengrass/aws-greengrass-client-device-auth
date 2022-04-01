@@ -6,7 +6,9 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,6 +25,7 @@ import java.time.ZoneId;
 import java.util.Collections;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static com.aws.greengrass.certificatemanager.certificate.CertificateGenerator.DEFAULT_CERT_EXPIRY_SECONDS;
@@ -30,21 +33,27 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateExpiryMonitorTest {
     private static final String TEST_PASSPHRASE = "testPassphrase";
     private static final String SUBJECT_PRINCIPAL
             = "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
-    private static final long TEST_CERT_EXPIRY_CHECK_SECONDS = 1;
+    private static final long TEST_CERT_EXPIRY_CHECK_MILLIS = 200;
 
     @Mock
     private Consumer<X509Certificate> mockCallback;
 
     @Mock
     private ConnectivityInfoProvider mockConnectivityInfoProvider;
+    private final ScheduledExecutorService ses = new ScheduledThreadPoolExecutor(1);
 
     @TempDir
     Path tmpPath;
+
+    @AfterEach
+    void afterEach() {
+        ses.shutdownNow();
+    }
 
     @Test
     public void GIVEN_certs_added_to_monitor_WHEN_expired_THEN_regenerated() throws Exception {
@@ -55,9 +64,8 @@ public class CertificateExpiryMonitorTest {
         PublicKey key2 = CertificateStore.newRSAKeyPair().getPublic();
 
         //start cert expiry monitor
-        ScheduledExecutorService ses = new ScheduledThreadPoolExecutor(1);
         CertificateExpiryMonitor certExpiryMonitor = new CertificateExpiryMonitor(ses, mockConnectivityInfoProvider);
-        certExpiryMonitor.startMonitor(TEST_CERT_EXPIRY_CHECK_SECONDS);
+        certExpiryMonitor.startMonitor(Duration.ofMillis(100));
 
         //add certs to monitor
         CertificateGenerator cg1 = new ServerCertificateGenerator(subject, key1, mockCallback, certificateStore);
@@ -73,7 +81,7 @@ public class CertificateExpiryMonitorTest {
         Clock mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(DEFAULT_CERT_EXPIRY_SECONDS)),
                 ZoneId.of("UTC"));
         cg1.setClock(mockClock);
-        Thread.sleep(TEST_CERT_EXPIRY_CHECK_SECONDS*1000);
+        TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);
         X509Certificate cert1second = cg1.getCertificate();
         assertThat(cert1second, is(not(cert1initial)));
         X509Certificate cert2second = cg2.getCertificate();
@@ -82,7 +90,7 @@ public class CertificateExpiryMonitorTest {
         //cert2 expires -> it is regenerated
         mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(DEFAULT_CERT_EXPIRY_SECONDS)), ZoneId.of("UTC"));
         cg2.setClock(mockClock);
-        Thread.sleep(TEST_CERT_EXPIRY_CHECK_SECONDS*1000);
+        TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);
         X509Certificate cert1third = cg1.getCertificate();
         assertThat(cert1third, is(cert1second));
         X509Certificate cert2third = cg2.getCertificate();
@@ -93,7 +101,7 @@ public class CertificateExpiryMonitorTest {
         mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(2*DEFAULT_CERT_EXPIRY_SECONDS)), ZoneId.of("UTC"));
         cg1.setClock(mockClock);
         cg2.setClock(mockClock);
-        Thread.sleep(TEST_CERT_EXPIRY_CHECK_SECONDS*1000);
+        TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);
         X509Certificate cert1fourth = cg1.getCertificate();
         assertThat(cert1fourth, is(cert1third));
         X509Certificate cert2fourth = cg2.getCertificate();
