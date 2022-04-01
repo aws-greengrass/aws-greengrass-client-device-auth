@@ -113,7 +113,7 @@ public class ClientDevicesAuthService extends PluginService {
                 // Initialize event creates a childChanged event.
                 // Both events are trying to generate the cert.
                 // Skip the event until initialize event generates the cert.
-                if (Utils.isEmpty(Coerce.toStringList(caTypeTopic))) {
+                if (caTypeTopic.getOnce() == null) {
                     return;
                 }
                 updateCAType(whatHappened, caTypeTopic);
