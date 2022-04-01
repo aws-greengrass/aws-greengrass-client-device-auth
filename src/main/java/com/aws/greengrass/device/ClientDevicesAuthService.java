@@ -7,6 +7,7 @@ package com.aws.greengrass.device;
 
 import com.aws.greengrass.certificatemanager.CertificateManager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
+import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
@@ -105,11 +106,11 @@ public class ClientDevicesAuthService extends PluginService {
             Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC);
 
             if (whatHappened == WhatHappened.initialized) {
-                handleConfigurationChange(whatHappened, deviceGroupTopics);
+                updateDeviceGroups(whatHappened, deviceGroupTopics);
                 updateCAType(whatHappened, caTypeTopic);
-            } else if (DEVICE_GROUPS_TOPICS.equals(node.getName())) {
-                handleConfigurationChange(whatHappened, deviceGroupTopics);
-            } else if (CA_TYPE_TOPIC.equals(node.getName())) {
+            } else if (isParentTopic(node, deviceGroupTopics)) {
+                updateDeviceGroups(whatHappened, deviceGroupTopics);
+            } else if (isParentTopic(node, caTypeTopic)) {
                 if (caTypeTopic.toPOJO() == null) {
                     return;
                 }
@@ -136,7 +137,7 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
-    private void handleConfigurationChange(WhatHappened whatHappened, Topics deviceGroupsTopics) {
+    private void updateDeviceGroups(WhatHappened whatHappened, Topics deviceGroupsTopics) {
         try {
             groupManager.setGroupConfiguration(
                     OBJECT_MAPPER.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
@@ -213,5 +214,10 @@ public class ClientDevicesAuthService extends PluginService {
             throw new CloudServiceInteractionException(
                     String.format("Failed to put core %s CA certificates to cloud", thingName), e);
         }
+    }
+
+    // Check if the changed node belongs to the topics.
+    private boolean isParentTopic(Node changedNode, Node topics) {
+        return changedNode != null && changedNode.getFullName().startsWith(topics.getFullName());
     }
 }
