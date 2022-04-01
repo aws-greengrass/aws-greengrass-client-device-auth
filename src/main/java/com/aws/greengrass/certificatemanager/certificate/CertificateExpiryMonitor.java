@@ -110,6 +110,13 @@ public class CertificateExpiryMonitor {
      * @param cg CertificateGenerator instance for the certificate
      */
     public synchronized void removeFromMonitor(CertificateGenerator cg) {
+        // If this runs before the synchronized block in watchForCertExpiryOnce
+        // then monitoredCertificateGenerators will be correct because removedCgs will drop it again.
+
+        // If this runs after the synchronized block in watchForCertExpiryOnce then
+        // monitoredCertificateGenerators will be correct because we remove it from monitoredCertificateGenerators
+        // right here. removedCgs will get cleaned up the next time that watchForCertExpiryOnce runs. This does
+        // extend the lifetime of the CertificateGenerator by at most DEFAULT_CERT_EXPIRY_CHECK_SECONDS.
         monitoredCertificateGenerators.remove(cg);
         removedCgs.add(cg);
     }
