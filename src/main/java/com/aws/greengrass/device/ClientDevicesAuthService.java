@@ -135,14 +135,14 @@ public class ClientDevicesAuthService extends PluginService {
         return certificateManager;
     }
 
-    @SuppressWarnings("PMD.UnusedFormalParameter")
     private void updateDeviceGroups(WhatHappened whatHappened, Topics deviceGroupsTopics) {
         try {
             groupManager.setGroupConfiguration(
                     OBJECT_MAPPER.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
         } catch (IllegalArgumentException e) {
             logger.atError().kv("service", CLIENT_DEVICES_AUTH_SERVICE_NAME).kv("event", whatHappened)
-                    .kv("node", deviceGroupsTopics.getFullName()).kv("value", deviceGroupsTopics).setCause(e)
+                    .kv("node", deviceGroupsTopics.getFullName())
+                    .setCause(e)
                     .log("Unable to parse group configuration");
             serviceErrored(e);
         }
