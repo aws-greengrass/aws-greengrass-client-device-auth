@@ -10,8 +10,9 @@ import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.util.Coerce;
 
 public class CertificatesConfig {
-    static final int DEFAULT_SERVER_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 1 week
-    static final int DEFAULT_CLIENT_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 1 week
+    static final int MAX_SERVER_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 10; // 10 days
+    static final int DEFAULT_SERVER_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
+    static final int DEFAULT_CLIENT_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
     private static final String CERTIFICATES_CONFIGURATION = "certificates";
     private static final String SERVER_CERT_VALIDITY_SECONDS = "server_cert_validity_seconds";
@@ -31,8 +32,12 @@ public class CertificatesConfig {
      * @return Server certificate validity in seconds
      */
     public int getServerCertValiditySeconds() {
-        return Coerce.toInt(configuration.findOrDefault(DEFAULT_SERVER_CERT_EXPIRY_SECONDS,
+        int configuredValidityPeriod = Coerce.toInt(configuration.findOrDefault(DEFAULT_SERVER_CERT_EXPIRY_SECONDS,
                 PATH_SERVER_CERT_EXPIRY_SECONDS));
+        if (configuredValidityPeriod < MAX_SERVER_CERT_EXPIRY_SECONDS) {
+            return configuredValidityPeriod;
+        }
+        return MAX_SERVER_CERT_EXPIRY_SECONDS;
     }
 
     /**
