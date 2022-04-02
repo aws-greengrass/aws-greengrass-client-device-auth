@@ -44,11 +44,18 @@ public class CertificatesConfigTest {
     }
 
     @Test
-    public void GIVEN_100DayServerValidity_WHEN_getServerCertValiditySeconds_THEN_returnsMaxExpiry() {
+    public void GIVEN_largeServerCertValidity_WHEN_getServerCertValiditySeconds_THEN_returnsMaxExpiry() {
         configurationTopics.lookup(CertificatesConfig.PATH_SERVER_CERT_EXPIRY_SECONDS)
                 .withValue(2 * CertificatesConfig.MAX_SERVER_CERT_EXPIRY_SECONDS);
         assertThat(certificatesConfig.getServerCertValiditySeconds(),
                 is(equalTo(CertificatesConfig.MAX_SERVER_CERT_EXPIRY_SECONDS)));
+    }
+
+    @Test
+    public void GIVEN_smallServerCertValidity_WHEN_getServerCertValiditySeconds_THEN_returnsMinExpiry() {
+        configurationTopics.lookup(CertificatesConfig.PATH_SERVER_CERT_EXPIRY_SECONDS).withValue(60 * 60 * 24); // 1 day
+        assertThat(certificatesConfig.getServerCertValiditySeconds(),
+                is(equalTo(CertificatesConfig.MIN_SERVER_CERT_EXPIRY_SECONDS)));
     }
 
     @Test
