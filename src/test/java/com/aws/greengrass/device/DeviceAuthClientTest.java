@@ -11,7 +11,11 @@ import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateRequestGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
+import com.aws.greengrass.certificatemanager.certificate.CertificatesConfig;
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
+import com.aws.greengrass.componentmanager.KernelConfigResolver;
+import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.device.exception.AuthenticationException;
@@ -209,6 +213,8 @@ public class DeviceAuthClientTest {
         certificateStore.update("password", CertificateStore.CAType.RSA_2048);
         CertificateManager certificateManager = new CertificateManager(certificateStore, mockConnectivityInfoProvider,
                 mockCertExpiryMonitor, mockShadowMonitor);
+        certificateManager.updateCertificatesConfiguration(new CertificatesConfig(Topics.of(new Context(),
+                KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null)));
         KeyPair clientKeyPair = CertificateStore.newRSAKeyPair();
         String csr = CertificateRequestGenerator.createCSR(clientKeyPair, "Thing", null, null);
 

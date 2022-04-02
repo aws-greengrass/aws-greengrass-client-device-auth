@@ -26,19 +26,22 @@ import java.util.function.Supplier;
 public class ServerCertificateGenerator extends CertificateGenerator {
     private static final Logger logger = LogManager.getLogger(ServerCertificateGenerator.class);
     private final Consumer<X509Certificate> callback;
+    private final CertificatesConfig certificatesConfig;
 
     /**
      * Constructor.
      *
-     * @param subject          X500 subject
-     * @param publicKey        Public Key
-     * @param callback         Callback that consumes generated certificate
-     * @param certificateStore CertificateStore instance
+     * @param subject            X500 subject
+     * @param publicKey          Public Key
+     * @param callback           Callback that consumes generated certificate
+     * @param certificateStore   CertificateStore instance
+     * @param certificatesConfig Certificate configuration
      */
     public ServerCertificateGenerator(X500Name subject, PublicKey publicKey, Consumer<X509Certificate> callback,
-                                      CertificateStore certificateStore) {
+                                      CertificateStore certificateStore, CertificatesConfig certificatesConfig) {
         super(subject, publicKey, certificateStore);
         this.callback = callback;
+        this.certificatesConfig = certificatesConfig;
     }
 
     /**
@@ -69,7 +72,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                     publicKey,
                     connectivityInfo,
                     Date.from(now),
-                    Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
+                    Date.from(now.plusSeconds(certificatesConfig.getServerCertValiditySeconds())));
         } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException e) {
             logger.atError().cause(e).log("Failed to generate new server certificate");
             throw new CertificateGenerationException(e);

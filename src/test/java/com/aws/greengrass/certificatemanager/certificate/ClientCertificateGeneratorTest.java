@@ -5,6 +5,9 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.componentmanager.KernelConfigResolver;
+import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
@@ -51,7 +54,10 @@ public class ClientCertificateGeneratorTest {
         publicKey = CertificateStore.newRSAKeyPair().getPublic();
         certificateStore = new CertificateStore(tmpPath);
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
-        certificateGenerator = new ClientCertificateGenerator(subject, publicKey, mockCallback, certificateStore);
+        CertificatesConfig certificatesConfig = new CertificatesConfig(Topics.of(new Context(),
+                KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
+        certificateGenerator = new ClientCertificateGenerator(subject, publicKey, mockCallback, certificateStore,
+                certificatesConfig);
     }
 
     @Test
