@@ -23,19 +23,22 @@ import java.util.function.Supplier;
 public class ClientCertificateGenerator extends CertificateGenerator {
 
     private final Consumer<X509Certificate[]> callback;
+    private final CertificatesConfig certificatesConfig;
 
     /**
      * Constructor.
      *
-     * @param subject          X500 subject
-     * @param publicKey        Public Key
-     * @param callback         Callback that consumes generated certificate
-     * @param certificateStore CertificateStore instance
+     * @param subject            X500 subject
+     * @param publicKey          Public Key
+     * @param callback           Callback that consumes generated certificate
+     * @param certificateStore   CertificateStore instance
+     * @param certificatesConfig Certificate configuration
      */
     public ClientCertificateGenerator(X500Name subject, PublicKey publicKey, Consumer<X509Certificate[]> callback,
-                                      CertificateStore certificateStore) {
+                                      CertificateStore certificateStore, CertificatesConfig certificatesConfig) {
         super(subject, publicKey, certificateStore);
         this.callback = callback;
+        this.certificatesConfig = certificatesConfig;
     }
 
     /**
@@ -55,7 +58,7 @@ public class ClientCertificateGenerator extends CertificateGenerator {
                     subject,
                     publicKey,
                     Date.from(now),
-                    Date.from(now.plusSeconds(DEFAULT_CERT_EXPIRY_SECONDS)));
+                    Date.from(now.plusSeconds(certificatesConfig.getClientCertValiditySeconds())));
         } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException e) {
             throw new CertificateGenerationException(e);
         }

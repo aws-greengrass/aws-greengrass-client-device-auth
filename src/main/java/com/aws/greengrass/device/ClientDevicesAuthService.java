@@ -7,6 +7,7 @@ package com.aws.greengrass.device;
 
 import com.aws.greengrass.certificatemanager.CertificateManager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
+import com.aws.greengrass.certificatemanager.certificate.CertificatesConfig;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
@@ -78,6 +79,7 @@ public class ClientDevicesAuthService extends PluginService {
         this.certificateManager = certificateManager;
         this.clientFactory = clientFactory;
         this.deviceConfiguration = deviceConfiguration;
+        certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
     }
 
     /**
@@ -87,15 +89,15 @@ public class ClientDevicesAuthService extends PluginService {
      *  |         |---- definitions : {}
      *  |         |---- policies : {}
      *  |    |---- ca_type: [...]
+     *  |    |---- certificates: {}
      *  |---- runtime
      *  |    |---- ca_passphrase: "..."
-     *  |    |---- certificates
+     *  |    |---- certificates:
      *  |         |---- authorities: [...]
      */
     @Override
     protected void install() throws InterruptedException {
         super.install();
-        //handleConfiguration
         this.config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe((whatHappened, node) -> {
             if (whatHappened == WhatHappened.timestampUpdated || whatHappened == WhatHappened.interiorAdded) {
                 return;

@@ -8,8 +8,12 @@ package com.aws.greengrass.certificatemanager;
 import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
+import com.aws.greengrass.certificatemanager.certificate.CertificatesConfig;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
+import com.aws.greengrass.componentmanager.KernelConfigResolver;
+import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.Pair;
@@ -110,6 +114,9 @@ public class CertificateManagerTest {
         certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider, mockCertExpiryMonitor,
                 mockShadowMonitor);
         certificateManager.update("", CertificateStore.CAType.RSA_2048);
+        CertificatesConfig certificatesConfig = new CertificatesConfig(Topics.of(new Context(),
+                KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
+        certificateManager.updateCertificatesConfiguration(certificatesConfig);
     }
 
     public static PrivateKey getRsaPrivateKeyFromPem(String privateKeyString)

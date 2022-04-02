@@ -10,6 +10,7 @@ import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonito
 import com.aws.greengrass.certificatemanager.certificate.CertificateGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
+import com.aws.greengrass.certificatemanager.certificate.CertificatesConfig;
 import com.aws.greengrass.certificatemanager.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.certificatemanager.certificate.ServerCertificateGenerator;
@@ -47,6 +48,8 @@ public class CertificateManager {
     private final Map<Consumer<X509Certificate>, CertificateGenerator> serverCertSubscriptions =
             new ConcurrentHashMap<>();
 
+    private CertificatesConfig certificatesConfig;
+
     /**
      * Constructor.
      *
@@ -62,6 +65,10 @@ public class CertificateManager {
         this.connectivityInfoProvider = connectivityInfoProvider;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
+    }
+
+    public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
+        this.certificatesConfig = certificatesConfig;
     }
 
     /**
@@ -141,7 +148,7 @@ public class CertificateManager {
                             new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
                     CertificateGenerator certificateGenerator =
                             new ServerCertificateGenerator(jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb,
-                                    certificateStore);
+                                    certificateStore, certificatesConfig);
 
                     // Add certificate generator to monitors first in order to avoid missing events
                     // that happen while the initial certificate is being generated.
@@ -194,7 +201,7 @@ public class CertificateManager {
                     CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ClientCertificateGenerator(
-                    jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore);
+                    jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore, certificatesConfig);
             certificateGenerator.generateCertificate(Collections::emptyList);
             certExpiryMonitor.addToMonitor(certificateGenerator);
         } catch (KeyStoreException e) {

@@ -6,15 +6,20 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
+import com.aws.greengrass.componentmanager.KernelConfigResolver;
+import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
@@ -28,7 +33,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import static com.aws.greengrass.certificatemanager.certificate.CertificateGenerator.DEFAULT_CERT_EXPIRY_SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -45,14 +49,24 @@ public class CertificateExpiryMonitorTest {
 
     @Mock
     private ConnectivityInfoProvider mockConnectivityInfoProvider;
+
     private final ScheduledExecutorService ses = new ScheduledThreadPoolExecutor(1);
+    private Topics configurationTopics;
+    private CertificatesConfig certificatesConfig;
 
     @TempDir
     Path tmpPath;
 
+    @BeforeEach
+    void setup() {
+        configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
+        certificatesConfig = new CertificatesConfig(configurationTopics);
+    }
+
     @AfterEach
-    void afterEach() {
+    void afterEach() throws IOException {
         ses.shutdownNow();
+        configurationTopics.getContext().close();
     }
 
     @Test
@@ -68,17 +82,17 @@ public class CertificateExpiryMonitorTest {
         certExpiryMonitor.startMonitor(Duration.ofMillis(100));
 
         //add certs to monitor
-        CertificateGenerator cg1 = new ServerCertificateGenerator(subject, key1, mockCallback, certificateStore);
+        CertificateGenerator cg1 = new ServerCertificateGenerator(subject, key1, mockCallback, certificateStore, certificatesConfig);
         cg1.generateCertificate(Collections::emptyList);
         certExpiryMonitor.addToMonitor(cg1);
         X509Certificate cert1initial = cg1.getCertificate();
-        CertificateGenerator cg2 = new ServerCertificateGenerator(subject, key2, mockCallback, certificateStore);
+        CertificateGenerator cg2 = new ServerCertificateGenerator(subject, key2, mockCallback, certificateStore, certificatesConfig);
         cg2.generateCertificate(Collections::emptyList);
         certExpiryMonitor.addToMonitor(cg2);
         X509Certificate cert2initial = cg2.getCertificate();
 
         //cert1 expires -> it is regenerated
-        Clock mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(DEFAULT_CERT_EXPIRY_SECONDS)),
+        Clock mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS)),
                 ZoneId.of("UTC"));
         cg1.setClock(mockClock);
         TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);
@@ -88,7 +102,7 @@ public class CertificateExpiryMonitorTest {
         assertThat(cert2second, is(cert2initial));
 
         //cert2 expires -> it is regenerated
-        mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(DEFAULT_CERT_EXPIRY_SECONDS)), ZoneId.of("UTC"));
+        mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS)), ZoneId.of("UTC"));
         cg2.setClock(mockClock);
         TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);
         X509Certificate cert1third = cg1.getCertificate();
@@ -98,7 +112,7 @@ public class CertificateExpiryMonitorTest {
 
         //stop monitor, certs expire -> certs not regenerated
         certExpiryMonitor.stopMonitor();
-        mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(2*DEFAULT_CERT_EXPIRY_SECONDS)), ZoneId.of("UTC"));
+        mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(2*CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS)), ZoneId.of("UTC"));
         cg1.setClock(mockClock);
         cg2.setClock(mockClock);
         TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);

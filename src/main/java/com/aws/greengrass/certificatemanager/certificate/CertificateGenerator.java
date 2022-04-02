@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.function.Supplier;
 
 public abstract class CertificateGenerator {
-    static final long DEFAULT_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 1 week
-
     protected final X500Name subject;
     protected final PublicKey publicKey;
     protected final CertificateStore certificateStore;

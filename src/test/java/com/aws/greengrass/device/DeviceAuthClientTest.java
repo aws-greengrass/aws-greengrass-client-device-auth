@@ -11,7 +11,11 @@ import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateRequestGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
+import com.aws.greengrass.certificatemanager.certificate.CertificatesConfig;
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
+import com.aws.greengrass.componentmanager.KernelConfigResolver;
+import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.device.exception.AuthenticationException;
@@ -22,6 +26,8 @@ import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.Digest;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -80,6 +86,18 @@ public class DeviceAuthClientTest {
 
     @TempDir
     Path tempDir;
+
+    private Topics configurationTopics;
+
+    @BeforeEach
+    void beforeEach() {
+        configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
+    }
+
+    @AfterEach
+    void afterEach() throws IOException {
+        configurationTopics.getContext().close();
+    }
 
     @Test
     void GIVEN_emptySessionManager_WHEN_createSession_THEN_sessionReturned() throws Exception {
@@ -209,6 +227,7 @@ public class DeviceAuthClientTest {
         certificateStore.update("password", CertificateStore.CAType.RSA_2048);
         CertificateManager certificateManager = new CertificateManager(certificateStore, mockConnectivityInfoProvider,
                 mockCertExpiryMonitor, mockShadowMonitor);
+        certificateManager.updateCertificatesConfiguration(new CertificatesConfig(configurationTopics));
         KeyPair clientKeyPair = CertificateStore.newRSAKeyPair();
         String csr = CertificateRequestGenerator.createCSR(clientKeyPair, "Thing", null, null);
 
