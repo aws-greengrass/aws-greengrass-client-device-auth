@@ -19,6 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
@@ -50,6 +51,7 @@ public class CertificateExpiryMonitorTest {
     private ConnectivityInfoProvider mockConnectivityInfoProvider;
 
     private final ScheduledExecutorService ses = new ScheduledThreadPoolExecutor(1);
+    private Topics configurationTopics;
     private CertificatesConfig certificatesConfig;
 
     @TempDir
@@ -57,13 +59,14 @@ public class CertificateExpiryMonitorTest {
 
     @BeforeEach
     void setup() {
-        certificatesConfig = new CertificatesConfig(Topics.of(new Context(),
-                KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
+        configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
+        certificatesConfig = new CertificatesConfig(configurationTopics);
     }
 
     @AfterEach
-    void afterEach() {
+    void afterEach() throws IOException {
         ses.shutdownNow();
+        configurationTopics.getContext().close();
     }
 
     @Test

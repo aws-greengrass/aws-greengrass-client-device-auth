@@ -11,6 +11,7 @@ import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -51,6 +53,7 @@ public class ServerCertificateGeneratorTest {
     private Consumer<X509Certificate> mockCallback;
 
     private PublicKey publicKey;
+    private Topics configurationTopics;
     private CertificateGenerator certificateGenerator;
 
     @TempDir
@@ -62,10 +65,15 @@ public class ServerCertificateGeneratorTest {
         publicKey = CertificateStore.newRSAKeyPair().getPublic();
         CertificateStore certificateStore = new CertificateStore(tmpPath);
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
-        CertificatesConfig certificatesConfig = new CertificatesConfig(Topics.of(new Context(),
-                KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
+        configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
+        CertificatesConfig certificatesConfig = new CertificatesConfig(configurationTopics);
         certificateGenerator = new ServerCertificateGenerator(subject, publicKey, mockCallback, certificateStore,
                 certificatesConfig);
+    }
+
+    @AfterEach
+    void afterEach() throws IOException {
+        configurationTopics.getContext().close();
     }
 
     @Test

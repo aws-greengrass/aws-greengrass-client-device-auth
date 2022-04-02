@@ -9,10 +9,13 @@ import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.io.IOException;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -24,9 +27,14 @@ public class CertificatesConfigTest {
     private CertificatesConfig certificatesConfig;
 
     @BeforeEach
-    public void beforeEach() {
+    void beforeEach() {
         configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         certificatesConfig = new CertificatesConfig(configurationTopics);
+    }
+
+    @AfterEach
+    void afterEach() throws IOException {
+        configurationTopics.getContext().close();
     }
 
     @Test

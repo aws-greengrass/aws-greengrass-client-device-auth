@@ -15,7 +15,7 @@ public class CertificatesConfig {
     static final int DEFAULT_CLIENT_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
     private static final String CERTIFICATES_CONFIGURATION = "certificates";
-    private static final String SERVER_CERT_VALIDITY_SECONDS = "server_cert_validity_seconds";
+    private static final String SERVER_CERT_VALIDITY_SECONDS = "serverCertificateValiditySeconds";
 
     static final String[] PATH_SERVER_CERT_EXPIRY_SECONDS =
             {KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CERTIFICATES_CONFIGURATION, SERVER_CERT_VALIDITY_SECONDS};
