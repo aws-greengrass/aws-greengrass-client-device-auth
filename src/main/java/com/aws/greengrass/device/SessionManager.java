@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.device;
 
-import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -61,13 +60,10 @@ public class SessionManager {
      * close the session by id.
      *
      * @param sessionId session identifier
-     * @throws AuthorizationException if no session associated with sessionId
      */
-    public void closeSession(String sessionId) throws AuthorizationException {
+    public void closeSession(String sessionId) {
         logger.atInfo().kv(SESSION_ID, sessionId).log("Closing the session");
         Session session = sessionMap.get(sessionId);
-        if (!sessionMap.remove(sessionId, session)) {
-            throw new AuthorizationException(String.format("No session is associated with session id (%s)", sessionId));
-        }
+        sessionMap.remove(sessionId, session);
     }
 }

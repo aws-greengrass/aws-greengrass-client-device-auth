@@ -152,7 +152,7 @@ public class DeviceAuthClient {
         return sessionManager.createSession(new Certificate(certificateHash, certificateId.get()));
     }
 
-    public void closeSession(String sessionId) throws AuthorizationException {
+    public void closeSession(String sessionId) {
         sessionManager.closeSession(sessionId);
     }
 

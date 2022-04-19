@@ -6,7 +6,6 @@
 package com.aws.greengrass.device;
 
 
-import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.hamcrest.collection.IsMapContaining;
@@ -21,7 +20,6 @@ import java.util.Map;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -36,11 +34,6 @@ class SessionManagerTest {
         assertThat(sessionManager.findSession(id), notNullValue());
         sessionManager.closeSession(id);
         assertThat(sessionManager.findSession(id), nullValue());
-    }
-
-    @Test
-    void GIVEN_session_not_exist_WHEN_close_session_THEN_throw_exception() {
-        assertThrows(AuthorizationException.class, () -> sessionManager.closeSession("id"));
     }
 
     @Test
