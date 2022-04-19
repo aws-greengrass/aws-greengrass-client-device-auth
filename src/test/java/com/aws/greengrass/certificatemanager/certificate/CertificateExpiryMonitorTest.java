@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.file.Path;
@@ -27,23 +26,25 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateExpiryMonitorTest {
     private static final String TEST_PASSPHRASE = "testPassphrase";
     private static final String SUBJECT_PRINCIPAL
             = "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
-    private static final long TEST_CERT_EXPIRY_CHECK_MILLIS = 200;
 
     @Mock
     private Consumer<X509Certificate> mockCallback;
@@ -54,7 +55,13 @@ public class CertificateExpiryMonitorTest {
     @Mock
     private Topics mockConfigurationTopics;
 
-    private final ScheduledExecutorService ses = new ScheduledThreadPoolExecutor(1);
+    @Mock
+    private ScheduledExecutorService ses;
+
+    @Mock
+    private ScheduledFuture<?> scheduledFuture;
+
+    private CertificateExpiryMonitor certExpiryMonitor;
 
     private CertificatesConfig certificatesConfig;
 
@@ -63,17 +70,20 @@ public class CertificateExpiryMonitorTest {
 
     @BeforeEach
     void setup() {
+        certExpiryMonitor = new CertificateExpiryMonitor(ses, mockConnectivityInfoProvider);
+        certExpiryMonitor.startMonitor(Duration.ofMillis(100));
         certificatesConfig = new CertificatesConfig(mockConfigurationTopics);
     }
 
     @AfterEach
-    void afterEach() {
-        ses.shutdownNow();
+    void shutdown() {
+        certExpiryMonitor.stopMonitor();
     }
 
     @Test
     public void GIVEN_certs_added_to_monitor_WHEN_expired_THEN_regenerated() throws Exception {
-        Mockito.when(mockConfigurationTopics.findOrDefault(any(), any())).thenReturn(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS);
+        when(mockConfigurationTopics.findOrDefault(any(), any())).thenReturn(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS);
+        doReturn(scheduledFuture).when(ses).scheduleAtFixedRate(any(), anyLong(), anyLong(), any(TimeUnit.class));
         CertificateStore certificateStore = new CertificateStore(tmpPath);
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
         X500Name subject = new X500Name(SUBJECT_PRINCIPAL);
@@ -98,16 +108,16 @@ public class CertificateExpiryMonitorTest {
         Clock mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS)),
                 ZoneId.of("UTC"));
         cg1.setClock(mockClock);
-        TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);
+        certExpiryMonitor.watchForCertExpiryOnce();
         X509Certificate cert1second = cg1.getCertificate();
-        assertThat(cert1second, is(not(cert1initial)));
+        assertThat(cert1second, not(cert1initial));
         X509Certificate cert2second = cg2.getCertificate();
         assertThat(cert2second, is(cert2initial));
 
         //cert2 expires -> it is regenerated
         mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS)), ZoneId.of("UTC"));
         cg2.setClock(mockClock);
-        TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);
+        certExpiryMonitor.watchForCertExpiryOnce();
         X509Certificate cert1third = cg1.getCertificate();
         assertThat(cert1third, is(cert1second));
         X509Certificate cert2third = cg2.getCertificate();
@@ -115,10 +125,14 @@ public class CertificateExpiryMonitorTest {
 
         //stop monitor, certs expire -> certs not regenerated
         certExpiryMonitor.stopMonitor();
+        verify(scheduledFuture).cancel(true);
+
         mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(2*CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS)), ZoneId.of("UTC"));
         cg1.setClock(mockClock);
         cg2.setClock(mockClock);
-        TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);
+
+        // watchForCertExpiryOnce() is not called because certExpiryMonitor is stopped.
+
         X509Certificate cert1fourth = cg1.getCertificate();
         assertThat(cert1fourth, is(cert1third));
         X509Certificate cert2fourth = cg2.getCertificate();
@@ -127,11 +141,9 @@ public class CertificateExpiryMonitorTest {
 
     @Test
     public void GIVEN_certs_with_max_duration_WHEN_time_greater_than_default_THEN_not_generated() throws Exception {
-        Mockito.when(mockConfigurationTopics.findOrDefault(any(), any())).thenReturn(CertificatesConfig.MAX_SERVER_CERT_EXPIRY_SECONDS);
+        when(mockConfigurationTopics.findOrDefault(any(), any())).thenReturn(CertificatesConfig.MAX_SERVER_CERT_EXPIRY_SECONDS);
         CertificateStore certificateStore = new CertificateStore(tmpPath);
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
-        CertificateExpiryMonitor certExpiryMonitor = new CertificateExpiryMonitor(ses, mockConnectivityInfoProvider);
-        certExpiryMonitor.startMonitor(Duration.ofMillis(100));
         X500Name subject = new X500Name(SUBJECT_PRINCIPAL);
         PublicKey key1 = CertificateStore.newRSAKeyPair().getPublic();
 
@@ -145,7 +157,7 @@ public class CertificateExpiryMonitorTest {
         Clock mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS)),
                 ZoneId.of("UTC"));
         cg1.setClock(mockClock);
-        TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);
+        certExpiryMonitor.watchForCertExpiryOnce();
         X509Certificate cert1second = cg1.getCertificate();
         assertThat(cert1second, is(cert1initial));
 
@@ -154,7 +166,7 @@ public class CertificateExpiryMonitorTest {
         mockClock = Clock.fixed(Instant.now().plus(Duration.ofSeconds(CertificatesConfig.MAX_SERVER_CERT_EXPIRY_SECONDS)),
                 ZoneId.of("UTC"));
         cg1.setClock(mockClock);
-        TimeUnit.MILLISECONDS.sleep(TEST_CERT_EXPIRY_CHECK_MILLIS);
+        certExpiryMonitor.watchForCertExpiryOnce();
         X509Certificate cert1third = cg1.getCertificate();
         assertThat(cert1third, not(cert1initial));
 

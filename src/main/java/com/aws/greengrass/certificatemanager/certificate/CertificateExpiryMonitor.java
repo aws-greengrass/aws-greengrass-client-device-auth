@@ -56,7 +56,7 @@ public class CertificateExpiryMonitor {
                 certExpiryCheck.toMillis(), TimeUnit.MILLISECONDS);
     }
 
-    private void watchForCertExpiryOnce() {
+    void watchForCertExpiryOnce() {
         for (CertificateGenerator cg : monitoredCertificateGenerators) {
             if (!cg.shouldRegenerate()) {
                 continue;
