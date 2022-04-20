@@ -24,6 +24,9 @@ import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
+import com.aws.greengrass.device.session.Session;
+import com.aws.greengrass.device.session.SessionImpl;
+import com.aws.greengrass.device.session.SessionManager;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.Digest;
 import org.junit.jupiter.api.AfterEach;
@@ -103,7 +106,7 @@ public class DeviceAuthClientTest {
     void GIVEN_emptySessionManager_WHEN_createSession_THEN_sessionReturned() throws Exception {
         String certificatePem = "FAKE_PEM";
         when(iotClient.getActiveCertificateId(certificatePem)).thenReturn(Optional.of("certificateId"));
-        when(sessionManager.createSession(any())).thenReturn("sessionId");
+        when(sessionManager.createSession(any(Certificate.class))).thenReturn("sessionId");
         String sessionId = authClient.createSession(certificatePem);
         assertThat(sessionId, is("sessionId"));
         String certificateHash = Digest.calculateWithUrlEncoderNoPadding(certificatePem);
@@ -137,7 +140,7 @@ public class DeviceAuthClientTest {
         String certificatePem = "FAKE_PEM";
         when(iotClient.getActiveCertificateId(certificatePem)).thenReturn(Optional.of("certificateId"));
         doThrow(IOException.class).when(certificateStore).storeDeviceCertificateIfNotPresent(any(), any());
-        when(sessionManager.createSession(any())).thenReturn("sessionId");
+        when(sessionManager.createSession(any(Certificate.class))).thenReturn("sessionId");
 
         String sessionId = authClient.createSession(certificatePem);
         assertThat(sessionId, is("sessionId"));

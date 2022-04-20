@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.device.configuration;
 
-import com.aws.greengrass.device.Session;
+import com.aws.greengrass.device.session.Session;
 
 import java.util.Collections;
 import java.util.HashSet;

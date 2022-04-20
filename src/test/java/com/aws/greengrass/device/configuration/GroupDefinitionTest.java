@@ -5,8 +5,8 @@
 
 package com.aws.greengrass.device.configuration;
 
-import com.aws.greengrass.device.Session;
-import com.aws.greengrass.device.SessionImpl;
+import com.aws.greengrass.device.session.Session;
+import com.aws.greengrass.device.session.SessionImpl;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.attribute.WildcardSuffixAttribute;
 import com.aws.greengrass.device.configuration.parser.ParseException;

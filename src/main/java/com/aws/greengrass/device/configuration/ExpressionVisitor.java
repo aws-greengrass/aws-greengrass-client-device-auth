@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.device.configuration;
 
-import com.aws.greengrass.device.Session;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
 import com.aws.greengrass.device.configuration.parser.ASTAnd;
 import com.aws.greengrass.device.configuration.parser.ASTOr;
@@ -13,6 +12,7 @@ import com.aws.greengrass.device.configuration.parser.ASTStart;
 import com.aws.greengrass.device.configuration.parser.ASTThing;
 import com.aws.greengrass.device.configuration.parser.RuleExpressionVisitor;
 import com.aws.greengrass.device.configuration.parser.SimpleNode;
+import com.aws.greengrass.device.session.Session;
 
 public class ExpressionVisitor implements RuleExpressionVisitor {
     @Override
