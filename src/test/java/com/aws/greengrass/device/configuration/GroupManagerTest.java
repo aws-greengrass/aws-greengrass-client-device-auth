@@ -102,7 +102,7 @@ public class GroupManagerTest {
 
     private Session getSessionFromThing(String thingName) {
         Thing thing = new Thing(thingName);
-        Session session = new SessionImpl(new Certificate("FAKE_PEM_HASH", "FAKE_CERT_ID"));
+        Session session = new SessionImpl(new Certificate("FAKE_CERT_ID"));
         session.putAttributeProvider(thing.getNamespace(), thing);
         return session;
     }

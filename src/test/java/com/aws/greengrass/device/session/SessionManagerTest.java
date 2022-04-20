@@ -30,7 +30,7 @@ class SessionManagerTest {
 
     @Test
     void GIVEN_session_exist_WHEN_close_session_THEN_succeed() throws Exception {
-        String id = sessionManager.createSession(new Certificate("pem", "certificateId"));
+        String id = sessionManager.createSession(new Certificate("certificateId"));
         assertThat(sessionManager.findSession(id), notNullValue());
         sessionManager.closeSession(id);
         assertThat(sessionManager.findSession(id), nullValue());
@@ -39,8 +39,8 @@ class SessionManagerTest {
     @Test
     void Given_generateIdCollision_WHEN_createSession_THEN_retryTillUniqueId() {
         when(sessionManager.generateSessionId()).thenReturn("id1", "id1", "id1", "id2");
-        sessionManager.createSession(new Certificate("pem", "certificateId"));
-        sessionManager.createSession(new Certificate("pem", "certificateId"));
+        sessionManager.createSession(new Certificate("certificateId"));
+        sessionManager.createSession(new Certificate("certificateId"));
 
         Map<String, Session> sessionMap = sessionManager.getSessionMap();
         assertThat(sessionMap, IsMapWithSize.aMapWithSize(2));

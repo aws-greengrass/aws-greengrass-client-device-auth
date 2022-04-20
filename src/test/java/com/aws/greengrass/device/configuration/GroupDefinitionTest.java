@@ -46,6 +46,6 @@ public class GroupDefinitionTest {
     void GIVEN_groupDefinitionAndNonMatchingSession_WHEN_containsSession_THEN_returnsFalse() throws ParseException {
         GroupDefinition groupDefinition = new GroupDefinition("thingName: thing", "Policy1");
         assertThat(groupDefinition.containsClientDevice(
-                new SessionImpl(new Certificate("FAKE_PEM_HASH", "FAKE_CERT_ID"))), is(false));
+                new SessionImpl(new Certificate("FAKE_CERT_ID"))), is(false));
     }
 }

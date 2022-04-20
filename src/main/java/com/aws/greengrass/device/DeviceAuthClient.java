@@ -142,16 +142,7 @@ public class DeviceAuthClient {
             throw new AuthenticationException("Certificate isn't active");
         }
 
-        String certificateHash = CertificateStore.computeCertificatePemHash(certificatePem);
-        // for simplicity, synchronously store the PEM on disk.
-        try {
-            certificateStore.storeDeviceCertificateIfNotPresent(certificateHash, certificatePem);
-        } catch (IOException e) {
-            // allow to continue even failed to store, session health check will invalid the session later
-            logger.atError().cause(e).kv("certificatePem", certificatePem)
-                    .log("Failed to store certificate on disk");
-        }
-        return sessionManager.createSession(new Certificate(certificateHash, certificateId.get()));
+        return sessionManager.createSession(new Certificate(certificateId.get()));
     }
 
     public void closeSession(String sessionId) {
