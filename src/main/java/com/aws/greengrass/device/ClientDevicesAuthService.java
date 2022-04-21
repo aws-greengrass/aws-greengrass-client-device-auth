@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.device;
 
+import com.aws.greengrass.authorization.AuthorizationHandler;
+import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.certificatemanager.CertificateManager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CertificatesConfig;
@@ -16,6 +18,7 @@ import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
+import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
@@ -23,6 +26,7 @@ import com.aws.greengrass.util.RetryUtils;
 import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuthoritiesRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
@@ -32,10 +36,13 @@ import java.security.KeyStoreException;
 import java.security.cert.CertificateEncodingException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import javax.inject.Inject;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
+import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.SUBSCRIBE_TO_CERTIFICATE_UPDATES;
 
 @SuppressWarnings("PMD.DataClass")
 @ImplementsService(name = ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
@@ -60,40 +67,48 @@ public class ClientDevicesAuthService extends PluginService {
     private final GreengrassServiceClientFactory clientFactory;
 
     private final DeviceConfiguration deviceConfiguration;
+    private final AuthorizationHandler authorizationHandler;
+    private final GreengrassCoreIPCService greengrassCoreIPCService;
 
     /**
      * Constructor.
      *
-     * @param topics             Root Configuration topic for this service
-     * @param groupManager       Group configuration management
-     * @param certificateManager  Certificate management
-     * @param clientFactory      Greengrass cloud service client factory
-     * @param deviceConfiguration core device configuration
+     * @param topics                   Root Configuration topic for this service
+     * @param groupManager             Group configuration management
+     * @param certificateManager       Certificate management
+     * @param clientFactory            Greengrass cloud service client factory
+     * @param deviceConfiguration      core device configuration
+     * @param authorizationHandler     authorization handler for IPC calls
+     * @param greengrassCoreIPCService core IPC service
      */
     @Inject
     public ClientDevicesAuthService(Topics topics, GroupManager groupManager, CertificateManager certificateManager,
                                     GreengrassServiceClientFactory clientFactory,
-                                    DeviceConfiguration deviceConfiguration) {
+                                    DeviceConfiguration deviceConfiguration,
+                                    AuthorizationHandler authorizationHandler,
+                                    GreengrassCoreIPCService greengrassCoreIPCService) {
         super(topics);
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
         this.clientFactory = clientFactory;
         this.deviceConfiguration = deviceConfiguration;
+        this.authorizationHandler = authorizationHandler;
+        this.greengrassCoreIPCService = greengrassCoreIPCService;
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
     }
 
     /**
      * Certificate Manager Service uses the following topic structure:
-     *  |---- configuration
-     *  |    |---- deviceGroups:
-     *  |         |---- definitions : {}
-     *  |         |---- policies : {}
-     *  |    |---- ca_type: [...]
-     *  |    |---- certificates: {}
-     *  |---- runtime
-     *  |    |---- ca_passphrase: "..."
-     *  |    |---- certificates:
-     *  |         |---- authorities: [...]
+     * |---- configuration
+     * |    |---- deviceGroups:
+     * |         |---- definitions : {}
+     * |         |---- policies : {}
+     * |    |---- ca_type: [...]
+     * |    |---- certificates: {}
+     * |---- runtime
+     * |    |---- ca_passphrase: "..."
+     * |    |---- certificates:
+     * |         |---- authorities: [...]
      */
     @Override
     protected void install() throws InterruptedException {
@@ -214,5 +229,19 @@ public class ClientDevicesAuthService extends PluginService {
             throw new CloudServiceInteractionException(
                     String.format("Failed to put core %s CA certificates to cloud", thingName), e);
         }
+    }
+
+    @Override
+    public void postInject() {
+        super.postInject();
+        try {
+            authorizationHandler.registerComponent(this.getName(),
+                    new HashSet<>(Collections.singletonList(SUBSCRIBE_TO_CERTIFICATE_UPDATES)));
+        } catch (AuthorizationException e) {
+            logger.atError("initialize-cda-service-authorization-error", e)
+                    .log("Failed to initialize the client device auth service with the Authorization module.");
+        }
+        greengrassCoreIPCService.setSubscribeToCertificateUpdatesHandler(context ->
+                new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
     }
 }

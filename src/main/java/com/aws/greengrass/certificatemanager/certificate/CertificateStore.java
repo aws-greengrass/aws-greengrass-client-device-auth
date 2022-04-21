@@ -10,6 +10,7 @@ import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Digest;
+import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.FileSystemPermission;
 import com.aws.greengrass.util.platforms.Platform;
 import lombok.AccessLevel;
@@ -41,6 +42,8 @@ import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
 import java.util.Date;
 import javax.inject.Inject;
+
+import static com.aws.greengrass.certificatemanager.certificate.CertificateHelper.PEM_BOUNDARY_CERTIFICATE;
 
 public class CertificateStore {
     private static final long   DEFAULT_CA_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
@@ -210,8 +213,19 @@ public class CertificateStore {
      * @throws NoSuchAlgorithmException if unable to generate RSA key
      */
     public static KeyPair newRSAKeyPair() throws NoSuchAlgorithmException {
+        return newRSAKeyPair(RSA_KEY_LENGTH);
+    }
+
+    /**
+     * Generates an RSA key pair.
+     *
+     * @param keySize key size
+     * @return RSA KeyPair
+     * @throws NoSuchAlgorithmException if unable to generate RSA key
+     */
+    public static KeyPair newRSAKeyPair(int keySize) throws NoSuchAlgorithmException {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance(CertificateHelper.KEY_TYPE_RSA);
-        kpg.initialize(RSA_KEY_LENGTH);
+        kpg.initialize(keySize);
         return kpg.generateKeyPair();
     }
 
@@ -268,7 +282,8 @@ public class CertificateStore {
         // TODO: Clean this up
         // Temporarily store public CA since CA information is not yet available in cloud
         X509Certificate caCert = getCACertificate();
-        saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME), CertificateHelper.toPem(caCert));
+        saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME),
+                EncryptionUtils.encodeToPem(PEM_BOUNDARY_CERTIFICATE,caCert.getEncoded()));
     }
 
     private String loadCertificatePem(Path filePath) throws IOException {

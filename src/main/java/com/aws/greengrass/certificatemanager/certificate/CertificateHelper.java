@@ -69,6 +69,9 @@ public final class CertificateHelper {
     private static final String X500_DISTINGUISHED_NAME_LOCALITY_NAME = "Seattle";
     private static final String X500_DISTINGUISHED_NAME_ORGANIZATION_NAME = "Amazon.com Inc.";
     private static final String X500_DISTINGUISHED_NAME_ORGANIZATION_UNIT_NAME = "Amazon Web Services";
+    public static final String PEM_BOUNDARY_CERTIFICATE = "CERTIFICATE";
+    public static final String PEM_BOUNDARY_PUBLIC_KEY = "PUBLIC KEY";
+    public static final String PEM_BOUNDARY_PRIVATE_KEY = "PRIVATE KEY";
 
     private CertificateHelper() {
     }
@@ -218,6 +221,7 @@ public final class CertificateHelper {
         }
     }
 
+
     /**
      * Convert an X509Certificate into a PEM encoded string.
      *
@@ -227,7 +231,7 @@ public final class CertificateHelper {
      * @throws CertificateEncodingException If unable to get certificate encoding
      */
     public static String toPem(X509Certificate certificate) throws IOException, CertificateEncodingException {
-        PemObject pemObject = new PemObject("CERTIFICATE", certificate.getEncoded());
+        PemObject pemObject = new PemObject(PEM_BOUNDARY_CERTIFICATE, certificate.getEncoded());
 
         try (StringWriter str = new StringWriter();
              JcaPEMWriter pemWriter = new JcaPEMWriter(str)) {
