@@ -142,7 +142,7 @@ public class DeviceAuthClient {
             throw new AuthenticationException("Certificate isn't active");
         }
 
-        return sessionManager.createSession(new Certificate(certificateId.get()));
+        return sessionManager.createSession("mqtt", Collections.singletonMap("certificatePem", certificatePem));
     }
 
     public void closeSession(String sessionId) {
