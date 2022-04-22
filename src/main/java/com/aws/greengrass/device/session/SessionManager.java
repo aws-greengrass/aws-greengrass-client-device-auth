@@ -63,7 +63,7 @@ public class SessionManager {
      */
     public String createSession(String credentialType, Map<String, String> credentialMap)
             throws AuthenticationException {
-        Session session = AbstractSessionFactory.createSession(credentialType, credentialMap);
+        Session session = SessionCreator.createSession(credentialType, credentialMap);
         String externalId = generateSessionId();
         while (externalToInternalSessionMap.containsKey(externalId)) {
             externalId = generateSessionId();

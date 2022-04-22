@@ -60,7 +60,7 @@ class SessionManagerTest {
 
     @BeforeEach
     void beforeEach() throws AuthenticationException {
-        AbstractSessionFactory.registerSessionFactory(CREDENTIAL_TYPE, mockSessionFactory);
+        SessionCreator.registerSessionFactory(CREDENTIAL_TYPE, mockSessionFactory);
         lenient().when(mockSessionFactory.createSession(credentialMap)).thenReturn(mockSession);
         lenient().when(mockSessionFactory.createSession(credentialMap2)).thenReturn(mockSession2);
         lenient().when(mockSessionFactory.createSession(invalidCredentialMap)).thenThrow(new AuthenticationException(""));
@@ -68,7 +68,7 @@ class SessionManagerTest {
 
     @AfterEach
     void afterEach() {
-        AbstractSessionFactory.unregisterSessionFactory(CREDENTIAL_TYPE);
+        SessionCreator.unregisterSessionFactory(CREDENTIAL_TYPE);
     }
 
     @Test

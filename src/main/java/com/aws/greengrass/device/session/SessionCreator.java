@@ -12,19 +12,19 @@ import com.aws.greengrass.logging.impl.LogManager;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class AbstractSessionFactory {
-    private static final Logger logger = LogManager.getLogger(AbstractSessionFactory.class);
+public class SessionCreator {
+    private static final Logger logger = LogManager.getLogger(SessionCreator.class);
 
     @SuppressWarnings("PMD.UnusedPrivateField")
     private final Map<String, SessionFactory> factoryMap;
 
-    private AbstractSessionFactory() {
+    private SessionCreator() {
         factoryMap = new ConcurrentHashMap<>();
     }
 
     private static class SessionFactorySingleton {
         @SuppressWarnings("PMD.AccessorClassGeneration")
-        private static final AbstractSessionFactory INSTANCE = new AbstractSessionFactory();
+        private static final SessionCreator INSTANCE = new SessionCreator();
     }
 
     /**

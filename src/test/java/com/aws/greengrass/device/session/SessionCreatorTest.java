@@ -23,7 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
-public class AbstractSessionFactoryTest {
+public class SessionCreatorTest {
     private static final String mqttCredentialType = "mqtt";
     private static final String unknownCredentialType = "unknown";
 
@@ -32,13 +32,13 @@ public class AbstractSessionFactoryTest {
 
     @AfterEach
     void afterEach() {
-        AbstractSessionFactory.unregisterSessionFactory(mqttCredentialType);
+        SessionCreator.unregisterSessionFactory(mqttCredentialType);
     }
 
     @Test
     void GIVEN_noRegisteredFactories_WHEN_createSession_THEN_throwsException() {
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> AbstractSessionFactory.createSession(mqttCredentialType, new HashMap<>()));
+                () -> SessionCreator.createSession(mqttCredentialType, new HashMap<>()));
     }
 
     @Test
@@ -47,14 +47,14 @@ public class AbstractSessionFactoryTest {
         Session mockSession = mock(SessionImpl.class);
         when(mqttSessionFactory.createSession(any())).thenReturn(mockSession);
 
-        AbstractSessionFactory.registerSessionFactory(mqttCredentialType, mqttSessionFactory);
-        assertThat(AbstractSessionFactory.createSession(mqttCredentialType, new HashMap<>()), is(mockSession));
+        SessionCreator.registerSessionFactory(mqttCredentialType, mqttSessionFactory);
+        assertThat(SessionCreator.createSession(mqttCredentialType, new HashMap<>()), is(mockSession));
     }
 
     @Test
     void GIVEN_registeredMqttSessionFactory_WHEN_createSession_WithNonMqttCredentials_THEN_throwsException() {
-        AbstractSessionFactory.registerSessionFactory(mqttCredentialType, mqttSessionFactory);
+        SessionCreator.registerSessionFactory(mqttCredentialType, mqttSessionFactory);
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> AbstractSessionFactory.createSession(unknownCredentialType, new HashMap<>()));
+                () -> SessionCreator.createSession(unknownCredentialType, new HashMap<>()));
     }
 }
