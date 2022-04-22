@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.utils.ImmutableMap;
 
@@ -25,13 +24,11 @@ import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNot.not;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class SessionManagerTest {
     private static final String CREDENTIAL_TYPE = "mqtt";
 
-    @Spy
     private SessionManager sessionManager;
     @Mock
     private MqttSessionFactory mockSessionFactory;
@@ -60,6 +57,7 @@ class SessionManagerTest {
 
     @BeforeEach
     void beforeEach() throws AuthenticationException {
+        sessionManager = new SessionManager();
         SessionCreator.registerSessionFactory(CREDENTIAL_TYPE, mockSessionFactory);
         lenient().when(mockSessionFactory.createSession(credentialMap)).thenReturn(mockSession);
         lenient().when(mockSessionFactory.createSession(credentialMap2)).thenReturn(mockSession2);
@@ -110,15 +108,5 @@ class SessionManagerTest {
     void GIVEN_invalidExternalSessionID_WHEN_closeSession_THEN_noActionNeeded() {
         // Should not throw
         sessionManager.closeSession("invalid ID");
-    }
-
-    @Test
-    void GIVEN_externalIdCollision_WHEN_createSession_THEN_retryTillUniqueId() throws AuthenticationException {
-        when(sessionManager.generateSessionId()).thenReturn("id1", "id1", "id1", "id2");
-
-        String id1 = sessionManager.createSession(CREDENTIAL_TYPE, credentialMap);
-        String id2 = sessionManager.createSession(CREDENTIAL_TYPE, credentialMap);
-        assertThat(id1, is("id1"));
-        assertThat(id2, is("id2"));
     }
 }

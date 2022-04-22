@@ -130,7 +130,6 @@ public class DeviceAuthClient {
         return false;
     }
 
-    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
     private String createSessionForClientDevice(String certificatePem) throws AuthenticationException {
         Optional<String> certificateId;
         try {
@@ -142,7 +141,7 @@ public class DeviceAuthClient {
             throw new AuthenticationException("Certificate isn't active");
         }
 
-        return sessionManager.createSession("mqtt", Collections.singletonMap("certificatePem", certificatePem));
+        return sessionManager.createSession(new Certificate(certificateId.get()));
     }
 
     public void closeSession(String sessionId) {

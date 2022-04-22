@@ -43,7 +43,6 @@ import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -104,13 +103,13 @@ public class DeviceAuthClientTest {
     void GIVEN_emptySessionManager_WHEN_createSession_THEN_sessionReturned() throws Exception {
         String certificatePem = "FAKE_PEM";
         when(iotClient.getActiveCertificateId(certificatePem)).thenReturn(Optional.of("certificateId"));
-        when(sessionManager.createSession(any(), any())).thenReturn("sessionId");
+        when(sessionManager.createSession(any())).thenReturn("sessionId");
         String sessionId = authClient.createSession(certificatePem);
         assertThat(sessionId, is("sessionId"));
-        ArgumentCaptor<Map> argumentCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(sessionManager).createSession(any(), argumentCaptor.capture());
-        Map credentialMap = argumentCaptor.getValue();
-        assertThat(credentialMap.get("certificatePem"), is("FAKE_PEM"));
+        ArgumentCaptor<Certificate> argumentCaptor = ArgumentCaptor.forClass(Certificate.class);
+        verify(sessionManager).createSession(argumentCaptor.capture());
+        Certificate certificate = argumentCaptor.getValue();
+        assertThat(certificate.getIotCertificateId(), is("certificateId"));
     }
 
     @Test

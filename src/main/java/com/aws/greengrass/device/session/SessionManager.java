@@ -6,6 +6,7 @@
 package com.aws.greengrass.device.session;
 
 import com.aws.greengrass.device.exception.AuthenticationException;
+import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Pair;
@@ -55,7 +56,19 @@ public class SessionManager {
     }
 
     /**
-     * create session with certificate.
+     * Create session with certificate.
+     *
+     * @deprecated Sessions should be created using device credentials instead of certificates
+     * @param certificate Client device certificate
+     * @return session id
+     */
+    @Deprecated public String createSession(Certificate certificate) {
+        Session session = new SessionImpl(certificate);
+        return addSessionInternal(session, certificate);
+    }
+
+    /**
+     * Create session with device credentials.
      *
      * @param credentialType Device credential type
      * @param credentialMap  Device credential map
@@ -65,20 +78,7 @@ public class SessionManager {
     public String createSession(String credentialType, Map<String, String> credentialMap)
             throws AuthenticationException {
         Session session = SessionCreator.createSession(credentialType, credentialMap);
-        String internalId = getInternalSessionId(credentialMap);
-        String externalId = generateSessionId();
-
-        // The change of id collisions is low, but retry just in case
-        while (externalToInternalSessionMap.containsKey(externalId)) {
-            externalId = generateSessionId();
-        }
-
-        logger.atDebug().kv(SESSION_ID, externalId).kv(INTERNAL_SESSION_ID, internalId).log("Creating new session");
-        String previousExternalId = addSessionInternal(externalId, internalId, session);
-        if (previousExternalId != null) {
-            logger.atDebug().kv(SESSION_ID, previousExternalId).log("Evicting previous session");
-        }
-        return externalId;
+        return addSessionInternal(session, credentialMap);
     }
 
     /**
@@ -91,35 +91,44 @@ public class SessionManager {
         closeSessionInternal(sessionId);
     }
 
-    String generateSessionId() {
-        return UUID.randomUUID().toString();
-    }
-
-    private String getInternalSessionId(Map<String, String> credentialMap) {
-        return String.valueOf(credentialMap.hashCode());
-    }
-
     private synchronized void closeSessionInternal(String externalId) {
         String internalSessionId = externalToInternalSessionMap.get(externalId);
         if (internalSessionId == null) {
             // Session has already been evicted
             return;
         }
-        externalToInternalSessionMap.remove(externalId, internalSessionId);
-        Session session = sessionMap.get(internalSessionId).getRight();
-        sessionMap.remove(internalSessionId, session);
+        externalToInternalSessionMap.remove(externalId);
+        sessionMap.remove(internalSessionId);
     }
 
     /*
-     * Returns an external session ID, if one was present and was evicted. Else, null
+     * Returns external session ID
      */
-    private synchronized String addSessionInternal(String externalId, String internalId, Session session) {
+    private synchronized String addSessionInternal(Session session, Object credentials) {
+        String internalId = generateInternalSessionId(credentials);
+        String externalId = generateExternalSessionId();
+        logger.atDebug().kv(SESSION_ID, externalId).kv(INTERNAL_SESSION_ID, internalId).log("Creating new session");
+
         Pair<String, Session> existingPair = sessionMap.put(internalId, new Pair<>(externalId, session));
         externalToInternalSessionMap.put(externalId, internalId);
         if (existingPair != null) {
             externalToInternalSessionMap.remove(existingPair.getLeft());
-            return existingPair.getLeft();
+            logger.atDebug().kv(SESSION_ID, existingPair.getLeft()).log("Evicting previous session");
         }
-        return null;
+        return externalId;
     }
+
+    String generateInternalSessionId(Object credentials) {
+        // TODO: Replace with a better hashing mechanism to avoid unnecessary collisions
+        return String.valueOf(credentials.hashCode());
+    }
+
+    String generateExternalSessionId() {
+        String externalId;
+        do {
+            externalId = UUID.randomUUID().toString();
+        } while (externalToInternalSessionMap.containsKey(externalId));
+        return externalId;
+    }
+
 }
