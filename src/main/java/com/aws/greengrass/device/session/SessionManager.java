@@ -21,7 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
-    public static final String SESSION_ID = "SessionId";
+    private static final String SESSION_ID = "SessionId";
+    private static final String INTERNAL_SESSION_ID = "InternalSessionId";
 
     // There are two types of Session IDs defined here. Internal session IDs
     // are derived by hashing device credentials. This is done so that we can
@@ -64,12 +65,15 @@ public class SessionManager {
     public String createSession(String credentialType, Map<String, String> credentialMap)
             throws AuthenticationException {
         Session session = SessionCreator.createSession(credentialType, credentialMap);
+        String internalId = getInternalSessionId(credentialMap);
         String externalId = generateSessionId();
+
+        // The change of id collisions is low, but retry just in case
         while (externalToInternalSessionMap.containsKey(externalId)) {
             externalId = generateSessionId();
         }
-        String internalId = getInternalSessionId(credentialMap);
-        logger.atDebug().kv(SESSION_ID, externalId).log("Creating new session");
+
+        logger.atDebug().kv(SESSION_ID, externalId).kv(INTERNAL_SESSION_ID, internalId).log("Creating new session");
         String previousExternalId = addSessionInternal(externalId, internalId, session);
         if (previousExternalId != null) {
             logger.atDebug().kv(SESSION_ID, previousExternalId).log("Evicting previous session");
@@ -110,8 +114,7 @@ public class SessionManager {
      * Returns an external session ID, if one was present and was evicted. Else, null
      */
     private synchronized String addSessionInternal(String externalId, String internalId, Session session) {
-        Pair<String, Session> existingPair = sessionMap.get(internalId);
-        sessionMap.put(internalId, new Pair<>(externalId, session));
+        Pair<String, Session> existingPair = sessionMap.put(internalId, new Pair<>(externalId, session));
         externalToInternalSessionMap.put(externalId, internalId);
         if (existingPair != null) {
             externalToInternalSessionMap.remove(existingPair.getLeft());
