@@ -11,10 +11,12 @@ import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 
 import java.util.Map;
+import javax.inject.Inject;
 
 public class MqttSessionFactory implements SessionFactory {
     private final IotAuthClient iotAuthClient;
 
+    @Inject
     public MqttSessionFactory(IotAuthClient iotAuthClient) {
         this.iotAuthClient = iotAuthClient;
     }
