@@ -9,7 +9,6 @@ import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import com.aws.greengrass.util.Pair;
 import lombok.AccessLevel;
 import lombok.Getter;
 
@@ -23,19 +22,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
     private static final String SESSION_ID = "SessionId";
-    private static final String INTERNAL_SESSION_ID = "InternalSessionId";
 
-    // There are two types of Session IDs defined here. Internal session IDs
-    // are derived by hashing device credentials. This is done so that we can
-    // avoid creating multiple sessions for the same device. Only a single session
-    // for a given set of device credentials is allowed at a given time.
-    // However, Session IDs should not be predictable. Here, we create a separate
-    // external Session ID which can be returned to the IPC client. The external
-    // Session ID is stored along with the Session itself so that we can clean up
-    // duplicate external Session IDs
+    // TODO: Add mechanism to prevent session leaks
+    // This implementation currently relies on clients to properly close sessions. If they don't, then sessions
+    // will be leaked. We can add this once sessions are created with the entire set of device credentials. However,
+    // Moquette is currently creating sessions using just the certificate. Since multiple clients could use the same
+    // certificate, we can't de-dup based on this alone.
     @Getter(AccessLevel.PACKAGE)
-    private final Map<String, Pair<String,Session>> sessionMap = new ConcurrentHashMap<>();
-    private final Map<String, String> externalToInternalSessionMap = new ConcurrentHashMap<>();
+    private final Map<String, Session> sessionMap = new ConcurrentHashMap<>();
 
     /**
      * find session by id.
@@ -44,15 +38,7 @@ public class SessionManager {
      * @return session or null
      */
     public Session findSession(String sessionId) {
-        String internalSessionId = externalToInternalSessionMap.get(sessionId);
-        if (internalSessionId == null) {
-            return null;
-        }
-        Pair<String, Session> sessionPair = sessionMap.get(internalSessionId);
-        if (sessionPair != null) {
-            return sessionPair.getRight();
-        }
-        return null;
+        return sessionMap.get(sessionId);
     }
 
     /**
@@ -64,7 +50,7 @@ public class SessionManager {
      */
     @Deprecated public String createSession(Certificate certificate) {
         Session session = new SessionImpl(certificate);
-        return addSessionInternal(session, certificate);
+        return addSessionInternal(session);
     }
 
     /**
@@ -78,7 +64,7 @@ public class SessionManager {
     public String createSession(String credentialType, Map<String, String> credentialMap)
             throws AuthenticationException {
         Session session = SessionCreator.createSession(credentialType, credentialMap);
-        return addSessionInternal(session, credentialMap);
+        return addSessionInternal(session);
     }
 
     /**
@@ -91,44 +77,26 @@ public class SessionManager {
         closeSessionInternal(sessionId);
     }
 
-    private synchronized void closeSessionInternal(String externalId) {
-        String internalSessionId = externalToInternalSessionMap.get(externalId);
-        if (internalSessionId == null) {
-            // Session has already been evicted
-            return;
-        }
-        externalToInternalSessionMap.remove(externalId);
-        sessionMap.remove(internalSessionId);
+    private synchronized void closeSessionInternal(String sessionId) {
+        sessionMap.remove(sessionId);
     }
 
     /*
      * Returns external session ID
      */
-    private synchronized String addSessionInternal(Session session, Object credentials) {
-        String internalId = generateInternalSessionId(credentials);
-        String externalId = generateExternalSessionId();
-        logger.atDebug().kv(SESSION_ID, externalId).kv(INTERNAL_SESSION_ID, internalId).log("Creating new session");
-
-        Pair<String, Session> existingPair = sessionMap.put(internalId, new Pair<>(externalId, session));
-        externalToInternalSessionMap.put(externalId, internalId);
-        if (existingPair != null) {
-            externalToInternalSessionMap.remove(existingPair.getLeft());
-            logger.atDebug().kv(SESSION_ID, existingPair.getLeft()).log("Evicting previous session");
-        }
-        return externalId;
+    private synchronized String addSessionInternal(Session session) {
+        String sessionId = generationSessionId();
+        logger.atDebug().kv(SESSION_ID, sessionId).log("Creating new session");
+        sessionMap.put(sessionId, session);
+        return sessionId;
     }
 
-    String generateInternalSessionId(Object credentials) {
-        // TODO: Replace with a better hashing mechanism to avoid unnecessary collisions
-        return String.valueOf(credentials.hashCode());
-    }
-
-    String generateExternalSessionId() {
-        String externalId;
+    String generationSessionId() {
+        String sessionId;
         do {
-            externalId = UUID.randomUUID().toString();
-        } while (externalToInternalSessionMap.containsKey(externalId));
-        return externalId;
+            sessionId = UUID.randomUUID().toString();
+        } while (sessionMap.containsKey(sessionId));
+        return sessionId;
     }
 
 }
