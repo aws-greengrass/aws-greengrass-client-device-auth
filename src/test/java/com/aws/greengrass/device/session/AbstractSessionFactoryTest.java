@@ -6,6 +6,7 @@
 package com.aws.greengrass.device.session;
 
 import com.aws.greengrass.device.exception.AuthenticationException;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class AbstractSessionFactoryTest {
     private static final String mqttCredentialType = "mqtt";
     private static final String unknownCredentialType = "unknown";

@@ -46,7 +46,11 @@ public class SessionManager {
         if (internalSessionId == null) {
             return null;
         }
-        return sessionMap.getOrDefault(internalSessionId, null).getRight();
+        Pair<String, Session> sessionPair = sessionMap.get(internalSessionId);
+        if (sessionPair != null) {
+            return sessionPair.getRight();
+        }
+        return null;
     }
 
     /**

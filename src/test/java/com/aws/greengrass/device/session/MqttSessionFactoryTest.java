@@ -7,6 +7,7 @@ package com.aws.greengrass.device.session;
 
 import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.iot.IotAuthClient;
+import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-@ExtendWith({MockitoExtension.class})
+@ExtendWith({MockitoExtension.class, GGExtension.class})
 public class MqttSessionFactoryTest {
     @Mock
     private IotAuthClient mockIotAuthClient;

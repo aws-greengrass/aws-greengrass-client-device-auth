@@ -39,8 +39,8 @@ public class AbstractSessionFactory {
             throws AuthenticationException {
         SessionFactory sessionFactory = SessionFactorySingleton.INSTANCE.factoryMap.get(credentialType);
         if (sessionFactory == null) {
-            logger.atWarn().kv("credentialType", credentialType).kv("credentialMap", credentialMap)
-                    .log("no registered handler to process device credentials");
+            logger.atWarn().kv("credentialType", credentialType)
+                .log("no registered handler to process device credentials");
             throw new IllegalArgumentException("unknown credential type");
         }
         return sessionFactory.createSession(credentialMap);
