@@ -83,13 +83,13 @@ public class SessionManager {
 
     // Returns a session ID which can be returned to the client
     private synchronized String addSessionInternal(Session session) {
-        String sessionId = generationSessionId();
+        String sessionId = generateSessionId();
         logger.atDebug().kv(SESSION_ID, sessionId).log("Creating new session");
         sessionMap.put(sessionId, session);
         return sessionId;
     }
 
-    private String generationSessionId() {
+    private String generateSessionId() {
         String sessionId;
         do {
             sessionId = UUID.randomUUID().toString();
