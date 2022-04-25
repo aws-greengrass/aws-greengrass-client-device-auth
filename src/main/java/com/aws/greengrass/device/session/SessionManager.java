@@ -17,7 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Singleton class for managing AuthN and AuthZ session.
+ * Singleton class for managing AuthN and AuthZ sessions.
  */
 public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
@@ -32,7 +32,7 @@ public class SessionManager {
     private final Map<String, Session> sessionMap = new ConcurrentHashMap<>();
 
     /**
-     * find session by id.
+     * Looks up a session by id.
      *
      * @param sessionId session identifier
      * @return session or null
@@ -42,7 +42,7 @@ public class SessionManager {
     }
 
     /**
-     * Create session with certificate.
+     * Creates session with certificate.
      *
      * @deprecated Sessions should be created using device credentials instead of certificates
      * @param certificate Client device certificate
@@ -54,7 +54,7 @@ public class SessionManager {
     }
 
     /**
-     * Create session with device credentials.
+     * Creates a session with device credentials.
      *
      * @param credentialType Device credential type
      * @param credentialMap  Device credential map
@@ -68,7 +68,7 @@ public class SessionManager {
     }
 
     /**
-     * close the session by id.
+     * Closes a session.
      *
      * @param sessionId session identifier
      */
@@ -81,9 +81,7 @@ public class SessionManager {
         sessionMap.remove(sessionId);
     }
 
-    /*
-     * Returns external session ID
-     */
+    // Returns a session ID which can be returned to the client
     private synchronized String addSessionInternal(Session session) {
         String sessionId = generationSessionId();
         logger.atDebug().kv(SESSION_ID, sessionId).log("Creating new session");
@@ -91,12 +89,11 @@ public class SessionManager {
         return sessionId;
     }
 
-    String generationSessionId() {
+    private String generationSessionId() {
         String sessionId;
         do {
             sessionId = UUID.randomUUID().toString();
         } while (sessionMap.containsKey(sessionId));
         return sessionId;
     }
-
 }
