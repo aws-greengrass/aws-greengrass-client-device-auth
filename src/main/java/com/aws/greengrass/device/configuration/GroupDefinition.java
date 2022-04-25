@@ -5,10 +5,10 @@
 
 package com.aws.greengrass.device.configuration;
 
-import com.aws.greengrass.device.Session;
 import com.aws.greengrass.device.configuration.parser.ASTStart;
 import com.aws.greengrass.device.configuration.parser.ParseException;
 import com.aws.greengrass.device.configuration.parser.RuleExpression;
+import com.aws.greengrass.device.session.Session;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import lombok.Builder;

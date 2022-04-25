@@ -18,6 +18,8 @@ import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
+import com.aws.greengrass.device.session.MqttSessionFactory;
+import com.aws.greengrass.device.session.SessionCreator;
 import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
@@ -80,13 +82,15 @@ public class ClientDevicesAuthService extends PluginService {
      * @param deviceConfiguration      core device configuration
      * @param authorizationHandler     authorization handler for IPC calls
      * @param greengrassCoreIPCService core IPC service
+     * @param mqttSessionFactory       session factory to handling mqtt credentials
      */
     @Inject
     public ClientDevicesAuthService(Topics topics, GroupManager groupManager, CertificateManager certificateManager,
                                     GreengrassServiceClientFactory clientFactory,
                                     DeviceConfiguration deviceConfiguration,
                                     AuthorizationHandler authorizationHandler,
-                                    GreengrassCoreIPCService greengrassCoreIPCService) {
+                                    GreengrassCoreIPCService greengrassCoreIPCService,
+                                    MqttSessionFactory mqttSessionFactory) {
         super(topics);
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
@@ -94,6 +98,7 @@ public class ClientDevicesAuthService extends PluginService {
         this.deviceConfiguration = deviceConfiguration;
         this.authorizationHandler = authorizationHandler;
         this.greengrassCoreIPCService = greengrassCoreIPCService;
+        SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
     }
 

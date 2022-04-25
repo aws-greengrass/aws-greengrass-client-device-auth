@@ -19,8 +19,6 @@ public class Certificate implements AttributeProvider {
     public static final String NAMESPACE = "Certificate";
 
     @NonNull
-    String certificateHash; // Needed in case we cannot talk to IoT
-    @NonNull
     String iotCertificateId; // Needed for certificate revocation
 
     @Override

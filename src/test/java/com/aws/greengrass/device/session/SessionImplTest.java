@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.device;
+package com.aws.greengrass.device.session;
 
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.device.iot.Thing;
@@ -18,7 +18,7 @@ public class SessionImplTest {
 
     @Test
     public void GIVEN_sessionWithThingAndCert_WHEN_getSessionAttributes_THEN_attributesAreReturned() {
-        Certificate cert = new Certificate("FAKE_PEM_HASH", "FAKE_CERT_ID");
+        Certificate cert = new Certificate("FAKE_CERT_ID");
         Thing thing = new Thing("MyThing");
         Session session = new SessionImpl(cert);
         session.putAttributeProvider(thing.getNamespace(), thing);

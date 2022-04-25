@@ -13,6 +13,8 @@ import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
+import com.aws.greengrass.device.session.Session;
+import com.aws.greengrass.device.session.SessionManager;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import software.amazon.awssdk.utils.StringInputStream;
@@ -128,7 +130,6 @@ public class DeviceAuthClient {
         return false;
     }
 
-    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
     private String createSessionForClientDevice(String certificatePem) throws AuthenticationException {
         Optional<String> certificateId;
         try {
@@ -140,19 +141,10 @@ public class DeviceAuthClient {
             throw new AuthenticationException("Certificate isn't active");
         }
 
-        String certificateHash = CertificateStore.computeCertificatePemHash(certificatePem);
-        // for simplicity, synchronously store the PEM on disk.
-        try {
-            certificateStore.storeDeviceCertificateIfNotPresent(certificateHash, certificatePem);
-        } catch (IOException e) {
-            // allow to continue even failed to store, session health check will invalid the session later
-            logger.atError().cause(e).kv("certificatePem", certificatePem)
-                    .log("Failed to store certificate on disk");
-        }
-        return sessionManager.createSession(new Certificate(certificateHash, certificateId.get()));
+        return sessionManager.createSession(new Certificate(certificateId.get()));
     }
 
-    public void closeSession(String sessionId) throws AuthorizationException {
+    public void closeSession(String sessionId) {
         sessionManager.closeSession(sessionId);
     }
 

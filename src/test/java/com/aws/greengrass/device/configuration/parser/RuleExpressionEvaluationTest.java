@@ -6,7 +6,7 @@
 package com.aws.greengrass.device.configuration.parser;
 
 import com.aws.greengrass.device.attribute.DeviceAttribute;
-import com.aws.greengrass.device.Session;
+import com.aws.greengrass.device.session.Session;
 import com.aws.greengrass.device.attribute.WildcardSuffixAttribute;
 import com.aws.greengrass.device.configuration.ExpressionVisitor;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;

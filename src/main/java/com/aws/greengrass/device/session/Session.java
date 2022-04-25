@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.device;
+package com.aws.greengrass.device.session;
 
 import com.aws.greengrass.device.attribute.AttributeProvider;
 import com.aws.greengrass.device.attribute.DeviceAttribute;
