@@ -18,9 +18,11 @@ import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
+import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.session.MqttSessionFactory;
 import com.aws.greengrass.device.session.SessionCreator;
 import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
+import com.aws.greengrass.ipc.VerifyClientDeviceIdentityOperationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
@@ -71,6 +73,7 @@ public class ClientDevicesAuthService extends PluginService {
     private final DeviceConfiguration deviceConfiguration;
     private final AuthorizationHandler authorizationHandler;
     private final GreengrassCoreIPCService greengrassCoreIPCService;
+    private final IotAuthClient iotAuthClient;
 
     /**
      * Constructor.
@@ -83,6 +86,7 @@ public class ClientDevicesAuthService extends PluginService {
      * @param authorizationHandler     authorization handler for IPC calls
      * @param greengrassCoreIPCService core IPC service
      * @param mqttSessionFactory       session factory to handling mqtt credentials
+     * @param iotAuthClient            iot auth client
      */
     @Inject
     public ClientDevicesAuthService(Topics topics, GroupManager groupManager, CertificateManager certificateManager,
@@ -90,7 +94,8 @@ public class ClientDevicesAuthService extends PluginService {
                                     DeviceConfiguration deviceConfiguration,
                                     AuthorizationHandler authorizationHandler,
                                     GreengrassCoreIPCService greengrassCoreIPCService,
-                                    MqttSessionFactory mqttSessionFactory) {
+                                    MqttSessionFactory mqttSessionFactory,
+                                    IotAuthClient iotAuthClient) {
         super(topics);
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
@@ -98,6 +103,7 @@ public class ClientDevicesAuthService extends PluginService {
         this.deviceConfiguration = deviceConfiguration;
         this.authorizationHandler = authorizationHandler;
         this.greengrassCoreIPCService = greengrassCoreIPCService;
+        this.iotAuthClient = iotAuthClient;
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
     }
@@ -248,5 +254,8 @@ public class ClientDevicesAuthService extends PluginService {
         }
         greengrassCoreIPCService.setSubscribeToCertificateUpdatesHandler(context ->
                 new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
+        greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
+                new VerifyClientDeviceIdentityOperationHandler(context, iotAuthClient,
+                        authorizationHandler));
     }
 }
