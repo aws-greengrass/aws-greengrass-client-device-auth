@@ -7,6 +7,7 @@ package com.aws.greengrass.device.session;
 
 
 import com.aws.greengrass.device.exception.AuthenticationException;
+import com.aws.greengrass.device.session.credentials.MqttCredential;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,9 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import software.amazon.awssdk.utils.ImmutableMap;
-
-import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.nullValue;
@@ -36,24 +34,9 @@ class SessionManagerTest {
     private Session mockSession;
     @Mock
     private Session mockSession2;
-    private final Map<String, String> credentialMap = ImmutableMap.of(
-            "certificatePem", "PEM",
-            "clientId", "clientId",
-            "username", "",
-            "password", ""
-    );
-    private final Map<String, String> credentialMap2 = ImmutableMap.of(
-            "certificatePem", "PEM2",
-            "clientId", "clientId2",
-            "username", "",
-            "password", ""
-    );
-    private final Map<String, String> invalidCredentialMap = ImmutableMap.of(
-            "certificatePem", "BAD_PEM",
-            "clientId", "clientId2",
-            "username", "",
-            "password", ""
-    );
+    MqttCredential credentialMap = MqttCredential.builder().certificatePem("PEM").clientId("clientId").build();
+    MqttCredential credentialMap2 = MqttCredential.builder().certificatePem("PEM2").clientId("clientId2").build();
+    MqttCredential invalidCredentialMap = MqttCredential.builder().certificatePem("BAD_PEM").clientId("clientId2").build();
 
     @BeforeEach
     void beforeEach() throws AuthenticationException {

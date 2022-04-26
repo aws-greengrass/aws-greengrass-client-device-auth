@@ -7,18 +7,16 @@ package com.aws.greengrass.device.session;
 
 import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.iot.IotAuthClient;
+import com.aws.greengrass.device.session.credentials.MqttCredential;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.hamcrest.core.IsNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import software.amazon.awssdk.utils.ImmutableMap;
 
-import java.util.Map;
-
-import org.hamcrest.core.IsNull;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,12 +27,7 @@ public class MqttSessionFactoryTest {
     @Mock
     private IotAuthClient mockIotAuthClient;
     private MqttSessionFactory mqttSessionFactory;
-    private final Map<String, String> credentialMap = ImmutableMap.of(
-            "certificatePem", "PEM",
-            "clientId", "clientId",
-            "username", "",
-            "password", ""
-    );
+    MqttCredential credentialMap = MqttCredential.builder().certificatePem("PEM").clientId("clientId").build();
 
     @BeforeEach
     void beforeEach() {
