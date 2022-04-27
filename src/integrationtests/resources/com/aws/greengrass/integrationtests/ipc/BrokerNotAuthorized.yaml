@@ -36,6 +36,7 @@ services:
     dependencies:
       - BrokerWithNoConfig
       - BrokerMissingGetClientDeviceAuthTokenPolicy
+      - BrokerMissingAuthorizeClientDeviceActionPolicy
   BrokerWithNoConfig:
     dependencies:
       - aws.greengrass.clientdevices.Auth
@@ -68,6 +69,25 @@ services:
       accessControl:
         aws.greengrass.clientdevices.Auth:
           policyId1:BrokerMissingGetClientDeviceAuthTokenPolicy:
+            policyDescription: access to certificate updates
+            operations:
+              - 'aws.greengrass#VerifyClientDeviceIdentity'
+            resources:
+              - '*'
+
+  BrokerMissingAuthorizeClientDeviceActionPolicy:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    lifecycle:
+      run:
+        windows:
+          powershell -command sleep 1
+        posix:
+          sleep 1
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          policyId1:BrokerMissingAuthorizeClientDeviceActionPolicy:
             policyDescription: access to certificate updates
             operations:
               - 'aws.greengrass#VerifyClientDeviceIdentity'
