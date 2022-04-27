@@ -8,7 +8,7 @@ package com.aws.greengrass.integrationtests.ipc;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.device.DeviceAuthClient;
-import com.aws.greengrass.device.exception.AuthorizationException;
+import com.aws.greengrass.device.exception.InvalidSessionException;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
@@ -68,8 +68,8 @@ class AuthorizeClientDeviceActionTest {
     private DeviceAuthClient deviceAuthClient;
 
     private static void authzClientDeviceAction(GreengrassCoreIPCClient ipcClient,
-                                               AuthorizeClientDeviceActionRequest request,
-                                               Consumer<AuthorizeClientDeviceActionResponse> consumer)
+                                                AuthorizeClientDeviceActionRequest request,
+                                                Consumer<AuthorizeClientDeviceActionResponse> consumer)
             throws Exception {
         AuthorizeClientDeviceActionResponseHandler handler =
                 ipcClient.authorizeClientDeviceAction(request, Optional.empty());
@@ -179,7 +179,7 @@ class AuthorizeClientDeviceActionTest {
     void GIVEN_brokerWithInvalidAuthToken_WHEN_AuthorizeClientDeviceAction_THEN_throwInvalidClientDeviceAuthTokenError
             (ExtensionContext context) throws Exception {
         kernel.getContext().put(DeviceAuthClient.class, deviceAuthClient);
-        ignoreExceptionOfType(context, AuthorizationException.class);
+        ignoreExceptionOfType(context, InvalidSessionException.class);
         startNucleusWithConfig("cda.yaml");
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithAuthorizeClientDeviceActionPermission")) {
@@ -188,7 +188,7 @@ class AuthorizeClientDeviceActionTest {
                     .withOperation("some-action")
                     .withResource("some-resource")
                     .withClientDeviceAuthToken("some-invalid-token");
-            when(deviceAuthClient.canDevicePerform(any())).thenThrow(AuthorizationException.class);
+            when(deviceAuthClient.canDevicePerform(any())).thenThrow(InvalidSessionException.class);
             Exception err = assertThrows(Exception.class, () -> {
                 authzClientDeviceAction(ipcClient, request, null);
             });

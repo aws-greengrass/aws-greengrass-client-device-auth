@@ -12,6 +12,7 @@ import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.device.AuthorizationRequest;
 import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.device.DeviceAuthClient;
+import com.aws.greengrass.device.exception.InvalidSessionException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
@@ -44,7 +45,7 @@ public class AuthorizeClientDeviceActionOperationHandler
      * Constructor.
      *
      * @param context              operation continuation handler
-     * @param deviceAuthClient device auth client
+     * @param deviceAuthClient     device auth client
      * @param authorizationHandler authorization handler
      */
     public AuthorizeClientDeviceActionOperationHandler(
@@ -75,7 +76,7 @@ public class AuthorizeClientDeviceActionOperationHandler
                 boolean isAuthorized = deviceAuthClient.canDevicePerform(authorizationRequest);
                 AuthorizeClientDeviceActionResponse response = new AuthorizeClientDeviceActionResponse();
                 return response.withIsAuthorized(isAuthorized);
-            }  catch (com.aws.greengrass.device.exception.AuthorizationException e) {
+            } catch (InvalidSessionException e) {
                 logger.atError().cause(e).log("Unable to find a valid session with the given auth token");
                 throw new InvalidClientDeviceAuthTokenError(
                         "Unable to find a valid session with the given auth token. Check Greengrass log for details.");
