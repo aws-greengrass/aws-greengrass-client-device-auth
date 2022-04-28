@@ -116,7 +116,8 @@ class GetClientDeviceAuthTokenTest {
     }
 
     @Test
-    void GIVEN_broker_WHEN_get_client_device_auth_token_THEN_get() throws Exception {
+    void GIVEN_brokerWithValidCredentials_WHEN_GetClientDeviceAuthToken_THEN_returnsClientDeviceAuthToken()
+            throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
         Map<String, String> mqttCredentialMap = ImmutableMap.of(
                 "certificatePem", "VALID PEM",
@@ -130,7 +131,7 @@ class GetClientDeviceAuthTokenTest {
 
         startNucleusWithConfig("cda.yaml");
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
-                "BrokerSubscribingToCertUpdates")) {
+                "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             MQTTCredential mqttCredential = new MQTTCredential().withClientId("some-client-id")
                     .withCertificatePem("VALID PEM");
@@ -146,12 +147,12 @@ class GetClientDeviceAuthTokenTest {
     }
 
     @Test
-    void GIVEN_broker_WHEN_get_client_device_auth_token_with_invalid_input_THEN_throw_error()
+    void GIVEN_brokerWithInvalidCredentials_WHEN_GetClientDeviceAuthToken_THEN_throwsInvalidArgumentsError()
             throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
         startNucleusWithConfig("cda.yaml");
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
-                "BrokerSubscribingToCertUpdates")) {
+                "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             CredentialDocument cd = new CredentialDocument();
             GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(cd);
@@ -166,7 +167,7 @@ class GetClientDeviceAuthTokenTest {
     }
 
     @Test
-    void GIVEN_broker_with_no_config_WHEN_get_client_device_auth_token_THEN_throw_error()
+    void GIVEN_brokerWithNoCDAPolicyConfig_WHEN_GetClientDeviceAuthToken_THEN_throwUnauthorizedError()
             throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
         startNucleusWithConfig("BrokerNotAuthorized.yaml");
@@ -185,7 +186,8 @@ class GetClientDeviceAuthTokenTest {
     }
 
     @Test
-    void GIVEN_broker_WHEN_get_client_device_auth_token_is_not_authorized_THEN_throw_error(ExtensionContext context)
+    void GIVEN_brokerWithInvalidSession_WHEN_GetClientDeviceAuthToken_THEN_throwInvalidCredentialError(
+            ExtensionContext context)
             throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
         ignoreExceptionOfType(context, AuthenticationException.class);
@@ -200,7 +202,7 @@ class GetClientDeviceAuthTokenTest {
                 .thenThrow(AuthenticationException.class);
 
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
-                "BrokerSubscribingToCertUpdates")) {
+                "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             MQTTCredential mqttCredential = new MQTTCredential().withClientId("some-client-id")
                     .withCertificatePem("VALID PEM");
@@ -215,7 +217,8 @@ class GetClientDeviceAuthTokenTest {
     }
 
     @Test
-    void GIVEN_broker_WHEN_get_client_device_auth_token_throws_exception_THEN_throw_error(ExtensionContext context)
+    void GIVEN_brokerWithValidCredentials_WHEN_GetClientDeviceAuthTokenFails_THEN_throwServiceError(
+            ExtensionContext context)
             throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
         ignoreExceptionOfType(context, CloudServiceInteractionException.class);
@@ -230,7 +233,7 @@ class GetClientDeviceAuthTokenTest {
                 .thenThrow(CloudServiceInteractionException.class);
 
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
-                "BrokerSubscribingToCertUpdates")) {
+                "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             MQTTCredential mqttCredential = new MQTTCredential().withClientId("some-client-id")
                     .withCertificatePem("VALID PEM");
@@ -243,5 +246,25 @@ class GetClientDeviceAuthTokenTest {
             assertEquals(err.getCause().getClass(), ServiceError.class);
         }
     }
+
+    @Test
+    void GIVEN_brokerWithMissingGetClientDeviceAuthToken_WHEN_GetClientDeviceAuthToken_THEN_throwUnauthorizedError()
+            throws Exception {
+        kernel.getContext().put(SessionManager.class, sessionManager);
+        startNucleusWithConfig("BrokerNotAuthorized.yaml");
+        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
+                "BrokerMissingGetClientDeviceAuthTokenPolicy")) {
+            GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
+            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest()
+                    .withCredential(null);
+
+            Exception err = assertThrows(Exception.class, () -> {
+                clientDeviceAuthToken(ipcClient, request, null);
+            });
+            assertEquals(err.getCause().getClass(), UnauthorizedError.class);
+
+        }
+    }
+
 
 }
