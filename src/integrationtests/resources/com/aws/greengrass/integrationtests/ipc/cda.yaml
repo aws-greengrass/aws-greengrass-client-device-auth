@@ -36,6 +36,7 @@ services:
     dependencies:
       - BrokerSubscribingToCertUpdates
       - Broker2SubscribingToCertUpdates
+      - BrokerWithGetClientDeviceAuthTokenPermission
   BrokerSubscribingToCertUpdates:
     dependencies:
       - aws.greengrass.clientdevices.Auth
@@ -84,5 +85,24 @@ services:
             policyDescription: access to pubsub topics for ServiceName
             operations:
               - '*'
+            resources:
+              - '*'
+
+  BrokerWithGetClientDeviceAuthTokenPermission:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    lifecycle:
+      run:
+        windows:
+          powershell -command sleep 1
+        posix:
+          sleep 1
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          GetClientDeviceAuthTokenPolicy:
+            policyDescription: access to certificate updates
+            operations:
+              - 'aws.greengrass#GetClientDeviceAuthToken'
             resources:
               - '*'
