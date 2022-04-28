@@ -77,7 +77,7 @@ public class AuthorizeClientDeviceActionOperationHandler
                 AuthorizeClientDeviceActionResponse response = new AuthorizeClientDeviceActionResponse();
                 return response.withIsAuthorized(isAuthorized);
             } catch (InvalidSessionException e) {
-                logger.atError().cause(e).log("Unable to find a valid session with the given auth token");
+                logger.atError().log("Unable to find a valid session with the given auth token");
                 throw new InvalidClientDeviceAuthTokenError(
                         "Unable to find a valid session with the given auth token. Check Greengrass log for details.");
             } catch (Exception e) {

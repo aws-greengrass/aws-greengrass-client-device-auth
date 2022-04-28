@@ -8,6 +8,7 @@ package com.aws.greengrass.device;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.exception.AuthenticationException;
+import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.exception.InvalidSessionException;
 import com.aws.greengrass.device.iot.Certificate;
@@ -196,9 +197,9 @@ public class DeviceAuthClient {
      *
      * @param request authorization request including operation, resource, sessionId, clientId
      * @return if device is authorized
-     * @throws InvalidSessionException if session is invalid
+     * @throws AuthorizationException if session is invalid
      */
-    public boolean canDevicePerform(AuthorizationRequest request) throws InvalidSessionException {
+    public boolean canDevicePerform(AuthorizationRequest request) throws AuthorizationException {
         logger.atDebug()
                 .kv("sessionId", request.getSessionId())
                 .kv("action", request.getOperation())
