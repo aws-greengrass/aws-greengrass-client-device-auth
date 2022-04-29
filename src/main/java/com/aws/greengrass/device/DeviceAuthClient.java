@@ -10,6 +10,7 @@ import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
+import com.aws.greengrass.device.exception.InvalidSessionException;
 import com.aws.greengrass.device.iot.Certificate;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
@@ -51,9 +52,9 @@ public class DeviceAuthClient {
     /**
      * Constructor.
      *
-     * @param sessionManager Session manager
-     * @param groupManager   Group manager
-     * @param iotAuthClient  Iot auth client
+     * @param sessionManager   Session manager
+     * @param groupManager     Group manager
+     * @param iotAuthClient    Iot auth client
      * @param certificateStore Certificate store
      */
     @Inject
@@ -212,7 +213,7 @@ public class DeviceAuthClient {
 
         Session session = sessionManager.findSession(request.getSessionId());
         if (session == null) {
-            throw new AuthorizationException(
+            throw new InvalidSessionException(
                     String.format("Invalid session ID (%s)", request.getSessionId()));
         }
 

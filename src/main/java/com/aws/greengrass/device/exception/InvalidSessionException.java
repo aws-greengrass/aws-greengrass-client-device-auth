@@ -5,19 +5,18 @@
 
 package com.aws.greengrass.device.exception;
 
-public class AuthenticationException extends Exception {
-
+public class InvalidSessionException extends AuthorizationException {
     private static final long serialVersionUID = -1L;
 
-    public AuthenticationException(String message) {
+    public InvalidSessionException(String message) {
         super(message);
     }
 
-    public AuthenticationException(Throwable e) {
+    public InvalidSessionException(Throwable e) {
         super(e);
     }
 
-    public AuthenticationException(String message, Throwable e) {
+    public InvalidSessionException(String message, Throwable e) {
         super(message, e);
     }
 }
