@@ -6,6 +6,7 @@
 package com.aws.greengrass.integrationtests.ipc;
 
 import com.aws.greengrass.dependency.State;
+import com.aws.greengrass.device.AuthorizationRequest;
 import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.device.DeviceAuthClient;
 import com.aws.greengrass.device.exception.InvalidSessionException;
@@ -51,7 +52,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
@@ -63,7 +63,7 @@ class AuthorizeClientDeviceActionTest {
     @Mock
     private GreengrassServiceClientFactory clientFactory;
     @Mock
-    private GreengrassV2DataClient client;
+    private GreengrassV2DataClient v2DataClient;
     @Mock
     private DeviceAuthClient deviceAuthClient;
 
@@ -73,7 +73,7 @@ class AuthorizeClientDeviceActionTest {
             throws Exception {
         AuthorizeClientDeviceActionResponseHandler handler =
                 ipcClient.authorizeClientDeviceAction(request, Optional.empty());
-        AuthorizeClientDeviceActionResponse response = handler.getResponse().get(10, TimeUnit.SECONDS);
+        AuthorizeClientDeviceActionResponse response = handler.getResponse().get(5, TimeUnit.SECONDS);
         consumer.accept(response);
     }
 
@@ -84,7 +84,7 @@ class AuthorizeClientDeviceActionTest {
         kernel = new Kernel();
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
-        when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
+        when(clientFactory.getGreengrassV2DataClient()).thenReturn(v2DataClient);
 
     }
 
@@ -125,13 +125,18 @@ class AuthorizeClientDeviceActionTest {
                     .withOperation("some-action")
                     .withResource("some-resource")
                     .withClientDeviceAuthToken("some-token");
-            when(deviceAuthClient.canDevicePerform(any())).thenReturn(true);
+            AuthorizationRequest authzReq = AuthorizationRequest.builder()
+                    .sessionId(request.getClientDeviceAuthToken())
+                    .operation(request.getOperation())
+                    .resource(request.getResource())
+                    .build();
+            when(deviceAuthClient.canDevicePerform(authzReq)).thenReturn(true);
             Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
                     asyncAssertOnConsumer((m) -> {
                         assertTrue(m.isIsAuthorized());
                     });
             authzClientDeviceAction(ipcClient, request, cb.getRight());
-            cb.getLeft().get(10, TimeUnit.SECONDS);
+            cb.getLeft().get(5, TimeUnit.SECONDS);
         }
     }
 
@@ -146,13 +151,18 @@ class AuthorizeClientDeviceActionTest {
                     .withOperation("some-invalid-action")
                     .withResource("some-resource")
                     .withClientDeviceAuthToken("some-token");
-            when(deviceAuthClient.canDevicePerform(any())).thenReturn(false);
+            AuthorizationRequest authzReq = AuthorizationRequest.builder()
+                    .sessionId(request.getClientDeviceAuthToken())
+                    .operation(request.getOperation())
+                    .resource(request.getResource())
+                    .build();
+            when(deviceAuthClient.canDevicePerform(authzReq)).thenReturn(false);
             Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
                     asyncAssertOnConsumer((m) -> {
                         assertFalse(m.isIsAuthorized());
                     });
             authzClientDeviceAction(ipcClient, request, cb.getRight());
-            cb.getLeft().get(10, TimeUnit.SECONDS);
+            cb.getLeft().get(5, TimeUnit.SECONDS);
         }
     }
 
@@ -188,7 +198,12 @@ class AuthorizeClientDeviceActionTest {
                     .withOperation("some-action")
                     .withResource("some-resource")
                     .withClientDeviceAuthToken("some-invalid-token");
-            when(deviceAuthClient.canDevicePerform(any())).thenThrow(InvalidSessionException.class);
+            AuthorizationRequest authzReq = AuthorizationRequest.builder()
+                    .sessionId(request.getClientDeviceAuthToken())
+                    .operation(request.getOperation())
+                    .resource(request.getResource())
+                    .build();
+            when(deviceAuthClient.canDevicePerform(authzReq)).thenThrow(InvalidSessionException.class);
             Exception err = assertThrows(Exception.class, () -> {
                 authzClientDeviceAction(ipcClient, request, null);
             });
@@ -209,7 +224,12 @@ class AuthorizeClientDeviceActionTest {
                     .withOperation("some-action")
                     .withResource("some-resource")
                     .withClientDeviceAuthToken("some-token");
-            when(deviceAuthClient.canDevicePerform(any())).thenThrow(IllegalArgumentException.class);
+            AuthorizationRequest authzReq = AuthorizationRequest.builder()
+                    .sessionId(request.getClientDeviceAuthToken())
+                    .operation(request.getOperation())
+                    .resource(request.getResource())
+                    .build();
+            when(deviceAuthClient.canDevicePerform(authzReq)).thenThrow(IllegalArgumentException.class);
             Exception err = assertThrows(Exception.class, () -> {
                 authzClientDeviceAction(ipcClient, request, null);
             });

@@ -35,7 +35,7 @@ public class AuthorizeClientDeviceActionOperationHandler
     private static final String COMPONENT_NAME = "componentName";
     private static final String UNAUTHORIZED_ERROR = "Not Authorized";
     private static final String NO_AUTH_TOKEN_ERROR = "Auth token is required";
-    private static final String NO_OPERATION_ERROR = "Mqtt operation is required";
+    private static final String NO_OPERATION_ERROR = "Operation is required";
     private static final String NO_RESOURCE_ERROR = "Mqtt resource is required";
     private final String serviceName;
     private final AuthorizationHandler authorizationHandler;
@@ -77,11 +77,11 @@ public class AuthorizeClientDeviceActionOperationHandler
                 AuthorizeClientDeviceActionResponse response = new AuthorizeClientDeviceActionResponse();
                 return response.withIsAuthorized(isAuthorized);
             } catch (InvalidSessionException e) {
-                logger.atError().log("Unable to find a valid session with the given auth token");
+                logger.atWarn().log("Unable to find a valid session with the given auth token");
                 throw new InvalidClientDeviceAuthTokenError(
                         "Unable to find a valid session with the given auth token. Check Greengrass log for details.");
             } catch (Exception e) {
-                logger.atError().cause(e).log("Unable to authorize the client device action");
+                logger.atError().cause(e).log("Unhandled exception while authorizing client device action");
                 throw new ServiceError(
                         "Authorizing client device action failed. Check Greengrass log for details.");
             }

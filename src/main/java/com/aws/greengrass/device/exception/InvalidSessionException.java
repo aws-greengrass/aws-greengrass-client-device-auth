@@ -6,7 +6,7 @@
 package com.aws.greengrass.device.exception;
 
 public class InvalidSessionException extends AuthorizationException {
-    static final long serialVersionUID = -1L;
+    private static final long serialVersionUID = -1L;
 
     public InvalidSessionException(String message) {
         super(message);
