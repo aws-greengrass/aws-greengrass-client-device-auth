@@ -52,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
@@ -73,7 +74,7 @@ class AuthorizeClientDeviceActionTest {
             throws Exception {
         AuthorizeClientDeviceActionResponseHandler handler =
                 ipcClient.authorizeClientDeviceAction(request, Optional.empty());
-        AuthorizeClientDeviceActionResponse response = handler.getResponse().get(5, TimeUnit.SECONDS);
+        AuthorizeClientDeviceActionResponse response = handler.getResponse().get(1, TimeUnit.SECONDS);
         consumer.accept(response);
     }
 
@@ -136,7 +137,7 @@ class AuthorizeClientDeviceActionTest {
                         assertTrue(m.isIsAuthorized());
                     });
             authzClientDeviceAction(ipcClient, request, cb.getRight());
-            cb.getLeft().get(5, TimeUnit.SECONDS);
+            cb.getLeft().get(1, TimeUnit.SECONDS);
         }
     }
 
@@ -151,18 +152,13 @@ class AuthorizeClientDeviceActionTest {
                     .withOperation("some-invalid-action")
                     .withResource("some-resource")
                     .withClientDeviceAuthToken("some-token");
-            AuthorizationRequest authzReq = AuthorizationRequest.builder()
-                    .sessionId(request.getClientDeviceAuthToken())
-                    .operation(request.getOperation())
-                    .resource(request.getResource())
-                    .build();
-            when(deviceAuthClient.canDevicePerform(authzReq)).thenReturn(false);
+            when(deviceAuthClient.canDevicePerform(any())).thenReturn(false);
             Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
                     asyncAssertOnConsumer((m) -> {
                         assertFalse(m.isIsAuthorized());
                     });
             authzClientDeviceAction(ipcClient, request, cb.getRight());
-            cb.getLeft().get(5, TimeUnit.SECONDS);
+            cb.getLeft().get(1, TimeUnit.SECONDS);
         }
     }
 
@@ -198,12 +194,7 @@ class AuthorizeClientDeviceActionTest {
                     .withOperation("some-action")
                     .withResource("some-resource")
                     .withClientDeviceAuthToken("some-invalid-token");
-            AuthorizationRequest authzReq = AuthorizationRequest.builder()
-                    .sessionId(request.getClientDeviceAuthToken())
-                    .operation(request.getOperation())
-                    .resource(request.getResource())
-                    .build();
-            when(deviceAuthClient.canDevicePerform(authzReq)).thenThrow(InvalidSessionException.class);
+            when(deviceAuthClient.canDevicePerform(any())).thenThrow(InvalidSessionException.class);
             Exception err = assertThrows(Exception.class, () -> {
                 authzClientDeviceAction(ipcClient, request, null);
             });

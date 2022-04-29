@@ -36,7 +36,7 @@ public class AuthorizeClientDeviceActionOperationHandler
     private static final String UNAUTHORIZED_ERROR = "Not Authorized";
     private static final String NO_AUTH_TOKEN_ERROR = "Auth token is required";
     private static final String NO_OPERATION_ERROR = "Operation is required";
-    private static final String NO_RESOURCE_ERROR = "Mqtt resource is required";
+    private static final String NO_RESOURCE_ERROR = "Resource is required";
     private final String serviceName;
     private final AuthorizationHandler authorizationHandler;
     private final DeviceAuthClient deviceAuthClient;
