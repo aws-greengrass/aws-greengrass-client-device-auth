@@ -215,12 +215,7 @@ class AuthorizeClientDeviceActionTest {
                     .withOperation("some-action")
                     .withResource("some-resource")
                     .withClientDeviceAuthToken("some-token");
-            AuthorizationRequest authzReq = AuthorizationRequest.builder()
-                    .sessionId(request.getClientDeviceAuthToken())
-                    .operation(request.getOperation())
-                    .resource(request.getResource())
-                    .build();
-            when(deviceAuthClient.canDevicePerform(authzReq)).thenThrow(IllegalArgumentException.class);
+            when(deviceAuthClient.canDevicePerform(any())).thenThrow(IllegalArgumentException.class);
             Exception err = assertThrows(Exception.class, () -> {
                 authzClientDeviceAction(ipcClient, request, null);
             });
