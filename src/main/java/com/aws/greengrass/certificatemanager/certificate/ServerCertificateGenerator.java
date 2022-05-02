@@ -7,6 +7,7 @@ package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
 
@@ -60,7 +61,16 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                 .kv("subject", subject)
                 .kv("reason", reason)
                 .kv("connectivityInfo", connectivityInfo)
+                .kv("previousCertExpiry",
+                        certificate == null
+                                ? "N/A" :
+                                getExpiryTime())
+                .kv("previousCertDurationUntilExpiryHMS",
+                        certificate == null
+                                ? "N/A" :
+                                DurationFormatUtils.formatDurationHMS(getDurationFromNowUntilExpiry().toMillis()))
                 .log("Generating new server certificate");
+
         try {
             certificate = CertificateHelper.signServerCertificateRequest(
                     certificateStore.getCACertificate(),
@@ -74,6 +84,13 @@ public class ServerCertificateGenerator extends CertificateGenerator {
             logger.atError().cause(e).log("Failed to generate new server certificate");
             throw new CertificateGenerationException(e);
         }
+
+        logger.atInfo()
+                .kv("subject", subject)
+                .kv("newCertExpiry", getExpiryTime())
+                .kv("newCertDurationUntilExpiryHMS",
+                        DurationFormatUtils.formatDurationHMS(getDurationFromNowUntilExpiry().toMillis()))
+                .log("Server certificate generation complete");
 
         callback.accept(certificate);
     }

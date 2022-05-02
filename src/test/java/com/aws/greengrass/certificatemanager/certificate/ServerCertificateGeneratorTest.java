@@ -116,6 +116,20 @@ public class ServerCertificateGeneratorTest {
     }
 
     @Test
+    void GIVEN_ServerCertificateGenerator_WHEN_certificate_is_near_expiry_THEN_shouldRegenerate_returns_true()
+            throws Exception {
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
+
+        Instant expirationTime = Instant.now()
+                .plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS))
+                .minus(Duration.ofDays(1));
+
+        Clock mockClock = Clock.fixed(expirationTime, ZoneId.of("UTC"));
+        certificateGenerator.setClock(mockClock);
+        assertTrue(certificateGenerator.shouldRegenerate());
+    }
+
+    @Test
     void GIVEN_emptyConnectivityInfoList_WHEN_generateCertificate_THEN_certificateContainsLocalhost()
             throws Exception {
         certificateGenerator.generateCertificate(Collections::emptyList, "test");

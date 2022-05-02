@@ -14,6 +14,7 @@ import java.security.KeyStoreException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -59,9 +60,37 @@ public abstract class CertificateGenerator {
      * @return true if certificate should be regenerated, else false
      */
     public boolean shouldRegenerate() {
-        Instant dayFromNow = Instant.now(clock).plus(1, ChronoUnit.DAYS);
-        Instant expiryTime = getExpiryTime();
-        return expiryTime.isBefore(dayFromNow);
+        return isExpired() || isAboutToExpire();
+    }
+
+    /**
+     * Check if the certificate is expired.
+     *
+     * @return true if the certificate is expired
+     */
+    public boolean isExpired() {
+        return getExpiryTime().isBefore(Instant.now(clock));
+    }
+
+    /**
+     * Check if the certificate is close to expiring.
+     *
+     * @return true if the certificate is to its expiration
+     */
+    public boolean isAboutToExpire() {
+        return !isExpired() && getExpiryTime().isBefore(Instant.now(clock).plus(1, ChronoUnit.DAYS));
+    }
+
+    /**
+     * Calculate the duration from now until certificate expiry.
+     *
+     * <p>If expiry is in the past, zero is returned.
+     *
+     * @return duration from current time to certificate expiry time
+     */
+    public Duration getDurationFromNowUntilExpiry() {
+        Duration duration = Duration.between(Instant.now(clock), getExpiryTime());
+        return duration.isNegative() ? Duration.ZERO : duration;
     }
 
     /**
@@ -73,7 +102,6 @@ public abstract class CertificateGenerator {
         if (certificate == null) {
             return Instant.MIN;
         }
-
         return certificate.getNotAfter().toInstant();
     }
 }
