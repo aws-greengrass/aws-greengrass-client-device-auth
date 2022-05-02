@@ -42,7 +42,15 @@ public abstract class CertificateGenerator {
         this.certificateStore = certificateStore;
     }
 
-    public abstract void generateCertificate(Supplier<List<String>> connectivityInfoSupplier)
+    /**
+     * Generate a new certificate. This is a potentially expensive operation, especially
+     * for low-powered devices, so consider calling this asynchronously.
+     *
+     * @param connectivityInfoSupplier connectivity information
+     * @param reason                   WHY cert gen was requested.
+     * @throws KeyStoreException if unable to retrieve CA key/cert
+     */
+    public abstract void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
             throws KeyStoreException;
 
     /**

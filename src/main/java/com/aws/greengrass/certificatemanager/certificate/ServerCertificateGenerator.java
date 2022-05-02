@@ -44,14 +44,8 @@ public class ServerCertificateGenerator extends CertificateGenerator {
         this.certificatesConfig = certificatesConfig;
     }
 
-    /**
-     * Regenerates certificate.
-     *
-     * @param connectivityInfoSupplier ConnectivityInfo Supplier
-     * @throws KeyStoreException if unable to retrieve CA key/cert
-     */
     @Override
-    public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier)
+    public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
             throws KeyStoreException {
         Instant now = Instant.now(clock);
 
@@ -62,7 +56,10 @@ public class ServerCertificateGenerator extends CertificateGenerator {
         List<String> connectivityInfo = new ArrayList<>(connectivityInfoSupplier.get());
         connectivityInfo.add("localhost");
 
-        logger.atInfo().kv("subject", subject).kv("connectivityInfo", connectivityInfo)
+        logger.atInfo()
+                .kv("subject", subject)
+                .kv("reason", reason)
+                .kv("connectivityInfo", connectivityInfo)
                 .log("Generating new server certificate");
         try {
             certificate = CertificateHelper.signServerCertificateRequest(

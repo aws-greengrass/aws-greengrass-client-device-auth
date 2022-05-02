@@ -155,7 +155,8 @@ public class CertificateManager {
                     certExpiryMonitor.addToMonitor(certificateGenerator);
                     cisShadowMonitor.addToMonitor(certificateGenerator);
 
-                    certificateGenerator.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
+                    certificateGenerator.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
+                            "initialization of server cert subscription");
                     return certificateGenerator;
                 } catch (KeyStoreException e) {
                     logger.atError().setCause(e).log("unable to subscribe to certificate update");
@@ -202,7 +203,8 @@ public class CertificateManager {
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
             CertificateGenerator certificateGenerator = new ClientCertificateGenerator(
                     jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore, certificatesConfig);
-            certificateGenerator.generateCertificate(Collections::emptyList);
+            certificateGenerator.generateCertificate(Collections::emptyList,
+                    "initialization of client cert subscription");
             certExpiryMonitor.addToMonitor(certificateGenerator);
         } catch (KeyStoreException e) {
             logger.atError().setCause(e).log("unable to subscribe to certificate update");

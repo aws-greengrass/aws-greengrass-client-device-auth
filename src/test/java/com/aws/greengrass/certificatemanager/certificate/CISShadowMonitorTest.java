@@ -144,7 +144,7 @@ public class CISShadowMonitorTest {
         shadowDeltaUpdatedEvent.version = 1;
         updateSubscribeHandler.getValue().accept(shadowDeltaUpdatedEvent);
 
-        verify(mockCertGenerator, times(1)).generateCertificate(any());
+        verify(mockCertGenerator, times(1)).generateCertificate(any(), any());
         ArgumentCaptor<UpdateShadowRequest> updateShadowRequest = ArgumentCaptor.forClass(UpdateShadowRequest.class);
         verify(mockShadowClient, times(1)).PublishUpdateShadow(updateShadowRequest.capture(),
                 eq(QualityOfService.AT_LEAST_ONCE));
@@ -155,7 +155,7 @@ public class CISShadowMonitorTest {
         reset(mockShadowClient);
         updateSubscribeHandler.getValue().accept(shadowDeltaUpdatedEvent);
 
-        verify(mockCertGenerator, never()).generateCertificate(any());
+        verify(mockCertGenerator, never()).generateCertificate(any(), any());
         verify(mockShadowClient, times(1)).PublishUpdateShadow(updateShadowRequest.capture(),
                 eq(QualityOfService.AT_LEAST_ONCE));
         assertThat(updateShadowRequest.getValue().version, is(1));
@@ -183,7 +183,7 @@ public class CISShadowMonitorTest {
         getShadowResponse.version = 1;
         getSubscribeHandler.getValue().accept(getShadowResponse);
 
-        verify(mockCertGenerator, times(1)).generateCertificate(any());
+        verify(mockCertGenerator, times(1)).generateCertificate(any(), any());
         ArgumentCaptor<UpdateShadowRequest> updateShadowRequest = ArgumentCaptor.forClass(UpdateShadowRequest.class);
         verify(mockShadowClient, times(1)).PublishUpdateShadow(updateShadowRequest.capture(),
                 eq(QualityOfService.AT_LEAST_ONCE));
@@ -194,7 +194,7 @@ public class CISShadowMonitorTest {
         reset(mockShadowClient);
         getSubscribeHandler.getValue().accept(getShadowResponse);
 
-        verify(mockCertGenerator, never()).generateCertificate(any());
+        verify(mockCertGenerator, never()).generateCertificate(any(), any());
         verify(mockShadowClient, times(1)).PublishUpdateShadow(updateShadowRequest.capture(),
                 eq(QualityOfService.AT_LEAST_ONCE));
         assertThat(updateShadowRequest.getValue().version, is(1));

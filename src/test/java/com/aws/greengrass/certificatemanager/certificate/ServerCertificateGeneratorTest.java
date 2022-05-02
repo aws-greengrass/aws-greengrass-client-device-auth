@@ -79,7 +79,7 @@ public class ServerCertificateGeneratorTest {
     @Test
     void GIVEN_ServerCertificateGenerator_WHEN_generateCertificate_THEN_certificate_generated()
             throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList);
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
 
         X509Certificate generatedCert = certificateGenerator.getCertificate();
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
@@ -87,7 +87,7 @@ public class ServerCertificateGeneratorTest {
         assertThat(generatedCert.getPublicKey(), is(publicKey));
         verify(mockCallback, times(1)).accept(generatedCert);
 
-        certificateGenerator.generateCertificate(Collections::emptyList);
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
         X509Certificate secondGeneratedCert = certificateGenerator.getCertificate();
         assertThat(secondGeneratedCert, is(not(generatedCert)));
     }
@@ -100,14 +100,14 @@ public class ServerCertificateGeneratorTest {
     @Test
     void GIVEN_ServerCertificateGenerator_WHEN_valid_certificate_THEN_shouldRegenerate_returns_false()
             throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList);
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
         assertFalse(certificateGenerator.shouldRegenerate());
     }
 
     @Test
     void GIVEN_ServerCertificateGenerator_WHEN_expired_certificate_THEN_shouldRegenerate_returns_true()
             throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList);
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
 
         Instant expirationTime = Instant.now().plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS));
         Clock mockClock = Clock.fixed(expirationTime, ZoneId.of("UTC"));
@@ -118,7 +118,7 @@ public class ServerCertificateGeneratorTest {
     @Test
     void GIVEN_emptyConnectivityInfoList_WHEN_generateCertificate_THEN_certificateContainsLocalhost()
             throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList);
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
 
         X509Certificate generatedCert = certificateGenerator.getCertificate();
         Collection<List<?>> subjectAlternativeNames = generatedCert.getSubjectAlternativeNames();

@@ -96,11 +96,11 @@ public class CertificateExpiryMonitorTest {
 
         //add certs to monitor
         CertificateGenerator cg1 = new ServerCertificateGenerator(subject, key1, mockCallback, certificateStore, certificatesConfig);
-        cg1.generateCertificate(Collections::emptyList);
+        cg1.generateCertificate(Collections::emptyList, "test");
         certExpiryMonitor.addToMonitor(cg1);
         X509Certificate cert1initial = cg1.getCertificate();
         CertificateGenerator cg2 = new ServerCertificateGenerator(subject, key2, mockCallback, certificateStore, certificatesConfig);
-        cg2.generateCertificate(Collections::emptyList);
+        cg2.generateCertificate(Collections::emptyList, "test");
         certExpiryMonitor.addToMonitor(cg2);
         X509Certificate cert2initial = cg2.getCertificate();
 
@@ -149,7 +149,7 @@ public class CertificateExpiryMonitorTest {
 
         // Add certificate to monitor
         CertificateGenerator cg1 = new ServerCertificateGenerator(subject, key1, mockCallback, certificateStore, certificatesConfig);
-        cg1.generateCertificate(Collections::emptyList);
+        cg1.generateCertificate(Collections::emptyList, "test");
         certExpiryMonitor.addToMonitor(cg1);
         X509Certificate cert1initial = cg1.getCertificate();
 

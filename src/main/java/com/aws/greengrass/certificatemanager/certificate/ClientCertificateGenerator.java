@@ -44,18 +44,14 @@ public class ClientCertificateGenerator extends CertificateGenerator {
         this.certificatesConfig = certificatesConfig;
     }
 
-    /**
-     * Regenerates certificate.
-     *
-     * @param connectivityInfoSupplier ConnectivityInfo Supplier (not used in this implementation)
-     * @throws KeyStoreException if unable to retrieve CA key/cert
-     */
     @Override
-    public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier)
+    public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
             throws KeyStoreException {
         Instant now = Instant.now(clock);
 
-        logger.atInfo().kv("subject", subject)
+        logger.atInfo()
+                .kv("subject", subject)
+                .kv("reason", reason)
                 .log("Generating new client certificate");
         try {
             certificate = CertificateHelper.signClientCertificateRequest(

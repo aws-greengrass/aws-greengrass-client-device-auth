@@ -62,7 +62,7 @@ public class CertificateExpiryMonitor {
                 continue;
             }
             try {
-                cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
+                cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses, "certificate has expired");
             } catch (KeyStoreException e) {
                 LOGGER.atError().cause(e).log("Error generating certificate. Will be retried after {} seconds",
                         DEFAULT_CERT_EXPIRY_CHECK_SECONDS);
