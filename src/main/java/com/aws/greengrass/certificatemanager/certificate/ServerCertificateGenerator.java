@@ -65,10 +65,10 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                         certificate == null
                                 ? "N/A" :
                                 getExpiryTime())
-                .kv("previousCertDurationUntilExpiryHMS",
+                .kv("previousCertValidityHMS",
                         certificate == null
                                 ? "N/A" :
-                                DurationFormatUtils.formatDurationHMS(getDurationFromNowUntilExpiry().toMillis()))
+                                DurationFormatUtils.formatDurationHMS(getValidity().toMillis()))
                 .log("Generating new server certificate");
 
         try {
@@ -88,8 +88,8 @@ public class ServerCertificateGenerator extends CertificateGenerator {
         logger.atInfo()
                 .kv("subject", subject)
                 .kv("newCertExpiry", getExpiryTime())
-                .kv("newCertDurationUntilExpiryHMS",
-                        DurationFormatUtils.formatDurationHMS(getDurationFromNowUntilExpiry().toMillis()))
+                .kv("newCertValidityHMS",
+                        DurationFormatUtils.formatDurationHMS(getValidity().toMillis()))
                 .log("Server certificate generation complete");
 
         callback.accept(certificate);

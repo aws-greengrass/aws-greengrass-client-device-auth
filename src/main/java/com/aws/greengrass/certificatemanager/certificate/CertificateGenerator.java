@@ -82,13 +82,13 @@ public abstract class CertificateGenerator {
     }
 
     /**
-     * Calculate the duration from now until certificate expiry.
+     * Calculate the duration that the certificate is valid for.
      *
-     * <p>If expiry is in the past, zero is returned.
+     * <p>If certificate expiry is in the past, zero is returned.
      *
      * @return duration from current time to certificate expiry time
      */
-    public Duration getDurationFromNowUntilExpiry() {
+    public Duration getValidity() {
         Duration duration = Duration.between(Instant.now(clock), getExpiryTime());
         return duration.isNegative() ? Duration.ZERO : duration;
     }
