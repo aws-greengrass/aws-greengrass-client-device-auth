@@ -75,7 +75,7 @@ public abstract class CertificateGenerator {
     /**
      * Check if the certificate is close to expiring.
      *
-     * @return true if the certificate is to its expiration
+     * @return true if the certificate is close to its expiration
      */
     public boolean isAboutToExpire() {
         return !isExpired() && getExpiryTime().isBefore(Instant.now(clock).plus(1, ChronoUnit.DAYS));
