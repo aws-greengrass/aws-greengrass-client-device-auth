@@ -46,6 +46,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
@@ -79,6 +82,13 @@ public class ClientDevicesAuthService extends PluginService {
     private final IotAuthClient iotAuthClient;
     private final SessionManager sessionManager;
     private final DeviceAuthClient deviceAuthClient;
+    // Limit the queue size before we start rejecting requests
+    // TODO: User configurable
+    private static final int CLOUD_CALL_QUEUE_SIZE = 100;
+    // Create a threadpool for calling the cloud. Single thread will be used.
+    // TODO: User configurable pool size
+    private final ThreadPoolExecutor cloudCallThreadPool = new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(CLOUD_CALL_QUEUE_SIZE));
 
     /**
      * Constructor.
@@ -107,6 +117,7 @@ public class ClientDevicesAuthService extends PluginService {
                                     SessionManager sessionManager,
                                     DeviceAuthClient deviceAuthClient) {
         super(topics);
+        cloudCallThreadPool.allowCoreThreadTimeOut(true); // act as a cached threadpool
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
         this.clientFactory = clientFactory;
@@ -268,7 +279,7 @@ public class ClientDevicesAuthService extends PluginService {
                 new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
         greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
                 new VerifyClientDeviceIdentityOperationHandler(context, iotAuthClient,
-                        authorizationHandler));
+                        authorizationHandler, cloudCallThreadPool));
         greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
                 new GetClientDeviceAuthTokenOperationHandler(context, sessionManager, authorizationHandler));
         greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->

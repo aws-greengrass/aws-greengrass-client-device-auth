@@ -25,6 +25,9 @@ import software.amazon.awssdk.eventstreamrpc.OperationContinuationHandlerContext
 import software.amazon.awssdk.eventstreamrpc.model.EventStreamJsonMessage;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 
 import static com.aws.greengrass.ipc.common.ExceptionUtil.translateExceptions;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VERIFY_CLIENT_DEVICE_IDENTITY;
@@ -39,6 +42,7 @@ public class VerifyClientDeviceIdentityOperationHandler
     private final IotAuthClient iotAuthClient;
     private final String serviceName;
     private final AuthorizationHandler authorizationHandler;
+    private final ExecutorService cloudCallThreadPool;
 
     /**
      * Constructor.
@@ -46,15 +50,31 @@ public class VerifyClientDeviceIdentityOperationHandler
      * @param context              operation continuation handler
      * @param iotAuthClient        auth client for client device calls
      * @param authorizationHandler authorization handler
+     * @param cloudCallThreadPool  executor to run the call to the cloud asynchronously
      */
     public VerifyClientDeviceIdentityOperationHandler(
             OperationContinuationHandlerContext context, IotAuthClient iotAuthClient,
-            AuthorizationHandler authorizationHandler) {
+            AuthorizationHandler authorizationHandler, ExecutorService cloudCallThreadPool) {
 
         super(context);
         this.iotAuthClient = iotAuthClient;
         serviceName = context.getAuthenticationData().getIdentityLabel();
         this.authorizationHandler = authorizationHandler;
+        this.cloudCallThreadPool = cloudCallThreadPool;
+    }
+
+    @Override
+    public CompletableFuture<VerifyClientDeviceIdentityResponse> handleRequestAsync(
+            VerifyClientDeviceIdentityRequest request) {
+        try {
+            return CompletableFuture.supplyAsync(() -> handleRequest(request), cloudCallThreadPool);
+        } catch (RejectedExecutionException e) {
+            CompletableFuture<VerifyClientDeviceIdentityResponse> fut = new CompletableFuture<>();
+            logger.atWarn().kv(COMPONENT_NAME, serviceName)
+                    .log("Unable to queue VerifyClientDeviceIdentity. {}", e.getMessage());
+            fut.completeExceptionally(new ServiceError("Unable to queue request"));
+            return fut;
+        }
     }
 
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.PreserveStackTrace"})
@@ -74,8 +94,7 @@ public class VerifyClientDeviceIdentityOperationHandler
                 return response.withIsValidClientDevice(certificateId.isPresent());
             } catch (Exception e) {
                 logger.atError().cause(e).log("Unable to verify client device identity");
-                throw new ServiceError(
-                        "Verifying client device identity failed. Check Greengrass log for details.");
+                throw new ServiceError("Verifying client device identity failed. Check Greengrass log for details.");
             }
         });
     }
