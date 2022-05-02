@@ -7,7 +7,6 @@ package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
 
