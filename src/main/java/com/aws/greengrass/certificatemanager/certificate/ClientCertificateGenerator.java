@@ -53,14 +53,8 @@ public class ClientCertificateGenerator extends CertificateGenerator {
         logger.atInfo()
                 .kv("subject", subject)
                 .kv("reason", reason)
-                .kv("previousCertExpiry",
-                        certificate == null
-                                ? "N/A" :
-                                getExpiryTime())
-                .kv("previousCertValidityHMS",
-                        certificate == null
-                                ? "N/A" :
-                                DurationFormatUtils.formatDurationHMS(getValidity().toMillis()))
+                .kv("previousCertExpiry", certificate == null ? "N/A" : getExpiryTime())
+                .kv("previousCertValiditySeconds", certificate == null ? "N/A" : getValidity().getSeconds())
                 .log("Generating new client certificate");
 
         try {
@@ -78,8 +72,7 @@ public class ClientCertificateGenerator extends CertificateGenerator {
         logger.atInfo()
                 .kv("subject", subject)
                 .kv("newCertExpiry", getExpiryTime())
-                .kv("newCertValidityHMS",
-                        DurationFormatUtils.formatDurationHMS(getValidity().toMillis()))
+                .kv("newCertValiditySeconds", getValidity().getSeconds())
                 .log("Client certificate generation complete");
 
         X509Certificate caCertificate = certificateStore.getCACertificate();
