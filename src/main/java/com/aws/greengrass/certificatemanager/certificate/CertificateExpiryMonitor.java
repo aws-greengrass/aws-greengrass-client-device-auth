@@ -40,7 +40,7 @@ public class CertificateExpiryMonitor {
     private ScheduledFuture<?> monitorFuture;
 
     /**
-     * Construct a new CertificateExpiryMonitor
+     * Construct a new CertificateExpiryMonitor.
      *
      * @param ses                      ScheduledExecutorService to schedule cert expiry checks
      * @param connectivityInfoProvider Connectivity Info Provider
