@@ -174,7 +174,7 @@ public class CertificateExpiryMonitorTest {
      * add it to the expiry monitor.
      *
      * @param clock clock
-     * @return new public key and cert generator
+     * @return cert generator
      * @throws NoSuchAlgorithmException if unable to generate an RSA key pair
      * @throws KeyStoreException        if unable to generate certificate
      */
@@ -190,7 +190,7 @@ public class CertificateExpiryMonitorTest {
      * add it to the expiry monitor.
      *
      * @param clock clock
-     * @return new public key and cert generator
+     * @return cert generator
      * @throws NoSuchAlgorithmException if unable to generate an RSA key pair
      * @throws KeyStoreException        if unable to generate certificate
      */
