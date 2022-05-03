@@ -49,13 +49,6 @@ public class ClientCertificateGenerator extends CertificateGenerator {
             throws KeyStoreException {
         Instant now = Instant.now(clock);
 
-        logger.atInfo()
-                .kv("subject", subject)
-                .kv("reason", reason)
-                .kv("previousCertExpiry", certificate == null ? "N/A" : getExpiryTime())
-                .kv("previousCertValiditySeconds", certificate == null ? "N/A" : getValidity().getSeconds())
-                .log("Generating new client certificate");
-
         try {
             certificate = CertificateHelper.signClientCertificateRequest(
                     certificateStore.getCACertificate(),
@@ -70,9 +63,9 @@ public class ClientCertificateGenerator extends CertificateGenerator {
 
         logger.atInfo()
                 .kv("subject", subject)
-                .kv("newCertExpiry", getExpiryTime())
-                .kv("newCertValiditySeconds", getValidity().getSeconds())
-                .log("Client certificate generation complete");
+                .kv("reason", reason)
+                .kv("certExpiry", getExpiryTime())
+                .log("New client certificate generated");
 
         X509Certificate caCertificate = certificateStore.getCACertificate();
         X509Certificate[] chain = {certificate, caCertificate};

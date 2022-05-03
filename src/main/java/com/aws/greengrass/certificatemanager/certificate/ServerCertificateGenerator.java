@@ -56,14 +56,6 @@ public class ServerCertificateGenerator extends CertificateGenerator {
         List<String> connectivityInfo = new ArrayList<>(connectivityInfoSupplier.get());
         connectivityInfo.add("localhost");
 
-        logger.atInfo()
-                .kv("subject", subject)
-                .kv("reason", reason)
-                .kv("connectivityInfo", connectivityInfo)
-                .kv("previousCertExpiry", certificate == null ? "N/A" : getExpiryTime())
-                .kv("previousCertValiditySeconds", certificate == null ? "N/A" : getValidity().getSeconds())
-                .log("Generating new server certificate");
-
         try {
             certificate = CertificateHelper.signServerCertificateRequest(
                     certificateStore.getCACertificate(),
@@ -80,9 +72,10 @@ public class ServerCertificateGenerator extends CertificateGenerator {
 
         logger.atInfo()
                 .kv("subject", subject)
-                .kv("newCertExpiry", getExpiryTime())
-                .kv("newCertValiditySeconds", getValidity().getSeconds())
-                .log("Server certificate generation complete");
+                .kv("reason", reason)
+                .kv("connectivityInfo", connectivityInfo)
+                .kv("certExpiry", getExpiryTime())
+                .log("New server certificate generated");
 
         callback.accept(certificate);
     }

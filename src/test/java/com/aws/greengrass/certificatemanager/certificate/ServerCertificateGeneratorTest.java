@@ -25,10 +25,6 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -38,8 +34,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -90,43 +84,6 @@ public class ServerCertificateGeneratorTest {
         certificateGenerator.generateCertificate(Collections::emptyList, "test");
         X509Certificate secondGeneratedCert = certificateGenerator.getCertificate();
         assertThat(secondGeneratedCert, is(not(generatedCert)));
-    }
-
-    @Test
-    void GIVEN_ServerCertificateGenerator_WHEN_no_certificate_THEN_shouldRegenerate_returns_true() {
-        assertTrue(certificateGenerator.shouldRegenerate());
-    }
-
-    @Test
-    void GIVEN_ServerCertificateGenerator_WHEN_valid_certificate_THEN_shouldRegenerate_returns_false()
-            throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList, "test");
-        assertFalse(certificateGenerator.shouldRegenerate());
-    }
-
-    @Test
-    void GIVEN_ServerCertificateGenerator_WHEN_expired_certificate_THEN_shouldRegenerate_returns_true()
-            throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList, "test");
-
-        Instant expirationTime = Instant.now().plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS));
-        Clock mockClock = Clock.fixed(expirationTime, ZoneId.of("UTC"));
-        certificateGenerator.setClock(mockClock);
-        assertTrue(certificateGenerator.shouldRegenerate());
-    }
-
-    @Test
-    void GIVEN_ServerCertificateGenerator_WHEN_certificate_is_near_expiry_THEN_shouldRegenerate_returns_true()
-            throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList, "test");
-
-        Instant expirationTime = Instant.now()
-                .plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS))
-                .minus(Duration.ofDays(1));
-
-        Clock mockClock = Clock.fixed(expirationTime, ZoneId.of("UTC"));
-        certificateGenerator.setClock(mockClock);
-        assertTrue(certificateGenerator.shouldRegenerate());
     }
 
     @Test
