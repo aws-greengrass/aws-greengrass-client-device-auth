@@ -59,7 +59,7 @@ public class CertificateExpiryMonitorTest {
         certificateStore = new CertificateStore(tmpPath);
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
 
-        certExpiryMonitor = new CertificateExpiryMonitor(mock(ScheduledExecutorService.class), mock(ConnectivityInfoProvider.class));
+        certExpiryMonitor = new CertificateExpiryMonitor(mock(ScheduledExecutorService.class), mock(ConnectivityInfoProvider.class), Clock.systemUTC());
     }
 
     @AfterEach
@@ -182,7 +182,7 @@ public class CertificateExpiryMonitorTest {
             throws NoSuchAlgorithmException, KeyStoreException {
         return monitorNewCert(key -> new ServerCertificateGenerator(
                 SUBJECT, key, cert -> {
-        }, certificateStore, certificatesConfig), clock);
+        }, certificateStore, certificatesConfig, clock));
     }
 
     /**
@@ -198,14 +198,13 @@ public class CertificateExpiryMonitorTest {
             throws NoSuchAlgorithmException, KeyStoreException {
         return monitorNewCert(key -> new ClientCertificateGenerator(
                 SUBJECT, key, cert -> {
-        }, certificateStore, certificatesConfig), clock);
+        }, certificateStore, certificatesConfig, clock));
     }
 
     private CertificateGenerator monitorNewCert(
-            Function<PublicKey, CertificateGenerator> cgFactory, Clock clock) throws NoSuchAlgorithmException, KeyStoreException {
+            Function<PublicKey, CertificateGenerator> cgFactory) throws NoSuchAlgorithmException, KeyStoreException {
         PublicKey key = CertificateStore.newRSAKeyPair().getPublic();
         CertificateGenerator cg = cgFactory.apply(key);
-        cg.setClock(clock);
         cg.generateCertificate(Collections::emptyList, "test");
         certExpiryMonitor.addToMonitor(cg);
         return cg;

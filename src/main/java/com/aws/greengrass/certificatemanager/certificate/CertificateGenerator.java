@@ -25,20 +25,25 @@ public abstract class CertificateGenerator {
 
     @Getter(AccessLevel.PACKAGE)
     protected X509Certificate certificate;
-    @Setter(AccessLevel.PACKAGE)
-    protected Clock clock = Clock.systemUTC();
+    @Setter(AccessLevel.PACKAGE) // for unit tests
+    protected Clock clock;
 
     /**
-     * Constructor.
+     * Construct a new CertificateGenerator.
      *
      * @param subject          X500 subject
      * @param publicKey        Public Key
      * @param certificateStore CertificateStore instance
+     * @param clock            clock
      */
-    public CertificateGenerator(X500Name subject, PublicKey publicKey, CertificateStore certificateStore) {
+    public CertificateGenerator(X500Name subject,
+                                PublicKey publicKey,
+                                CertificateStore certificateStore,
+                                Clock clock) {
         this.subject = subject;
         this.publicKey = publicKey;
         this.certificateStore = certificateStore;
+        this.clock = clock;
     }
 
     /**

@@ -28,8 +28,8 @@ public class CertificateExpiryMonitor {
     private static final Logger LOGGER = LogManager.getLogger(CertificateExpiryMonitor.class);
     private static final long DEFAULT_CERT_EXPIRY_CHECK_SECONDS = 30;
 
-    @Setter(AccessLevel.PACKAGE)
-    private Clock clock = Clock.systemUTC();
+    @Setter(AccessLevel.PACKAGE)  // for unit tests
+    private Clock clock;
 
     private final ScheduledExecutorService ses;
 
@@ -44,11 +44,15 @@ public class CertificateExpiryMonitor {
      *
      * @param ses                      ScheduledExecutorService to schedule cert expiry checks
      * @param connectivityInfoProvider Connectivity Info Provider
+     * @param clock                    clock
      */
     @Inject
-    public CertificateExpiryMonitor(ScheduledExecutorService ses, ConnectivityInfoProvider connectivityInfoProvider) {
+    public CertificateExpiryMonitor(ScheduledExecutorService ses,
+                                    ConnectivityInfoProvider connectivityInfoProvider,
+                                    Clock clock) {
         this.ses = ses;
         this.connectivityInfoProvider = connectivityInfoProvider;
+        this.clock = clock;
     }
 
     /**

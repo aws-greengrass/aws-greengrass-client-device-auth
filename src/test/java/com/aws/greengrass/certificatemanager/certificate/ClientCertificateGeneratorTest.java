@@ -25,6 +25,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.function.Consumer;
 
@@ -60,7 +61,7 @@ public class ClientCertificateGeneratorTest {
         configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         CertificatesConfig certificatesConfig = new CertificatesConfig(configurationTopics);
         certificateGenerator = new ClientCertificateGenerator(subject, publicKey, mockCallback, certificateStore,
-                certificatesConfig);
+                certificatesConfig, Clock.systemUTC());
     }
 
     @AfterEach

@@ -16,6 +16,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
@@ -36,10 +37,15 @@ public class ServerCertificateGenerator extends CertificateGenerator {
      * @param callback           Callback that consumes generated certificate
      * @param certificateStore   CertificateStore instance
      * @param certificatesConfig Certificate configuration
+     * @param clock              clock
      */
-    public ServerCertificateGenerator(X500Name subject, PublicKey publicKey, Consumer<X509Certificate> callback,
-                                      CertificateStore certificateStore, CertificatesConfig certificatesConfig) {
-        super(subject, publicKey, certificateStore);
+    public ServerCertificateGenerator(X500Name subject,
+                                      PublicKey publicKey,
+                                      Consumer<X509Certificate> callback,
+                                      CertificateStore certificateStore,
+                                      CertificatesConfig certificatesConfig,
+                                      Clock clock) {
+        super(subject, publicKey, certificateStore, clock);
         this.callback = callback;
         this.certificatesConfig = certificatesConfig;
     }

@@ -27,6 +27,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -45,26 +46,33 @@ public class CertificateManager {
 
     private final CISShadowMonitor cisShadowMonitor;
 
+    private final Clock clock;
+
     private final Map<Consumer<X509Certificate>, CertificateGenerator> serverCertSubscriptions =
             new ConcurrentHashMap<>();
 
     private CertificatesConfig certificatesConfig;
 
     /**
-     * Constructor.
+     * Construct a new CertificateManager.
      *
-     * @param certificateStore      Helper class for managing certificate authorities
-     * @param connectivityInfoProvider             Connectivity Info Provider
-     * @param certExpiryMonitor     Certificate Expiry Monitor
-     * @param cisShadowMonitor      CIS Shadow Monitor
+     * @param certificateStore         Helper class for managing certificate authorities
+     * @param connectivityInfoProvider Connectivity Info Provider
+     * @param certExpiryMonitor        Certificate Expiry Monitor
+     * @param cisShadowMonitor         CIS Shadow Monitor
+     * @param clock                    clock
      */
     @Inject
-    public CertificateManager(CertificateStore certificateStore, ConnectivityInfoProvider connectivityInfoProvider,
-                              CertificateExpiryMonitor certExpiryMonitor, CISShadowMonitor cisShadowMonitor) {
+    public CertificateManager(CertificateStore certificateStore,
+                              ConnectivityInfoProvider connectivityInfoProvider,
+                              CertificateExpiryMonitor certExpiryMonitor,
+                              CISShadowMonitor cisShadowMonitor,
+                              Clock clock) {
         this.certificateStore = certificateStore;
         this.connectivityInfoProvider = connectivityInfoProvider;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
+        this.clock = clock;
     }
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
@@ -148,7 +156,7 @@ public class CertificateManager {
                             new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
                     CertificateGenerator certificateGenerator =
                             new ServerCertificateGenerator(jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb,
-                                    certificateStore, certificatesConfig);
+                                    certificateStore, certificatesConfig, clock);
 
                     // Add certificate generator to monitors first in order to avoid missing events
                     // that happen while the initial certificate is being generated.
@@ -201,8 +209,9 @@ public class CertificateManager {
             PKCS10CertificationRequest pkcs10CertificationRequest =
                     CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
             JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
-            CertificateGenerator certificateGenerator = new ClientCertificateGenerator(
-                    jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb, certificateStore, certificatesConfig);
+            CertificateGenerator certificateGenerator =
+                    new ClientCertificateGenerator(jcaRequest.getSubject(), jcaRequest.getPublicKey(), cb,
+                            certificateStore, certificatesConfig, clock);
             certificateGenerator.generateCertificate(Collections::emptyList,
                     "initialization of client cert subscription");
             certExpiryMonitor.addToMonitor(certificateGenerator);
