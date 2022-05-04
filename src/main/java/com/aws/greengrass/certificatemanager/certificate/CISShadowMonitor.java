@@ -14,6 +14,8 @@ import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.mqttclient.WrapperMqttClientConnection;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.RetryUtils;
+import lombok.AccessLevel;
+import lombok.Getter;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 import software.amazon.awssdk.crt.mqtt.MqttException;
@@ -22,6 +24,7 @@ import software.amazon.awssdk.iot.iotshadow.IotShadowClient;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowRequest;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowSubscriptionRequest;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedSubscriptionRequest;
+import software.amazon.awssdk.iot.iotshadow.model.ShadowState;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
@@ -29,6 +32,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingExceptio
 import java.security.KeyStoreException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
@@ -41,7 +45,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 
-@SuppressWarnings("PMD.ImmutableField")
+@SuppressWarnings({"PMD.ImmutableField", "PMD.AvoidDuplicateLiterals"})
 public class CISShadowMonitor {
     private static final Logger LOGGER = LogManager.getLogger(CISShadowMonitor.class);
     private static final String CIS_SHADOW_SUFFIX = "-gci";
@@ -68,6 +72,7 @@ public class CISShadowMonitor {
     private final ConnectivityInfoProvider connectivityInfoProvider;
     private final AtomicInteger nextVersion = new AtomicInteger(-1);
 
+    @Getter(AccessLevel.PACKAGE) // for unit tests
     private final MqttClientConnectionEvents callbacks = new MqttClientConnectionEvents() {
         @Override
         public void onConnectionInterrupted(int errorCode) {
@@ -206,7 +211,6 @@ public class CISShadowMonitor {
     private synchronized void handleNewCloudVersion(int newVersion) {
         if (newVersion == lastVersion) {
             LOGGER.atInfo().kv("version", newVersion).log("Already processed version. Skipping cert re-generation");
-            reportVersion(newVersion);
             return;
         }
 
@@ -243,20 +247,37 @@ public class CISShadowMonitor {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
                     cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
                 }
-                reportVersion(version);
-                lastVersion = version;
+
+                try {
+                    reportVersion(version);
+                } catch (ExecutionException e) {
+                    Throwable cause = e.getCause() == null ? e : e.getCause();
+                    LOGGER.atWarn().kv("version", version).cause(cause).log("Unable to report CIS shadow version");
+                } catch (TimeoutException e) {
+                    LOGGER.atWarn().kv("version", version).log("Timed out while reporting CIS shadow version");
+                } catch (InterruptedException e) {
+                    LOGGER.atWarn().kv("version", version).log("Interrupted while reporting CIS shadow version");
+                } catch (Exception e) {
+                    LOGGER.atWarn().kv("version", version).cause(e).log("Unable to report CIS shadow version");
+                } finally {
+                    lastVersion = version;
+                }
             } catch (KeyStoreException e) {
                 LOGGER.atError().cause(e).log("failed to generate new certificates");
             }
         });
     }
 
-    private void reportVersion(int version) {
+    private void reportVersion(int version) throws ExecutionException, InterruptedException, TimeoutException {
         LOGGER.atInfo().kv("version", version).log("Reporting version");
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
         updateShadowRequest.thingName = shadowName;
         updateShadowRequest.version = version;
-        iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE);
+        updateShadowRequest.state = new ShadowState();
+        updateShadowRequest.state.reported = new HashMap<>();
+        updateShadowRequest.state.desired = new HashMap<>();
+        iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE)
+                .get(5, TimeUnit.SECONDS);
     }
 
     private void publishToGetCISShadowTopic() {
