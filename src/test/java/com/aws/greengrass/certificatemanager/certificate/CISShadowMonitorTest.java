@@ -530,6 +530,7 @@ public class CISShadowMonitorTest {
             }
         }
 
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         private CompletableFuture<Integer> propagateException(Callable<CompletableFuture<Integer>> action) {
             try {
                 return action.call();
