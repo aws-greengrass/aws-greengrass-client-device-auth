@@ -45,10 +45,11 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 
-@SuppressWarnings({"PMD.ImmutableField", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.ImmutableField")
 public class CISShadowMonitor {
     private static final Logger LOGGER = LogManager.getLogger(CISShadowMonitor.class);
     private static final String CIS_SHADOW_SUFFIX = "-gci";
+    private static final String VERSION = "version";
     private static final long TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS = Duration.ofMinutes(1).getSeconds();
     private static final long WAIT_TIME_TO_SUBSCRIBE_AGAIN_IN_MS = Duration.ofMinutes(2).toMillis();
     private static final Random JITTER = new Random();
@@ -210,7 +211,7 @@ public class CISShadowMonitor {
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private synchronized void handleNewCloudVersion(int newVersion) {
         if (newVersion == lastVersion) {
-            LOGGER.atInfo().kv("version", newVersion).log("Already processed version. Skipping cert re-generation");
+            LOGGER.atInfo().kv(VERSION, newVersion).log("Already processed version. Skipping cert re-generation");
             return;
         }
 
@@ -252,14 +253,14 @@ public class CISShadowMonitor {
                     reportVersion(version);
                 } catch (ExecutionException e) {
                     Throwable cause = e.getCause() == null ? e : e.getCause();
-                    LOGGER.atWarn().kv("version", version).cause(cause).log("Unable to report CIS shadow version");
+                    LOGGER.atWarn().kv(VERSION, version).cause(cause).log("Unable to report CIS shadow version");
                 } catch (TimeoutException e) {
-                    LOGGER.atWarn().kv("version", version).log("Timed out while reporting CIS shadow version");
+                    LOGGER.atWarn().kv(VERSION, version).log("Timed out while reporting CIS shadow version");
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    LOGGER.atWarn().kv("version", version).log("Interrupted while reporting CIS shadow version");
+                    LOGGER.atWarn().kv(VERSION, version).log("Interrupted while reporting CIS shadow version");
                 } catch (Exception e) {
-                    LOGGER.atWarn().kv("version", version).cause(e).log("Unable to report CIS shadow version");
+                    LOGGER.atWarn().kv(VERSION, version).cause(e).log("Unable to report CIS shadow version");
                 } finally {
                     lastVersion = version;
                 }
@@ -270,7 +271,7 @@ public class CISShadowMonitor {
     }
 
     private void reportVersion(int version) throws ExecutionException, InterruptedException, TimeoutException {
-        LOGGER.atInfo().kv("version", version).log("Reporting version");
+        LOGGER.atInfo().kv(VERSION, version).log("Reporting version");
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
         updateShadowRequest.thingName = shadowName;
         updateShadowRequest.version = version;
