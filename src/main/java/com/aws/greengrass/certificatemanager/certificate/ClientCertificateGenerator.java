@@ -16,6 +16,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -36,27 +37,24 @@ public class ClientCertificateGenerator extends CertificateGenerator {
      * @param callback           Callback that consumes generated certificate
      * @param certificateStore   CertificateStore instance
      * @param certificatesConfig Certificate configuration
+     * @param clock              clock
      */
-    public ClientCertificateGenerator(X500Name subject, PublicKey publicKey, Consumer<X509Certificate[]> callback,
-                                      CertificateStore certificateStore, CertificatesConfig certificatesConfig) {
-        super(subject, publicKey, certificateStore);
+    public ClientCertificateGenerator(X500Name subject,
+                                      PublicKey publicKey,
+                                      Consumer<X509Certificate[]> callback,
+                                      CertificateStore certificateStore,
+                                      CertificatesConfig certificatesConfig,
+                                      Clock clock) {
+        super(subject, publicKey, certificateStore, clock);
         this.callback = callback;
         this.certificatesConfig = certificatesConfig;
     }
 
-    /**
-     * Regenerates certificate.
-     *
-     * @param connectivityInfoSupplier ConnectivityInfo Supplier (not used in this implementation)
-     * @throws KeyStoreException if unable to retrieve CA key/cert
-     */
     @Override
-    public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier)
+    public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
             throws KeyStoreException {
         Instant now = Instant.now(clock);
 
-        logger.atInfo().kv("subject", subject)
-                .log("Generating new client certificate");
         try {
             certificate = CertificateHelper.signClientCertificateRequest(
                     certificateStore.getCACertificate(),
@@ -68,6 +66,12 @@ public class ClientCertificateGenerator extends CertificateGenerator {
         } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException e) {
             throw new CertificateGenerationException(e);
         }
+
+        logger.atInfo()
+                .kv("subject", subject)
+                .kv("reason", reason)
+                .kv("certExpiry", getExpiryTime())
+                .log("New client certificate generated");
 
         X509Certificate caCertificate = certificateStore.getCACertificate();
         X509Certificate[] chain = {certificate, caCertificate};

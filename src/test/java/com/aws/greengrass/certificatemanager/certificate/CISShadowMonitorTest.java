@@ -143,7 +143,7 @@ public class CISShadowMonitorTest {
 
         assertTrue(shadowUpdated.await(5L, TimeUnit.SECONDS));
 
-        verify(certificateGenerator).generateCertificate(any());
+        verify(certificateGenerator).generateCertificate(any(), any());
     }
 
     @Test
@@ -156,7 +156,7 @@ public class CISShadowMonitorTest {
         publishDesiredShadowState(Utils.immutableMap("newState", 1));
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator).generateCertificate(any());
+        verify(certificateGenerator).generateCertificate(any(), any());
     }
 
     @Test
@@ -173,7 +173,7 @@ public class CISShadowMonitorTest {
         });
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any());
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
     }
 
     @Test
@@ -188,7 +188,7 @@ public class CISShadowMonitorTest {
         publishDesiredShadowState(Utils.immutableMap("newState", 1));
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator).generateCertificate(any());
+        verify(certificateGenerator).generateCertificate(any(), any());
     }
 
     @Test
@@ -206,7 +206,7 @@ public class CISShadowMonitorTest {
         });
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any());
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
     }
 
     @Test
@@ -227,7 +227,7 @@ public class CISShadowMonitorTest {
         publishDesiredShadowState(Utils.immutableMap("newState", 1));
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator).generateCertificate(any());
+        verify(certificateGenerator).generateCertificate(any(), any());
     }
 
     @Test
@@ -253,7 +253,7 @@ public class CISShadowMonitorTest {
         });
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any());
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
     }
 
     @Test
@@ -280,7 +280,7 @@ public class CISShadowMonitorTest {
         });
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any());
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
     }
 
     @Test
@@ -301,7 +301,7 @@ public class CISShadowMonitorTest {
         publishDesiredShadowState(Utils.immutableMap("newState", 2));
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator).generateCertificate(any());
+        verify(certificateGenerator).generateCertificate(any(), any());
     }
 
     @Test

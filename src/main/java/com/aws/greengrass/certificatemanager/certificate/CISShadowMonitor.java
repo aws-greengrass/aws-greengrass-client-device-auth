@@ -242,7 +242,8 @@ public class CISShadowMonitor {
 
             try {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
-                    cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
+                    cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
+                            "connectivity info was updated");
                 }
             } catch (KeyStoreException e) {
                 LOGGER.atError().kv(VERSION, newVersion).cause(e).log("Failed to generate new certificates");

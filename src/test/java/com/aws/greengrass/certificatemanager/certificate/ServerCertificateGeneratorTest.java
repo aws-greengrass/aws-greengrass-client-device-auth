@@ -26,9 +26,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -38,8 +35,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -68,7 +63,7 @@ public class ServerCertificateGeneratorTest {
         configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         CertificatesConfig certificatesConfig = new CertificatesConfig(configurationTopics);
         certificateGenerator = new ServerCertificateGenerator(subject, publicKey, mockCallback, certificateStore,
-                certificatesConfig);
+                certificatesConfig, Clock.systemUTC());
     }
 
     @AfterEach
@@ -79,7 +74,7 @@ public class ServerCertificateGeneratorTest {
     @Test
     void GIVEN_ServerCertificateGenerator_WHEN_generateCertificate_THEN_certificate_generated()
             throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList);
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
 
         X509Certificate generatedCert = certificateGenerator.getCertificate();
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
@@ -87,38 +82,15 @@ public class ServerCertificateGeneratorTest {
         assertThat(generatedCert.getPublicKey(), is(publicKey));
         verify(mockCallback, times(1)).accept(generatedCert);
 
-        certificateGenerator.generateCertificate(Collections::emptyList);
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
         X509Certificate secondGeneratedCert = certificateGenerator.getCertificate();
         assertThat(secondGeneratedCert, is(not(generatedCert)));
     }
 
     @Test
-    void GIVEN_ServerCertificateGenerator_WHEN_no_certificate_THEN_shouldRegenerate_returns_true() {
-        assertTrue(certificateGenerator.shouldRegenerate());
-    }
-
-    @Test
-    void GIVEN_ServerCertificateGenerator_WHEN_valid_certificate_THEN_shouldRegenerate_returns_false()
-            throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList);
-        assertFalse(certificateGenerator.shouldRegenerate());
-    }
-
-    @Test
-    void GIVEN_ServerCertificateGenerator_WHEN_expired_certificate_THEN_shouldRegenerate_returns_true()
-            throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList);
-
-        Instant expirationTime = Instant.now().plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS));
-        Clock mockClock = Clock.fixed(expirationTime, ZoneId.of("UTC"));
-        certificateGenerator.setClock(mockClock);
-        assertTrue(certificateGenerator.shouldRegenerate());
-    }
-
-    @Test
     void GIVEN_emptyConnectivityInfoList_WHEN_generateCertificate_THEN_certificateContainsLocalhost()
             throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList);
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
 
         X509Certificate generatedCert = certificateGenerator.getCertificate();
         Collection<List<?>> subjectAlternativeNames = generatedCert.getSubjectAlternativeNames();

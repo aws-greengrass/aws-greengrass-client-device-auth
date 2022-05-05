@@ -15,7 +15,6 @@ import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -26,46 +25,47 @@ public abstract class CertificateGenerator {
 
     @Getter(AccessLevel.PACKAGE)
     protected X509Certificate certificate;
-    @Setter(AccessLevel.PACKAGE)
-    protected Clock clock = Clock.systemUTC();
+    @Setter(AccessLevel.PACKAGE) // for unit tests
+    protected Clock clock;
 
     /**
-     * Constructor.
+     * Construct a new CertificateGenerator.
      *
      * @param subject          X500 subject
      * @param publicKey        Public Key
      * @param certificateStore CertificateStore instance
+     * @param clock            clock
      */
-    public CertificateGenerator(X500Name subject, PublicKey publicKey, CertificateStore certificateStore) {
+    public CertificateGenerator(X500Name subject,
+                                PublicKey publicKey,
+                                CertificateStore certificateStore,
+                                Clock clock) {
         this.subject = subject;
         this.publicKey = publicKey;
         this.certificateStore = certificateStore;
+        this.clock = clock;
     }
-
-    public abstract void generateCertificate(Supplier<List<String>> connectivityInfoSupplier)
-            throws KeyStoreException;
 
     /**
-     * Checks if certificate needs to be regenerated.
+     * Generate a new certificate. This is a potentially expensive operation, especially
+     * for low-powered devices, so consider calling this asynchronously.
      *
-     * @return true if certificate should be regenerated, else false
+     * @param connectivityInfoSupplier connectivity information
+     * @param reason                   WHY cert gen was requested.
+     * @throws KeyStoreException if unable to retrieve CA key/cert
      */
-    public boolean shouldRegenerate() {
-        Instant dayFromNow = Instant.now(clock).plus(1, ChronoUnit.DAYS);
-        Instant expiryTime = getExpiryTime();
-        return expiryTime.isBefore(dayFromNow);
-    }
+    public abstract void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
+            throws KeyStoreException;
 
     /**
      * Get expiry time of certificate.
      *
      * @return expiry time
      */
-    public Instant getExpiryTime() {
+    protected Instant getExpiryTime() {
         if (certificate == null) {
             return Instant.MIN;
         }
-
         return certificate.getNotAfter().toInstant();
     }
 }
