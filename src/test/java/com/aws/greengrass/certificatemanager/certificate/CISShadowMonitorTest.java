@@ -20,6 +20,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
@@ -46,14 +47,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
+import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -63,6 +69,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -129,7 +136,7 @@ public class CISShadowMonitorTest {
 
     @Test
     void GIVEN_CISShadowMonitor_WHEN_start_monitor_THEN_new_cert_generated() throws Exception {
-        CountDownLatch shadowUpdated = whenUpdateShadowAccepted();
+        CountDownLatch shadowUpdated = whenUpdateShadowAccepted(1);
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.startMonitor();
@@ -141,15 +148,139 @@ public class CISShadowMonitorTest {
 
     @Test
     void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_THEN_new_cert_generated() throws Exception {
-        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated();
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(1);
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
         publishDesiredShadowState(Utils.immutableMap("newState", 1));
-        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
 
+        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
         verify(certificateGenerator).generateCertificate(any());
+    }
+
+    @Test
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_THEN_new_cert_generated_multiple_times() throws Exception {
+        int numShadowChanges = 3;
+
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        IntStream.range(0, numShadowChanges).forEach(i -> {
+            publishDesiredShadowState(Utils.immutableMap("newState", i));
+        });
+
+        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any());
+    }
+
+    @Test
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_duplicate_THEN_only_one_new_cert_generated() throws Exception {
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(2);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        shadowClient.withDuplicatePublishing(true);
+
+        publishDesiredShadowState(Utils.immutableMap("newState", 1));
+
+        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        verify(certificateGenerator).generateCertificate(any());
+    }
+
+    @Test
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_with_duplicates_THEN_new_cert_generated_multiple_times() throws Exception {
+        int numShadowChanges = 3;
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges * 2);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        shadowClient.withDuplicatePublishing(true);
+
+        IntStream.range(0, numShadowChanges).forEach(i -> {
+            publishDesiredShadowState(Utils.immutableMap("newState", i));
+        });
+
+        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any());
+    }
+
+    @Test
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_and_shadow_update_failed_THEN_new_cert_generated(ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, FakeIotShadowClient.SIMULATED_PUBLISH_EXCEPTION.getClass());
+
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(1);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        shadowClient.onPrePublish(topic -> {
+            if (topic.endsWith("shadow/update/delta")) {
+                shadowClient.withPublishException(true);
+            }
+        });
+
+        publishDesiredShadowState(Utils.immutableMap("newState", 1));
+
+        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        verify(certificateGenerator).generateCertificate(any());
+    }
+
+    @Test
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_and_shadow_update_failed_THEN_new_cert_generated_multiple_times(ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, FakeIotShadowClient.SIMULATED_PUBLISH_EXCEPTION.getClass());
+
+        int numShadowChanges = 3;
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        shadowClient.onPrePublish(topic -> {
+            if (topic.endsWith("shadow/update/delta")) {
+                // force the update shadow call within cisShadowMonitor to fail
+                shadowClient.withPublishException(true);
+            }
+        });
+
+        IntStream.range(0, numShadowChanges).forEach(i -> {
+            shadowClient.withPublishException(false);
+            publishDesiredShadowState(Utils.immutableMap("newState", i));
+        });
+
+        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any());
+    }
+
+    @Test
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_with_duplicates_and_shadow_update_failed_THEN_new_cert_generated_multiple_times(ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, FakeIotShadowClient.SIMULATED_PUBLISH_EXCEPTION.getClass());
+
+        int numShadowChanges = 3;
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges * 2);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        shadowClient.withDuplicatePublishing(true);
+        shadowClient.onPrePublish(topic -> {
+            if (topic.endsWith("shadow/update/delta")) {
+                // force the update shadow call within cisShadowMonitor to fail
+                shadowClient.withPublishException(true);
+            }
+        });
+
+        IntStream.range(0, numShadowChanges).forEach(i -> {
+            shadowClient.withPublishException(false);
+            publishDesiredShadowState(Utils.immutableMap("newState", i));
+        });
+
+        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any());
     }
 
     @Test
@@ -160,19 +291,16 @@ public class CISShadowMonitorTest {
         assertFalse(shadowClient.hasSubscriptions());
     }
 
-    // TODO test receiving same version
-    // TODO test if exception when publishing
-
-    private CountDownLatch whenUpdateShadowAccepted() {
-        CountDownLatch shadowUpdated = new CountDownLatch(1);
+    private CountDownLatch whenUpdateShadowAccepted(int times) {
+        CountDownLatch shadowUpdated = new CountDownLatch(times);
         UpdateShadowSubscriptionRequest request = new UpdateShadowSubscriptionRequest();
         request.thingName = SHADOW_NAME;
         shadowClient.SubscribeToUpdateShadowAccepted(request, QualityOfService.AT_LEAST_ONCE, resp -> shadowUpdated.countDown());
         return shadowUpdated;
     }
 
-    private CountDownLatch whenShadowDeltaUpdated() {
-        CountDownLatch shadowDeltaUpdated = new CountDownLatch(1);
+    private CountDownLatch whenShadowDeltaUpdated(int times) {
+        CountDownLatch shadowDeltaUpdated = new CountDownLatch(times);
         ShadowDeltaUpdatedSubscriptionRequest request = new ShadowDeltaUpdatedSubscriptionRequest();
         request.thingName = SHADOW_NAME;
         shadowClient.SubscribeToShadowDeltaUpdatedEvents(request, QualityOfService.AT_LEAST_ONCE, resp -> shadowDeltaUpdated.countDown());
@@ -207,12 +335,17 @@ public class CISShadowMonitorTest {
 
 
     static class FakeIotShadowClient extends IotShadowClient {
+
+        static final RuntimeException SIMULATED_PUBLISH_EXCEPTION = new RuntimeException("simulated publish error");
         private static final CompletableFuture<Integer> DUMMY_PACKET_ID = CompletableFuture.completedFuture(0);
         private static final int INITIAL_SHADOW_VERSION = 1;
         private static final ObjectMapper MAPPER = new ObjectMapper();
 
         private final Map<String, List<Consumer<MqttMessage>>> subscriptionsByTopic = new ConcurrentHashMap<>();
         private final Map<String, Shadow> shadowByThingName = new ConcurrentHashMap<>();
+        private final AtomicReference<Consumer<String>> onPrePublish = new AtomicReference<>();
+        private final AtomicBoolean withDuplicatePublishing = new AtomicBoolean();
+        private final AtomicBoolean withPublishException = new AtomicBoolean();
 
         @Getter(AccessLevel.PACKAGE)
         private final MqttClientConnection connection;
@@ -232,33 +365,39 @@ public class CISShadowMonitorTest {
             super(connection);
             this.connection = connection;
             // store subscriptions in-memory on subscribe
-            when(this.connection.subscribe(any(), any(), any())).thenAnswer(invocation -> {
-                String topic = invocation.getArgument(0);
-                Consumer<MqttMessage> messageHandler = invocation.getArgument(2);
-                subscriptionsByTopic.computeIfAbsent(topic, t -> new CopyOnWriteArrayList<>())
-                        .add(messageHandler);
-                return DUMMY_PACKET_ID;
-            });
+            when(this.connection.subscribe(any(), any(), any())).thenAnswer(invocation ->
+                    propagateException(() -> {
+                        String topic = invocation.getArgument(0);
+                        Consumer<MqttMessage> messageHandler = invocation.getArgument(2);
+                        subscriptionsByTopic.computeIfAbsent(topic, t -> new CopyOnWriteArrayList<>())
+                                .add(messageHandler);
+                        return DUMMY_PACKET_ID;
+                    })
+            );
             // fire messages to subscriptions on publish
-            when(this.connection.publish(any(), any(), anyBoolean())).thenAnswer(invocation -> {
-                MqttMessage message = invocation.getArgument(0);
-                String topic = message.getTopic();
+            when(this.connection.publish(any(), any(), anyBoolean())).thenAnswer(invocation ->
+                    propagateException(() -> {
+                        MqttMessage message = invocation.getArgument(0);
+                        String topic = message.getTopic();
 
-                if (topic.endsWith("shadow/get")) {
-                    readPayload(message, GetShadowRequest.class)
-                            .ifPresent(this::handleGetShadowRequest);
-                } else if (topic.endsWith("shadow/update")) {
-                    readPayload(message, UpdateShadowRequest.class)
-                            .ifPresent(this::handleUpdateShadowRequest);
-                }
-                return DUMMY_PACKET_ID;
-            });
+                        if (topic.endsWith("shadow/get")) {
+                            readPayload(message, GetShadowRequest.class)
+                                    .ifPresent(this::handleGetShadowRequest);
+                        } else if (topic.endsWith("shadow/update")) {
+                            readPayload(message, UpdateShadowRequest.class)
+                                    .ifPresent(this::handleUpdateShadowRequest);
+                        }
+                        return DUMMY_PACKET_ID;
+                    })
+            );
             // delete subscriptions on unsubscribe
-            when(this.connection.unsubscribe(any())).thenAnswer(invocation -> {
-                String topic = invocation.getArgument(0);
-                subscriptionsByTopic.remove(topic);
-                return DUMMY_PACKET_ID;
-            });
+            when(this.connection.unsubscribe(any())).thenAnswer(invocation ->
+                    propagateException(() -> {
+                        String topic = invocation.getArgument(0);
+                        subscriptionsByTopic.remove(topic);
+                        return DUMMY_PACKET_ID;
+                    })
+            );
         }
 
         private void handleGetShadowRequest(GetShadowRequest request) {
@@ -356,12 +495,14 @@ public class CISShadowMonitorTest {
             }
         }
 
-        private <T> Optional<MqttMessage> wrapInMessage(String topic, T payload) {
+        private <T> Optional<MqttMessage> wrapInMessage(String topic, T payload, boolean dup) {
             try {
                 return Optional.of(new MqttMessage(
                         topic,
                         MAPPER.writeValueAsBytes(payload),
-                        QualityOfService.AT_LEAST_ONCE)
+                        QualityOfService.AT_LEAST_ONCE,
+                        false,
+                        dup)
                 );
             } catch (JsonProcessingException e) {
                 return Optional.empty();
@@ -369,11 +510,46 @@ public class CISShadowMonitorTest {
         }
 
         private <T> void publishMessage(String topic, T event) {
+            if (withPublishException.get()) {
+                throw SIMULATED_PUBLISH_EXCEPTION;
+            }
+
+            Consumer<String> onPrePublish = this.onPrePublish.get();
+            if (onPrePublish != null) {
+                onPrePublish.accept(topic);
+            }
+
             List<Consumer<MqttMessage>> subscribers = subscriptionsByTopic.get(topic);
             if (subscribers != null) {
                 subscribers.forEach(subscriber ->
-                        wrapInMessage(topic, event).ifPresent(subscriber));
+                        wrapInMessage(topic, event, false).ifPresent(subscriber));
+                if (withDuplicatePublishing.get()) {
+                    subscribers.forEach(subscriber ->
+                            wrapInMessage(topic, event, true).ifPresent(subscriber));
+                }
             }
+        }
+
+        private CompletableFuture<Integer> propagateException(Callable<CompletableFuture<Integer>> action) {
+            try {
+                return action.call();
+            } catch (Exception e) {
+                CompletableFuture<Integer> cf = new CompletableFuture<>();
+                cf.completeExceptionally(e);
+                return cf;
+            }
+        }
+
+        void onPrePublish(Consumer<String> action) {
+            onPrePublish.set(action);
+        }
+
+        void withPublishException(boolean publishException) {
+            withPublishException.set(publishException);
+        }
+
+        void withDuplicatePublishing(boolean duplicatePublishing) {
+            withDuplicatePublishing.set(duplicatePublishing);
         }
 
         boolean hasSubscriptions() {
