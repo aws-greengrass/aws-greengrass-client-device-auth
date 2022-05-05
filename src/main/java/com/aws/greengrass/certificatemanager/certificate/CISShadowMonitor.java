@@ -256,6 +256,7 @@ public class CISShadowMonitor {
                 } catch (TimeoutException e) {
                     LOGGER.atWarn().kv("version", version).log("Timed out while reporting CIS shadow version");
                 } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     LOGGER.atWarn().kv("version", version).log("Interrupted while reporting CIS shadow version");
                 } catch (Exception e) {
                     LOGGER.atWarn().kv("version", version).cause(e).log("Unable to report CIS shadow version");
