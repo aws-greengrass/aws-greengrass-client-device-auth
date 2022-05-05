@@ -261,7 +261,7 @@ public class CISShadowMonitor {
                 lastVersion = newVersion;
             }
         }, executorService).exceptionally(e -> {
-            LOGGER.atError().kv(VERSION, newVersion).cause(e).log("Unable to handle cis shadow delta");
+            LOGGER.atError().kv(VERSION, newVersion).cause(e).log("Unable to handle CIS shadow delta");
             return null;
         });
     }
