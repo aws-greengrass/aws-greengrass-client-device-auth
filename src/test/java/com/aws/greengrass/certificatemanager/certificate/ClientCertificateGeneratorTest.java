@@ -25,6 +25,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.function.Consumer;
 
@@ -60,7 +61,7 @@ public class ClientCertificateGeneratorTest {
         configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         CertificatesConfig certificatesConfig = new CertificatesConfig(configurationTopics);
         certificateGenerator = new ClientCertificateGenerator(subject, publicKey, mockCallback, certificateStore,
-                certificatesConfig);
+                certificatesConfig, Clock.systemUTC());
     }
 
     @AfterEach
@@ -71,7 +72,7 @@ public class ClientCertificateGeneratorTest {
     @Test
     public void GIVEN_ClientCertificateGenerator_WHEN_generateCertificate_THEN_certificate_generated()
             throws Exception {
-        certificateGenerator.generateCertificate(Collections::emptyList);
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
 
         X509Certificate generatedCert = certificateGenerator.getCertificate();
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
@@ -80,7 +81,7 @@ public class ClientCertificateGeneratorTest {
         verify(mockCallback, times(1))
                 .accept(new X509Certificate[]{generatedCert, certificateStore.getCACertificate()});
 
-        certificateGenerator.generateCertificate(Collections::emptyList);
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
         X509Certificate secondGeneratedCert = certificateGenerator.getCertificate();
         assertThat(secondGeneratedCert, is(not(generatedCert)));
     }

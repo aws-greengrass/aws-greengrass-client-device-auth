@@ -40,6 +40,7 @@ import java.security.cert.X509Certificate;
 import java.security.spec.EncodedKeySpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.time.Clock;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -112,7 +113,7 @@ public class CertificateManagerTest {
     @BeforeEach
     void beforeEach() throws KeyStoreException {
         certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider, mockCertExpiryMonitor,
-                mockShadowMonitor);
+                mockShadowMonitor, Clock.systemUTC());
         certificateManager.update("", CertificateStore.CAType.RSA_2048);
         CertificatesConfig certificatesConfig = new CertificatesConfig(Topics.of(new Context(),
                 KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
