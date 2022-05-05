@@ -7,7 +7,6 @@ package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.deployment.DeviceConfiguration;
-import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.mqttclient.MqttClient;
@@ -42,7 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
@@ -65,13 +64,11 @@ public class CISShadowMonitor {
     private IotShadowClient iotShadowClient;
     private int lastVersion = 0;
     private Future<?> subscribeTaskFuture;
-    private CompletableFuture<Integer> getConnectivityFuture;
-
+    private final AtomicBoolean connectivityCallInProgress = new AtomicBoolean();
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
     private final String shadowName;
     private final ConnectivityInfoProvider connectivityInfoProvider;
-    private final AtomicInteger nextVersion = new AtomicInteger(-1);
 
     @Getter(AccessLevel.PACKAGE) // for unit tests
     private final MqttClientConnectionEvents callbacks = new MqttClientConnectionEvents() {
@@ -91,10 +88,10 @@ public class CISShadowMonitor {
     /**
      * Constructor.
      *
-     * @param mqttClient          IoT MQTT client
-     * @param executorService     Executor service
-     * @param deviceConfiguration Device configuration
-     * @param connectivityInfoProvider           Connectivity Info Provider
+     * @param mqttClient               IoT MQTT client
+     * @param executorService          Executor service
+     * @param deviceConfiguration      Device configuration
+     * @param connectivityInfoProvider Connectivity Info Provider
      */
     @Inject
     public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
@@ -217,60 +214,58 @@ public class CISShadowMonitor {
 
         LOGGER.atInfo().log("New CIS version: {}", newVersion);
 
-        if (nextVersion.getAndSet(newVersion) != -1) {
-            LOGGER.atDebug().log("Retry workflow for getting connectivity info already in process");
-            return;
-        }
-
         // NOTE: This method executes in an MQTT CRT thread. Since certificate generation is a compute intensive
         // operation (particularly on low end devices) it is imperative that we process this event asynchronously
         // to avoid blocking other MQTT subscribers in the Nucleus
-        getConnectivityFuture = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture.runAsync(() -> {
+            if (connectivityCallInProgress.getAndSet(true)) {
+                LOGGER.atDebug().log("getConnectivityInfo call in progress. Skipping cert re-generation");
+                return;
+            }
             try {
                 RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInfoProvider::getConnectivityInfo,
                         "get-connectivity", LOGGER);
             } catch (InterruptedException e) {
-                LOGGER.atWarn().cause(e).log("Retry workflow for getting connectivity info interrupted");
+                LOGGER.atWarn().kv(VERSION, newVersion).cause(e)
+                        .log("Retry workflow for getting connectivity info interrupted");
                 Thread.currentThread().interrupt();
-                throw new CloudServiceInteractionException(
-                        "Failed to get connectivity info, process got interrupted", e);
+                return;
             } catch (Exception e) {
-                LOGGER.atError().cause(e)
-                        .log("Failed to get connectivity info from cloud. Check that the core device's IoT policy "
-                                + "grants the greengrass:GetConnectivityInfo permission.");
-                throw new CloudServiceInteractionException("Failed to get connectivity info", e);
+                LOGGER.atError().kv(VERSION, newVersion).cause(e)
+                        .log("Failed to get connectivity info from cloud."
+                                + " Check that the core device's IoT policy "
+                                + "grants the greengrass:GetConnectivityInfo permission");
+                return;
+            } finally {
+                connectivityCallInProgress.set(false);
             }
-            return nextVersion.getAndSet(-1);
-        }, executorService);
 
-        getConnectivityFuture.thenAccept((version) -> {
             try {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
                     cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses);
                 }
-
-                try {
-                    reportVersion(version);
-                } catch (ExecutionException e) {
-                    Throwable cause = e.getCause() == null ? e : e.getCause();
-                    LOGGER.atWarn().kv(VERSION, version).cause(cause).log("Unable to report CIS shadow version");
-                } catch (TimeoutException e) {
-                    LOGGER.atWarn().kv(VERSION, version).log("Timed out while reporting CIS shadow version");
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    LOGGER.atWarn().kv(VERSION, version).log("Interrupted while reporting CIS shadow version");
-                } catch (Exception e) {
-                    LOGGER.atWarn().kv(VERSION, version).cause(e).log("Unable to report CIS shadow version");
-                } finally {
-                    lastVersion = version;
-                }
             } catch (KeyStoreException e) {
-                LOGGER.atError().cause(e).log("failed to generate new certificates");
+                LOGGER.atError().kv(VERSION, newVersion).cause(e).log("Failed to generate new certificates");
+                return;
             }
+
+            try {
+                reportVersion(newVersion)
+                        .exceptionally(e -> {
+                            LOGGER.atWarn().kv(VERSION, newVersion).cause(e)
+                                    .log("Unable to report CIS shadow version");
+                            return null;
+                        });
+            } finally {
+                lastVersion = newVersion;
+            }
+        }, executorService).exceptionally(e -> {
+            LOGGER.atError().kv(VERSION, newVersion).cause(e).log("Unable to handle cis shadow delta");
+            return null;
         });
     }
 
-    private void reportVersion(int version) throws ExecutionException, InterruptedException, TimeoutException {
+    private CompletableFuture<Integer> reportVersion(int version) {
         LOGGER.atInfo().kv(VERSION, version).log("Reporting version");
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
         updateShadowRequest.thingName = shadowName;
@@ -278,8 +273,7 @@ public class CISShadowMonitor {
         updateShadowRequest.state = new ShadowState();
         updateShadowRequest.state.reported = new HashMap<>();
         updateShadowRequest.state.desired = new HashMap<>();
-        iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE)
-                .get(5, TimeUnit.SECONDS);
+        return iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE);
     }
 
     private void publishToGetCISShadowTopic() {

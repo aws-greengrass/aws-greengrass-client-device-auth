@@ -284,6 +284,27 @@ public class CISShadowMonitorTest {
     }
 
     @Test
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_twice_and_connectivity_call_fails_once_THEN_one_cert_generated(ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, RuntimeException.class);
+
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(2);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        // for first delta, simulate CIS failure
+        when(mockConnectivityInfoProvider.getConnectivityInfo()).thenThrow(RuntimeException.class);
+        publishDesiredShadowState(Utils.immutableMap("newState", 1));
+
+        // for second delta, everything works smoothly
+        reset(mockConnectivityInfoProvider);
+        publishDesiredShadowState(Utils.immutableMap("newState", 2));
+
+        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        verify(certificateGenerator).generateCertificate(any());
+    }
+
+    @Test
     void GIVEN_CISShadowMonitor_WHEN_stop_monitor_THEN_unsubscribe() {
         cisShadowMonitor.startMonitor();
         assertTrue(shadowClient.hasSubscriptions());
