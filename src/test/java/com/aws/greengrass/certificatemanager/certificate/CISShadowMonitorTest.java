@@ -386,6 +386,8 @@ public class CISShadowMonitorTest {
                         } else if (topic.endsWith("shadow/update")) {
                             readPayload(message, UpdateShadowRequest.class)
                                     .ifPresent(this::handleUpdateShadowRequest);
+                        } else {
+                            throw new UnsupportedOperationException("please add a new handler for " + topic);
                         }
                         return DUMMY_PACKET_ID;
                     })
