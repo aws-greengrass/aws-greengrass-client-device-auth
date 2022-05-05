@@ -267,7 +267,7 @@ public class CISShadowMonitor {
     }
 
     private CompletableFuture<Integer> reportVersion(int version) {
-        LOGGER.atInfo().kv(VERSION, version).log("Reporting version");
+        LOGGER.atInfo().kv(VERSION, version).log("Reporting CIS version");
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
         updateShadowRequest.thingName = shadowName;
         updateShadowRequest.version = version;
