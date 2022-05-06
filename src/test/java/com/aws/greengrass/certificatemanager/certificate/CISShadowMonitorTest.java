@@ -143,7 +143,7 @@ public class CISShadowMonitorTest {
 
         assertTrue(shadowUpdated.await(5L, TimeUnit.SECONDS));
 
-        verify(certificateGenerator).generateCertificate(any(), any());
+        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
     }
 
     @Test
@@ -156,7 +156,7 @@ public class CISShadowMonitorTest {
         publishDesiredShadowState(Utils.immutableMap("newState", 1));
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator).generateCertificate(any(), any());
+        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
     }
 
     @Test
@@ -188,7 +188,7 @@ public class CISShadowMonitorTest {
         publishDesiredShadowState(Utils.immutableMap("newState", 1));
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator).generateCertificate(any(), any());
+        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
     }
 
     @Test
@@ -227,7 +227,7 @@ public class CISShadowMonitorTest {
         publishDesiredShadowState(Utils.immutableMap("newState", 1));
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator).generateCertificate(any(), any());
+        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
     }
 
     @Test
@@ -301,7 +301,7 @@ public class CISShadowMonitorTest {
         publishDesiredShadowState(Utils.immutableMap("newState", 2));
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator).generateCertificate(any(), any());
+        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
     }
 
     @Test
@@ -338,19 +338,19 @@ public class CISShadowMonitorTest {
 
     private void verifyGetShadowAcceptedSubscription() {
         ArgumentCaptor<GetShadowSubscriptionRequest> request = ArgumentCaptor.forClass(GetShadowSubscriptionRequest.class);
-        shadowClientOrder.verify(shadowClient).SubscribeToGetShadowAccepted(request.capture(), eq(QualityOfService.AT_LEAST_ONCE), any(), any());
+        shadowClientOrder.verify(shadowClient, times(1)).SubscribeToGetShadowAccepted(request.capture(), eq(QualityOfService.AT_LEAST_ONCE), any(), any());
         assertEquals(SHADOW_NAME, request.getValue().thingName);
     }
 
     private void verifyShadowDeltaUpdatedSubscription() {
         ArgumentCaptor<ShadowDeltaUpdatedSubscriptionRequest> request = ArgumentCaptor.forClass(ShadowDeltaUpdatedSubscriptionRequest.class);
-        shadowClientOrder.verify(shadowClient).SubscribeToShadowDeltaUpdatedEvents(request.capture(), eq(QualityOfService.AT_LEAST_ONCE), any(), any());
+        shadowClientOrder.verify(shadowClient, times(1)).SubscribeToShadowDeltaUpdatedEvents(request.capture(), eq(QualityOfService.AT_LEAST_ONCE), any(), any());
         assertEquals(SHADOW_NAME, request.getValue().thingName);
     }
 
     private void verifyPublishGetShadow() {
         ArgumentCaptor<GetShadowRequest> request = ArgumentCaptor.forClass(GetShadowRequest.class);
-        shadowClientOrder.verify(shadowClient).PublishGetShadow(request.capture(), eq(QualityOfService.AT_LEAST_ONCE));
+        shadowClientOrder.verify(shadowClient, times(1)).PublishGetShadow(request.capture(), eq(QualityOfService.AT_LEAST_ONCE));
         assertEquals(SHADOW_NAME, request.getValue().thingName);
     }
 
