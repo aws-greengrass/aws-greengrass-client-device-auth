@@ -6,6 +6,7 @@
 package com.aws.greengrass.integrationtests.ipc;
 
 import com.aws.greengrass.dependency.State;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.iot.IotAuthClient;
@@ -78,13 +79,13 @@ class VerifyClientDeviceIdentityTest {
     }
 
     @BeforeEach
-    void beforeEach() {
+    void beforeEach() throws DeviceConfigurationException {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
-        when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
+        when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
 
     }
 
@@ -192,7 +193,7 @@ class VerifyClientDeviceIdentityTest {
         software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest re =
                 software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest.builder()
                         .clientDeviceCertificate("ValidationException PEM").build();
-        when(clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(re))
+        when(clientFactory.fetchGreengrassV2DataClient().verifyClientDeviceIdentity(re))
                 .thenThrow(ValidationException.class);
         ignoreExceptionOfType(context, ValidationException.class);
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,

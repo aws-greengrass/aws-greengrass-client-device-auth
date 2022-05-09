@@ -8,6 +8,7 @@ package com.aws.greengrass.cisclient;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.deployment.DeviceConfiguration;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,12 +26,14 @@ import software.amazon.awssdk.services.greengrassv2data.model.ValidationExceptio
 import java.util.Arrays;
 import java.util.List;
 
+import static com.aws.greengrass.cisclient.ConnectivityInfoProvider.CLIENT_RETRY_COUNT;
 import static com.aws.greengrass.deployment.DeviceConfiguration.DEVICE_PARAM_THING_NAME;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
@@ -56,16 +59,16 @@ public class ConnectivityInfoProviderTest {
     protected Context context;
 
     @BeforeEach
-    public void setup() {
+    public void setup() throws DeviceConfigurationException {
         Topic thingNameTopic = Topic.of(context, DEVICE_PARAM_THING_NAME, "testThing");
         lenient().doReturn(thingNameTopic).when(deviceConfiguration).getThingName();
-        lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(greengrassV2DataClient);
+        lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(greengrassV2DataClient);
         connectivityInfoProvider = new ConnectivityInfoProvider(deviceConfiguration, clientFactory);
     }
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     @Test
-    void GIVEN_connectivity_info_WHEN_get_connectivity_info_THEN_connectivity_info_returned() {
+    void GIVEN_connectivity_info_WHEN_get_connectivity_info_THEN_connectivity_info_returned() throws Exception {
         ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
                 .metadata("").id("172.8.8.10").portNumber(8883).build();
         ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
@@ -82,7 +85,7 @@ public class ConnectivityInfoProviderTest {
     }
 
     @Test
-    void GIVEN_no_connectivity_info_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned() {
+    void GIVEN_no_connectivity_info_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned() throws Exception {
         GetConnectivityInfoResponse getConnectivityInfoResponse = GetConnectivityInfoResponse.builder().build();
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
@@ -95,7 +98,7 @@ public class ConnectivityInfoProviderTest {
 
     @Test
     void GIVEN_cloudThrowValidationException_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned(
-            ExtensionContext context) {
+            ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, ValidationException.class);
         when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class)))
                 .thenThrow(ValidationException.class);
@@ -105,7 +108,8 @@ public class ConnectivityInfoProviderTest {
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     @Test
-    void GIVEN_cached_connectivity_info_WHEN_get_cached_connectivity_info_THEN_connectivity_info_returned() {
+    void GIVEN_cached_connectivity_info_WHEN_get_cached_connectivity_info_THEN_connectivity_info_returned()
+            throws Exception {
         ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
                 .metadata("").id("172.8.8.10").portNumber(8883).build();
         ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
@@ -118,5 +122,14 @@ public class ConnectivityInfoProviderTest {
         connectivityInfoProvider.getConnectivityInfo();
         List<String> connectivityInfos = connectivityInfoProvider.getCachedHostAddresses();
         assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
+    }
+
+    @Test
+    void GIVEN_connectivity_info_WHEN_fails_to_retrieve_greengrassV2DataClient_THEN_retries()
+            throws Exception {
+        when(clientFactory.fetchGreengrassV2DataClient()).thenThrow(DeviceConfigurationException.class);
+        assertThrows(DeviceConfigurationException.class, () ->
+                connectivityInfoProvider.getConnectivityInfo());
+        verify(clientFactory, times(CLIENT_RETRY_COUNT)).fetchGreengrassV2DataClient();
     }
 }

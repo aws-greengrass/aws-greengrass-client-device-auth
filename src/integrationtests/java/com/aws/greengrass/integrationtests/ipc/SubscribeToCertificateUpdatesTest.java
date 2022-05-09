@@ -6,6 +6,7 @@
 package com.aws.greengrass.integrationtests.ipc;
 
 import com.aws.greengrass.dependency.State;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
@@ -96,12 +97,12 @@ class SubscribeToCertificateUpdatesTest {
     }
 
     @BeforeEach
-    void beforeEach() {
+    void beforeEach() throws DeviceConfigurationException {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
-        lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
+        lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
     }
 
     private void startNucleusWithConfig(String configFileName) throws InterruptedException {

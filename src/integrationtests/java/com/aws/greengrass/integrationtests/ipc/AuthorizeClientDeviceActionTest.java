@@ -6,6 +6,7 @@
 package com.aws.greengrass.integrationtests.ipc;
 
 import com.aws.greengrass.dependency.State;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.device.AuthorizationRequest;
 import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.device.DeviceAuthClient;
@@ -79,13 +80,13 @@ class AuthorizeClientDeviceActionTest {
     }
 
     @BeforeEach
-    void beforeEach() {
+    void beforeEach() throws DeviceConfigurationException {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
-        when(clientFactory.getGreengrassV2DataClient()).thenReturn(v2DataClient);
+        when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(v2DataClient);
 
     }
 

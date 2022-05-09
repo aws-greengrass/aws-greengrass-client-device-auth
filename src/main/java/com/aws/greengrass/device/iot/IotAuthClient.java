@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.device.iot;
 
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -33,7 +34,8 @@ public interface IotAuthClient {
         private static final Logger logger = LogManager.getLogger(Default.class);
         private static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
                 RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofMillis(100)).maxAttempt(3)
-                        .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
+                        .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class,
+                                DeviceConfigurationException.class))
                         .build();
 
         private final GreengrassServiceClientFactory clientFactory;
@@ -59,7 +61,7 @@ public interface IotAuthClient {
                     VerifyClientDeviceIdentityRequest.builder().clientDeviceCertificate(certificatePem).build();
             try {
                 VerifyClientDeviceIdentityResponse response = RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
-                        () -> clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(request),
+                        () -> clientFactory.fetchGreengrassV2DataClient().verifyClientDeviceIdentity(request),
                         "verify-client-device-identity", logger);
                 return Optional.of(response.clientDeviceCertificateId());
             } catch (InterruptedException e) {
@@ -97,7 +99,7 @@ public interface IotAuthClient {
                             .clientDeviceCertificateId(certificate.getIotCertificateId()).build();
             try {
                 RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
-                        () -> clientFactory.getGreengrassV2DataClient()
+                        () -> clientFactory.fetchGreengrassV2DataClient()
                                 .verifyClientDeviceIoTCertificateAssociation(request),
                         "verify-certificate-thing-association", logger);
                 logger.atDebug().kv("thingName", thing.getThingName())

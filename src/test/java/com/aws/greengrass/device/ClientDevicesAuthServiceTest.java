@@ -10,6 +10,7 @@ import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.dependency.State;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.device.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
@@ -103,7 +104,7 @@ class ClientDevicesAuthServiceTest {
 
 
     @BeforeEach
-    void setup() {
+    void setup() throws DeviceConfigurationException {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
@@ -111,7 +112,7 @@ class ClientDevicesAuthServiceTest {
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitor);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
-        lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
+        lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
     }
 
     @AfterEach

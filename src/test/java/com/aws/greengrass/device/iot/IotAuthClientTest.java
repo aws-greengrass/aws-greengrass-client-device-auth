@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.device.iot;
 
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
@@ -65,8 +66,8 @@ public class IotAuthClientTest {
     private ArgumentCaptor<VerifyClientDeviceIoTCertificateAssociationRequest> associationRequestCaptor;
 
     @BeforeEach
-    void beforeEach() {
-        lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
+    void beforeEach() throws DeviceConfigurationException {
+        lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
     }
 
     @Test
