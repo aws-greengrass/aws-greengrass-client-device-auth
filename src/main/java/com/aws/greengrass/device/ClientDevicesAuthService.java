@@ -182,7 +182,7 @@ public class ClientDevicesAuthService extends PluginService {
                 }
             }
 
-            if (whatHappened == WhatHappened.initialized) {
+            if (whatHappened == WhatHappened.initialized || node == null) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
                 updateCAType(caTypeTopic);
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {

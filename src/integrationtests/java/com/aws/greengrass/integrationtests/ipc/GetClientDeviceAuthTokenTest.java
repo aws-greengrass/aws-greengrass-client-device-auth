@@ -48,6 +48,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
+import static com.aws.greengrass.device.ClientDevicesAuthService.CLOUD_QUEUE_SIZE_TOPIC;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssertOnConsumer;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -147,7 +149,7 @@ class GetClientDeviceAuthTokenTest {
     }
 
     @Test
-    void GIVEN_brokerWithInvalidCredentials_WHEN_GetClientDeviceAuthToken_THEN_throwsInvalidArgumentsError()
+    void GIVEN_brokerWithInvalidCredentials_WHEN_GetClientDeviceAuthToken_THEN_throwsInvalidArgumentsError_and_WHEN_queueIsFull_THEN_throwsServiceError()
             throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
         startNucleusWithConfig("cda.yaml");
@@ -162,7 +164,24 @@ class GetClientDeviceAuthTokenTest {
             });
             assertEquals(err.getCause().getClass(), InvalidArgumentsError.class);
             assertThat(err.getCause().getMessage(), containsString("Invalid client device credentials"));
+        }
 
+        // Update the cloud queue size to 0 so that we'll just reject any request
+        kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
+                .lookup(CONFIGURATION_CONFIG_KEY, CLOUD_QUEUE_SIZE_TOPIC).withValue(0);
+        kernel.getContext().waitForPublishQueueToClear();
+
+        // Verify that we get a good error that the request couldn't be queued
+        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
+                "BrokerWithGetClientDeviceAuthTokenPermission")) {
+            GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
+            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest();
+
+            Exception err = assertThrows(Exception.class, () -> {
+                clientDeviceAuthToken(ipcClient, request, null);
+            });
+            assertEquals(err.getCause().getClass(), ServiceError.class);
+            assertThat(err.getCause().getMessage(), containsString("Unable to queue request"));
         }
     }
 
