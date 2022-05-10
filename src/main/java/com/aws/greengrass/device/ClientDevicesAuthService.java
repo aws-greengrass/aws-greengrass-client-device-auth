@@ -29,6 +29,7 @@ import com.aws.greengrass.ipc.VerifyClientDeviceIdentityOperationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import com.aws.greengrass.util.ResizableLinkedBlockingQueue;
 import com.aws.greengrass.util.RetryUtils;
 import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.databind.MapperFeature;
@@ -46,7 +47,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
@@ -69,6 +70,8 @@ public class ClientDevicesAuthService extends PluginService {
             RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(Integer.MAX_VALUE)
                     .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
                     .build();
+    public static final String CLOUD_QUEUE_SIZE_TOPIC = "cloudQueueSize";
+    public static final String THREAD_POOL_SIZE_TOPIC = "threadPoolSize";
 
     private final GroupManager groupManager;
 
@@ -83,12 +86,11 @@ public class ClientDevicesAuthService extends PluginService {
     private final SessionManager sessionManager;
     private final DeviceAuthClient deviceAuthClient;
     // Limit the queue size before we start rejecting requests
-    // TODO: User configurable
-    private static final int CLOUD_CALL_QUEUE_SIZE = 100;
-    // Create a threadpool for calling the cloud. Single thread will be used.
-    // TODO: User configurable pool size
-    private final ThreadPoolExecutor cloudCallThreadPool = new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(CLOUD_CALL_QUEUE_SIZE));
+    private static final int DEFAULT_CLOUD_CALL_QUEUE_SIZE = 100;
+    private static final int DEFAULT_THREAD_POOL_SIZE = 1;
+    // Create a threadpool for calling the cloud. Single thread will be used by default.
+    private final ThreadPoolExecutor cloudCallThreadPool;
+    private final int cloudCallQueueSize;
 
     /**
      * Constructor.
@@ -117,6 +119,11 @@ public class ClientDevicesAuthService extends PluginService {
                                     SessionManager sessionManager,
                                     DeviceAuthClient deviceAuthClient) {
         super(topics);
+        cloudCallQueueSize = Coerce.toInt(topics.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE,
+                CONFIGURATION_CONFIG_KEY, CLOUD_QUEUE_SIZE_TOPIC));
+        cloudCallThreadPool = new ThreadPoolExecutor(1,
+                DEFAULT_THREAD_POOL_SIZE, 60, TimeUnit.SECONDS,
+                new ResizableLinkedBlockingQueue<>(cloudCallQueueSize));
         cloudCallThreadPool.allowCoreThreadTimeOut(true); // act as a cached threadpool
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
@@ -154,6 +161,26 @@ public class ClientDevicesAuthService extends PluginService {
             logger.atDebug().kv("why", whatHappened).kv("node", node).log();
             Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
             Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC);
+
+            // Attempt to update the thread pool size as needed
+            try {
+                int threadPoolSize = Coerce.toInt(this.config.findOrDefault(DEFAULT_THREAD_POOL_SIZE,
+                        CONFIGURATION_CONFIG_KEY, THREAD_POOL_SIZE_TOPIC));
+                if (threadPoolSize >= cloudCallThreadPool.getCorePoolSize()) {
+                    cloudCallThreadPool.setMaximumPoolSize(threadPoolSize);
+                }
+            } catch (IllegalArgumentException e) {
+                logger.atWarn().log("Unable to update CDA threadpool size due to {}", e.getMessage());
+            }
+
+            if (whatHappened != WhatHappened.initialized && node != null && node.childOf(CLOUD_QUEUE_SIZE_TOPIC)) {
+                BlockingQueue<Runnable> q = cloudCallThreadPool.getQueue();
+                if (q instanceof ResizableLinkedBlockingQueue) {
+                    ((ResizableLinkedBlockingQueue) q).resize(Coerce.toInt(
+                            this.config.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE, CONFIGURATION_CONFIG_KEY,
+                                    CLOUD_QUEUE_SIZE_TOPIC)));
+                }
+            }
 
             if (whatHappened == WhatHappened.initialized) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
@@ -281,7 +308,8 @@ public class ClientDevicesAuthService extends PluginService {
                 new VerifyClientDeviceIdentityOperationHandler(context, iotAuthClient,
                         authorizationHandler, cloudCallThreadPool));
         greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
-                new GetClientDeviceAuthTokenOperationHandler(context, sessionManager, authorizationHandler));
+                new GetClientDeviceAuthTokenOperationHandler(context, sessionManager,
+                        authorizationHandler, cloudCallThreadPool));
         greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
                 new AuthorizeClientDeviceActionOperationHandler(context, deviceAuthClient, authorizationHandler));
     }
