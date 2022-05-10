@@ -17,6 +17,7 @@ import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.lifecyclemanager.PluginService;
+import com.aws.greengrass.util.ClientUtil;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
@@ -184,7 +185,7 @@ public class ClientDevicesAuthService extends PluginService {
                         .coreDeviceCertificates(certificatePemList).build();
         try {
             RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
-                    () -> clientFactory.getGreengrassV2DataClient().putCertificateAuthorities(request),
+                    () -> ClientUtil.fetchGreengrassV2DataClient(clientFactory).putCertificateAuthorities(request),
                     "put-core-ca-certificate", logger);
         } catch (InterruptedException e) {
             logger.atError().cause(e).log("Put core CA certificates got interrupted");

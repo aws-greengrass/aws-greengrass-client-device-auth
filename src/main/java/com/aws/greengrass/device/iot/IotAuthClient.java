@@ -9,6 +9,7 @@ package com.aws.greengrass.device.iot;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.ClientUtil;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
 import com.aws.greengrass.util.Utils;
@@ -98,7 +99,7 @@ public interface IotAuthClient {
                             .clientDeviceCertificateId(certificate.getIotCertificateId()).build();
             try {
                 RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
-                        () -> clientFactory.getGreengrassV2DataClient()
+                        () -> ClientUtil.fetchGreengrassV2DataClient(clientFactory)
                                 .verifyClientDeviceIoTCertificateAssociation(request),
                         "verify-certificate-thing-association", logger);
                 logger.atDebug().kv("thingName", thing.getThingName())

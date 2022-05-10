@@ -6,8 +6,10 @@
 package com.aws.greengrass.cisclient;
 
 import com.aws.greengrass.deployment.DeviceConfiguration;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.ClientUtil;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
@@ -59,14 +61,16 @@ public class ConnectivityInfoProvider {
      * Get connectivity info.
      *
      * @return list of connectivity info items
+     * @throws DeviceConfigurationException when fails to get GreengrassV2DataClient.
      */
-    public List<ConnectivityInfo> getConnectivityInfo() {
+    public List<ConnectivityInfo> getConnectivityInfo() throws DeviceConfigurationException {
         GetConnectivityInfoRequest getConnectivityInfoRequest = GetConnectivityInfoRequest.builder()
                 .thingName(Coerce.toString(deviceConfiguration.getThingName())).build();
         List<ConnectivityInfo> connectivityInfoList = Collections.emptyList();
 
         try {
-            GetConnectivityInfoResponse getConnectivityInfoResponse = clientFactory.getGreengrassV2DataClient()
+            GetConnectivityInfoResponse getConnectivityInfoResponse =
+                    ClientUtil.fetchGreengrassV2DataClient(clientFactory)
                     .getConnectivityInfo(getConnectivityInfoRequest);
             if (getConnectivityInfoResponse.hasConnectivityInfo()) {
                 // Filter out port and metadata since it is not needed
