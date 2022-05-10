@@ -10,8 +10,9 @@ import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.Utils;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
@@ -29,6 +30,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
 import software.amazon.awssdk.crt.mqtt.MqttMessage;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
+import software.amazon.awssdk.iot.ShadowStateFactory;
+import software.amazon.awssdk.iot.Timestamp;
 import software.amazon.awssdk.iot.iotshadow.IotShadowClient;
 import software.amazon.awssdk.iot.iotshadow.model.ErrorResponse;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowRequest;
@@ -37,11 +40,12 @@ import software.amazon.awssdk.iot.iotshadow.model.GetShadowSubscriptionRequest;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedSubscriptionRequest;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowState;
+import software.amazon.awssdk.iot.iotshadow.model.ShadowStateWithDelta;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowSubscriptionRequest;
 
-import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +61,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.stream.IntStream;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -76,6 +79,10 @@ import static org.mockito.Mockito.when;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CISShadowMonitorTest {
     private static final String SHADOW_NAME = "testThing-gci";
+    private static final String SHADOW_FIELD_VERSION = "version";
+    private static final int SHADOW_FIELD_VERSION_INITIAL_VALUE = 0;
+    private static final Map<String, Object> SHADOW_DESIRED_INITIAL_STATE =
+            Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(SHADOW_FIELD_VERSION_INITIAL_VALUE));
 
     FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
 
@@ -95,7 +102,7 @@ public class CISShadowMonitorTest {
     CISShadowMonitor cisShadowMonitor;
 
     @BeforeEach
-    void setup() {
+    void setup() throws Exception {
         cisShadowMonitor = new CISShadowMonitor(
                 mqttClient,
                 shadowClient.getConnection(),
@@ -110,8 +117,8 @@ public class CISShadowMonitorTest {
         updateShadowRequest.thingName = SHADOW_NAME;
         updateShadowRequest.state = new ShadowState();
         updateShadowRequest.state.desired = new HashMap<>();
-        updateShadowRequest.state.desired.put("test", 1);
-        shadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE);
+        updateShadowRequest.state.desired.putAll(SHADOW_DESIRED_INITIAL_STATE);
+        shadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE).get(5, TimeUnit.SECONDS);
         reset(shadowClient);
     }
 
@@ -127,11 +134,18 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_start_monitor_THEN_subscribe_to_shadow_topics_and_get_shadow() {
+    void GIVEN_CISShadowMonitor_WHEN_start_monitor_THEN_subscribe_to_shadow_topics_and_get_shadow() throws InterruptedException {
+        CountDownLatch shadowUpdated = whenUpdateShadowAccepted(1);
+
         cisShadowMonitor.startMonitor();
         verifyShadowDeltaUpdatedSubscription();
         verifyGetShadowAcceptedSubscription();
         verifyPublishGetShadow();
+
+        assertTrue(shadowUpdated.await(5L, TimeUnit.SECONDS));
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, "0"),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, "0"));
     }
 
     @Test
@@ -148,47 +162,67 @@ public class CISShadowMonitorTest {
 
     @Test
     void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_THEN_new_cert_generated() throws Exception {
-        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(1);
-
-        cisShadowMonitor.startMonitor();
-        cisShadowMonitor.addToMonitor(certificateGenerator);
-
-        publishDesiredShadowState(Utils.immutableMap("newState", 1));
-
-        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
-    }
-
-    @Test
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_THEN_new_cert_generated_multiple_times() throws Exception {
-        int numShadowChanges = 3;
-
+        int numShadowChanges = 1;
         CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
-        IntStream.range(0, numShadowChanges).forEach(i -> {
-            publishDesiredShadowState(Utils.immutableMap("newState", i));
-        });
+        for (int i = 1; i <= numShadowChanges; i++) {
+            Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
+            publishDesiredShadowState(desiredState);
+        }
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
+
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
+    }
+
+    @Test
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_THEN_new_cert_generated_multiple_times() throws Exception {
+        int numShadowChanges = 3;
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        for (int i = 1; i <= numShadowChanges; i++) {
+            Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
+            publishDesiredShadowState(desiredState);
+        }
+
+        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
+
         verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
     }
 
     @Test
     void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_duplicate_THEN_only_one_new_cert_generated() throws Exception {
-        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(2);
+        int numShadowChanges = 1;
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges * 2);
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
         shadowClient.withDuplicatePublishing(true);
 
-        publishDesiredShadowState(Utils.immutableMap("newState", 1));
+        for (int i = 1; i <= numShadowChanges; i++) {
+            Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
+            publishDesiredShadowState(desiredState);
+        }
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
+
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
     }
 
     @Test
@@ -201,11 +235,16 @@ public class CISShadowMonitorTest {
 
         shadowClient.withDuplicatePublishing(true);
 
-        IntStream.range(0, numShadowChanges).forEach(i -> {
-            publishDesiredShadowState(Utils.immutableMap("newState", i));
-        });
+        for (int i = 1; i <= numShadowChanges; i++) {
+            Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
+            publishDesiredShadowState(desiredState);
+        }
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
+
         verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
     }
 
@@ -213,7 +252,8 @@ public class CISShadowMonitorTest {
     void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_and_shadow_update_failed_THEN_new_cert_generated(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, FakeIotShadowClient.SIMULATED_PUBLISH_EXCEPTION.getClass());
 
-        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(1);
+        int numShadowChanges = 1;
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
@@ -224,10 +264,17 @@ public class CISShadowMonitorTest {
             }
         });
 
-        publishDesiredShadowState(Utils.immutableMap("newState", 1));
+        for (int i = 1; i <= numShadowChanges; i++) {
+            Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
+            publishDesiredShadowState(desiredState);
+        }
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
-        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
+
+        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
     }
 
     @Test
@@ -247,12 +294,17 @@ public class CISShadowMonitorTest {
             }
         });
 
-        IntStream.range(0, numShadowChanges).forEach(i -> {
+        for (int i = 1; i <= numShadowChanges; i++) {
             shadowClient.withPublishException(false);
-            publishDesiredShadowState(Utils.immutableMap("newState", i));
-        });
+            Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
+            publishDesiredShadowState(desiredState);
+        }
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
+
         verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
     }
 
@@ -274,12 +326,17 @@ public class CISShadowMonitorTest {
             }
         });
 
-        IntStream.range(0, numShadowChanges).forEach(i -> {
+        for (int i = 1; i <= numShadowChanges; i++) {
             shadowClient.withPublishException(false);
-            publishDesiredShadowState(Utils.immutableMap("newState", i));
-        });
+            Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
+            publishDesiredShadowState(desiredState);
+        }
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
+
         verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
     }
 
@@ -294,13 +351,17 @@ public class CISShadowMonitorTest {
 
         // for first delta, simulate CIS failure
         when(mockConnectivityInfoProvider.getConnectivityInfo()).thenThrow(RuntimeException.class);
-        publishDesiredShadowState(Utils.immutableMap("newState", 1));
+        publishDesiredShadowState(Utils.immutableMap(SHADOW_FIELD_VERSION, "1"));
 
         // for second delta, everything works smoothly
         reset(mockConnectivityInfoProvider);
-        publishDesiredShadowState(Utils.immutableMap("newState", 2));
+        publishDesiredShadowState(Utils.immutableMap(SHADOW_FIELD_VERSION, "2"));
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, "2"),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, "2"));
+
         verify(certificateGenerator, times(1)).generateCertificate(any(), any());
     }
 
@@ -354,13 +415,24 @@ public class CISShadowMonitorTest {
         assertEquals(SHADOW_NAME, request.getValue().thingName);
     }
 
+    private void assertDesiredAndReportedShadowState(Map<String, Object> desired, Map<String, Object> reported) {
+        ShadowState state = shadowClient.getShadow(SHADOW_NAME).state;
+        assertEquals(desired, state.desired, "unexpected desired state");
+        assertEquals(reported, state.reported, "unexpected reported state");
+    }
+
 
     static class FakeIotShadowClient extends IotShadowClient {
 
         static final RuntimeException SIMULATED_PUBLISH_EXCEPTION = new RuntimeException("simulated publish error");
         private static final CompletableFuture<Integer> DUMMY_PACKET_ID = CompletableFuture.completedFuture(0);
         private static final int INITIAL_SHADOW_VERSION = 1;
-        private static final ObjectMapper MAPPER = new ObjectMapper();
+        private static final Gson MAPPER = new GsonBuilder()
+                .disableHtmlEscaping()
+                .registerTypeAdapter(Timestamp.class, new Timestamp.Serializer())
+                .registerTypeAdapter(Timestamp.class, new Timestamp.Deserializer())
+                .registerTypeAdapterFactory(new ShadowStateFactory())
+                .create();
 
         private final Map<String, List<Consumer<MqttMessage>>> subscriptionsByTopic = new ConcurrentHashMap<>();
         private final Map<String, Shadow> shadowByThingName = new ConcurrentHashMap<>();
@@ -374,8 +446,55 @@ public class CISShadowMonitorTest {
         @Data
         @Builder
         static class Shadow {
-            int version;
-            ShadowState state;
+            final int version;
+            final ShadowState state;
+
+            static Shadow copy(Shadow other) {
+                ShadowBuilder builder = Shadow.builder();
+                if (other.state != null) {
+                    builder.state = new ShadowState();
+                    if (other.state.desired != null) {
+                        builder.state.desired = new HashMap<>(other.state.desired);
+                    }
+                    if (other.state.reported != null) {
+                        builder.state.reported = new HashMap<>(other.state.reported);
+                    }
+                }
+                return builder
+                        .version(other.version)
+                        .build();
+            }
+
+            public Map<String, Object> calculateDelta() {
+                Map<String, Object> delta = new HashMap<>();
+
+                if (state == null) {
+                    return delta;
+                }
+
+                Map<String, Object> desired = state.desired;
+                Map<String, Object> reported = state.reported;
+
+                if (desired == null || desired.isEmpty()) {
+                    return delta;
+                }
+
+                if (reported == null || reported.isEmpty()) {
+                    delta.putAll(desired);
+                    return delta;
+                }
+
+                for (Map.Entry<String, Object> entry : desired.entrySet()) {
+                    if (reported.containsKey(entry.getKey())) {
+                        if (!Objects.equals(reported.get(entry.getKey()), entry.getValue())) {
+                            delta.put(entry.getKey(), entry.getValue());
+                        }
+                    } else {
+                        delta.put(entry.getKey(), entry.getValue());
+                    }
+                }
+                return delta;
+            }
         }
 
         FakeIotShadowClient() {
@@ -424,7 +543,7 @@ public class CISShadowMonitorTest {
         }
 
         private void handleGetShadowRequest(GetShadowRequest request) {
-            Shadow shadow = shadowByThingName.get(request.thingName);
+            Shadow shadow = getShadow(request.thingName);
             if (shadow == null) {
                 String rejected = String.format("$aws/things/%s/shadow/get/rejected", request.thingName);
                 ErrorResponse response = new ErrorResponse();
@@ -434,42 +553,76 @@ public class CISShadowMonitorTest {
                 String accepted = String.format("$aws/things/%s/shadow/get/accepted", request.thingName);
                 GetShadowResponse response = new GetShadowResponse();
                 response.version = shadow.version;
+                response.state = new ShadowStateWithDelta();
+                response.state.desired = shadow.state.desired;
+                response.state.reported = shadow.state.reported;
+                response.state.delta = new HashMap<>(shadow.calculateDelta());
                 publishMessage(accepted, response);
             }
         }
 
         private void handleUpdateShadowRequest(UpdateShadowRequest request) {
-            // create a new shadow if one doesn't exist already
-            Shadow shadow = shadowByThingName.compute(request.thingName, (k, v) -> {
-                if (v != null) {
-                    return v;
+            final AtomicBoolean accepted = new AtomicBoolean();
+            final AtomicBoolean versionConflict = new AtomicBoolean();
+
+            // update internal shadow state based on the request.
+            // if no shadow exists, create a new one
+            Shadow computedShadow = shadowByThingName.compute(request.thingName, (thingName, existingShadow) -> {
+                Shadow shadow = existingShadow;
+                if (shadow == null) {
+                    shadow = Shadow.builder()
+                            .state(request.state)
+                            .version(INITIAL_SHADOW_VERSION)
+                            .build();
                 }
-                return Shadow.builder()
-                        .state(request.state)
-                        .version(INITIAL_SHADOW_VERSION)
-                        .build();
+
+                // if version is provided, it must match the latest version
+                // https://docs.aws.amazon.com/iot/latest/developerguide/device-shadow-data-flow.html#optimistic-locking
+                if (request.version != null && request.version != shadow.version) {
+                    versionConflict.set(true);
+                    return existingShadow;
+                }
+
+                accepted.set(true);
+
+                return applyRequestToShadow(shadow, request);
             });
 
-            if (shadow.version == INITIAL_SHADOW_VERSION || request.version == null || request.version == shadow.version) {
-                publishShadowAccepted(request.thingName);
-
-                if (request.state.desired == null && request.state.reported == null) {
-                    return;
-                }
-
-                Map<String, Object> desired = request.state.desired == null ? shadow.state.desired : request.state.desired;
-                Map<String, Object> reported = request.state.reported == null ? shadow.state.reported : request.state.reported;
-
-                Map<String, Object> delta = getDelta(desired, reported);
-                if (delta.isEmpty()) {
-                    return;
-                }
-
-                shadow.state.desired = desired == null ? null : new HashMap<>(desired);
-                shadow.state.reported = reported == null ? null : new HashMap<>(reported);
-                shadow.version += 1;
-                publishShadowDelta(delta, request.thingName);
+            if (versionConflict.get()) {
+                publishVersionConflictError(request.thingName);
+                return;
             }
+
+            if (accepted.get()) {
+                publishShadowAccepted(request.thingName);
+            }
+
+            Map<String, Object> delta = computedShadow.calculateDelta();
+            if (!delta.isEmpty()) {
+                publishShadowDelta(delta, computedShadow.version, request.thingName);
+            }
+        }
+
+        private Shadow applyRequestToShadow(Shadow shadow, UpdateShadowRequest request) {
+            if (request.state.desired == null && request.state.reported == null) {
+                return Shadow.copy(shadow);
+            }
+
+            Map<String, Object> desired = request.state.desired == null ? shadow.state.desired : request.state.desired;
+            Map<String, Object> reported = request.state.reported == null ? shadow.state.reported : request.state.reported;
+
+            ShadowState shadowState = new ShadowState();
+            shadowState.reported = reported == null ? null : new HashMap<>(reported);
+            shadowState.desired = desired == null ? null : new HashMap<>(desired);
+
+            return Shadow.builder()
+                    .state(shadowState)
+                    .version(shadow.version + 1)
+                    .build();
+        }
+
+        private void publishVersionConflictError(String thingName) {
+            publishShadowUpdateRejected(thingName, 409, "Version Conflict");
         }
 
         private void publishShadowAccepted(String thingName) {
@@ -478,42 +631,27 @@ public class CISShadowMonitorTest {
             publishMessage(topic, event);
         }
 
-        private void publishShadowDelta(Map<String, Object> delta, String thingName) {
+        private void publishShadowUpdateRejected(String thingName, Integer code, String message) {
+            String topic = String.format("$aws/things/%s/shadow/update/rejected", thingName);
+            ErrorResponse resp = new ErrorResponse();
+            resp.code = code;
+            resp.message = message;
+            publishMessage(topic, resp);
+        }
+
+        private void publishShadowDelta(Map<String, Object> delta, int version, String thingName) {
             String topic = String.format("$aws/things/%s/shadow/update/delta", thingName);
             ShadowDeltaUpdatedEvent event = new ShadowDeltaUpdatedEvent();
             event.state = new HashMap<>(delta);
-            event.version = shadowByThingName.get(thingName).version;
+            event.version = version;
             publishMessage(topic, event);
-        }
-
-        private Map<String, Object> getDelta(Map<String, Object> desired, Map<String, Object> reported) {
-            Map<String, Object> delta = new HashMap<>();
-
-            if (desired == null || desired.isEmpty()) {
-                return delta;
-            }
-
-            if (reported == null || reported.isEmpty()) {
-                delta.putAll(desired);
-                return delta;
-            }
-
-            for (Map.Entry<String, Object> entry : desired.entrySet()) {
-                if (reported.containsKey(entry.getKey())) {
-                    if (!Objects.equals(reported.get(entry.getKey()), entry.getValue())) {
-                        delta.put(entry.getKey(), entry.getValue());
-                    }
-                } else {
-                    delta.put(entry.getKey(), entry.getValue());
-                }
-            }
-            return delta;
         }
 
         private static <T> Optional<T> readPayload(MqttMessage message, Class<T> clazz) {
             try {
-                return Optional.of(MAPPER.readValue(message.getPayload(), clazz));
-            } catch (IOException e) {
+                String payload = new String(message.getPayload(), StandardCharsets.UTF_8);
+                return Optional.of(MAPPER.fromJson(payload, clazz));
+            } catch (JsonParseException e) {
                 return Optional.empty();
             }
         }
@@ -522,12 +660,12 @@ public class CISShadowMonitorTest {
             try {
                 return Optional.of(new MqttMessage(
                         topic,
-                        MAPPER.writeValueAsBytes(payload),
+                        MAPPER.toJson(payload).getBytes(StandardCharsets.UTF_8),
                         QualityOfService.AT_LEAST_ONCE,
                         false,
                         dup)
                 );
-            } catch (JsonProcessingException e) {
+            } catch (JsonParseException e) {
                 return Optional.empty();
             }
         }
@@ -578,6 +716,10 @@ public class CISShadowMonitorTest {
 
         boolean hasSubscriptions() {
             return !subscriptionsByTopic.isEmpty();
+        }
+
+        Shadow getShadow(String thingName) {
+            return Shadow.copy(shadowByThingName.get(thingName));
         }
     }
 }

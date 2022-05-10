@@ -21,7 +21,9 @@ import software.amazon.awssdk.crt.mqtt.MqttException;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import software.amazon.awssdk.iot.iotshadow.IotShadowClient;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowRequest;
+import software.amazon.awssdk.iot.iotshadow.model.GetShadowResponse;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowSubscriptionRequest;
+import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedSubscriptionRequest;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowState;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
@@ -33,6 +35,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -170,18 +173,18 @@ public class CISShadowMonitor {
                         = new ShadowDeltaUpdatedSubscriptionRequest();
                 shadowDeltaUpdatedSubscriptionRequest.thingName = shadowName;
                 iotShadowClient.SubscribeToShadowDeltaUpdatedEvents(shadowDeltaUpdatedSubscriptionRequest,
-                        QualityOfService.AT_LEAST_ONCE,
-                        shadowDeltaUpdatedEvent -> handleNewCloudVersion(shadowDeltaUpdatedEvent.version),
-                        (e) -> LOGGER.atError().log("Error processing shadowDeltaUpdatedSubscription Response", e))
+                                QualityOfService.AT_LEAST_ONCE,
+                                this::processCISShadow,
+                                (e) -> LOGGER.atError().log("Error processing shadowDeltaUpdatedSubscription Response", e))
                         .get(TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS, TimeUnit.SECONDS);
                 LOGGER.info("Subscribed to shadow update delta topic");
 
                 GetShadowSubscriptionRequest getShadowSubscriptionRequest = new GetShadowSubscriptionRequest();
                 getShadowSubscriptionRequest.thingName = shadowName;
                 iotShadowClient.SubscribeToGetShadowAccepted(getShadowSubscriptionRequest,
-                        QualityOfService.AT_LEAST_ONCE,
-                        getShadowResponse -> handleNewCloudVersion(getShadowResponse.version),
-                        (e) -> LOGGER.atError().log("Error processing getShadowSubscription Response", e))
+                                QualityOfService.AT_LEAST_ONCE,
+                                this::processCISShadow,
+                                (e) -> LOGGER.atError().log("Error processing getShadowSubscription Response", e))
                         .get(TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS, TimeUnit.SECONDS);
                 LOGGER.info("Subscribed to shadow get accepted topic");
                 return;
@@ -205,14 +208,23 @@ public class CISShadowMonitor {
         }
     }
 
+    private void processCISShadow(GetShadowResponse response) {
+        processCISShadow(response.version, response.state.desired);
+    }
+
+    private void processCISShadow(ShadowDeltaUpdatedEvent event) {
+        processCISShadow(event.version, event.state);
+    }
+
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private synchronized void handleNewCloudVersion(int newVersion) {
-        if (newVersion == lastVersion) {
-            LOGGER.atInfo().kv(VERSION, newVersion).log("Already processed version. Skipping cert re-generation");
+    private synchronized void processCISShadow(int version, Map<String, Object> desiredState) {
+        if (version == lastVersion) {
+            LOGGER.atInfo().kv(VERSION, version).log("Already processed version. Skipping cert re-generation");
+            updateCISShadowReportedState(version, desiredState);
             return;
         }
 
-        LOGGER.atInfo().log("New CIS version: {}", newVersion);
+        LOGGER.atInfo().log("New CIS version: {}", version);
 
         // NOTE: This method executes in an MQTT CRT thread. Since certificate generation is a compute intensive
         // operation (particularly on low end devices) it is imperative that we process this event asynchronously
@@ -226,12 +238,12 @@ public class CISShadowMonitor {
                 RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInfoProvider::getConnectivityInfo,
                         "get-connectivity", LOGGER);
             } catch (InterruptedException e) {
-                LOGGER.atWarn().kv(VERSION, newVersion).cause(e)
+                LOGGER.atWarn().kv(VERSION, version).cause(e)
                         .log("Retry workflow for getting connectivity info interrupted");
                 Thread.currentThread().interrupt();
                 return;
             } catch (Exception e) {
-                LOGGER.atError().kv(VERSION, newVersion).cause(e)
+                LOGGER.atError().kv(VERSION, version).cause(e)
                         .log("Failed to get connectivity info from cloud."
                                 + " Check that the core device's IoT policy "
                                 + "grants the greengrass:GetConnectivityInfo permission");
@@ -246,35 +258,39 @@ public class CISShadowMonitor {
                             "connectivity info was updated");
                 }
             } catch (KeyStoreException e) {
-                LOGGER.atError().kv(VERSION, newVersion).cause(e).log("Failed to generate new certificates");
+                LOGGER.atError().kv(VERSION, version).cause(e).log("Failed to generate new certificates");
                 return;
             }
 
             try {
-                reportVersion(newVersion)
-                        .exceptionally(e -> {
-                            LOGGER.atWarn().kv(VERSION, newVersion).cause(e)
-                                    .log("Unable to report CIS shadow version");
-                            return null;
-                        });
+                updateCISShadowReportedState(version, desiredState);
             } finally {
-                lastVersion = newVersion;
+                lastVersion = version;
             }
         }, executorService).exceptionally(e -> {
-            LOGGER.atError().kv(VERSION, newVersion).cause(e).log("Unable to handle CIS shadow delta");
+            LOGGER.atError().kv(VERSION, version).cause(e).log("Unable to handle CIS shadow delta");
             return null;
         });
     }
 
-    private CompletableFuture<Integer> reportVersion(int version) {
+    /**
+     * Asynchronously update the CIS shadow's <b>reported</b> state for the given shadow version.
+     *
+     * @param version CIS shadow version
+     * @param desired CIS shadow <b>desired</b> state
+     */
+    private void updateCISShadowReportedState(int version, Map<String, Object> desired) {
         LOGGER.atInfo().kv(VERSION, version).log("Reporting CIS version");
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
         updateShadowRequest.thingName = shadowName;
         updateShadowRequest.version = version;
         updateShadowRequest.state = new ShadowState();
-        updateShadowRequest.state.reported = new HashMap<>();
-        updateShadowRequest.state.desired = new HashMap<>();
-        return iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE);
+        updateShadowRequest.state.reported = desired == null ? null : new HashMap<>(desired);
+        iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE)
+                .exceptionally(e -> {
+                    LOGGER.atWarn().kv(VERSION, version).cause(e).log("Unable to report CIS shadow version");
+                    return null;
+                });
     }
 
     private void publishToGetCISShadowTopic() {
