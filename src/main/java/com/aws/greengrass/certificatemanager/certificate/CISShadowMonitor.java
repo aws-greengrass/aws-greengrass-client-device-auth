@@ -175,7 +175,8 @@ public class CISShadowMonitor {
                 iotShadowClient.SubscribeToShadowDeltaUpdatedEvents(shadowDeltaUpdatedSubscriptionRequest,
                                 QualityOfService.AT_LEAST_ONCE,
                                 this::processCISShadow,
-                                (e) -> LOGGER.atError().log("Error processing shadowDeltaUpdatedSubscription Response", e))
+                                (e) -> LOGGER.atError()
+                                        .log("Error processing shadowDeltaUpdatedSubscription Response", e))
                         .get(TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS, TimeUnit.SECONDS);
                 LOGGER.info("Subscribed to shadow update delta topic");
 
@@ -184,7 +185,8 @@ public class CISShadowMonitor {
                 iotShadowClient.SubscribeToGetShadowAccepted(getShadowSubscriptionRequest,
                                 QualityOfService.AT_LEAST_ONCE,
                                 this::processCISShadow,
-                                (e) -> LOGGER.atError().log("Error processing getShadowSubscription Response", e))
+                                (e) -> LOGGER.atError()
+                                        .log("Error processing getShadowSubscription Response", e))
                         .get(TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS, TimeUnit.SECONDS);
                 LOGGER.info("Subscribed to shadow get accepted topic");
                 return;
