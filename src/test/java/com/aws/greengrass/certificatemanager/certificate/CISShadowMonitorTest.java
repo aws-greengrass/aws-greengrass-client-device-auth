@@ -44,23 +44,28 @@ import software.amazon.awssdk.iot.iotshadow.model.ShadowStateWithDelta;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowSubscriptionRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -90,16 +95,16 @@ public class CISShadowMonitorTest {
 
     ExecutorService executor = TestUtils.synchronousExecutorService();
 
-    @Mock
-    MqttClient mqttClient;
+    FakeConnectivityInfoProvider connectivityInfoProvider = new FakeConnectivityInfoProvider();
 
     @Mock
-    ConnectivityInfoProvider mockConnectivityInfoProvider;
+    MqttClient mqttClient;
 
     @Mock
     CertificateGenerator certificateGenerator;
 
     CISShadowMonitor cisShadowMonitor;
+
 
     @BeforeEach
     void setup() throws Exception {
@@ -109,7 +114,7 @@ public class CISShadowMonitorTest {
                 shadowClient,
                 executor,
                 SHADOW_NAME,
-                mockConnectivityInfoProvider
+                connectivityInfoProvider
         );
 
         // pre-populate shadow
@@ -126,6 +131,8 @@ public class CISShadowMonitorTest {
     void tearDown() {
         cisShadowMonitor.stopMonitor();
     }
+
+    // TODO adjust all tests to verify cert generation w/ respect to connectivity info
 
     @Test
     void GIVEN_CISShadowMonitor_WHEN_connection_resumed_THEN_get_shadow() {
@@ -350,11 +357,11 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
         // for first delta, simulate CIS failure
-        when(mockConnectivityInfoProvider.getConnectivityInfo()).thenThrow(RuntimeException.class);
+        connectivityInfoProvider.setMode(FakeConnectivityInfoProvider.Mode.FAIL);
         publishDesiredShadowState(Utils.immutableMap(SHADOW_FIELD_VERSION, "1"));
 
         // for second delta, everything works smoothly
-        reset(mockConnectivityInfoProvider);
+        connectivityInfoProvider.setMode(FakeConnectivityInfoProvider.Mode.RANDOM);
         publishDesiredShadowState(Utils.immutableMap(SHADOW_FIELD_VERSION, "2"));
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
@@ -363,6 +370,35 @@ public class CISShadowMonitorTest {
                 Utils.immutableMap(SHADOW_FIELD_VERSION, "2"));
 
         verify(certificateGenerator, times(1)).generateCertificate(any(), any());
+    }
+
+    @Test
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_twice_and_connectivity_info_does_not_change_THEN_delta_processing_is_deduped() throws Exception {
+        int numShadowChanges = 2;
+        CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        // simulate race condition where CIS service state changes
+        // before we call getConnectivityInfo. so even though connectivity changes twice,
+        // CISShadowMonitor only sees the second value
+        connectivityInfoProvider.setMode(FakeConnectivityInfoProvider.Mode.CONSTANT);
+
+        for (int i = 1; i <= numShadowChanges; i++) {
+            Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
+            publishDesiredShadowState(desiredState);
+        }
+
+        assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
+
+        // even though new cert isn't generated for each shadow change in this case,
+        // we still expect the shadow to be fully synced
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
+
+        verify(certificateGenerator, times(connectivityInfoProvider.getNumUniqueConnectivityInfoResponses())).generateCertificate(any(), any());
     }
 
     @Test
@@ -719,6 +755,75 @@ public class CISShadowMonitorTest {
 
         Shadow getShadow(String thingName) {
             return Shadow.copy(shadowByThingName.get(thingName));
+        }
+    }
+
+    static class FakeConnectivityInfoProvider extends ConnectivityInfoProvider {
+
+        private final AtomicReference<List<ConnectivityInfo>> CONNECTIVITY_INFO_SAMPLE = new AtomicReference<>(Collections.singletonList(connectivityInfoWithRandomHost()));
+
+        private final Set<Integer> responseHashes = new CopyOnWriteArraySet<>();
+        private final AtomicReference<Mode> mode = new AtomicReference<>(Mode.RANDOM);
+
+        enum Mode {
+            /**
+             * Each call to getConnectivityInfo returns a unique, random response.
+             */
+            RANDOM,
+            /**
+             * Each call to getConnectivityInfo yields the same response.
+             */
+            CONSTANT,
+            /**
+             * Throw a runtime exception during getConnectivityInfo.
+             */
+            FAIL
+        }
+
+        FakeConnectivityInfoProvider() {
+            super(null, null);
+        }
+
+        void setMode(Mode mode) {
+            responseHashes.clear();
+            this.mode.set(mode);
+        }
+
+        /**
+         * Get the number of unique responses to getConnectivityInfo provided by this fake.
+         * This number resets whenever {@link FakeConnectivityInfoProvider#setMode(Mode)} is called.
+         *
+         * @return number of unique connectivity info responses generated by this fake
+         */
+        int getNumUniqueConnectivityInfoResponses() {
+            return responseHashes.size();
+        }
+
+        @Override
+        public List<ConnectivityInfo> getConnectivityInfo() {
+            List<ConnectivityInfo> connectivityInfo = doGetConnectivityInfo();
+            cachedHostAddresses = connectivityInfo.stream().map(ConnectivityInfo::hostAddress).distinct().collect(Collectors.toList());
+            responseHashes.add(cachedHostAddresses.hashCode());
+            return connectivityInfo;
+        }
+
+        private List<ConnectivityInfo> doGetConnectivityInfo() {
+            switch (mode.get()) {
+                case RANDOM:
+                    return Collections.singletonList(connectivityInfoWithRandomHost());
+                case CONSTANT:
+                    return CONNECTIVITY_INFO_SAMPLE.get();
+                case FAIL:
+                    throw new RuntimeException("simulated getConnectivityInfo failure");
+                default:
+                    return Collections.emptyList();
+            }
+        }
+
+        private static ConnectivityInfo connectivityInfoWithRandomHost() {
+            return ConnectivityInfo.builder()
+                    .hostAddress(Utils.generateRandomString(20))
+                    .build();
         }
     }
 }
