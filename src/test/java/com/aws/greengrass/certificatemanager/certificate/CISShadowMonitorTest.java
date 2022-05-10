@@ -473,12 +473,11 @@ public class CISShadowMonitorTest {
                 }
 
                 Map<String, Object> desired = state.desired;
-                Map<String, Object> reported = state.reported;
-
                 if (desired == null || desired.isEmpty()) {
                     return delta;
                 }
 
+                Map<String, Object> reported = state.reported;
                 if (reported == null || reported.isEmpty()) {
                     delta.putAll(desired);
                     return delta;
@@ -561,6 +560,7 @@ public class CISShadowMonitorTest {
             }
         }
 
+        @SuppressWarnings("PMD.PrematureDeclaration")
         private void handleUpdateShadowRequest(UpdateShadowRequest request) {
             final AtomicBoolean accepted = new AtomicBoolean();
             final AtomicBoolean versionConflict = new AtomicBoolean();
@@ -568,13 +568,12 @@ public class CISShadowMonitorTest {
             // update internal shadow state based on the request.
             // if no shadow exists, create a new one
             Shadow computedShadow = shadowByThingName.compute(request.thingName, (thingName, existingShadow) -> {
-                Shadow shadow = existingShadow;
-                if (shadow == null) {
-                    shadow = Shadow.builder()
-                            .state(request.state)
-                            .version(INITIAL_SHADOW_VERSION)
-                            .build();
-                }
+                Shadow shadow = existingShadow == null ?
+                        Shadow.builder()
+                                .state(request.state)
+                                .version(INITIAL_SHADOW_VERSION)
+                                .build()
+                        : existingShadow;
 
                 // if version is provided, it must match the latest version
                 // https://docs.aws.amazon.com/iot/latest/developerguide/device-shadow-data-flow.html#optimistic-locking
