@@ -47,6 +47,7 @@ import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowSubscriptionReques
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 import java.nio.charset.StandardCharsets;
+import java.security.KeyStoreException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -132,8 +133,6 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.stopMonitor();
     }
 
-    // TODO adjust all tests to verify cert generation w/ respect to connectivity info
-
     @Test
     void GIVEN_CISShadowMonitor_WHEN_connection_resumed_THEN_get_shadow() {
         cisShadowMonitor.getCallbacks().onConnectionResumed(false);
@@ -164,7 +163,7 @@ public class CISShadowMonitorTest {
 
         assertTrue(shadowUpdated.await(5L, TimeUnit.SECONDS));
 
-        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
+        verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
@@ -172,8 +171,8 @@ public class CISShadowMonitorTest {
         int numShadowChanges = 1;
         CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
 
-        cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        cisShadowMonitor.startMonitor();
 
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
@@ -185,7 +184,7 @@ public class CISShadowMonitorTest {
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
 
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
+        verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
@@ -193,8 +192,8 @@ public class CISShadowMonitorTest {
         int numShadowChanges = 3;
         CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
 
-        cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        cisShadowMonitor.startMonitor();
 
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
@@ -206,7 +205,7 @@ public class CISShadowMonitorTest {
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
 
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
+        verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
@@ -214,8 +213,8 @@ public class CISShadowMonitorTest {
         int numShadowChanges = 1;
         CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges * 2);
 
-        cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        cisShadowMonitor.startMonitor();
 
         shadowClient.withDuplicatePublishing(true);
 
@@ -229,7 +228,7 @@ public class CISShadowMonitorTest {
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
 
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
+        verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
@@ -237,8 +236,8 @@ public class CISShadowMonitorTest {
         int numShadowChanges = 3;
         CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges * 2);
 
-        cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        cisShadowMonitor.startMonitor();
 
         shadowClient.withDuplicatePublishing(true);
 
@@ -252,7 +251,7 @@ public class CISShadowMonitorTest {
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
 
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
+        verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
@@ -262,8 +261,8 @@ public class CISShadowMonitorTest {
         int numShadowChanges = 1;
         CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
 
-        cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        cisShadowMonitor.startMonitor();
 
         shadowClient.onPrePublish(topic -> {
             if (topic.endsWith("shadow/update/delta")) {
@@ -281,7 +280,7 @@ public class CISShadowMonitorTest {
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
 
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
+        verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
@@ -291,8 +290,8 @@ public class CISShadowMonitorTest {
         int numShadowChanges = 3;
         CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
 
-        cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        cisShadowMonitor.startMonitor();
 
         shadowClient.onPrePublish(topic -> {
             if (topic.endsWith("shadow/update/delta")) {
@@ -312,7 +311,7 @@ public class CISShadowMonitorTest {
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
 
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
+        verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
@@ -322,8 +321,8 @@ public class CISShadowMonitorTest {
         int numShadowChanges = 3;
         CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges * 2);
 
-        cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        cisShadowMonitor.startMonitor();
 
         shadowClient.withDuplicatePublishing(true);
         shadowClient.onPrePublish(topic -> {
@@ -344,7 +343,7 @@ public class CISShadowMonitorTest {
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
 
-        verify(certificateGenerator, times(numShadowChanges)).generateCertificate(any(), any());
+        verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
@@ -353,8 +352,8 @@ public class CISShadowMonitorTest {
 
         CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(2);
 
-        cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        cisShadowMonitor.startMonitor();
 
         // for first delta, simulate CIS failure
         connectivityInfoProvider.setMode(FakeConnectivityInfoProvider.Mode.FAIL);
@@ -369,7 +368,7 @@ public class CISShadowMonitorTest {
                 Utils.immutableMap(SHADOW_FIELD_VERSION, "2"),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, "2"));
 
-        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
+        verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
@@ -377,8 +376,8 @@ public class CISShadowMonitorTest {
         int numShadowChanges = 2;
         CountDownLatch shadowDeltaUpdated = whenShadowDeltaUpdated(numShadowChanges);
 
-        cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        cisShadowMonitor.startMonitor();
 
         // simulate race condition where CIS service state changes
         // before we call getConnectivityInfo. so even though connectivity changes twice,
@@ -398,7 +397,7 @@ public class CISShadowMonitorTest {
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
 
-        verify(certificateGenerator, times(connectivityInfoProvider.getNumUniqueConnectivityInfoResponses())).generateCertificate(any(), any());
+        verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
@@ -449,6 +448,15 @@ public class CISShadowMonitorTest {
         ArgumentCaptor<GetShadowRequest> request = ArgumentCaptor.forClass(GetShadowRequest.class);
         shadowClientOrder.verify(shadowClient, times(1)).PublishGetShadow(request.capture(), eq(QualityOfService.AT_LEAST_ONCE));
         assertEquals(SHADOW_NAME, request.getValue().thingName);
+    }
+
+    /**
+     * Verify that certificates are rotated only when connectivity info changes.
+     *
+     * @throws KeyStoreException n/a
+     */
+    private void verifyCertsRotatedWhenConnectivityChanges() throws KeyStoreException {
+        verify(certificateGenerator, times(connectivityInfoProvider.getNumUniqueConnectivityInfoResponses())).generateCertificate(any(), any());
     }
 
     private void assertDesiredAndReportedShadowState(Map<String, Object> desired, Map<String, Object> reported) {
@@ -761,7 +769,6 @@ public class CISShadowMonitorTest {
     static class FakeConnectivityInfoProvider extends ConnectivityInfoProvider {
 
         private final AtomicReference<List<ConnectivityInfo>> CONNECTIVITY_INFO_SAMPLE = new AtomicReference<>(Collections.singletonList(connectivityInfoWithRandomHost()));
-
         private final Set<Integer> responseHashes = new CopyOnWriteArraySet<>();
         private final AtomicReference<Mode> mode = new AtomicReference<>(Mode.RANDOM);
 
@@ -785,13 +792,11 @@ public class CISShadowMonitorTest {
         }
 
         void setMode(Mode mode) {
-            responseHashes.clear();
             this.mode.set(mode);
         }
 
         /**
          * Get the number of unique responses to getConnectivityInfo provided by this fake.
-         * This number resets whenever {@link FakeConnectivityInfoProvider#setMode(Mode)} is called.
          *
          * @return number of unique connectivity info responses generated by this fake
          */
