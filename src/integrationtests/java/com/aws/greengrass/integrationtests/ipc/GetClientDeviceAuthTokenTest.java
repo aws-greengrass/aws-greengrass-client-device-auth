@@ -181,13 +181,18 @@ class GetClientDeviceAuthTokenTest {
                     new CredentialDocument().withMqttCredential(
                             new MQTTCredential().withClientId("some-client-id").withCertificatePem("VALID PEM")));
 
+            CountDownLatch cdl = new CountDownLatch(1);
             when(sessionManager.createSession(anyString(), anyMap())).thenAnswer((a) -> {
+                cdl.countDown();
                 Thread.sleep(1_000); // slow down the first request so that the second will be rejected
                 return "uuid";
             });
             // Request 1 (immediately runs)
             CompletableFuture<GetClientDeviceAuthTokenResponse> fut1 =
                     ipcClient.getClientDeviceAuthToken(request, Optional.empty()).getResponse();
+            // Ensure the threadpool is actively blocked before we send the next requests to fill the queue and then
+            // overflow the queue.
+            cdl.await(2, TimeUnit.SECONDS);
             // Request 2 (queued so that queue size is 1)
             CompletableFuture<GetClientDeviceAuthTokenResponse> fut2 =
                     ipcClient.getClientDeviceAuthToken(request, Optional.empty()).getResponse();
