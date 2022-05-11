@@ -57,6 +57,8 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
@@ -166,22 +168,31 @@ class GetClientDeviceAuthTokenTest {
             assertThat(err.getCause().getMessage(), containsString("Invalid client device credentials"));
         }
 
-        // Update the cloud queue size to 0 so that we'll just reject any request
+        // Update the cloud queue size to 1 so that we'll just reject the second request
         kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
-                .lookup(CONFIGURATION_CONFIG_KEY, CLOUD_QUEUE_SIZE_TOPIC).withValue(0);
+                .lookup(CONFIGURATION_CONFIG_KEY, CLOUD_QUEUE_SIZE_TOPIC).withValue(1);
         kernel.getContext().waitForPublishQueueToClear();
 
         // Verify that we get a good error that the request couldn't be queued
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest();
+            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(
+                    new CredentialDocument().withMqttCredential(
+                            new MQTTCredential().withClientId("some-client-id").withCertificatePem("VALID PEM")));
 
-            Exception err = assertThrows(Exception.class, () -> {
-                clientDeviceAuthToken(ipcClient, request, null);
+            when(sessionManager.createSession(anyString(), anyMap())).thenAnswer((a) -> {
+                Thread.sleep(1_000); // slow down the first request so that the second will be rejected
+                return "uuid";
             });
-            assertEquals(err.getCause().getClass(), ServiceError.class);
+            // Request 1 (immediately runs)
+            ipcClient.getClientDeviceAuthToken(request, Optional.empty());
+            // Request 2 (queued so that queue size is 1)
+            ipcClient.getClientDeviceAuthToken(request, Optional.empty());
+            // Request 3 (expect rejection)
+            Exception err = assertThrows(Exception.class, () -> clientDeviceAuthToken(ipcClient, request, (r) -> {}));
             assertThat(err.getCause().getMessage(), containsString("Unable to queue request"));
+            assertEquals(ServiceError.class, err.getCause().getClass());
         }
     }
 

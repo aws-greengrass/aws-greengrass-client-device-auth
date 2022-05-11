@@ -48,6 +48,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
@@ -90,7 +91,7 @@ public class ClientDevicesAuthService extends PluginService {
     private static final int DEFAULT_THREAD_POOL_SIZE = 1;
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private final ThreadPoolExecutor cloudCallThreadPool;
-    private final int cloudCallQueueSize;
+    private int cloudCallQueueSize;
 
     /**
      * Constructor.
@@ -119,8 +120,7 @@ public class ClientDevicesAuthService extends PluginService {
                                     SessionManager sessionManager,
                                     DeviceAuthClient deviceAuthClient) {
         super(topics);
-        cloudCallQueueSize = Coerce.toInt(topics.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE,
-                CONFIGURATION_CONFIG_KEY, CLOUD_QUEUE_SIZE_TOPIC));
+        cloudCallQueueSize = getValidCloudCallQueueSize(topics);
         cloudCallThreadPool = new ThreadPoolExecutor(1,
                 DEFAULT_THREAD_POOL_SIZE, 60, TimeUnit.SECONDS,
                 new ResizableLinkedBlockingQueue<>(cloudCallQueueSize));
@@ -136,6 +136,17 @@ public class ClientDevicesAuthService extends PluginService {
         this.deviceAuthClient = deviceAuthClient;
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
+    }
+
+    private int getValidCloudCallQueueSize(Topics topics) {
+        int newSize = Coerce.toInt(
+                topics.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE, CONFIGURATION_CONFIG_KEY, CLOUD_QUEUE_SIZE_TOPIC));
+        if (newSize <= 0) {
+            logger.atWarn().log("{} illegal size, will not change the queue size from {}",
+                    CLOUD_QUEUE_SIZE_TOPIC, cloudCallQueueSize);
+            return cloudCallQueueSize; // existing size
+        }
+        return newSize;
     }
 
     /**
@@ -176,9 +187,8 @@ public class ClientDevicesAuthService extends PluginService {
             if (whatHappened != WhatHappened.initialized && node != null && node.childOf(CLOUD_QUEUE_SIZE_TOPIC)) {
                 BlockingQueue<Runnable> q = cloudCallThreadPool.getQueue();
                 if (q instanceof ResizableLinkedBlockingQueue) {
-                    ((ResizableLinkedBlockingQueue) q).resize(Coerce.toInt(
-                            this.config.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE, CONFIGURATION_CONFIG_KEY,
-                                    CLOUD_QUEUE_SIZE_TOPIC)));
+                    cloudCallQueueSize = getValidCloudCallQueueSize(this.config);
+                    ((ResizableLinkedBlockingQueue) q).resize(cloudCallQueueSize);
                 }
             }
 
@@ -266,6 +276,14 @@ public class ClientDevicesAuthService extends PluginService {
     private String getPassphrase() {
         Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE).dflt("");
         return Coerce.toString(caPassphrase);
+    }
+
+    @Override
+    protected CompletableFuture<Void> close(boolean waitForDependers) {
+        // shutdown the threadpool in close, not in shutdown() because it is created
+        // and injected in the constructor and we won't be able to restart it after it stops.
+        cloudCallThreadPool.shutdown();
+        return super.close(waitForDependers);
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
