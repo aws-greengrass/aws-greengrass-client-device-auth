@@ -186,13 +186,17 @@ class GetClientDeviceAuthTokenTest {
                 return "uuid";
             });
             // Request 1 (immediately runs)
-            ipcClient.getClientDeviceAuthToken(request, Optional.empty());
+            CompletableFuture<GetClientDeviceAuthTokenResponse> fut1 =
+                    ipcClient.getClientDeviceAuthToken(request, Optional.empty()).getResponse();
             // Request 2 (queued so that queue size is 1)
-            ipcClient.getClientDeviceAuthToken(request, Optional.empty());
+            CompletableFuture<GetClientDeviceAuthTokenResponse> fut2 =
+                    ipcClient.getClientDeviceAuthToken(request, Optional.empty()).getResponse();
             // Request 3 (expect rejection)
             Exception err = assertThrows(Exception.class, () -> clientDeviceAuthToken(ipcClient, request, (r) -> {}));
             assertThat(err.getCause().getMessage(), containsString("Unable to queue request"));
             assertEquals(ServiceError.class, err.getCause().getClass());
+            fut1.get(2, TimeUnit.SECONDS);
+            fut2.get(2, TimeUnit.SECONDS);
         }
     }
 
