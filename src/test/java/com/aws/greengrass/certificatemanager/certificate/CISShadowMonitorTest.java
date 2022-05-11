@@ -264,15 +264,9 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.startMonitor();
 
-        shadowClient.onPrePublish(topic -> {
-            if (topic.endsWith("shadow/update/delta")) {
-                shadowClient.withPublishException(true);
-            }
-        });
-
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowState(desiredState);
+            publishDesiredShadowStateWithException(desiredState);
         }
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
@@ -293,17 +287,9 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.startMonitor();
 
-        shadowClient.onPrePublish(topic -> {
-            if (topic.endsWith("shadow/update/delta")) {
-                // force the update shadow call within cisShadowMonitor to fail
-                shadowClient.withPublishException(true);
-            }
-        });
-
         for (int i = 1; i <= numShadowChanges; i++) {
-            shadowClient.withPublishException(false);
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowState(desiredState);
+            publishDesiredShadowStateWithException(desiredState);
         }
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
@@ -325,17 +311,10 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.startMonitor();
 
         shadowClient.withDuplicatePublishing(true);
-        shadowClient.onPrePublish(topic -> {
-            if (topic.endsWith("shadow/update/delta")) {
-                // force the update shadow call within cisShadowMonitor to fail
-                shadowClient.withPublishException(true);
-            }
-        });
 
         for (int i = 1; i <= numShadowChanges; i++) {
-            shadowClient.withPublishException(false);
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowState(desiredState);
+            publishDesiredShadowStateWithException(desiredState);
         }
 
         assertTrue(shadowDeltaUpdated.await(5L, TimeUnit.SECONDS));
@@ -425,11 +404,24 @@ public class CISShadowMonitorTest {
     }
 
     private void publishDesiredShadowState(Map<String, Object> desired) {
+        // clear exceptions if they were set elsewhere to ensure clean slate
+        shadowClient.withPublishException(false);
+
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
         updateShadowRequest.thingName = SHADOW_NAME;
         updateShadowRequest.state = new ShadowState();
         updateShadowRequest.state.desired = new HashMap<>(desired);
         shadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE);
+    }
+
+    private void publishDesiredShadowStateWithException(Map<String, Object> desired) {
+        shadowClient.onPrePublish(topic -> {
+            if (topic.endsWith("shadow/update/delta")) {
+                // force the update shadow call within cisShadowMonitor to fail
+                shadowClient.withPublishException(true);
+            }
+        });
+        publishDesiredShadowState(desired);
     }
 
     private void verifyGetShadowAcceptedSubscription() {
