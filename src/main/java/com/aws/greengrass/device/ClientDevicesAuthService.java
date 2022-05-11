@@ -120,6 +120,7 @@ public class ClientDevicesAuthService extends PluginService {
                                     SessionManager sessionManager,
                                     DeviceAuthClient deviceAuthClient) {
         super(topics);
+        cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
         cloudCallQueueSize = getValidCloudCallQueueSize(topics);
         cloudCallThreadPool = new ThreadPoolExecutor(1,
                 DEFAULT_THREAD_POOL_SIZE, 60, TimeUnit.SECONDS,
