@@ -297,7 +297,7 @@ public class CISShadowMonitor {
      * will be updated to match desired state.
      */
     @RequiredArgsConstructor
-    private class ShadowProcessor {
+    class ShadowProcessor {
 
         /**
          * Request from {@link CISShadowMonitor} to process shadow state.

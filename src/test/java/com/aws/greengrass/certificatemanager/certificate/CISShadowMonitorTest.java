@@ -150,15 +150,11 @@ public class CISShadowMonitorTest {
 
     @Test
     void GIVEN_CISShadowMonitor_WHEN_start_monitor_THEN_subscribe_to_shadow_topics_and_get_shadow() throws InterruptedException, KeyStoreException {
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
-
-        cisShadowMonitor.startMonitor();
+        startMonitorAndWaitForWorkCompletion();
         verifyShadowDeltaUpdatedSubscription();
         verifyGetShadowAcceptedSubscription();
         verifyPublishGetShadow();
 
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
         assertDesiredAndReportedShadowState(
                 Utils.immutableMap(SHADOW_FIELD_VERSION, SHADOW_FIELD_VERSION_INITIAL_VALUE),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, SHADOW_FIELD_VERSION_INITIAL_VALUE));
@@ -166,11 +162,11 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_start_monitor_THEN_new_cert_generated() throws Exception {
+    void GIVEN_CISShadowMonitor_WHEN_start_monitor_THEN_get_shadow_is_processed() throws Exception {
         CountDownLatch shadowUpdated = whenUpdateShadowAccepted(1);
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.startMonitor();
+        startMonitorAndWaitForWorkCompletion();
 
         assertTrue(shadowUpdated.await(5L, TimeUnit.SECONDS));
 
@@ -178,21 +174,17 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_THEN_new_cert_generated() throws Exception {
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_THEN_delta_is_processed() throws Exception {
         int numShadowChanges = 1;
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.startMonitor();
-
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
+        startMonitorAndWaitForWorkCompletion();
 
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowState(desiredState);
+            publishDesiredShadowStateAndWaitForWorkCompletion(desiredState);
         }
 
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
         assertDesiredAndReportedShadowState(
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
@@ -200,21 +192,17 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_THEN_new_cert_generated_multiple_times() throws Exception {
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_THEN_delta_is_processed_multiple_times() throws Exception {
         int numShadowChanges = 3;
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.startMonitor();
-
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
+        startMonitorAndWaitForWorkCompletion();
 
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowState(desiredState);
+            publishDesiredShadowStateAndWaitForWorkCompletion(desiredState);
         }
 
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
         assertDesiredAndReportedShadowState(
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
@@ -222,23 +210,19 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_duplicate_THEN_only_one_new_cert_generated() throws Exception {
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_duplicate_THEN_delta_processing_is_deduped() throws Exception {
         int numShadowChanges = 1;
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.startMonitor();
-
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
+        startMonitorAndWaitForWorkCompletion();
 
         shadowClient.withDuplicatePublishing(true);
 
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowState(desiredState);
+            publishDesiredShadowStateAndWaitForWorkCompletion(desiredState);
         }
 
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
         assertDesiredAndReportedShadowState(
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
@@ -246,23 +230,19 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_with_duplicates_THEN_new_cert_generated_multiple_times() throws Exception {
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_with_duplicates_THEN_delta_processing_is_deduped() throws Exception {
         int numShadowChanges = 3;
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.startMonitor();
-
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
+        startMonitorAndWaitForWorkCompletion();
 
         shadowClient.withDuplicatePublishing(true);
 
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowState(desiredState);
+            publishDesiredShadowStateAndWaitForWorkCompletion(desiredState);
         }
 
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
         assertDesiredAndReportedShadowState(
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
@@ -270,60 +250,51 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_and_shadow_update_failed_THEN_new_cert_generated(ExtensionContext context) throws Exception {
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_and_shadow_update_failed_THEN_reported_state_not_updated_AND_certs_rotations_are_unaffected(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, FakeIotShadowClient.SIMULATED_PUBLISH_EXCEPTION.getClass());
 
         int numShadowChanges = 1;
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.startMonitor();
-
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
+        startMonitorAndWaitForWorkCompletion();
 
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowStateWithException(desiredState);
+            makeNextPublishAfterDeltaReceivedFail();
+            // clear exceptions so we can publish desired state 
+            shadowClient.withPublishException(false);
+            publishDesiredShadowStateAndWaitForWorkCompletion(desiredState);
         }
-
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
 
         assertDesiredAndReportedShadowState(
                 // desired set is set within this test
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
-                // we expect all attempts to publish reported state fail
-                null
-        );
+                // all attempts to publish reported state failed
+                // so shadow state remains at initial state from when the monitor started up
+                Utils.immutableMap(SHADOW_FIELD_VERSION, SHADOW_FIELD_VERSION_INITIAL_VALUE));
+
         verifyCertsRotatedWhenConnectivityChanges();
     }
 
-    private void startMonitor() throws InterruptedException {
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
-        cisShadowMonitor.startMonitor();
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(null);
-    }
-
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_and_shadow_update_failed_THEN_new_cert_generated_multiple_times(ExtensionContext context) throws Exception {
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_and_shadow_update_failed_THEN_reported_state_not_updated_AND_certs_rotations_are_unaffected(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, FakeIotShadowClient.SIMULATED_PUBLISH_EXCEPTION.getClass());
 
         int numShadowChanges = 3;
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
-        startMonitor();
-
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
+        startMonitorAndWaitForWorkCompletion();
 
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowStateWithException(desiredState);
+            makeNextPublishAfterDeltaReceivedFail();
+            // clear exceptions so we can publish desired state 
+            shadowClient.withPublishException(false);
+            publishDesiredShadowStateAndWaitForWorkCompletion(desiredState);
         }
 
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
         assertDesiredAndReportedShadowState(
+                // desired state from this test
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
                 // reported value from when the monitor started up
                 Utils.immutableMap(SHADOW_FIELD_VERSION, SHADOW_FIELD_VERSION_INITIAL_VALUE));
@@ -332,53 +303,62 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_with_duplicates_and_shadow_update_failed_THEN_new_cert_generated_multiple_times(ExtensionContext context) throws Exception {
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_multiple_times_with_duplicates_and_shadow_update_failed_THEN_reported_state_not_updated_AND_certs_rotations_are_unaffected(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, FakeIotShadowClient.SIMULATED_PUBLISH_EXCEPTION.getClass());
 
         int numShadowChanges = 3;
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.startMonitor();
+        startMonitorAndWaitForWorkCompletion();
 
         shadowClient.withDuplicatePublishing(true);
 
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
-
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowStateWithException(desiredState);
+            makeNextPublishAfterDeltaReceivedFail();
+            // clear exceptions so we can publish desired state 
+            shadowClient.withPublishException(false);
+            publishDesiredShadowStateAndWaitForWorkCompletion(desiredState);
         }
 
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
         assertDesiredAndReportedShadowState(
+                // desired state from this test
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
-                null);
+                // all attempts to publish reported state failed,
+                // so shadow state remains at initial state from when the monitor started up
+                Utils.immutableMap(SHADOW_FIELD_VERSION, SHADOW_FIELD_VERSION_INITIAL_VALUE));
+
         verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_twice_and_connectivity_call_fails_once_THEN_one_cert_generated(ExtensionContext context) throws Exception {
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_twice_and_connectivity_call_fails_once_THEN_second_shadow_change_still_succeeds(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, RuntimeException.class);
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.startMonitor();
+        startMonitorAndWaitForWorkCompletion();
 
         // for first delta, simulate CIS failure
         connectivityInfoProvider.setMode(FakeConnectivityInfoProvider.Mode.FAIL);
-        publishDesiredShadowState(Utils.immutableMap(SHADOW_FIELD_VERSION, "1"));
+        publishDesiredShadowStateAndWaitForWorkCompletion(Utils.immutableMap(SHADOW_FIELD_VERSION, "1"));
 
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
+        assertDesiredAndReportedShadowState(
+                // desired state from this test
+                Utils.immutableMap(SHADOW_FIELD_VERSION, "1"),
+                // no cert rotation occurred,
+                // so shadow state remains at initial state from when the monitor started up
+                Utils.immutableMap(SHADOW_FIELD_VERSION, SHADOW_FIELD_VERSION_INITIAL_VALUE));
 
         // for second delta, everything works smoothly
         connectivityInfoProvider.setMode(FakeConnectivityInfoProvider.Mode.RANDOM);
-        publishDesiredShadowState(Utils.immutableMap(SHADOW_FIELD_VERSION, "2"));
+        publishDesiredShadowStateAndWaitForWorkCompletion(Utils.immutableMap(SHADOW_FIELD_VERSION, "2"));
 
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
         assertDesiredAndReportedShadowState(
+                // desired state from this test
                 Utils.immutableMap(SHADOW_FIELD_VERSION, "2"),
+                // reported state matches latest desired state
                 Utils.immutableMap(SHADOW_FIELD_VERSION, "2"));
+
         verifyCertsRotatedWhenConnectivityChanges();
     }
 
@@ -387,39 +367,65 @@ public class CISShadowMonitorTest {
         int numShadowChanges = 2;
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.startMonitor();
+        startMonitorAndWaitForWorkCompletion();
 
-        // simulate race condition where CIS service state changes
-        // before we call getConnectivityInfo. so even though connectivity changes twice,
-        // CISShadowMonitor only sees the second value
+        // simulate a race condition where CIS service state changes before we call getConnectivityInfo.
+        // so even though connectivity changes twice, CISShadowMonitor only sees the second value:
+        //
+        //  1) CIS state changes to "A", delta "1" sent
+        //  2) receive and start processing shadow delta "1"
+        //  3) CIS state changes to "B", delta "2" sent
+        //  4) connectivity response for delta "1":  "B"
+        //  5) receive and start processing shadow delta "2"
+        //  6) connectivity response for delta "2":  "B"
         connectivityInfoProvider.setMode(FakeConnectivityInfoProvider.Mode.CONSTANT);
-
-        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
-        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
 
         for (int i = 1; i <= numShadowChanges; i++) {
             Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
-            publishDesiredShadowState(desiredState);
+            publishDesiredShadowStateAndWaitForWorkCompletion(desiredState);
         }
 
-        // even though new cert isn't generated for each shadow change in this case,
-        // we still expect the shadow to be fully synced
-        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
         assertDesiredAndReportedShadowState(
+                // desired state from this test
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
+                // even though new cert isn't generated for every shadow change,
+                // we still expect the reported shadow to be up-to-date
                 Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
+
         verifyCertsRotatedWhenConnectivityChanges();
     }
 
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_stop_monitor_THEN_unsubscribe(ExtensionContext context) {
+    void GIVEN_CISShadowMonitor_WHEN_stop_monitor_THEN_unsubscribe(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, InterruptedException.class);
-        cisShadowMonitor.startMonitor();
+        startMonitorAndWaitForWorkCompletion();
         assertTrue(shadowClient.hasSubscriptions());
         cisShadowMonitor.stopMonitor();
         assertFalse(shadowClient.hasSubscriptions());
     }
 
+    /**
+     * Start up the CIS shadow monitor and wait for its initial work to complete.
+     *
+     * @throws InterruptedException if interrupted waiting for monitor work to complete
+     */
+    private void startMonitorAndWaitForWorkCompletion() throws InterruptedException {
+        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
+        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
+        cisShadowMonitor.startMonitor();
+        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
+        cisShadowMonitor.setOnShadowProcessingWorkComplete(null);
+    }
+
+    /**
+     * Get a latch that notifies when shadow update has been accepted a specified number of times.
+     *
+     * @param times number of times that shadow accepted subscription is expected to fire
+     * @return count down latch that tracks when shadow accepted subscription fires
+     * @throws ExecutionException   if subscription request fails
+     * @throws InterruptedException if subscription request is interrupted
+     * @throws TimeoutException     if subscription request doesn't complete in time
+     */
     private CountDownLatch whenUpdateShadowAccepted(int times) throws ExecutionException, InterruptedException, TimeoutException {
         CountDownLatch shadowUpdated = new CountDownLatch(times);
         UpdateShadowSubscriptionRequest request = new UpdateShadowSubscriptionRequest();
@@ -429,10 +435,15 @@ public class CISShadowMonitorTest {
         return shadowUpdated;
     }
 
+    /**
+     * Publish desired CIS shadow state.
+     *
+     * @param desired desired CIS shadow state
+     * @throws ExecutionException   if publish update operation fails
+     * @throws InterruptedException if publish update operation is interrupted
+     * @throws TimeoutException     if publish update operation doesn't complete in time
+     */
     private void publishDesiredShadowState(Map<String, Object> desired) throws ExecutionException, InterruptedException, TimeoutException {
-        // clear exceptions if they were set elsewhere to ensure clean slate
-        shadowClient.withPublishException(false);
-
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
         updateShadowRequest.thingName = SHADOW_NAME;
         updateShadowRequest.state = new ShadowState();
@@ -441,28 +452,67 @@ public class CISShadowMonitorTest {
                 .get(5, TimeUnit.SECONDS);
     }
 
-    private void publishDesiredShadowStateWithException(Map<String, Object> desired) throws ExecutionException, InterruptedException, TimeoutException {
+    /**
+     * Publish desired CIS shadow state and wait for shadow changes to be processed
+     * by {@link CISShadowMonitor.ShadowProcessor}.
+     *
+     * @param desired desired CIS shadow state
+     * @throws ExecutionException   if publish update operation fails
+     * @throws InterruptedException if publish update operation is interrupted
+     * @throws TimeoutException     if publish update operation doesn't complete in time
+     */
+    private void publishDesiredShadowStateAndWaitForWorkCompletion(Map<String, Object> desired) throws ExecutionException, InterruptedException, TimeoutException {
+        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
+        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
+        publishDesiredShadowState(desired);
+        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
+        cisShadowMonitor.setOnShadowProcessingWorkComplete(null);
+    }
+
+    /**
+     * This is a mechanism to force shadow publishing to fail the next time
+     * {@link CISShadowMonitor.ShadowProcessor} runs.
+     * <p>
+     * This is a bit implementation specific so might need to rework this in the future.
+     */
+    private void makeNextPublishAfterDeltaReceivedFail() {
         shadowClient.onPrePublish(topic -> {
             if (topic.endsWith("shadow/update/delta")) {
-                // force the update shadow call within cisShadowMonitor to fail
                 shadowClient.withPublishException(true);
             }
         });
-        publishDesiredShadowState(desired);
     }
 
+    /**
+     * Verify that shadow client attempted a SubscribeToGetShadowAccepted request.
+     * Order in which this method is called matters.
+     *
+     * @see CISShadowMonitorTest#shadowClientOrder
+     */
     private void verifyGetShadowAcceptedSubscription() {
         ArgumentCaptor<GetShadowSubscriptionRequest> request = ArgumentCaptor.forClass(GetShadowSubscriptionRequest.class);
         shadowClientOrder.verify(shadowClient, times(1)).SubscribeToGetShadowAccepted(request.capture(), eq(QualityOfService.AT_LEAST_ONCE), any(), any());
         assertEquals(SHADOW_NAME, request.getValue().thingName);
     }
 
+    /**
+     * Verify that shadow client attempted a SubscribeToShadowDeltaUpdatedEvents request.
+     * Order in which this method is called matters.
+     *
+     * @see CISShadowMonitorTest#shadowClientOrder
+     */
     private void verifyShadowDeltaUpdatedSubscription() {
         ArgumentCaptor<ShadowDeltaUpdatedSubscriptionRequest> request = ArgumentCaptor.forClass(ShadowDeltaUpdatedSubscriptionRequest.class);
         shadowClientOrder.verify(shadowClient, times(1)).SubscribeToShadowDeltaUpdatedEvents(request.capture(), eq(QualityOfService.AT_LEAST_ONCE), any(), any());
         assertEquals(SHADOW_NAME, request.getValue().thingName);
     }
 
+    /**
+     * Verify that shadow client attempted a PublishGetShadow request.
+     * Order in which this method is called matters.
+     *
+     * @see CISShadowMonitorTest#shadowClientOrder
+     */
     private void verifyPublishGetShadow() {
         ArgumentCaptor<GetShadowRequest> request = ArgumentCaptor.forClass(GetShadowRequest.class);
         shadowClientOrder.verify(shadowClient, times(1)).PublishGetShadow(request.capture(), eq(QualityOfService.AT_LEAST_ONCE));
@@ -478,12 +528,23 @@ public class CISShadowMonitorTest {
         verify(certificateGenerator, times(connectivityInfoProvider.getNumUniqueConnectivityInfoResponses())).generateCertificate(any(), any());
     }
 
+    /**
+     * Assert that shadow state matches expectations.
+     *
+     * @param desired  desired CIS shadow state
+     * @param reported reported CIS shadow state
+     */
     private void assertDesiredAndReportedShadowState(Map<String, Object> desired, Map<String, Object> reported) {
         ShadowState state = shadowClient.getShadow(SHADOW_NAME).state;
         assertEquals(desired, state.desired, "unexpected desired state");
         assertEquals(reported, state.reported, "unexpected reported state");
     }
 
+    /**
+     * A fake extension of IotShadowClient.  While not a substitute for a real integration test,
+     * this gets us most of the way there and allows us to test hypothetical scenarios easily,
+     * such as duplicate message sending.
+     */
     static class FakeIotShadowClient extends IotShadowClient {
 
         static final RuntimeException SIMULATED_PUBLISH_EXCEPTION = new RuntimeException("simulated publish error");
@@ -767,22 +828,48 @@ public class CISShadowMonitorTest {
             }
         }
 
+        /**
+         * Set a handler to be run just before a message is published to its subscribers.
+         *
+         * @param action handler, input is the topic name where the message is being published
+         */
         void onPrePublish(Consumer<String> action) {
             onPrePublish.set(action);
         }
 
+        /**
+         * Throw an exception when a publish request happens.
+         *
+         * @param publishException exception on publish enabled
+         */
         void withPublishException(boolean publishException) {
             withPublishException.set(publishException);
         }
 
+        /**
+         * When publishing, send the same message twice.
+         *
+         * @param duplicatePublishing duplicate publishing enabled
+         */
         void withDuplicatePublishing(boolean duplicatePublishing) {
             withDuplicatePublishing.set(duplicatePublishing);
         }
 
+        /**
+         * True if there are active subscriptions.
+         *
+         * @return true if there are existing subscriptions
+         */
         boolean hasSubscriptions() {
             return !subscriptionsByTopic.isEmpty();
         }
 
+        /**
+         * Retrieve shadow state by thing name
+         *
+         * @param thingName thing name
+         * @return shadow state
+         */
         Shadow getShadow(String thingName) {
             return Shadow.copy(shadowByThingName.get(thingName));
         }
@@ -854,6 +941,9 @@ public class CISShadowMonitorTest {
         }
     }
 
+    /**
+     * A ScheduledThreadPoolExecutor that executes using a provided ExecutorService.
+     */
     static class DelegatedScheduledExecutorService extends ScheduledThreadPoolExecutor {
 
         private final ExecutorService executor;
