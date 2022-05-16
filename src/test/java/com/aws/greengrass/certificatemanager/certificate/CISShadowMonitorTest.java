@@ -250,6 +250,30 @@ public class CISShadowMonitorTest {
     }
 
     @Test
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_requests_overlap_THEN_latest_request_is_processed() throws Exception {
+        int numShadowChanges = 10;
+
+        CountDownLatch shadowProcessingComplete = new CountDownLatch(1);
+        cisShadowMonitor.setOnShadowProcessingWorkComplete(shadowProcessingComplete::countDown);
+
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+        cisShadowMonitor.startMonitor();
+
+        for (int i = 1; i <= numShadowChanges; i++) {
+            Map<String, Object> desiredState = Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(i));
+            publishDesiredShadowState(desiredState);
+        }
+
+        assertTrue(shadowProcessingComplete.await(5L, TimeUnit.SECONDS));
+
+        assertDesiredAndReportedShadowState(
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)),
+                Utils.immutableMap(SHADOW_FIELD_VERSION, String.valueOf(numShadowChanges)));
+
+        verifyCertsRotatedWhenConnectivityChanges();
+    }
+
+    @Test
     void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changed_and_shadow_update_failed_THEN_reported_state_not_updated_AND_certs_rotations_are_unaffected(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, FakeIotShadowClient.SIMULATED_PUBLISH_EXCEPTION.getClass());
 
