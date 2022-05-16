@@ -44,7 +44,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
@@ -67,7 +66,6 @@ public class CISShadowMonitor {
     private IotShadowClient iotShadowClient;
     private int lastVersion = 0;
     private Future<?> subscribeTaskFuture;
-    private final AtomicBoolean connectivityCallInProgress = new AtomicBoolean();
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
     private final String shadowName;
@@ -232,10 +230,6 @@ public class CISShadowMonitor {
         // operation (particularly on low end devices) it is imperative that we process this event asynchronously
         // to avoid blocking other MQTT subscribers in the Nucleus
         CompletableFuture.runAsync(() -> {
-            if (connectivityCallInProgress.getAndSet(true)) {
-                LOGGER.atDebug().log("getConnectivityInfo call in progress. Skipping cert re-generation");
-                return;
-            }
             try {
                 RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInfoProvider::getConnectivityInfo,
                         "get-connectivity", LOGGER);
@@ -250,8 +244,6 @@ public class CISShadowMonitor {
                                 + " Check that the core device's IoT policy "
                                 + "grants the greengrass:GetConnectivityInfo permission");
                 return;
-            } finally {
-                connectivityCallInProgress.set(false);
             }
 
             try {
