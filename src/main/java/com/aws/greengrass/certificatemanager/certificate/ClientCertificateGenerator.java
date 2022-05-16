@@ -27,7 +27,6 @@ public class ClientCertificateGenerator extends CertificateGenerator {
     private static final Logger logger = LogManager.getLogger(ClientCertificateGenerator.class);
 
     private final Consumer<X509Certificate[]> callback;
-    private final CertificatesConfig certificatesConfig;
 
     /**
      * Constructor.
@@ -45,14 +44,21 @@ public class ClientCertificateGenerator extends CertificateGenerator {
                                       CertificateStore certificateStore,
                                       CertificatesConfig certificatesConfig,
                                       Clock clock) {
-        super(subject, publicKey, certificateStore, clock);
+        super(subject, publicKey, certificateStore, certificatesConfig, clock);
         this.callback = callback;
-        this.certificatesConfig = certificatesConfig;
     }
 
     @Override
     public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
             throws KeyStoreException {
+        if (certificatesConfig.isRotationDisabled() && certificate != null) {
+            logger.atWarn()
+                    .kv("subject", subject)
+                    .kv("certExpiry", getExpiryTime())
+                    .log("Certificate rotation is disabled, current certificate will NOT be rotated");
+            return;
+        }
+
         Instant now = Instant.now(clock);
 
         try {

@@ -22,6 +22,7 @@ public abstract class CertificateGenerator {
     protected final X500Name subject;
     protected final PublicKey publicKey;
     protected final CertificateStore certificateStore;
+    protected final CertificatesConfig certificatesConfig;
 
     @Getter(AccessLevel.PACKAGE)
     protected X509Certificate certificate;
@@ -31,18 +32,21 @@ public abstract class CertificateGenerator {
     /**
      * Construct a new CertificateGenerator.
      *
-     * @param subject          X500 subject
-     * @param publicKey        Public Key
-     * @param certificateStore CertificateStore instance
-     * @param clock            clock
+     * @param subject            X500 subject
+     * @param publicKey          Public Key
+     * @param certificateStore   CertificateStore instance
+     * @param certificatesConfig Certificate configuration
+     * @param clock              clock
      */
     public CertificateGenerator(X500Name subject,
                                 PublicKey publicKey,
                                 CertificateStore certificateStore,
+                                CertificatesConfig certificatesConfig,
                                 Clock clock) {
         this.subject = subject;
         this.publicKey = publicKey;
         this.certificateStore = certificateStore;
+        this.certificatesConfig = certificatesConfig;
         this.clock = clock;
     }
 
