@@ -234,7 +234,7 @@ public class CISShadowMonitor {
                 RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInfoProvider::getConnectivityInfo,
                         "get-connectivity", LOGGER);
             } catch (InterruptedException e) {
-                LOGGER.atWarn().kv(VERSION, version).cause(e)
+                LOGGER.atDebug().kv(VERSION, version).cause(e)
                         .log("Retry workflow for getting connectivity info interrupted");
                 Thread.currentThread().interrupt();
                 return;
