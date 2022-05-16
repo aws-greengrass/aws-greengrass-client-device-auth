@@ -417,7 +417,7 @@ public class CISShadowMonitor {
             try {
                 newHostAddresses = fetchHostAddressesFromCIS();
             } catch (InterruptedException e) {
-                LOGGER.atWarn().kv(VERSION, version).cause(e)
+                LOGGER.atDebug().kv(VERSION, version).cause(e)
                         .log("Retry workflow for getting connectivity info interrupted");
                 Thread.currentThread().interrupt();
                 return;
