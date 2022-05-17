@@ -345,23 +345,25 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
+        AtomicReference<CountDownLatch> requestProcessed = new AtomicReference<>(new CountDownLatch(1));
+        cisShadowMonitor.setOnShadowProcessingWorkComplete(() -> requestProcessed.get().countDown());
+
         // trigger update delta subscription callbacks
-        AtomicInteger version = new AtomicInteger(1);
-        deltas.forEach(delta -> {
+        int version = 1;
+        for (Map<String, Object> delta : deltas) {
             ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-            deltaUpdatedEvent.version = version.getAndIncrement();
+            deltaUpdatedEvent.version = version++;
             deltaUpdatedEvent.state = new HashMap<>(delta);
 
             // original message
             wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(resp ->
                     shadowDeltaUpdatedCallback.getValue().accept(resp));
 
-            // duplicate message
-            // opted to throw this scenario in rather than split it out into its own test.
-            // we already have a specific test for duplicate messages, so no need for extra clutter.
-            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, true).ifPresent(resp ->
-                    shadowDeltaUpdatedCallback.getValue().accept(resp));
-        });
+            // force requests to process one-at-at-time,
+            // rather than being deduped at queue-time.
+            assertTrue(requestProcessed.get().await(5L, TimeUnit.SECONDS));
+            requestProcessed.set(new CountDownLatch(1)); // reset the latch
+        }
 
         assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
         verifyCertsRotatedWhenConnectivityChanges();
