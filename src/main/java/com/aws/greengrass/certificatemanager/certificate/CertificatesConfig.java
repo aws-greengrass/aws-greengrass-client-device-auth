@@ -20,19 +20,19 @@ public class CertificatesConfig {
     static final int MIN_CLIENT_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 2; // 2 days
     static final int DEFAULT_SERVER_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
     static final int DEFAULT_CLIENT_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
-    static final boolean DEFAULT_ROTATION_DISABLED = false;
+    static final boolean DEFAULT_DISABLE_CERTIFICATE_ROTATION = false;
 
     private static final String CERTIFICATES_CONFIGURATION = "certificates";
     private static final String SERVER_CERT_VALIDITY_SECONDS = "serverCertificateValiditySeconds";
     private static final String CLIENT_CERT_VALIDITY_SECONDS = "clientCertificateValiditySeconds";
-    private static final String ROTATION_DISABLED = "rotationDisabled";
+    private static final String DISABLE_CERTIFICATE_ROTATION = "disableCertificateRotation";
 
     static final String[] PATH_SERVER_CERT_EXPIRY_SECONDS =
             {KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CERTIFICATES_CONFIGURATION, SERVER_CERT_VALIDITY_SECONDS};
     static final String[] PATH_CLIENT_CERT_EXPIRY_SECONDS =
             {KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CERTIFICATES_CONFIGURATION, CLIENT_CERT_VALIDITY_SECONDS};
-    static final String[] PATH_ROTATION_DISABLED =
-            {KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CERTIFICATES_CONFIGURATION, ROTATION_DISABLED};
+    static final String[] PATH_DISABLE_CERTIFICATE_ROTATION =
+            {KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CERTIFICATES_CONFIGURATION, DISABLE_CERTIFICATE_ROTATION};
 
     private final Topics configuration;
 
@@ -91,7 +91,9 @@ public class CertificatesConfig {
      *
      * @return true if certificate rotations are disabled
      */
-    public boolean isRotationDisabled() {
-        return Coerce.toBoolean(configuration.findOrDefault(DEFAULT_ROTATION_DISABLED, PATH_ROTATION_DISABLED));
+    public boolean isCertificateRotationDisabled() {
+        return Coerce.toBoolean(configuration.findOrDefault(
+                DEFAULT_DISABLE_CERTIFICATE_ROTATION,
+                PATH_DISABLE_CERTIFICATE_ROTATION));
     }
 }

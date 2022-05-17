@@ -51,7 +51,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
     @Override
     public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
             throws KeyStoreException {
-        if (certificatesConfig.isRotationDisabled() && certificate != null) {
+        if (certificatesConfig.isCertificateRotationDisabled() && certificate != null) {
             logger.atWarn()
                     .kv("subject", subject)
                     .kv("certExpiry", getExpiryTime())

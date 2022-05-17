@@ -89,7 +89,7 @@ public class ClientCertificateGeneratorTest {
     @Test
     void GIVEN_ClientCertificateGenerator_WHEN_rotation_disabled_THEN_only_initial_certificate_generated()
             throws KeyStoreException {
-        configurationTopics.lookup(CertificatesConfig.PATH_ROTATION_DISABLED).withValue(true);
+        configurationTopics.lookup(CertificatesConfig.PATH_DISABLE_CERTIFICATE_ROTATION).withValue(true);
 
         // initial cert generation and some rotation attempts
         certificateGenerator.generateCertificate(Collections::emptyList, "test");
