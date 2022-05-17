@@ -78,7 +78,7 @@ public class CISShadowMonitor {
 
     /**
      * Handler that executes when {@link ShadowProcessor} has finished
-     * all of its queued work.
+     * all of its queued work. Intended for unit testing.
      */
     @Setter(AccessLevel.PACKAGE) // for unit testing
     private volatile Runnable onShadowProcessingWorkComplete;
@@ -370,17 +370,19 @@ public class CISShadowMonitor {
         }
 
         private void dequeueProcessingRequest(ShadowProcessingRequest request) {
-            shadowProcessingRequest.getAndUpdate(currRequest -> {
-
+            ShadowProcessingRequest updatedRequest = shadowProcessingRequest.updateAndGet(currRequest -> {
                 // a newer request was received,
                 // keep it for next processing interval
                 if (currRequest.getVersion() > request.getVersion()) {
                     return currRequest;
                 }
 
-                notifyWorkComplete();
                 return null;
             });
+
+            if (updatedRequest == null) {
+                notifyWorkComplete();
+            }
         }
 
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
