@@ -158,7 +158,7 @@ public class CISShadowMonitor {
                 subscribeToShadowTopics();
                 publishToGetCISShadowTopic();
             } catch (InterruptedException e) {
-                LOGGER.atWarn().cause(e).log("Interrupted while subscribing to CIS shadow topics");
+                LOGGER.atDebug().cause(e).log("Interrupted while subscribing to CIS shadow topics");
                 Thread.currentThread().interrupt();
             }
         });
@@ -198,7 +198,11 @@ public class CISShadowMonitor {
         LOGGER.info("Publishing to get shadow topic");
         GetShadowRequest getShadowRequest = new GetShadowRequest();
         getShadowRequest.thingName = shadowName;
-        iotShadowClient.PublishGetShadow(getShadowRequest, QualityOfService.AT_LEAST_ONCE);
+        iotShadowClient.PublishGetShadow(getShadowRequest, QualityOfService.AT_LEAST_ONCE)
+                .exceptionally(e -> {
+                    LOGGER.atWarn().cause(e).log("Unable to retrieve CIS shadow");
+                    return null;
+                });
     }
 
     private void subscribeToShadowTopics() throws InterruptedException {
@@ -251,11 +255,8 @@ public class CISShadowMonitor {
     private void unsubscribeFromShadowTopics() {
         if (connection != null) {
             LOGGER.atDebug().log("Unsubscribing from CIS shadow topics");
-            String topic = String.format(SHADOW_UPDATE_DELTA_TOPIC, shadowName);
-            connection.unsubscribe(topic);
-
-            topic = String.format(SHADOW_GET_ACCEPTED_TOPIC, shadowName);
-            connection.unsubscribe(topic);
+            connection.unsubscribe(String.format(SHADOW_UPDATE_DELTA_TOPIC, shadowName));
+            connection.unsubscribe(String.format(SHADOW_GET_ACCEPTED_TOPIC, shadowName));
         }
     }
 
