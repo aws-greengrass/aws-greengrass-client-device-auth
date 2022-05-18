@@ -158,7 +158,7 @@ public class CISShadowMonitor {
                 subscribeToShadowTopics();
                 publishToGetCISShadowTopic();
             } catch (InterruptedException e) {
-                LOGGER.atWarn().cause(e).log("Interrupted while subscribing to CIS shadow topics");
+                LOGGER.atDebug().cause(e).log("Interrupted while subscribing to CIS shadow topics");
                 Thread.currentThread().interrupt();
             }
         });
@@ -251,11 +251,8 @@ public class CISShadowMonitor {
     private void unsubscribeFromShadowTopics() {
         if (connection != null) {
             LOGGER.atDebug().log("Unsubscribing from CIS shadow topics");
-            String topic = String.format(SHADOW_UPDATE_DELTA_TOPIC, shadowName);
-            connection.unsubscribe(topic);
-
-            topic = String.format(SHADOW_GET_ACCEPTED_TOPIC, shadowName);
-            connection.unsubscribe(topic);
+            connection.unsubscribe(String.format(SHADOW_UPDATE_DELTA_TOPIC, shadowName));
+            connection.unsubscribe(String.format(SHADOW_GET_ACCEPTED_TOPIC, shadowName));
         }
     }
 
