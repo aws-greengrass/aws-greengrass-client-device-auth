@@ -226,11 +226,7 @@ public class CISShadowMonitor {
         LOGGER.info("Publishing to get shadow topic");
         GetShadowRequest getShadowRequest = new GetShadowRequest();
         getShadowRequest.thingName = shadowName;
-        iotShadowClient.PublishGetShadow(getShadowRequest, QualityOfService.AT_LEAST_ONCE)
-                .exceptionally(e -> {
-                    LOGGER.atWarn().cause(e).log("Unable to retrieve CIS shadow");
-                    return null;
-                });
+        iotShadowClient.PublishGetShadow(getShadowRequest, QualityOfService.AT_LEAST_ONCE);
     }
 
     @SuppressWarnings("PMD.SignatureDeclareThrowsException")
