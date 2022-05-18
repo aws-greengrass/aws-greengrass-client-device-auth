@@ -14,6 +14,7 @@ import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.impl.config.LogConfig;
+import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.UniqueRootPathExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
@@ -79,7 +80,9 @@ class AuthorizeClientDeviceActionTest {
     }
 
     @BeforeEach
-    void beforeEach() {
+    void beforeEach(ExtensionContext context) {
+        ignoreExceptionOfType(context, SpoolerStoreException.class);
+
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();

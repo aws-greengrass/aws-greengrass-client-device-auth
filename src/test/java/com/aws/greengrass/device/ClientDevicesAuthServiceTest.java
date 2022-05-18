@@ -17,6 +17,7 @@ import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
+import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
@@ -103,7 +104,9 @@ class ClientDevicesAuthServiceTest {
 
 
     @BeforeEach
-    void setup() {
+    void setup(ExtensionContext context) {
+        ignoreExceptionOfType(context, SpoolerStoreException.class);
+
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
