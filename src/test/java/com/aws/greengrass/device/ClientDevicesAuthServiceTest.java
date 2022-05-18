@@ -17,6 +17,7 @@ import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
+import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
@@ -139,8 +140,10 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_no_group_configuration_WHEN_start_service_change_THEN_empty_configuration_model_instantiated()
+    void GIVEN_no_group_configuration_WHEN_start_service_change_THEN_empty_configuration_model_instantiated(ExtensionContext context)
             throws Exception {
+        ignoreExceptionOfType(context, SpoolerStoreException.class);
+
         startNucleusWithConfig("emptyGroupConfig.yaml");
 
         verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
@@ -161,8 +164,10 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_valid_group_configuration_WHEN_start_service_THEN_instantiated_configuration_model_updated()
+    void GIVEN_valid_group_configuration_WHEN_start_service_THEN_instantiated_configuration_model_updated(ExtensionContext context)
             throws Exception {
+        ignoreExceptionOfType(context, SpoolerStoreException.class);
+
         startNucleusWithConfig("config.yaml");
 
         verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
@@ -210,7 +215,9 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_GG_with_cda_WHEN_subscribing_to_ca_updates_THEN_get_list_of_certs() throws Exception {
+    void GIVEN_GG_with_cda_WHEN_subscribing_to_ca_updates_THEN_get_list_of_certs(ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, SpoolerStoreException.class);
+
         startNucleusWithConfig("config.yaml");
         CountDownLatch countDownLatch = new CountDownLatch(1);
 
@@ -226,8 +233,10 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_updated_ca_certs_WHEN_updateCACertificateConfig_THEN_cert_topic_updated()
-            throws InterruptedException, ServiceLoadException, IOException {
+    void GIVEN_updated_ca_certs_WHEN_updateCACertificateConfig_THEN_cert_topic_updated(ExtensionContext context)
+            throws InterruptedException, ServiceLoadException {
+        ignoreExceptionOfType(context, SpoolerStoreException.class);
+
         startNucleusWithConfig("config.yaml");
 
         ClientDevicesAuthService clientDevicesAuthService =
@@ -256,9 +265,11 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_GG_with_cda_WHEN_restart_kernel_THEN_ca_is_persisted()
+    void GIVEN_GG_with_cda_WHEN_restart_kernel_THEN_ca_is_persisted(ExtensionContext context)
             throws InterruptedException, CertificateEncodingException, KeyStoreException, IOException,
             ServiceLoadException {
+        ignoreExceptionOfType(context, SpoolerStoreException.class);
+
         startNucleusWithConfig("config.yaml");
 
         String initialPassphrase = getCaPassphrase();
@@ -296,8 +307,10 @@ class ClientDevicesAuthServiceTest {
 
 
     @Test
-    void GIVEN_GG_with_cda_WHEN_updated_ca_type_THEN_ca_is_updated()
+    void GIVEN_GG_with_cda_WHEN_updated_ca_type_THEN_ca_is_updated(ExtensionContext context)
             throws InterruptedException, ServiceLoadException, KeyStoreException, CertificateException, IOException {
+        ignoreExceptionOfType(context, SpoolerStoreException.class);
+
         startNucleusWithConfig("config.yaml");
 
         List<String> initialCACerts = getCaCertificates();
@@ -340,8 +353,10 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_GG_with_cda_WHEN_ca_type_provided_in_config_THEN_valid_ca_created()
+    void GIVEN_GG_with_cda_WHEN_ca_type_provided_in_config_THEN_valid_ca_created(ExtensionContext context)
             throws IOException, InterruptedException, ServiceLoadException, CertificateException, KeyStoreException {
+        ignoreExceptionOfType(context, SpoolerStoreException.class);
+
         startNucleusWithConfig("config_with_ec_ca.yaml");
 
         List<String> initialCACerts = getCaCertificates();
