@@ -74,6 +74,8 @@ public class CISShadowMonitorTest {
             ((Runnable)invocation.getArgument(0)).run();
             return null;
         }).when(mockExecutor).submit(any(Runnable.class));
+
+        when(mockShadowClient.PublishGetShadow(any(), any())).thenReturn(CompletableFuture.completedFuture(0));
     }
 
     @Test
