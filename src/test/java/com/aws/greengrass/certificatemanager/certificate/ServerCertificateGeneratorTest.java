@@ -101,4 +101,18 @@ public class ServerCertificateGeneratorTest {
         List<?> firstSAN = (List<?>) subjectAlternativeNames.toArray()[0];
         assertThat(firstSAN.get(1), is("localhost"));
     }
+
+    @Test
+    void GIVEN_ServerCertificateGenerator_WHEN_rotation_disabled_THEN_only_initial_certificate_generated()
+            throws KeyStoreException {
+        configurationTopics.lookup(CertificatesConfig.PATH_DISABLE_CERTIFICATE_ROTATION).withValue(true);
+
+        // initial cert generation and some rotation attempts
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
+
+        // only the initial cert is generated, no rotation occurs
+        verify(mockCallback, times(1)).accept(certificateGenerator.getCertificate());
+    }
 }

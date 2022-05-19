@@ -31,7 +31,7 @@ public class ConnectivityInfoProvider {
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassServiceClientFactory clientFactory;
 
-    private volatile List<String> cachedHostAddresses = Collections.emptyList();
+    protected volatile List<String> cachedHostAddresses = Collections.emptyList();
 
     /**
      * Constructor.
