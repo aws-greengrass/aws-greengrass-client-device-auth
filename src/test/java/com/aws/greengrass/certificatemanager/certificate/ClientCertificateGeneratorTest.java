@@ -85,4 +85,19 @@ public class ClientCertificateGeneratorTest {
         X509Certificate secondGeneratedCert = certificateGenerator.getCertificate();
         assertThat(secondGeneratedCert, is(not(generatedCert)));
     }
+
+    @Test
+    void GIVEN_ClientCertificateGenerator_WHEN_rotation_disabled_THEN_only_initial_certificate_generated()
+            throws KeyStoreException {
+        configurationTopics.lookup(CertificatesConfig.PATH_DISABLE_CERTIFICATE_ROTATION).withValue(true);
+
+        // initial cert generation and some rotation attempts
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
+        certificateGenerator.generateCertificate(Collections::emptyList, "test");
+
+        // only the initial cert is generated, no rotation occurs
+        verify(mockCallback, times(1)).accept(new X509Certificate[]{
+                certificateGenerator.getCertificate(), certificateStore.getCACertificate()});
+    }
 }
