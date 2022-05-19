@@ -41,7 +41,6 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStoreException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -49,17 +48,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -96,7 +91,7 @@ public class CISShadowMonitorTest {
     FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
     MqttClientConnection shadowClientConnection = shadowClient.getConnection();
     ExecutorService executor = TestUtils.synchronousExecutorService();
-    ScheduledExecutorService ses = new DelegatedScheduledExecutorService(executor);
+    ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor();
     FakeConnectivityInfoProvider connectivityInfoProvider = new FakeConnectivityInfoProvider();
 
     @Mock
@@ -664,84 +659,6 @@ public class CISShadowMonitorTest {
             return ConnectivityInfo.builder()
                     .hostAddress(Utils.generateRandomString(20))
                     .build();
-        }
-    }
-
-    /**
-     * A ScheduledThreadPoolExecutor that executes using a provided ExecutorService.
-     */
-    static class DelegatedScheduledExecutorService extends ScheduledThreadPoolExecutor {
-
-        private final ExecutorService executor;
-
-        public DelegatedScheduledExecutorService(ExecutorService executor) {
-            super(0);
-            this.executor = executor;
-        }
-
-        @Override
-        public void execute(Runnable command) {
-            executor.execute(command);
-        }
-
-        @Override
-        public void shutdown() {
-            executor.shutdown();
-        }
-
-        @Override
-        public List<Runnable> shutdownNow() {
-            return executor.shutdownNow();
-        }
-
-        @Override
-        public boolean isShutdown() {
-            return executor.isShutdown();
-        }
-
-        @Override
-        public boolean isTerminated() {
-            return executor.isTerminated();
-        }
-
-        @Override
-        public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
-            return executor.awaitTermination(timeout, unit);
-        }
-
-        @Override
-        public <T> Future<T> submit(Callable<T> task) {
-            return executor.submit(task);
-        }
-
-        @Override
-        public <T> Future<T> submit(Runnable task, T result) {
-            return executor.submit(task, result);
-        }
-
-        @Override
-        public Future<?> submit(Runnable task) {
-            return executor.submit(task);
-        }
-
-        @Override
-        public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) throws InterruptedException {
-            return executor.invokeAll(tasks);
-        }
-
-        @Override
-        public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) throws InterruptedException {
-            return executor.invokeAll(tasks, timeout, unit);
-        }
-
-        @Override
-        public <T> T invokeAny(Collection<? extends Callable<T>> tasks) throws InterruptedException, ExecutionException {
-            return executor.invokeAny(tasks);
-        }
-
-        @Override
-        public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
-            return executor.invokeAny(tasks, timeout, unit);
         }
     }
 }
