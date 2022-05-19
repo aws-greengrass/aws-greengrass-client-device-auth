@@ -7,21 +7,25 @@ package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.deployment.DeviceConfiguration;
-import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.mqttclient.WrapperMqttClientConnection;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.RetryUtils;
+import lombok.AccessLevel;
+import lombok.Getter;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 import software.amazon.awssdk.crt.mqtt.MqttException;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import software.amazon.awssdk.iot.iotshadow.IotShadowClient;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowRequest;
+import software.amazon.awssdk.iot.iotshadow.model.GetShadowResponse;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowSubscriptionRequest;
+import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedSubscriptionRequest;
+import software.amazon.awssdk.iot.iotshadow.model.ShadowState;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
@@ -29,7 +33,9 @@ import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingExceptio
 import java.security.KeyStoreException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -38,13 +44,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
 public class CISShadowMonitor {
     private static final Logger LOGGER = LogManager.getLogger(CISShadowMonitor.class);
     private static final String CIS_SHADOW_SUFFIX = "-gci";
+    private static final String VERSION = "version";
     private static final long TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS = Duration.ofMinutes(1).getSeconds();
     private static final long WAIT_TIME_TO_SUBSCRIBE_AGAIN_IN_MS = Duration.ofMinutes(2).toMillis();
     private static final Random JITTER = new Random();
@@ -60,14 +66,12 @@ public class CISShadowMonitor {
     private IotShadowClient iotShadowClient;
     private int lastVersion = 0;
     private Future<?> subscribeTaskFuture;
-    private CompletableFuture<Integer> getConnectivityFuture;
-
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
     private final String shadowName;
     private final ConnectivityInfoProvider connectivityInfoProvider;
-    private final AtomicInteger nextVersion = new AtomicInteger(-1);
 
+    @Getter(AccessLevel.PACKAGE) // for unit tests
     private final MqttClientConnectionEvents callbacks = new MqttClientConnectionEvents() {
         @Override
         public void onConnectionInterrupted(int errorCode) {
@@ -85,10 +89,10 @@ public class CISShadowMonitor {
     /**
      * Constructor.
      *
-     * @param mqttClient          IoT MQTT client
-     * @param executorService     Executor service
-     * @param deviceConfiguration Device configuration
-     * @param connectivityInfoProvider           Connectivity Info Provider
+     * @param mqttClient               IoT MQTT client
+     * @param executorService          Executor service
+     * @param deviceConfiguration      Device configuration
+     * @param connectivityInfoProvider Connectivity Info Provider
      */
     @Inject
     public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
@@ -167,18 +171,20 @@ public class CISShadowMonitor {
                         = new ShadowDeltaUpdatedSubscriptionRequest();
                 shadowDeltaUpdatedSubscriptionRequest.thingName = shadowName;
                 iotShadowClient.SubscribeToShadowDeltaUpdatedEvents(shadowDeltaUpdatedSubscriptionRequest,
-                        QualityOfService.AT_LEAST_ONCE,
-                        shadowDeltaUpdatedEvent -> handleNewCloudVersion(shadowDeltaUpdatedEvent.version),
-                        (e) -> LOGGER.atError().log("Error processing shadowDeltaUpdatedSubscription Response", e))
+                                QualityOfService.AT_LEAST_ONCE,
+                                this::processCISShadow,
+                                (e) -> LOGGER.atError()
+                                        .log("Error processing shadowDeltaUpdatedSubscription Response", e))
                         .get(TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS, TimeUnit.SECONDS);
                 LOGGER.info("Subscribed to shadow update delta topic");
 
                 GetShadowSubscriptionRequest getShadowSubscriptionRequest = new GetShadowSubscriptionRequest();
                 getShadowSubscriptionRequest.thingName = shadowName;
                 iotShadowClient.SubscribeToGetShadowAccepted(getShadowSubscriptionRequest,
-                        QualityOfService.AT_LEAST_ONCE,
-                        getShadowResponse -> handleNewCloudVersion(getShadowResponse.version),
-                        (e) -> LOGGER.atError().log("Error processing getShadowSubscription Response", e))
+                                QualityOfService.AT_LEAST_ONCE,
+                                this::processCISShadow,
+                                (e) -> LOGGER.atError()
+                                        .log("Error processing getShadowSubscription Response", e))
                         .get(TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS, TimeUnit.SECONDS);
                 LOGGER.info("Subscribed to shadow get accepted topic");
                 return;
@@ -202,62 +208,83 @@ public class CISShadowMonitor {
         }
     }
 
+    private void processCISShadow(GetShadowResponse response) {
+        processCISShadow(response.version, response.state.desired);
+    }
+
+    private void processCISShadow(ShadowDeltaUpdatedEvent event) {
+        processCISShadow(event.version, event.state);
+    }
+
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private synchronized void handleNewCloudVersion(int newVersion) {
-        if (newVersion == lastVersion) {
-            LOGGER.atInfo().kv("version", newVersion).log("Already processed version. Skipping cert re-generation");
-            reportVersion(newVersion);
+    private synchronized void processCISShadow(int version, Map<String, Object> desiredState) {
+        if (version == lastVersion) {
+            LOGGER.atInfo().kv(VERSION, version).log("Already processed version. Skipping cert re-generation");
+            updateCISShadowReportedState(version, desiredState);
             return;
         }
 
-        LOGGER.atInfo().log("New CIS version: {}", newVersion);
-
-        if (nextVersion.getAndSet(newVersion) != -1) {
-            LOGGER.atDebug().log("Retry workflow for getting connectivity info already in process");
-            return;
-        }
+        LOGGER.atInfo().log("New CIS version: {}", version);
 
         // NOTE: This method executes in an MQTT CRT thread. Since certificate generation is a compute intensive
         // operation (particularly on low end devices) it is imperative that we process this event asynchronously
         // to avoid blocking other MQTT subscribers in the Nucleus
-        getConnectivityFuture = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture.runAsync(() -> {
             try {
                 RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInfoProvider::getConnectivityInfo,
                         "get-connectivity", LOGGER);
             } catch (InterruptedException e) {
-                LOGGER.atWarn().cause(e).log("Retry workflow for getting connectivity info interrupted");
+                LOGGER.atDebug().kv(VERSION, version).cause(e)
+                        .log("Retry workflow for getting connectivity info interrupted");
                 Thread.currentThread().interrupt();
-                throw new CloudServiceInteractionException(
-                        "Failed to get connectivity info, process got interrupted", e);
+                return;
             } catch (Exception e) {
-                LOGGER.atError().cause(e)
-                        .log("Failed to get connectivity info from cloud. Check that the core device's IoT policy "
-                                + "grants the greengrass:GetConnectivityInfo permission.");
-                throw new CloudServiceInteractionException("Failed to get connectivity info", e);
+                LOGGER.atError().kv(VERSION, version).cause(e)
+                        .log("Failed to get connectivity info from cloud."
+                                + " Check that the core device's IoT policy "
+                                + "grants the greengrass:GetConnectivityInfo permission");
+                return;
             }
-            return nextVersion.getAndSet(-1);
-        }, executorService);
 
-        getConnectivityFuture.thenAccept((version) -> {
             try {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
                     cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
                             "connectivity info was updated");
                 }
-                reportVersion(version);
-                lastVersion = version;
             } catch (KeyStoreException e) {
-                LOGGER.atError().cause(e).log("failed to generate new certificates");
+                LOGGER.atError().kv(VERSION, version).cause(e).log("Failed to generate new certificates");
+                return;
             }
+
+            try {
+                updateCISShadowReportedState(version, desiredState);
+            } finally {
+                lastVersion = version;
+            }
+        }, executorService).exceptionally(e -> {
+            LOGGER.atError().kv(VERSION, version).cause(e).log("Unable to handle CIS shadow delta");
+            return null;
         });
     }
 
-    private void reportVersion(int version) {
-        LOGGER.atInfo().kv("version", version).log("Reporting version");
+    /**
+     * Asynchronously update the CIS shadow's <b>reported</b> state for the given shadow version.
+     *
+     * @param version CIS shadow version
+     * @param desired CIS shadow <b>desired</b> state
+     */
+    private void updateCISShadowReportedState(int version, Map<String, Object> desired) {
+        LOGGER.atInfo().kv(VERSION, version).log("Reporting CIS version");
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
         updateShadowRequest.thingName = shadowName;
         updateShadowRequest.version = version;
-        iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE);
+        updateShadowRequest.state = new ShadowState();
+        updateShadowRequest.state.reported = desired == null ? null : new HashMap<>(desired);
+        iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE)
+                .exceptionally(e -> {
+                    LOGGER.atWarn().kv(VERSION, version).cause(e).log("Unable to report CIS shadow version");
+                    return null;
+                });
     }
 
     private void publishToGetCISShadowTopic() {
