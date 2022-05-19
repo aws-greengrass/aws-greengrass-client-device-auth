@@ -27,6 +27,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
+import software.amazon.awssdk.crt.mqtt.MqttException;
 import software.amazon.awssdk.crt.mqtt.MqttMessage;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import software.amazon.awssdk.iot.iotshadow.IotShadowClient;
@@ -41,6 +42,7 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStoreException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,6 +57,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -76,6 +79,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -121,10 +125,69 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.setShadowProcessingDelayMs(1L);
     }
 
+    /**
+     * Use only in special-cases where test relies on multithreading.
+     */
+    private void multiThreadedSetup() {
+        tearDown();
+        executor = Executors.newCachedThreadPool();
+        ses = new DelegatedScheduledExecutorService(executor);
+        setup();
+    }
+
     @AfterEach
     void tearDown() {
         cisShadowMonitor.stopMonitor();
         ses.shutdownNow();
+        executor.shutdownNow();
+    }
+
+    @Test
+    void GIVEN_CISShadowMonitor_WHEN_interrupted_during_subscription_THEN_startup_gracefully_stops() throws Exception {
+        // test needs subscriptions to run in a separate thread,
+        // so we can properly interrupt them
+        multiThreadedSetup();
+
+        when(shadowClientConnection.subscribe(eq(SHADOW_ACCEPTED_TOPIC), any(), any())).thenAnswer(invocation -> {
+            Thread.sleep(5000L);
+            return DUMMY_PACKET_ID;
+        });
+
+        CountDownLatch subscribedToDeltaTopic = new CountDownLatch(1);
+        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(), any())).thenAnswer(invocation -> {
+            subscribedToDeltaTopic.countDown();
+            return DUMMY_PACKET_ID;
+        });
+
+        cisShadowMonitor.startMonitor();
+        assertTrue(subscribedToDeltaTopic.await(5L, TimeUnit.SECONDS));
+        // by now, get shadow subscription is executing, interrupt it
+        cisShadowMonitor.stopMonitor();
+
+        // if we interrupted properly, the get shadow request will never happen
+        verify(shadowClientConnection, never()).publish(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void GIVEN_CISShadowMonitor_WHEN_exception_during_subscription_THEN_subscription_retries(ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, ExecutionException.class);
+
+        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(), any()))
+                .thenAnswer(invocation -> {
+                    CompletableFuture<Integer> error = new CompletableFuture<>();
+                    error.completeExceptionally(new MqttException(""));
+                    return error;
+                })
+                .thenReturn(DUMMY_PACKET_ID);
+
+        cisShadowMonitor.setSubscribeInitialRetryInterval(Duration.ofMillis(1L));
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.getSubscribeTaskFuture().get(5L, TimeUnit.MINUTES);
+
+        verify(shadowClientConnection).subscribe(eq(SHADOW_ACCEPTED_TOPIC), any(), any());
+        // once with error and second time with success
+        verify(shadowClientConnection, times(2)).subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(), any());
     }
 
     @Test
