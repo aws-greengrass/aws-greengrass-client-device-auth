@@ -27,7 +27,6 @@ import java.util.function.Supplier;
 public class ServerCertificateGenerator extends CertificateGenerator {
     private static final Logger logger = LogManager.getLogger(ServerCertificateGenerator.class);
     private final Consumer<X509Certificate> callback;
-    private final CertificatesConfig certificatesConfig;
 
     /**
      * Constructor.
@@ -45,14 +44,21 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                                       CertificateStore certificateStore,
                                       CertificatesConfig certificatesConfig,
                                       Clock clock) {
-        super(subject, publicKey, certificateStore, clock);
+        super(subject, publicKey, certificateStore, certificatesConfig, clock);
         this.callback = callback;
-        this.certificatesConfig = certificatesConfig;
     }
 
     @Override
     public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
             throws KeyStoreException {
+        if (certificatesConfig.isCertificateRotationDisabled() && certificate != null) {
+            logger.atWarn()
+                    .kv("subject", subject)
+                    .kv("certExpiry", getExpiryTime())
+                    .log("Certificate rotation is disabled, current certificate will NOT be rotated");
+            return;
+        }
+
         Instant now = Instant.now(clock);
 
         // Always include "localhost" in server certificates so that components can
