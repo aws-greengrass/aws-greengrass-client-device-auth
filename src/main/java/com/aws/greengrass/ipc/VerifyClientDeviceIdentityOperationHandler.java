@@ -98,8 +98,9 @@ public class VerifyClientDeviceIdentityOperationHandler
             if (!certificate.startsWith(CERTIFICATE_PEM_HEADER)) {
                 try {
                     certificate = EncryptionUtils.encodeToPem("CERTIFICATE",
-                            Base64.getDecoder().decode(certificate));
-                } catch (IOException e) {
+                            // Use MIME decoder as it is more forgiving of formatting
+                            Base64.getMimeDecoder().decode(certificate));
+                } catch (IllegalArgumentException | IOException e) {
                     logger.atWarn().log("Unable to convert certificate PEM", e);
                     throw new InvalidArgumentsError("Unable to convert certificate PEM");
                 }
