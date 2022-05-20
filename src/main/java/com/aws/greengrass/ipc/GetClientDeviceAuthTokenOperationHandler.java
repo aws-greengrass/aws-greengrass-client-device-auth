@@ -123,9 +123,12 @@ public class GetClientDeviceAuthTokenOperationHandler
     private Map<String, String> mapOfMqttCredential(CredentialDocument credentialDocument) {
         MQTTCredential mqttCredential = validateMqttCredentials(credentialDocument);
         credentialMap.put("clientId", mqttCredential.getClientId());
-        credentialMap.put("certificatePem", mqttCredential.getCertificatePem());
         credentialMap.put("username", mqttCredential.getUsername());
         credentialMap.put("password", mqttCredential.getPassword());
+        String certificatePem = mqttCredential.getCertificatePem();
+        // If the certificate PEM is only the encoded data without headers, re-encode it into
+        // the format that IoT Core needs.
+        credentialMap.put("certificatePem", IPCUtils.reEncodeCertToPem(certificatePem));
         return credentialMap;
     }
 

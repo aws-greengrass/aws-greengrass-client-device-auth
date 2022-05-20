@@ -13,7 +13,6 @@ import com.aws.greengrass.device.ClientDevicesAuthService;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.Utils;
 import software.amazon.awssdk.aws.greengrass.GeneratedAbstractVerifyClientDeviceIdentityOperationHandler;
 import software.amazon.awssdk.aws.greengrass.model.ClientDeviceCredential;
@@ -25,15 +24,12 @@ import software.amazon.awssdk.aws.greengrass.model.VerifyClientDeviceIdentityRes
 import software.amazon.awssdk.eventstreamrpc.OperationContinuationHandlerContext;
 import software.amazon.awssdk.eventstreamrpc.model.EventStreamJsonMessage;
 
-import java.io.IOException;
-import java.util.Base64;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
 import static com.aws.greengrass.ipc.common.ExceptionUtil.translateExceptions;
-import static com.aws.greengrass.util.EncryptionUtils.CERTIFICATE_PEM_HEADER;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VERIFY_CLIENT_DEVICE_IDENTITY;
 
 public class VerifyClientDeviceIdentityOperationHandler
@@ -92,19 +88,6 @@ public class VerifyClientDeviceIdentityOperationHandler
                 throw new UnauthorizedError(e.getMessage());
             }
             String certificate = getCertificateFromCredential(request.getCredential());
-
-            // If the certificate PEM is only the encoded data without headers, re-encode it into
-            // the format that IoT Core needs.
-            if (!certificate.startsWith(CERTIFICATE_PEM_HEADER)) {
-                try {
-                    certificate = EncryptionUtils.encodeToPem("CERTIFICATE",
-                            // Use MIME decoder as it is more forgiving of formatting
-                            Base64.getMimeDecoder().decode(certificate));
-                } catch (IllegalArgumentException | IOException e) {
-                    logger.atWarn().log("Unable to convert certificate PEM", e);
-                    throw new InvalidArgumentsError("Unable to convert certificate PEM");
-                }
-            }
             try {
                 Optional<String> certificateId = iotAuthClient.getActiveCertificateId(certificate);
                 VerifyClientDeviceIdentityResponse response = new VerifyClientDeviceIdentityResponse();
@@ -133,7 +116,9 @@ public class VerifyClientDeviceIdentityOperationHandler
         if (Utils.isEmpty(certificate)) {
             throw new InvalidArgumentsError(NO_DEVICE_CERTIFICATE_ERROR);
         }
-        return certificate;
+        // If the certificate PEM is only the encoded data without headers, re-encode it into
+        // the format that IoT Core needs.
+        return IPCUtils.reEncodeCertToPem(certificate);
     }
 
     @Override

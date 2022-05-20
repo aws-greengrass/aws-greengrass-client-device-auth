@@ -127,10 +127,11 @@ class GetClientDeviceAuthTokenTest {
             throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
         Map<String, String> mqttCredentialMap = ImmutableMap.of(
-                "certificatePem", "VALID PEM",
                 "clientId", "some-client-id",
                 "username", null,
-                "password", null);
+                "password", null,
+                "certificatePem", "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM="
+                        + System.lineSeparator() + "-----END CERTIFICATE-----" + System.lineSeparator());
 
         when(sessionManager
                 .createSession("mqtt", mqttCredentialMap))
@@ -141,7 +142,7 @@ class GetClientDeviceAuthTokenTest {
                 "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             MQTTCredential mqttCredential = new MQTTCredential().withClientId("some-client-id")
-                    .withCertificatePem("VALID PEM");
+                    .withCertificatePem("PEM");
             CredentialDocument cd = new CredentialDocument().withMqttCredential(mqttCredential);
             GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(cd);
             Pair<CompletableFuture<Void>, Consumer<GetClientDeviceAuthTokenResponse>> cb =
@@ -235,10 +236,11 @@ class GetClientDeviceAuthTokenTest {
         ignoreExceptionOfType(context, AuthenticationException.class);
         startNucleusWithConfig("cda.yaml");
         Map<String, String> mqttCredentialMap = ImmutableMap.of(
-                "certificatePem", "VALID PEM",
                 "clientId", "some-client-id",
                 "username", null,
-                "password", null);
+                "password", null,
+                "certificatePem", "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM="
+                        + System.lineSeparator() + "-----END CERTIFICATE-----" + System.lineSeparator());
         when(sessionManager
                 .createSession("mqtt", mqttCredentialMap))
                 .thenThrow(AuthenticationException.class);
@@ -247,7 +249,7 @@ class GetClientDeviceAuthTokenTest {
                 "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             MQTTCredential mqttCredential = new MQTTCredential().withClientId("some-client-id")
-                    .withCertificatePem("VALID PEM");
+                    .withCertificatePem("PEM");
             CredentialDocument cd = new CredentialDocument().withMqttCredential(mqttCredential);
             GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(cd);
 
@@ -266,10 +268,11 @@ class GetClientDeviceAuthTokenTest {
         ignoreExceptionOfType(context, CloudServiceInteractionException.class);
         startNucleusWithConfig("cda.yaml");
         Map<String, String> mqttCredentialMap = ImmutableMap.of(
-                "certificatePem", "VALID PEM",
                 "clientId", "some-client-id",
                 "username", null,
-                "password", null);
+                "password", null,
+                "certificatePem", "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM="
+                        + System.lineSeparator() + "-----END CERTIFICATE-----" + System.lineSeparator());
         when(sessionManager
                 .createSession("mqtt", mqttCredentialMap))
                 .thenThrow(CloudServiceInteractionException.class);
@@ -278,7 +281,7 @@ class GetClientDeviceAuthTokenTest {
                 "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             MQTTCredential mqttCredential = new MQTTCredential().withClientId("some-client-id")
-                    .withCertificatePem("VALID PEM");
+                    .withCertificatePem("PEM");
             CredentialDocument cd = new CredentialDocument().withMqttCredential(mqttCredential);
             GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(cd);
 
