@@ -130,8 +130,8 @@ class GetClientDeviceAuthTokenTest {
                 "clientId", "some-client-id",
                 "username", null,
                 "password", null,
-                "certificatePem", "-----BEGIN CERTIFICATE-----\n" +
-                        "PEM=\n" + "-----END CERTIFICATE-----\n");
+                "certificatePem", "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM="
+                        + System.lineSeparator() + "-----END CERTIFICATE-----" + System.lineSeparator());
 
         when(sessionManager
                 .createSession("mqtt", mqttCredentialMap))
@@ -239,8 +239,8 @@ class GetClientDeviceAuthTokenTest {
                 "clientId", "some-client-id",
                 "username", null,
                 "password", null,
-                "certificatePem", "-----BEGIN CERTIFICATE-----\n" +
-                        "PEM=\n" + "-----END CERTIFICATE-----\n");
+                "certificatePem", "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM="
+                        + System.lineSeparator() + "-----END CERTIFICATE-----" + System.lineSeparator());
         when(sessionManager
                 .createSession("mqtt", mqttCredentialMap))
                 .thenThrow(AuthenticationException.class);
@@ -271,8 +271,8 @@ class GetClientDeviceAuthTokenTest {
                 "clientId", "some-client-id",
                 "username", null,
                 "password", null,
-                "certificatePem", "-----BEGIN CERTIFICATE-----\n" +
-                        "PEM=\n" + "-----END CERTIFICATE-----\n");
+                "certificatePem", "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM="
+                        + System.lineSeparator() + "-----END CERTIFICATE-----" + System.lineSeparator());
         when(sessionManager
                 .createSession("mqtt", mqttCredentialMap))
                 .thenThrow(CloudServiceInteractionException.class);
