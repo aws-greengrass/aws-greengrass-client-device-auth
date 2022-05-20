@@ -14,7 +14,6 @@ import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.session.SessionManager;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import com.aws.greengrass.util.EncryptionUtils;
 import software.amazon.awssdk.aws.greengrass.GeneratedAbstractGetClientDeviceAuthTokenOperationHandler;
 import software.amazon.awssdk.aws.greengrass.model.CredentialDocument;
 import software.amazon.awssdk.aws.greengrass.model.GetClientDeviceAuthTokenRequest;
@@ -27,8 +26,6 @@ import software.amazon.awssdk.aws.greengrass.model.UnauthorizedError;
 import software.amazon.awssdk.eventstreamrpc.OperationContinuationHandlerContext;
 import software.amazon.awssdk.eventstreamrpc.model.EventStreamJsonMessage;
 
-import java.io.IOException;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -36,7 +33,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
 import static com.aws.greengrass.ipc.common.ExceptionUtil.translateExceptions;
-import static com.aws.greengrass.util.EncryptionUtils.CERTIFICATE_PEM_HEADER;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.GET_CLIENT_DEVICE_AUTH_TOKEN;
 
 public class GetClientDeviceAuthTokenOperationHandler
@@ -132,17 +128,7 @@ public class GetClientDeviceAuthTokenOperationHandler
         String certificatePem = mqttCredential.getCertificatePem();
         // If the certificate PEM is only the encoded data without headers, re-encode it into
         // the format that IoT Core needs.
-        if (!certificatePem.startsWith(CERTIFICATE_PEM_HEADER)) {
-            try {
-                certificatePem = EncryptionUtils.encodeToPem("CERTIFICATE",
-                        // Use MIME decoder as it is more forgiving of formatting
-                        Base64.getMimeDecoder().decode(certificatePem));
-            } catch (IllegalArgumentException | IOException e) {
-                logger.atWarn().log("Unable to convert certificate PEM", e);
-                throw new InvalidArgumentsError("Unable to convert certificate PEM");
-            }
-        }
-        credentialMap.put("certificatePem", certificatePem);
+        credentialMap.put("certificatePem", IPCUtils.reEncodeCertToPem(certificatePem));
         return credentialMap;
     }
 
