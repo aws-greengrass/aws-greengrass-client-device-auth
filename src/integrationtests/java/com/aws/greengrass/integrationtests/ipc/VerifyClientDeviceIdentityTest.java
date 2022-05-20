@@ -38,6 +38,7 @@ import software.amazon.awssdk.eventstreamrpc.EventStreamRPCConnection;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
+
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -54,6 +55,8 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
@@ -120,7 +123,7 @@ class VerifyClientDeviceIdentityTest {
     @Test
     void GIVEN_broker_WHEN_verify_client_identity_THEN_verify() throws Exception {
         kernel.getContext().put(IotAuthClient.class, iotAuthClient);
-        when(iotAuthClient.getActiveCertificateId("VALID PEM")).thenReturn(
+        when(iotAuthClient.getActiveCertificateId(anyString())).thenReturn(
                 Optional.of("SOME-CERT")
         );
         startNucleusWithConfig("cda.yaml");
@@ -130,7 +133,7 @@ class VerifyClientDeviceIdentityTest {
 
             VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest()
                     .withCredential(new ClientDeviceCredential()
-                            .withClientDeviceCertificate("VALID PEM"));
+                            .withClientDeviceCertificate("abc"));
 
             Pair<CompletableFuture<Void>, Consumer<VerifyClientDeviceIdentityResponse>> cb =
                     asyncAssertOnConsumer((m) -> {
@@ -145,7 +148,7 @@ class VerifyClientDeviceIdentityTest {
     @Test
     void GIVEN_broker_WHEN_verify_client_identity_with_invalid_pem_THEN_verify() throws Exception {
         kernel.getContext().put(IotAuthClient.class, iotAuthClient);
-        when(iotAuthClient.getActiveCertificateId("INVALID PEM")).thenReturn(
+        when(iotAuthClient.getActiveCertificateId(anyString())).thenReturn(
                 Optional.empty()
         );
         startNucleusWithConfig("cda.yaml");
@@ -155,7 +158,7 @@ class VerifyClientDeviceIdentityTest {
 
             VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest()
                     .withCredential(new ClientDeviceCredential()
-                            .withClientDeviceCertificate("INVALID PEM"));
+                            .withClientDeviceCertificate("abc"));
 
             Pair<CompletableFuture<Void>, Consumer<VerifyClientDeviceIdentityResponse>> cb =
                     asyncAssertOnConsumer((m) -> {
@@ -178,7 +181,7 @@ class VerifyClientDeviceIdentityTest {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest()
                     .withCredential(new ClientDeviceCredential()
-                            .withClientDeviceCertificate("VALID PEM"));
+                            .withClientDeviceCertificate("abc"));
             Exception err = Assertions.assertThrows(Exception.class, () -> {
                 verifyClientIdentity(ipcClient, request, null);
             });
@@ -192,10 +195,8 @@ class VerifyClientDeviceIdentityTest {
             ExtensionContext context)
             throws Exception {
         startNucleusWithConfig("cda.yaml");
-        software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest re =
-                software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest.builder()
-                        .clientDeviceCertificate("ValidationException PEM").build();
-        when(clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(re))
+        when(clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(
+                any(software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest.class)))
                 .thenThrow(ValidationException.class);
         ignoreExceptionOfType(context, ValidationException.class);
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
@@ -203,7 +204,7 @@ class VerifyClientDeviceIdentityTest {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest()
                     .withCredential(new ClientDeviceCredential()
-                            .withClientDeviceCertificate("ValidationException PEM"));
+                            .withClientDeviceCertificate("abc"));
 
             Pair<CompletableFuture<Void>, Consumer<VerifyClientDeviceIdentityResponse>> cb =
                     asyncAssertOnConsumer((m) -> {
@@ -221,10 +222,9 @@ class VerifyClientDeviceIdentityTest {
             ExtensionContext context)
             throws Exception {
         startNucleusWithConfig("cda.yaml");
-        software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest re =
-                software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest.builder()
-                        .clientDeviceCertificate("InternalServerException PEM").build();
-        when(client.verifyClientDeviceIdentity(re)).thenThrow(InternalServerException.class);
+        when(client.verifyClientDeviceIdentity(
+                any(software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest.class)))
+                .thenThrow(InternalServerException.class);
         ignoreExceptionOfType(context, CloudServiceInteractionException.class);
         ignoreExceptionOfType(context, InternalServerException.class);
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
@@ -232,7 +232,7 @@ class VerifyClientDeviceIdentityTest {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest()
                     .withCredential(new ClientDeviceCredential()
-                            .withClientDeviceCertificate("InternalServerException PEM"));
+                            .withClientDeviceCertificate("abc"));
 
             Exception err = Assertions.assertThrows(Exception.class, () -> {
                 verifyClientIdentity(ipcClient, request, null);
@@ -252,7 +252,7 @@ class VerifyClientDeviceIdentityTest {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest()
                     .withCredential(new ClientDeviceCredential()
-                            .withClientDeviceCertificate("Generic Exception PEM"));
+                            .withClientDeviceCertificate("abc"));
 
             Exception err = Assertions.assertThrows(Exception.class, () -> {
                 verifyClientIdentity(ipcClient, request, null);
