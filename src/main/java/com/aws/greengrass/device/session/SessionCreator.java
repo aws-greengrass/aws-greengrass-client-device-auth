@@ -6,6 +6,7 @@
 package com.aws.greengrass.device.session;
 
 import com.aws.greengrass.device.exception.AuthenticationException;
+import com.aws.greengrass.device.session.credentials.Credential;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
@@ -22,28 +23,23 @@ public class SessionCreator {
         factoryMap = new ConcurrentHashMap<>();
     }
 
-    private static class SessionFactorySingleton {
-        @SuppressWarnings("PMD.AccessorClassGeneration")
-        private static final SessionCreator INSTANCE = new SessionCreator();
-    }
-
     /**
      * Create a client device session.
      *
      * @param credentialType type of credentials provided
-     * @param credentialMap  map of client credentials
+     * @param credential     client credentials
      * @return new session if the client can be authenticated
      * @throws AuthenticationException if the client fails to be authenticated
      */
-    public static Session createSession(String credentialType, Map<String, String> credentialMap)
+    public static Session createSession(String credentialType, Credential credential)
             throws AuthenticationException {
         SessionFactory sessionFactory = SessionFactorySingleton.INSTANCE.factoryMap.get(credentialType);
         if (sessionFactory == null) {
             logger.atWarn().kv("credentialType", credentialType)
-                .log("no registered handler to process device credentials");
+                    .log("no registered handler to process device credentials");
             throw new IllegalArgumentException("unknown credential type");
         }
-        return sessionFactory.createSession(credentialMap);
+        return sessionFactory.createSession(credential);
     }
 
     public static void registerSessionFactory(String credentialType, SessionFactory sessionFactory) {
@@ -52,5 +48,10 @@ public class SessionCreator {
 
     public static void unregisterSessionFactory(String credentialType) {
         SessionFactorySingleton.INSTANCE.factoryMap.remove(credentialType);
+    }
+
+    private static class SessionFactorySingleton {
+        @SuppressWarnings("PMD.AccessorClassGeneration")
+        private static final SessionCreator INSTANCE = new SessionCreator();
     }
 }

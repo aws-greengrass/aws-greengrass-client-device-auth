@@ -6,6 +6,7 @@
 package com.aws.greengrass.device.session;
 
 import com.aws.greengrass.device.exception.AuthenticationException;
+import com.aws.greengrass.device.session.credentials.MqttCredential;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -13,8 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.HashMap;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -38,7 +37,7 @@ public class SessionCreatorTest {
     @Test
     void GIVEN_noRegisteredFactories_WHEN_createSession_THEN_throwsException() {
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> SessionCreator.createSession(mqttCredentialType, new HashMap<>()));
+                () -> SessionCreator.createSession(mqttCredentialType, new MqttCredential()));
     }
 
     @Test
@@ -48,13 +47,13 @@ public class SessionCreatorTest {
         when(mqttSessionFactory.createSession(any())).thenReturn(mockSession);
 
         SessionCreator.registerSessionFactory(mqttCredentialType, mqttSessionFactory);
-        assertThat(SessionCreator.createSession(mqttCredentialType, new HashMap<>()), is(mockSession));
+        assertThat(SessionCreator.createSession(mqttCredentialType, new MqttCredential()), is(mockSession));
     }
 
     @Test
     void GIVEN_registeredMqttSessionFactory_WHEN_createSession_WithNonMqttCredentials_THEN_throwsException() {
         SessionCreator.registerSessionFactory(mqttCredentialType, mqttSessionFactory);
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> SessionCreator.createSession(unknownCredentialType, new HashMap<>()));
+                () -> SessionCreator.createSession(unknownCredentialType, new MqttCredential()));
     }
 }

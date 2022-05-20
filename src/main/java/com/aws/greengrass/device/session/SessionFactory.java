@@ -6,9 +6,8 @@
 package com.aws.greengrass.device.session;
 
 import com.aws.greengrass.device.exception.AuthenticationException;
-
-import java.util.Map;
+import com.aws.greengrass.device.session.credentials.Credential;
 
 public interface SessionFactory {
-    Session createSession(Map<String, String> credentialMap) throws AuthenticationException;
+    Session createSession(Credential credential) throws AuthenticationException;
 }

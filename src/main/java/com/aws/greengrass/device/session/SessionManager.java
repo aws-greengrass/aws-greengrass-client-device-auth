@@ -7,6 +7,7 @@ package com.aws.greengrass.device.session;
 
 import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.iot.Certificate;
+import com.aws.greengrass.device.session.credentials.Credential;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.AccessLevel;
@@ -44,11 +45,12 @@ public class SessionManager {
     /**
      * Creates session with certificate.
      *
-     * @deprecated Sessions should be created using device credentials instead of certificates
      * @param certificate Client device certificate
      * @return session id
+     * @deprecated Sessions should be created using device credentials instead of certificates
      */
-    @Deprecated public String createSession(Certificate certificate) {
+    @Deprecated
+    public String createSession(Certificate certificate) {
         Session session = new SessionImpl(certificate);
         return addSessionInternal(session);
     }
@@ -57,13 +59,13 @@ public class SessionManager {
      * Creates a session with device credentials.
      *
      * @param credentialType Device credential type
-     * @param credentialMap  Device credential map
+     * @param credential     Device credential map
      * @return session id
      * @throws AuthenticationException if device credentials were not able to be validated
      */
-    public String createSession(String credentialType, Map<String, String> credentialMap)
+    public String createSession(String credentialType, Credential credential)
             throws AuthenticationException {
-        Session session = SessionCreator.createSession(credentialType, credentialMap);
+        Session session = SessionCreator.createSession(credentialType, credential);
         return addSessionInternal(session);
     }
 
