@@ -15,9 +15,22 @@ import java.util.Base64;
 
 import static com.aws.greengrass.util.EncryptionUtils.CERTIFICATE_PEM_HEADER;
 
-public class IPCUtils {
+public final class IPCUtils {
     private static final Logger logger = LogManager.getLogger(IPCUtils.class);
 
+    private IPCUtils() {
+
+    }
+
+
+    /**
+     * utility method of encoding certificate to PEM format.
+     *
+     * @param certificatePem certificate pem string to encode
+     * @return encoded pem with headers
+     * @throws InvalidArgumentsError if unable to encode the certificate
+     */
+    @SuppressWarnings("PMD.PreserveStackTrace")
     public static String reEncodeCertToPem(String certificatePem) {
         if (!certificatePem.startsWith(CERTIFICATE_PEM_HEADER)) {
             try {
