@@ -28,6 +28,9 @@ import software.amazon.awssdk.eventstreamrpc.model.EventStreamJsonMessage;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 
 import static com.aws.greengrass.ipc.common.ExceptionUtil.translateExceptions;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.GET_CLIENT_DEVICE_AUTH_TOKEN;
@@ -43,6 +46,7 @@ public class GetClientDeviceAuthTokenOperationHandler
     private final AuthorizationHandler authorizationHandler;
     private final SessionManager sessionManager;
     private final Map<String, String> credentialMap = new HashMap<>();
+    private final ExecutorService cloudCallThreadPool;
 
     /**
      * Constructor.
@@ -50,17 +54,34 @@ public class GetClientDeviceAuthTokenOperationHandler
      * @param context              operation continuation handler
      * @param sessionManager       session manager
      * @param authorizationHandler authorization handler
+     * @param cloudCallThreadPool  executor to run the call to the cloud asynchronously
      */
     public GetClientDeviceAuthTokenOperationHandler(
             OperationContinuationHandlerContext context,
             SessionManager sessionManager,
-            AuthorizationHandler authorizationHandler
+            AuthorizationHandler authorizationHandler,
+            ExecutorService cloudCallThreadPool
     ) {
 
         super(context);
         serviceName = context.getAuthenticationData().getIdentityLabel();
         this.sessionManager = sessionManager;
         this.authorizationHandler = authorizationHandler;
+        this.cloudCallThreadPool = cloudCallThreadPool;
+    }
+
+    @Override
+    public CompletableFuture<GetClientDeviceAuthTokenResponse> handleRequestAsync(
+            GetClientDeviceAuthTokenRequest request) {
+        try {
+            return CompletableFuture.supplyAsync(() -> handleRequest(request), cloudCallThreadPool);
+        } catch (RejectedExecutionException e) {
+            CompletableFuture<GetClientDeviceAuthTokenResponse> fut = new CompletableFuture<>();
+            logger.atWarn().kv(COMPONENT_NAME, serviceName)
+                    .log("Unable to queue GetClientDeviceAuthTokenResponse. {}", e.getMessage());
+            fut.completeExceptionally(new ServiceError("Unable to queue request"));
+            return fut;
+        }
     }
 
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.PreserveStackTrace"})

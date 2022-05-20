@@ -49,6 +49,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
+import static com.aws.greengrass.device.ClientDevicesAuthService.CLOUD_QUEUE_SIZE_TOPIC;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssertOnConsumer;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -56,6 +58,8 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
@@ -150,7 +154,7 @@ class GetClientDeviceAuthTokenTest {
     }
 
     @Test
-    void GIVEN_brokerWithInvalidCredentials_WHEN_GetClientDeviceAuthToken_THEN_throwsInvalidArgumentsError()
+    void GIVEN_brokerWithInvalidCredentials_WHEN_GetClientDeviceAuthToken_THEN_throwsInvalidArgumentsError_and_WHEN_queueIsFull_THEN_throwsServiceError()
             throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
         startNucleusWithConfig("cda.yaml");
@@ -165,7 +169,42 @@ class GetClientDeviceAuthTokenTest {
             });
             assertEquals(err.getCause().getClass(), InvalidArgumentsError.class);
             assertThat(err.getCause().getMessage(), containsString("Invalid client device credentials"));
+        }
 
+        // Update the cloud queue size to 1 so that we'll just reject the second request
+        kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
+                .lookup(CONFIGURATION_CONFIG_KEY, CLOUD_QUEUE_SIZE_TOPIC).withValue(1);
+        kernel.getContext().waitForPublishQueueToClear();
+
+        // Verify that we get a good error that the request couldn't be queued
+        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
+                "BrokerWithGetClientDeviceAuthTokenPermission")) {
+            GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
+            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(
+                    new CredentialDocument().withMqttCredential(
+                            new MQTTCredential().withClientId("some-client-id").withCertificatePem("VALID PEM")));
+
+            CountDownLatch cdl = new CountDownLatch(1);
+            when(sessionManager.createSession(anyString(), anyMap())).thenAnswer((a) -> {
+                cdl.countDown();
+                Thread.sleep(1_000); // slow down the first request so that the second will be rejected
+                return "uuid";
+            });
+            // Request 1 (immediately runs)
+            CompletableFuture<GetClientDeviceAuthTokenResponse> fut1 =
+                    ipcClient.getClientDeviceAuthToken(request, Optional.empty()).getResponse();
+            // Ensure the threadpool is actively blocked before we send the next requests to fill the queue and then
+            // overflow the queue.
+            cdl.await(2, TimeUnit.SECONDS);
+            // Request 2 (queued so that queue size is 1)
+            CompletableFuture<GetClientDeviceAuthTokenResponse> fut2 =
+                    ipcClient.getClientDeviceAuthToken(request, Optional.empty()).getResponse();
+            // Request 3 (expect rejection)
+            Exception err = assertThrows(Exception.class, () -> clientDeviceAuthToken(ipcClient, request, (r) -> {}));
+            assertThat(err.getCause().getMessage(), containsString("Unable to queue request"));
+            assertEquals(ServiceError.class, err.getCause().getClass());
+            fut1.get(2, TimeUnit.SECONDS);
+            fut2.get(2, TimeUnit.SECONDS);
         }
     }
 
