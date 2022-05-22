@@ -36,28 +36,36 @@ public class MqttSessionFactory implements SessionFactory {
 
         boolean isGreengrassComponent = deviceAuthClient.isGreengrassComponent(mqttCredential.certificatePem);
         if (isGreengrassComponent) {
-            Certificate cert = new Certificate(mqttCredential.clientId);
-            Session session = new SessionImpl(cert);
-            session.putAttributeProvider(Component.NAMESPACE, new Component());
-            return session;
-        } else {
-            Optional<String> certificateId;
-            try {
-                certificateId = iotAuthClient.getActiveCertificateId(mqttCredential.certificatePem);
-                if (!certificateId.isPresent()) {
-                    throw new AuthenticationException("Certificate isn't active");
-                }
-                Certificate cert = new Certificate(certificateId.get());
-                if (!iotAuthClient.isThingAttachedToCertificate(thing, cert)) {
-                    throw new AuthenticationException("unable to authenticate device");
-                }
-                Session session = new SessionImpl(cert);
-                session.putAttributeProvider(Thing.NAMESPACE, thing);
-                return session;
-            } catch (CloudServiceInteractionException e) {
-                throw new AuthenticationException("Failed to verify certificate with cloud", e);
-            }
+            return createGreengrassComponentSession(mqttCredential);
         }
+
+        return createIotThingSession(mqttCredential, thing);
+    }
+
+    private Session createIotThingSession(MqttCredential mqttCredential, Thing thing) throws AuthenticationException {
+        Optional<String> certificateId;
+        try {
+            certificateId = iotAuthClient.getActiveCertificateId(mqttCredential.certificatePem);
+            if (!certificateId.isPresent()) {
+                throw new AuthenticationException("Certificate isn't active");
+            }
+            Certificate cert = new Certificate(certificateId.get());
+            if (!iotAuthClient.isThingAttachedToCertificate(thing, cert)) {
+                throw new AuthenticationException("unable to authenticate device");
+            }
+            Session session = new SessionImpl(cert);
+            session.putAttributeProvider(Thing.NAMESPACE, thing);
+            return session;
+        } catch (CloudServiceInteractionException e) {
+            throw new AuthenticationException("Failed to verify certificate with cloud", e);
+        }
+    }
+
+    private Session createGreengrassComponentSession(MqttCredential mqttCredential) {
+        Certificate cert = new Certificate(mqttCredential.clientId);
+        Session session = new SessionImpl(cert);
+        session.putAttributeProvider(Component.NAMESPACE, new Component());
+        return session;
     }
 
     private static class MqttCredential {
