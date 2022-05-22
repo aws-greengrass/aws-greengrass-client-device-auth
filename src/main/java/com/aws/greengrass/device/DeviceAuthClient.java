@@ -118,7 +118,7 @@ public class DeviceAuthClient {
     private boolean isGreengrassComponent(CertPath certPath) {
         try {
             X509Certificate caCertificate = certificateStore.getCACertificate();
-            if (caCertificate == null) {
+            if (certPath.getCertificates() == null || certPath.getCertificates().isEmpty() || caCertificate == null) {
                 return false;
             }
             CertPathValidator cpv = CertPathValidator.getInstance("PKIX");

@@ -7,7 +7,6 @@ package com.aws.greengrass.integrationtests.ipc;
 
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.device.ClientDevicesAuthService;
-import com.aws.greengrass.device.DeviceAuthClient;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
@@ -58,7 +57,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
@@ -73,8 +71,6 @@ class VerifyClientDeviceIdentityTest {
     private GreengrassV2DataClient client;
     @Mock
     private IotAuthClient iotAuthClient;
-    @Mock
-    private DeviceAuthClient deviceAuthClient;
 
     private static void verifyClientIdentity(GreengrassCoreIPCClient ipcClient,
                                              VerifyClientDeviceIdentityRequest request,
@@ -93,8 +89,6 @@ class VerifyClientDeviceIdentityTest {
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
-        kernel.getContext().put(DeviceAuthClient.class, deviceAuthClient);
-        lenient().when(deviceAuthClient.isGreengrassComponent(anyString())).thenReturn(false);
 
         when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
 
