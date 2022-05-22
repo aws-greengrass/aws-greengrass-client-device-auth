@@ -32,23 +32,22 @@ public class MqttSessionFactory implements SessionFactory {
         // TODO: replace with jackson object mapper
         MqttCredential mqttCredential = new MqttCredential(credentialMap);
 
-        Thing thing = new Thing(mqttCredential.clientId);
-
         boolean isGreengrassComponent = deviceAuthClient.isGreengrassComponent(mqttCredential.certificatePem);
         if (isGreengrassComponent) {
             return createGreengrassComponentSession(mqttCredential);
         }
 
-        return createIotThingSession(mqttCredential, thing);
+        return createIotThingSession(mqttCredential);
     }
 
-    private Session createIotThingSession(MqttCredential mqttCredential, Thing thing) throws AuthenticationException {
+    private Session createIotThingSession(MqttCredential mqttCredential) throws AuthenticationException {
         Optional<String> certificateId;
         try {
             certificateId = iotAuthClient.getActiveCertificateId(mqttCredential.certificatePem);
             if (!certificateId.isPresent()) {
                 throw new AuthenticationException("Certificate isn't active");
             }
+            Thing thing = new Thing(mqttCredential.clientId);
             Certificate cert = new Certificate(certificateId.get());
             if (!iotAuthClient.isThingAttachedToCertificate(thing, cert)) {
                 throw new AuthenticationException("unable to authenticate device");
