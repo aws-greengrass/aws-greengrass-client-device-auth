@@ -224,6 +224,7 @@ public class DeviceAuthClient {
                     String.format("Invalid session ID (%s)", request.getSessionId()));
         }
         // Allow all operations from internal components
+        // Keep the workaround above (ALLOW_ALL_SESSION) for Moquette since it is using the older session management
         if (session.getSessionAttribute(Component.NAMESPACE, "component") != null) {
             return true;
         }
