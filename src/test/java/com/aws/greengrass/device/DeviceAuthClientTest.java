@@ -22,6 +22,7 @@ import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.iot.Certificate;
+import com.aws.greengrass.device.iot.Component;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.device.session.Session;
@@ -188,6 +189,18 @@ public class DeviceAuthClientTest {
                 Collections.singleton(
                         Permission.builder().operation("mqtt:publish").resource("mqtt:topic:foo").principal("group1")
                                 .build())));
+
+        boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());
+
+        assertThat(authorized, is(true));
+        verify(iotClient, never()).isThingAttachedToCertificate(any(), any());
+    }
+
+    @Test
+    void GIVEN_internalClientSession_WHEN_canDevicePerform_THEN_authorizationReturnTrue() throws Exception {
+        Session session = new SessionImpl(new Certificate("certificateId"));
+        session.putAttributeProvider(Component.NAMESPACE, new Component());
+        when(sessionManager.findSession("sessionId")).thenReturn(session);
 
         boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());
 
