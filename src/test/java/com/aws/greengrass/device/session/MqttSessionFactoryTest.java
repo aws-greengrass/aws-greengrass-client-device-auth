@@ -5,8 +5,10 @@
 
 package com.aws.greengrass.device.session;
 
+import com.aws.greengrass.device.DeviceAuthClient;
 import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
+import com.aws.greengrass.device.iot.Component;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.hamcrest.core.IsNull;
@@ -23,13 +25,17 @@ import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class MqttSessionFactoryTest {
     @Mock
     private IotAuthClient mockIotAuthClient;
+    @Mock
+    private DeviceAuthClient mockDeviceAuthClient;
     private MqttSessionFactory mqttSessionFactory;
     private final Map<String, String> credentialMap = ImmutableMap.of(
             "certificatePem", "PEM",
@@ -40,7 +46,7 @@ public class MqttSessionFactoryTest {
 
     @BeforeEach
     void beforeEach() {
-        mqttSessionFactory = new MqttSessionFactory(mockIotAuthClient);
+        mqttSessionFactory = new MqttSessionFactory(mockIotAuthClient, mockDeviceAuthClient);
     }
 
     @Test
@@ -75,5 +81,14 @@ public class MqttSessionFactoryTest {
 
         Session session = mqttSessionFactory.createSession(credentialMap);
         assertThat(session, is(IsNull.notNullValue()));
+    }
+
+    @Test
+    void GIVEN_componentWithValidClientId_WHEN_createSession_THEN_returnsSession() throws AuthenticationException {
+        when(mockDeviceAuthClient.isGreengrassComponent(anyString())).thenReturn(true);
+
+        Session session = mqttSessionFactory.createSession(credentialMap);
+        assertThat(session, is(IsNull.notNullValue()));
+        assertThat(session.getSessionAttribute(Component.NAMESPACE, "component"), notNullValue());
     }
 }

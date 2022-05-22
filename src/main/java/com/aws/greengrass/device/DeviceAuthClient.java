@@ -12,6 +12,7 @@ import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.exception.InvalidSessionException;
 import com.aws.greengrass.device.iot.Certificate;
+import com.aws.greengrass.device.iot.Component;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
 import com.aws.greengrass.device.session.Session;
@@ -82,7 +83,13 @@ public class DeviceAuthClient {
         return createSessionForClientDevice(certificatePem);
     }
 
-    private boolean isGreengrassComponent(String certificatePem) {
+    /**
+     * Check if a given certificate belongs to an internal Greengrass component such as the MQTT Bridge.
+     *
+     * @param certificatePem certificate in PEM form.
+     * @return true if the certificate was provided to a Greengrass component.
+     */
+    public boolean isGreengrassComponent(String certificatePem) {
         try {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             try (InputStream is = new StringInputStream(certificatePem)) {
@@ -215,6 +222,10 @@ public class DeviceAuthClient {
         if (session == null) {
             throw new InvalidSessionException(
                     String.format("Invalid session ID (%s)", request.getSessionId()));
+        }
+        // Allow all operations from internal components
+        if (session.getSessionAttribute(Component.NAMESPACE, "component") != null) {
+            return true;
         }
 
         return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),

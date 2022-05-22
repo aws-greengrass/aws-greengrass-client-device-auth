@@ -325,7 +325,7 @@ public class ClientDevicesAuthService extends PluginService {
                 new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
         greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
                 new VerifyClientDeviceIdentityOperationHandler(context, iotAuthClient,
-                        authorizationHandler, cloudCallThreadPool));
+                        deviceAuthClient, authorizationHandler, cloudCallThreadPool));
         greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
                 new GetClientDeviceAuthTokenOperationHandler(context, sessionManager,
                         authorizationHandler, cloudCallThreadPool));
