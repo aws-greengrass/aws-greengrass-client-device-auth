@@ -12,9 +12,10 @@ import com.aws.greengrass.logging.impl.LogManager;
 import lombok.AccessLevel;
 import lombok.Getter;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Singleton class for managing AuthN and AuthZ sessions.
@@ -22,14 +23,22 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
     private static final String SESSION_ID = "SessionId";
+    // arbitrarily set default
+    private static final int DEFAULT_MAXIMUM_SESSION_COUNT = 100_000;
 
-    // TODO: Add mechanism to prevent session leaks
-    // This implementation currently relies on clients to properly close sessions. If they don't, then sessions
-    // will be leaked. We can add this once sessions are created with the entire set of device credentials. However,
+    // LRU Session Cache that evicts the eldest entry (based on access order) upon reaching its size.
+    // TODO: Support time-based cache eviction (Session timeout) and Session deduping.
+    // We can add this once sessions are created with the entire set of device credentials. However,
     // Moquette is currently creating sessions using just the certificate. Since multiple clients could use the same
     // certificate, we can't de-dup based on this alone.
     @Getter(AccessLevel.PACKAGE)
-    private final Map<String, Session> sessionMap = new ConcurrentHashMap<>();
+    private final Map<String, Session> sessionMap = Collections.synchronizedMap(
+            new LinkedHashMap<String, Session>(DEFAULT_MAXIMUM_SESSION_COUNT, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Session> eldest) {
+                    return size() > DEFAULT_MAXIMUM_SESSION_COUNT;
+                }
+            });
 
     /**
      * Looks up a session by id.
