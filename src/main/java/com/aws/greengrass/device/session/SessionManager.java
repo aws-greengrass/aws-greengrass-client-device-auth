@@ -23,8 +23,6 @@ import java.util.UUID;
 public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
     private static final String SESSION_ID = "SessionId";
-    // arbitrarily set default
-    private static final int DEFAULT_MAXIMUM_SESSION_COUNT = 100_000;
 
     // LRU Session Cache that evicts the eldest entry (based on access order) upon reaching its size.
     // TODO: Support time-based cache eviction (Session timeout) and Session deduping.
@@ -33,12 +31,15 @@ public class SessionManager {
     // certificate, we can't de-dup based on this alone.
     @Getter(AccessLevel.PACKAGE)
     private final Map<String, Session> sessionMap = Collections.synchronizedMap(
-            new LinkedHashMap<String, Session>(DEFAULT_MAXIMUM_SESSION_COUNT, 0.75f, true) {
+            new LinkedHashMap<String, Session>(getSessionCapacity(), 0.75f, true) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry<String, Session> eldest) {
-                    return size() > DEFAULT_MAXIMUM_SESSION_COUNT;
+                    // check size against latest configured session capacity
+                    return size() > getSessionCapacity();
                 }
             });
+
+    private SessionConfig sessionConfig;
 
     /**
      * Looks up a session by id.
@@ -86,6 +87,15 @@ public class SessionManager {
         closeSessionInternal(sessionId);
     }
 
+    /**
+     * Updates Session Configuration.
+     *
+     * @param sessionConfig desired session configuration
+     */
+    public void updateSessionConfig(SessionConfig sessionConfig) {
+        this.sessionConfig = sessionConfig;
+    }
+
     private synchronized void closeSessionInternal(String sessionId) {
         sessionMap.remove(sessionId);
     }
@@ -104,5 +114,12 @@ public class SessionManager {
             sessionId = UUID.randomUUID().toString();
         } while (sessionMap.containsKey(sessionId));
         return sessionId;
+    }
+
+    private int getSessionCapacity() {
+        if (sessionConfig == null) {
+            return SessionConfig.DEFAULT_SESSION_CAPACITY;
+        }
+        return sessionConfig.getSessionCapacity();
     }
 }
