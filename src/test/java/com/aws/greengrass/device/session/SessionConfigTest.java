@@ -72,6 +72,12 @@ class SessionConfigTest {
         configurationTopics.context.waitForPublishQueueToClear();
         assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
 
+        // integer max value
+        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC)
+                .withValue(Integer.MAX_VALUE);
+        configurationTopics.context.waitForPublishQueueToClear();
+        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
+
         String empty = "";
         configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC).withValue(empty);
         configurationTopics.context.waitForPublishQueueToClear();
