@@ -88,11 +88,11 @@ public class SessionManager {
     }
 
     /**
-     * Updates Session Configuration.
+     * Session configuration setter.
      *
-     * @param sessionConfig desired session configuration
+     * @param sessionConfig session configuration
      */
-    public void updateSessionConfig(SessionConfig sessionConfig) {
+    public void setSessionConfig(SessionConfig sessionConfig) {
         this.sessionConfig = sessionConfig;
     }
 

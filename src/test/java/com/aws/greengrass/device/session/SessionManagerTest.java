@@ -67,7 +67,7 @@ class SessionManagerTest {
     void beforeEach() throws AuthenticationException {
         lenient().when(mockSessionConfig.getSessionCapacity()).thenReturn(MOCK_SESSION_CAPACITY);
         sessionManager = new SessionManager();
-        sessionManager.updateSessionConfig(mockSessionConfig);
+        sessionManager.setSessionConfig(mockSessionConfig);
         SessionCreator.registerSessionFactory(CREDENTIAL_TYPE, mockSessionFactory);
         lenient().when(mockSessionFactory.createSession(credentialMap)).thenReturn(mockSession);
         lenient().when(mockSessionFactory.createSession(credentialMap2)).thenReturn(mockSession2);
@@ -153,7 +153,7 @@ class SessionManagerTest {
         int mockSessionCapacity = 3;
         when(mockSessionConfig.getSessionCapacity()).thenReturn(mockSessionCapacity);
         SessionManager sessionManager = new SessionManager();
-        sessionManager.updateSessionConfig(mockSessionConfig);
+        sessionManager.setSessionConfig(mockSessionConfig);
 
         // fill session cache to its capacity
         String id1 = sessionManager.createSession(CREDENTIAL_TYPE, credentialMap1);

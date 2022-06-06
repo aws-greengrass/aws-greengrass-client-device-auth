@@ -43,7 +43,7 @@ class SessionConfigTest {
     public void GIVEN_default_session_capacity_WHEN_update_configuration_THEN_returns_updated_capacity() {
         assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
         int newCapacity = 1;
-        configurationTopics.lookup(SessionConfig.CLIENT_DEVICE_AUTH_SESSION_CAPACITY_TOPIC).withValue(newCapacity);
+        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC).withValue(newCapacity);
         // block until config changes are merged in
         configurationTopics.context.waitForPublishQueueToClear();
         assertThat(sessionConfig.getSessionCapacity(), is(equalTo(newCapacity)));
@@ -53,27 +53,27 @@ class SessionConfigTest {
     public void GIVEN_invalid_configured_session_capacity_WHEN_getSessionCapacity_THEN_returns_default_capacity() {
         // capacity beyond maximum possible integer
         long configuredCapacity = Integer.MAX_VALUE + 1L;
-        configurationTopics.lookup(SessionConfig.CLIENT_DEVICE_AUTH_SESSION_CAPACITY_TOPIC)
+        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC)
                 .withValue(configuredCapacity);
         configurationTopics.context.waitForPublishQueueToClear();
         assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
 
         // zero capacity
         configuredCapacity = 0L;
-        configurationTopics.lookup(SessionConfig.CLIENT_DEVICE_AUTH_SESSION_CAPACITY_TOPIC)
+        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC)
                 .withValue(configuredCapacity);
         configurationTopics.context.waitForPublishQueueToClear();
         assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
 
         // overflown integer
         int overflown = Integer.MAX_VALUE + 1;
-        configurationTopics.lookup(SessionConfig.CLIENT_DEVICE_AUTH_SESSION_CAPACITY_TOPIC)
+        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC)
                 .withValue(overflown);
         configurationTopics.context.waitForPublishQueueToClear();
         assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
 
         String empty = "";
-        configurationTopics.lookup(SessionConfig.CLIENT_DEVICE_AUTH_SESSION_CAPACITY_TOPIC).withValue(empty);
+        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC).withValue(empty);
         configurationTopics.context.waitForPublishQueueToClear();
         assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
     }

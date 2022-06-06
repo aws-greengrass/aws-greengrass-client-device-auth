@@ -138,7 +138,7 @@ public class ClientDevicesAuthService extends PluginService {
         this.deviceAuthClient = deviceAuthClient;
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
-        this.sessionManager.updateSessionConfig(new SessionConfig(this.getConfig()));
+        sessionManager.setSessionConfig(new SessionConfig(this.getConfig()));
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {

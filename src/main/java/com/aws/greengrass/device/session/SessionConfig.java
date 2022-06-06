@@ -15,10 +15,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SessionConfig {
     private static final Logger LOGGER = LogManager.getLogger(SessionConfig.class);
     // arbitrarily set default
-    protected static final int DEFAULT_SESSION_CAPACITY = 100_000;
-    public static final String CLIENT_DEVICE_AUTH_SESSION_CAPACITY_TOPIC = "clientDeviceAuthSessionCapacity";
+    protected static final int DEFAULT_SESSION_CAPACITY = 1000;
+    public static final String SESSION_CAPACITY_TOPIC = "sessionCapacity";
 
-    private final AtomicInteger clientDeviceAuthSessionCapacity = new AtomicInteger(DEFAULT_SESSION_CAPACITY);
+    private final AtomicInteger sessionCapacity = new AtomicInteger(DEFAULT_SESSION_CAPACITY);
 
     private final Topics configuration;
 
@@ -29,13 +29,11 @@ public class SessionConfig {
      */
     public SessionConfig(Topics configuration) {
         this.configuration = configuration;
-        this.clientDeviceAuthSessionCapacity.set(getConfiguredSessionCapacity());
+        this.sessionCapacity.set(getConfiguredSessionCapacity());
 
         this.configuration.subscribe((whatHappened, node) -> {
             // update session capacity to the latest configured value
             updateSessionCapacity(getConfiguredSessionCapacity());
-            LOGGER.atInfo().kv("clientDeviceAuthSessionCapacity", clientDeviceAuthSessionCapacity.get())
-                    .log("Configuration updated");
         });
     }
 
@@ -45,7 +43,7 @@ public class SessionConfig {
      * @return session capacity
      */
     public int getSessionCapacity() {
-        return clientDeviceAuthSessionCapacity.get();
+        return sessionCapacity.get();
     }
 
     /**
@@ -53,14 +51,14 @@ public class SessionConfig {
      *
      * @param newCapacity desired Client-Device-Auth Session capacity
      */
-    public void updateSessionCapacity(int newCapacity) {
-        this.clientDeviceAuthSessionCapacity.set(newCapacity);
+    private void updateSessionCapacity(int newCapacity) {
+        sessionCapacity.set(newCapacity);
     }
 
     private int getConfiguredSessionCapacity() {
-        // valid session capacity should be within range [1, Integer.MAX_VALUE]
-        return getIntConfigValueRangeCheck(CLIENT_DEVICE_AUTH_SESSION_CAPACITY_TOPIC, DEFAULT_SESSION_CAPACITY,
-                1, Integer.MAX_VALUE);
+        // valid session capacity should be within range [1, Integer.MAX_VALUE)
+        return getIntConfigValueRangeCheck(SESSION_CAPACITY_TOPIC, DEFAULT_SESSION_CAPACITY,
+                1, Integer.MAX_VALUE - 1);
     }
 
     /**
