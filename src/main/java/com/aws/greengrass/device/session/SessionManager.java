@@ -24,7 +24,7 @@ public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
     private static final String SESSION_ID = "SessionId";
 
-    // LRU Session Cache that evicts the eldest entry (based on access order) upon reaching its size.
+    // Thread-safe LRU Session Cache that evicts the eldest entry (based on access order) upon reaching its size.
     // TODO: Support time-based cache eviction (Session timeout) and Session deduping.
     // We can add this once sessions are created with the entire set of device credentials. However,
     // Moquette is currently creating sessions using just the certificate. Since multiple clients could use the same
@@ -35,7 +35,12 @@ public class SessionManager {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry<String, Session> eldest) {
                     // check size against latest configured session capacity
-                    return size() > getSessionCapacity();
+                    if (size() > getSessionCapacity()) {
+                        logger.atTrace().kv(SESSION_ID, eldest.getKey())
+                                .log("Session Cache reached its capacity. Closing session.");
+                        return true;
+                    }
+                    return false;
                 }
             });
 
