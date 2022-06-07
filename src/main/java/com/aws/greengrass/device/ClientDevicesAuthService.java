@@ -20,6 +20,7 @@ import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.session.MqttSessionFactory;
+import com.aws.greengrass.device.session.SessionConfig;
 import com.aws.greengrass.device.session.SessionCreator;
 import com.aws.greengrass.device.session.SessionManager;
 import com.aws.greengrass.ipc.AuthorizeClientDeviceActionOperationHandler;
@@ -137,6 +138,7 @@ public class ClientDevicesAuthService extends PluginService {
         this.deviceAuthClient = deviceAuthClient;
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
+        sessionManager.setSessionConfig(new SessionConfig(this.getConfig()));
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {
