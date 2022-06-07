@@ -66,6 +66,9 @@ public class ClientDevicesAuthService extends PluginService {
     public static final String CA_PASSPHRASE = "ca_passphrase";
     public static final String CERTIFICATES_KEY = "certificates";
     public static final String AUTHORITIES_TOPIC = "authorities";
+    public static final String SETTINGS_TOPIC = "settings";
+    public static final String DEVICE_AUTH_TOKEN_TOPIC = "deviceAuthToken";
+    public static final String MAX_ACTIVE_AUTH_TOKENS_TOPIC = "maxActiveAuthTokens";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
     private static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
@@ -90,6 +93,7 @@ public class ClientDevicesAuthService extends PluginService {
     // Limit the queue size before we start rejecting requests
     private static final int DEFAULT_CLOUD_CALL_QUEUE_SIZE = 100;
     private static final int DEFAULT_THREAD_POOL_SIZE = 1;
+    public static final int DEFAULT_MAX_ACTIVE_AUTH_TOKENS = 2500;
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private final ThreadPoolExecutor cloudCallThreadPool;
     private int cloudCallQueueSize;

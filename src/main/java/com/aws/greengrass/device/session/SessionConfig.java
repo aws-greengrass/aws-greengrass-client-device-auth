@@ -12,11 +12,19 @@ import com.aws.greengrass.util.Coerce;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.aws.greengrass.device.ClientDevicesAuthService.DEFAULT_MAX_ACTIVE_AUTH_TOKENS;
+import static com.aws.greengrass.device.ClientDevicesAuthService.DEVICE_AUTH_TOKEN_TOPIC;
+import static com.aws.greengrass.device.ClientDevicesAuthService.MAX_ACTIVE_AUTH_TOKENS_TOPIC;
+import static com.aws.greengrass.device.ClientDevicesAuthService.SETTINGS_TOPIC;
+
+@SuppressWarnings("PMD.DataClass")
 public class SessionConfig {
     private static final Logger LOGGER = LogManager.getLogger(SessionConfig.class);
-    // arbitrarily set default
-    protected static final int DEFAULT_SESSION_CAPACITY = 1000;
-    public static final String SESSION_CAPACITY_TOPIC = "sessionCapacity";
+    public static final int DEFAULT_SESSION_CAPACITY = DEFAULT_MAX_ACTIVE_AUTH_TOKENS;
+    // valid session capacity should be within range [1, Integer.MAX_VALUE)
+    // to be able to initialize and perform appropriate eviction check in LRU session cache
+    public static final int MIN_SESSION_CAPACITY = 1;
+    public static final int MAX_SESSION_CAPACITY = Integer.MAX_VALUE - 1;
 
     private final AtomicInteger sessionCapacity = new AtomicInteger(DEFAULT_SESSION_CAPACITY);
 
@@ -55,34 +63,25 @@ public class SessionConfig {
         sessionCapacity.set(newCapacity);
     }
 
-    private int getConfiguredSessionCapacity() {
-        // valid session capacity should be within range [1, Integer.MAX_VALUE)
-        return getIntConfigValueRangeCheck(SESSION_CAPACITY_TOPIC, DEFAULT_SESSION_CAPACITY,
-                1, Integer.MAX_VALUE - 1);
-    }
-
     /**
-     * Helper method that handles integer configuration parameters with a range check.
+     * Retrieves configured Session Capacity.
+     * Invalid values are clamped to the valid range.
      *
-     * @param configParameter   name of the configuration parameter
-     * @param defaultValue  default value
-     * @param low   low end of the range check
-     * @param high  high end of the range check
-     * @return returns the parsed value of the parameter.
-     *      If the value passed to the parameter is not a valid integer,
-     *      or within the specified range, the default value for the parameter will be returned.
+     * @return session capacity value
      */
-    private int getIntConfigValueRangeCheck(String configParameter, int defaultValue, int low, int high) {
+    private int getConfiguredSessionCapacity() {
         if (configuration == null || configuration.isEmpty()) {
-            return defaultValue;
+            return DEFAULT_SESSION_CAPACITY;
         }
-        Object configValue = configuration.findOrDefault(defaultValue, configParameter);
-        int intValue = Coerce.toInt(configValue);
-        if (intValue < low || intValue > high) {
-            LOGGER.warn("Illegal value {} for configuration {}. Using default value {}",
-                    configValue, configParameter, defaultValue);
-            return defaultValue;
+        int configValue = Coerce.toInt(configuration.findOrDefault(DEFAULT_SESSION_CAPACITY,
+                SETTINGS_TOPIC, DEVICE_AUTH_TOKEN_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC));
+
+        int clamped = Math.max(MIN_SESSION_CAPACITY, Math.min(MAX_SESSION_CAPACITY, configValue));
+        if (clamped != configValue) {
+            LOGGER.warn("Illegal value {} for configuration {}. Using clamped value {}",
+                    configValue, MAX_ACTIVE_AUTH_TOKENS_TOPIC, clamped);
+            return clamped;
         }
-        return intValue;
+        return configValue;
     }
 }

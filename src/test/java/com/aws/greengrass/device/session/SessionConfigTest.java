@@ -17,6 +17,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.io.IOException;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
+import static com.aws.greengrass.device.ClientDevicesAuthService.DEFAULT_MAX_ACTIVE_AUTH_TOKENS;
+import static com.aws.greengrass.device.ClientDevicesAuthService.DEVICE_AUTH_TOKEN_TOPIC;
+import static com.aws.greengrass.device.ClientDevicesAuthService.MAX_ACTIVE_AUTH_TOKENS_TOPIC;
+import static com.aws.greengrass.device.ClientDevicesAuthService.SETTINGS_TOPIC;
+import static com.aws.greengrass.device.session.SessionConfig.MAX_SESSION_CAPACITY;
+import static com.aws.greengrass.device.session.SessionConfig.MIN_SESSION_CAPACITY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -38,52 +44,47 @@ class SessionConfigTest {
     }
 
     @Test
-    public void GIVEN_default_configuration_WHEN_getSessionCapacity_THEN_returns_default_capacity() {
-        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
+    public void GIVEN_no_configured_capacity_WHEN_getSessionCapacity_THEN_returns_default_capacity() {
+        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(DEFAULT_MAX_ACTIVE_AUTH_TOKENS)));
     }
 
     @Test
     public void GIVEN_default_session_capacity_WHEN_update_configuration_THEN_returns_updated_capacity() {
-        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
+        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(DEFAULT_MAX_ACTIVE_AUTH_TOKENS)));
         int newCapacity = 1;
-        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC).withValue(newCapacity);
+        configurationTopics.lookup(SETTINGS_TOPIC, DEVICE_AUTH_TOKEN_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
+                .withValue(newCapacity);
         // block until config changes are merged in
         configurationTopics.context.waitForPublishQueueToClear();
         assertThat(sessionConfig.getSessionCapacity(), is(equalTo(newCapacity)));
     }
 
     @Test
-    public void GIVEN_invalid_configured_session_capacity_WHEN_getSessionCapacity_THEN_returns_default_capacity() {
-        // capacity beyond maximum possible integer
-        long configuredCapacity = Integer.MAX_VALUE + 1L;
-        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC)
-                .withValue(configuredCapacity);
-        configurationTopics.context.waitForPublishQueueToClear();
-        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
-
+    public void GIVEN_invalid_configured_session_capacity_WHEN_getSessionCapacity_THEN_returns_clamped_capacity() {
         // zero capacity
-        configuredCapacity = 0L;
-        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC)
+        int configuredCapacity = 0;
+        configurationTopics.lookup(SETTINGS_TOPIC, DEVICE_AUTH_TOKEN_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
                 .withValue(configuredCapacity);
         configurationTopics.context.waitForPublishQueueToClear();
-        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
+        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(MIN_SESSION_CAPACITY)));
 
         // overflown integer
         int overflown = Integer.MAX_VALUE + 1;
-        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC)
+        configurationTopics.lookup(SETTINGS_TOPIC, DEVICE_AUTH_TOKEN_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
                 .withValue(overflown);
         configurationTopics.context.waitForPublishQueueToClear();
-        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
+        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(MIN_SESSION_CAPACITY)));
 
         // integer max value
-        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC)
+        configurationTopics.lookup(SETTINGS_TOPIC, DEVICE_AUTH_TOKEN_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
                 .withValue(Integer.MAX_VALUE);
         configurationTopics.context.waitForPublishQueueToClear();
-        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
+        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(MAX_SESSION_CAPACITY)));
 
         String empty = "";
-        configurationTopics.lookup(SessionConfig.SESSION_CAPACITY_TOPIC).withValue(empty);
+        configurationTopics.lookup(SETTINGS_TOPIC, DEVICE_AUTH_TOKEN_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
+                .withValue(empty);
         configurationTopics.context.waitForPublishQueueToClear();
-        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(SessionConfig.DEFAULT_SESSION_CAPACITY)));
+        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(MIN_SESSION_CAPACITY)));
     }
 }
