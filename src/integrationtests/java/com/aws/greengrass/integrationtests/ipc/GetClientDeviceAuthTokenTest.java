@@ -51,6 +51,7 @@ import java.util.function.Consumer;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.device.ClientDevicesAuthService.CLOUD_QUEUE_SIZE_TOPIC;
+import static com.aws.greengrass.device.ClientDevicesAuthService.SETTINGS_TOPIC;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssertOnConsumer;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -174,7 +175,7 @@ class GetClientDeviceAuthTokenTest {
 
         // Update the cloud queue size to 1 so that we'll just reject the second request
         kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
-                .lookup(CONFIGURATION_CONFIG_KEY, CLOUD_QUEUE_SIZE_TOPIC).withValue(1);
+                .lookup(CONFIGURATION_CONFIG_KEY, SETTINGS_TOPIC, CLOUD_QUEUE_SIZE_TOPIC).withValue(1);
         kernel.getContext().waitForPublishQueueToClear();
 
         // Verify that we get a good error that the request couldn't be queued
