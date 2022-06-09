@@ -13,9 +13,8 @@ import com.aws.greengrass.util.Coerce;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.aws.greengrass.device.ClientDevicesAuthService.DEFAULT_MAX_ACTIVE_AUTH_TOKENS;
-import static com.aws.greengrass.device.ClientDevicesAuthService.DEVICE_AUTH_TOKEN_TOPIC;
 import static com.aws.greengrass.device.ClientDevicesAuthService.MAX_ACTIVE_AUTH_TOKENS_TOPIC;
-import static com.aws.greengrass.device.ClientDevicesAuthService.SETTINGS_TOPIC;
+import static com.aws.greengrass.device.ClientDevicesAuthService.PERFORMANCE_TOPIC;
 
 @SuppressWarnings("PMD.DataClass")
 public class SessionConfig {
@@ -74,7 +73,7 @@ public class SessionConfig {
             return DEFAULT_SESSION_CAPACITY;
         }
         int configValue = Coerce.toInt(configuration.findOrDefault(DEFAULT_SESSION_CAPACITY,
-                SETTINGS_TOPIC, DEVICE_AUTH_TOKEN_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC));
+                PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC));
 
         int clamped = Math.max(MIN_SESSION_CAPACITY, Math.min(MAX_SESSION_CAPACITY, configValue));
         if (clamped != configValue) {

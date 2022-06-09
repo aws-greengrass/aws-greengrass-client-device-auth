@@ -66,8 +66,7 @@ public class ClientDevicesAuthService extends PluginService {
     public static final String CA_PASSPHRASE = "ca_passphrase";
     public static final String CERTIFICATES_KEY = "certificates";
     public static final String AUTHORITIES_TOPIC = "authorities";
-    public static final String SETTINGS_TOPIC = "settings";
-    public static final String DEVICE_AUTH_TOKEN_TOPIC = "deviceAuthToken";
+    public static final String PERFORMANCE_TOPIC = "performance";
     public static final String MAX_ACTIVE_AUTH_TOKENS_TOPIC = "maxActiveAuthTokens";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
@@ -148,7 +147,7 @@ public class ClientDevicesAuthService extends PluginService {
     private int getValidCloudCallQueueSize(Topics topics) {
         int newSize = Coerce.toInt(
                 topics.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE,
-                        CONFIGURATION_CONFIG_KEY, SETTINGS_TOPIC, CLOUD_QUEUE_SIZE_TOPIC));
+                        CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, CLOUD_QUEUE_SIZE_TOPIC));
         if (newSize <= 0) {
             logger.atWarn().log("{} illegal size, will not change the queue size from {}",
                     CLOUD_QUEUE_SIZE_TOPIC, cloudCallQueueSize);
@@ -160,11 +159,10 @@ public class ClientDevicesAuthService extends PluginService {
     /**
      * Certificate Manager Service uses the following topic structure:
      * |---- configuration
-     * |    |---- settings:
+     * |    |---- performance:
      * |         |---- cloudQueueSize: "..."
      * |         |---- threadPoolSize: "..."
-     * |         |---- deviceAuthToken:
-     * |              |---- maxActiveAuthTokens: "..."
+     * |         |---- maxActiveAuthTokens: "..."
      * |    |---- deviceGroups:
      * |         |---- definitions : {}
      * |         |---- policies : {}
@@ -189,7 +187,7 @@ public class ClientDevicesAuthService extends PluginService {
             // Attempt to update the thread pool size as needed
             try {
                 int threadPoolSize = Coerce.toInt(this.config.findOrDefault(DEFAULT_THREAD_POOL_SIZE,
-                        CONFIGURATION_CONFIG_KEY, SETTINGS_TOPIC, THREAD_POOL_SIZE_TOPIC));
+                        CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, THREAD_POOL_SIZE_TOPIC));
                 if (threadPoolSize >= cloudCallThreadPool.getCorePoolSize()) {
                     cloudCallThreadPool.setMaximumPoolSize(threadPoolSize);
                 }
