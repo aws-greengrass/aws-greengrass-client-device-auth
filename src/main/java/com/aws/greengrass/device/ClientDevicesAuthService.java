@@ -74,8 +74,8 @@ public class ClientDevicesAuthService extends PluginService {
             RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(Integer.MAX_VALUE)
                     .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
                     .build();
-    public static final String CLOUD_QUEUE_SIZE_TOPIC = "cloudQueueSize";
-    public static final String THREAD_POOL_SIZE_TOPIC = "threadPoolSize";
+    public static final String CLOUD_REQUEST_QUEUE_SIZE_TOPIC = "cloudRequestQueueSize";
+    public static final String MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC = "maxConcurrentCloudRequests";
 
     private final GroupManager groupManager;
 
@@ -147,10 +147,10 @@ public class ClientDevicesAuthService extends PluginService {
     private int getValidCloudCallQueueSize(Topics topics) {
         int newSize = Coerce.toInt(
                 topics.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE,
-                        CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, CLOUD_QUEUE_SIZE_TOPIC));
+                        CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, CLOUD_REQUEST_QUEUE_SIZE_TOPIC));
         if (newSize <= 0) {
             logger.atWarn().log("{} illegal size, will not change the queue size from {}",
-                    CLOUD_QUEUE_SIZE_TOPIC, cloudCallQueueSize);
+                    CLOUD_REQUEST_QUEUE_SIZE_TOPIC, cloudCallQueueSize);
             return cloudCallQueueSize; // existing size
         }
         return newSize;
@@ -187,7 +187,7 @@ public class ClientDevicesAuthService extends PluginService {
             // Attempt to update the thread pool size as needed
             try {
                 int threadPoolSize = Coerce.toInt(this.config.findOrDefault(DEFAULT_THREAD_POOL_SIZE,
-                        CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, THREAD_POOL_SIZE_TOPIC));
+                        CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC));
                 if (threadPoolSize >= cloudCallThreadPool.getCorePoolSize()) {
                     cloudCallThreadPool.setMaximumPoolSize(threadPoolSize);
                 }
@@ -195,7 +195,8 @@ public class ClientDevicesAuthService extends PluginService {
                 logger.atWarn().log("Unable to update CDA threadpool size due to {}", e.getMessage());
             }
 
-            if (whatHappened != WhatHappened.initialized && node != null && node.childOf(CLOUD_QUEUE_SIZE_TOPIC)) {
+            if (whatHappened != WhatHappened.initialized && node != null
+                    && node.childOf(CLOUD_REQUEST_QUEUE_SIZE_TOPIC)) {
                 BlockingQueue<Runnable> q = cloudCallThreadPool.getQueue();
                 if (q instanceof ResizableLinkedBlockingQueue) {
                     cloudCallQueueSize = getValidCloudCallQueueSize(this.config);
