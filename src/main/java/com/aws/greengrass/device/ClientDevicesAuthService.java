@@ -160,8 +160,8 @@ public class ClientDevicesAuthService extends PluginService {
      * Certificate Manager Service uses the following topic structure:
      * |---- configuration
      * |    |---- performance:
-     * |         |---- cloudQueueSize: "..."
-     * |         |---- threadPoolSize: "..."
+     * |         |---- cloudRequestQueueSize: "..."
+     * |         |---- maxConcurrentCloudRequests: "..."
      * |         |---- maxActiveAuthTokens: "..."
      * |    |---- deviceGroups:
      * |         |---- definitions : {}
