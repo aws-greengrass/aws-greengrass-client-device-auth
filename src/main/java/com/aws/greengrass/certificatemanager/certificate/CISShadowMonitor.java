@@ -86,6 +86,7 @@ public class CISShadowMonitor {
     private MqttClientConnection connection;
     private IotShadowClient iotShadowClient;
     private Future<?> subscribeTaskFuture;
+    private final Object subscribeTaskFutureLock = new Object();
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
     private final String shadowName;
@@ -149,31 +150,39 @@ public class CISShadowMonitor {
      */
     public void startMonitor() {
         shadowProcessor.start();
-
-        if (subscribeTaskFuture != null) {
-            subscribeTaskFuture.cancel(true);
-        }
-        subscribeTaskFuture = executorService.submit(() -> {
-            try {
-                subscribeToShadowTopics();
-                publishToGetCISShadowTopic();
-            } catch (InterruptedException e) {
-                LOGGER.atDebug().cause(e).log("Interrupted while subscribing to CIS shadow topics");
-                Thread.currentThread().interrupt();
-            }
-        });
+        startSubscribeTask();
     }
 
     /**
      * Stop shadow monitor.
      */
     public void stopMonitor() {
-        if (subscribeTaskFuture != null) {
-            subscribeTaskFuture.cancel(true);
-        }
+        stopSubscribeTask();
         unsubscribeFromShadowTopics();
-
         shadowProcessor.stop();
+    }
+
+    private void startSubscribeTask() {
+        synchronized (subscribeTaskFutureLock) {
+            stopSubscribeTask();
+            subscribeTaskFuture = executorService.submit(() -> {
+                try {
+                    subscribeToShadowTopics();
+                    publishToGetCISShadowTopic();
+                } catch (InterruptedException e) {
+                    LOGGER.atDebug().cause(e).log("Interrupted while subscribing to CIS shadow topics");
+                    Thread.currentThread().interrupt();
+                }
+            });
+        }
+    }
+
+    private void stopSubscribeTask() {
+        synchronized (subscribeTaskFutureLock) {
+            if (subscribeTaskFuture != null) {
+                subscribeTaskFuture.cancel(true);
+            }
+        }
     }
 
     /**
@@ -321,28 +330,31 @@ public class CISShadowMonitor {
          * Scheduled task for handling shadow processing requests.
          */
         private Future<?> shadowProcessingTask;
+        private final Object shadowProcessingTaskLock = new Object();
 
         /**
          * Start processing shadow requests.
          */
         void start() {
-            if (shadowProcessingTask != null) {
-                shadowProcessingTask.cancel(true);
+            synchronized (shadowProcessingTaskLock) {
+                stop();
+                shadowProcessingTask = ses.scheduleWithFixedDelay(
+                        this::handleShadowProcessingRequest,
+                        0L,
+                        shadowProcessingDelayMs,
+                        TimeUnit.MILLISECONDS
+                );
             }
-            shadowProcessingTask = ses.scheduleWithFixedDelay(
-                    this::handleShadowProcessingRequest,
-                    0L,
-                    shadowProcessingDelayMs,
-                    TimeUnit.MILLISECONDS
-            );
         }
 
         /**
          * Stop processing shadow requests and interrupt if one is in-progress.
          */
         void stop() {
-            if (shadowProcessingTask != null) {
-                shadowProcessingTask.cancel(true);
+            synchronized (shadowProcessingTaskLock) {
+                if (shadowProcessingTask != null) {
+                    shadowProcessingTask.cancel(true);
+                }
             }
         }
 
