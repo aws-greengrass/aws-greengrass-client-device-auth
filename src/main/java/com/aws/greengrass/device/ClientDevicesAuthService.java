@@ -66,14 +66,16 @@ public class ClientDevicesAuthService extends PluginService {
     public static final String CA_PASSPHRASE = "ca_passphrase";
     public static final String CERTIFICATES_KEY = "certificates";
     public static final String AUTHORITIES_TOPIC = "authorities";
+    public static final String PERFORMANCE_TOPIC = "performance";
+    public static final String MAX_ACTIVE_AUTH_TOKENS_TOPIC = "maxActiveAuthTokens";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
     private static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
             RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(Integer.MAX_VALUE)
                     .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
                     .build();
-    public static final String CLOUD_QUEUE_SIZE_TOPIC = "cloudQueueSize";
-    public static final String THREAD_POOL_SIZE_TOPIC = "threadPoolSize";
+    public static final String CLOUD_REQUEST_QUEUE_SIZE_TOPIC = "cloudRequestQueueSize";
+    public static final String MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC = "maxConcurrentCloudRequests";
 
     private final GroupManager groupManager;
 
@@ -90,6 +92,7 @@ public class ClientDevicesAuthService extends PluginService {
     // Limit the queue size before we start rejecting requests
     private static final int DEFAULT_CLOUD_CALL_QUEUE_SIZE = 100;
     private static final int DEFAULT_THREAD_POOL_SIZE = 1;
+    public static final int DEFAULT_MAX_ACTIVE_AUTH_TOKENS = 2500;
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private final ThreadPoolExecutor cloudCallThreadPool;
     private int cloudCallQueueSize;
@@ -143,10 +146,11 @@ public class ClientDevicesAuthService extends PluginService {
 
     private int getValidCloudCallQueueSize(Topics topics) {
         int newSize = Coerce.toInt(
-                topics.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE, CONFIGURATION_CONFIG_KEY, CLOUD_QUEUE_SIZE_TOPIC));
+                topics.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE,
+                        CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, CLOUD_REQUEST_QUEUE_SIZE_TOPIC));
         if (newSize <= 0) {
             logger.atWarn().log("{} illegal size, will not change the queue size from {}",
-                    CLOUD_QUEUE_SIZE_TOPIC, cloudCallQueueSize);
+                    CLOUD_REQUEST_QUEUE_SIZE_TOPIC, cloudCallQueueSize);
             return cloudCallQueueSize; // existing size
         }
         return newSize;
@@ -155,6 +159,10 @@ public class ClientDevicesAuthService extends PluginService {
     /**
      * Certificate Manager Service uses the following topic structure:
      * |---- configuration
+     * |    |---- performance:
+     * |         |---- cloudRequestQueueSize: "..."
+     * |         |---- maxConcurrentCloudRequests: "..."
+     * |         |---- maxActiveAuthTokens: "..."
      * |    |---- deviceGroups:
      * |         |---- definitions : {}
      * |         |---- policies : {}
@@ -179,7 +187,7 @@ public class ClientDevicesAuthService extends PluginService {
             // Attempt to update the thread pool size as needed
             try {
                 int threadPoolSize = Coerce.toInt(this.config.findOrDefault(DEFAULT_THREAD_POOL_SIZE,
-                        CONFIGURATION_CONFIG_KEY, THREAD_POOL_SIZE_TOPIC));
+                        CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC));
                 if (threadPoolSize >= cloudCallThreadPool.getCorePoolSize()) {
                     cloudCallThreadPool.setMaximumPoolSize(threadPoolSize);
                 }
@@ -187,7 +195,8 @@ public class ClientDevicesAuthService extends PluginService {
                 logger.atWarn().log("Unable to update CDA threadpool size due to {}", e.getMessage());
             }
 
-            if (whatHappened != WhatHappened.initialized && node != null && node.childOf(CLOUD_QUEUE_SIZE_TOPIC)) {
+            if (whatHappened != WhatHappened.initialized && node != null
+                    && node.childOf(CLOUD_REQUEST_QUEUE_SIZE_TOPIC)) {
                 BlockingQueue<Runnable> q = cloudCallThreadPool.getQueue();
                 if (q instanceof ResizableLinkedBlockingQueue) {
                     cloudCallQueueSize = getValidCloudCallQueueSize(this.config);
