@@ -17,6 +17,7 @@ import com.aws.greengrass.dependency.ImplementsService;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
+import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.session.MqttSessionFactory;
@@ -48,6 +49,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -248,8 +250,8 @@ public class ClientDevicesAuthService extends PluginService {
                 new VerifyClientDeviceIdentityOperationHandler(context, this, authorizationHandler,
                         cloudCallThreadPool));
         greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
-                new GetClientDeviceAuthTokenOperationHandler(context, sessionManager,
-                        authorizationHandler, cloudCallThreadPool));
+                new GetClientDeviceAuthTokenOperationHandler(context, this, authorizationHandler,
+                        cloudCallThreadPool));
         greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
                 new AuthorizeClientDeviceActionOperationHandler(context, deviceAuthClient, authorizationHandler));
     }
@@ -358,5 +360,17 @@ public class ClientDevicesAuthService extends PluginService {
             Optional<String> certificateId = iotAuthClient.getActiveCertificateId(certificatePem);
             return certificateId.isPresent();
         }
+    }
+
+    /**
+     * Get client auth token.
+     * @param credentialType    Type of client credentials
+     * @param deviceCredentials Client credential map
+     * @return client auth token to be used for future authorization requests.
+     * @throws AuthenticationException if unable to authenticate client credentials
+     */
+    public String getClientDeviceAuthToken(String credentialType, Map<String, String> deviceCredentials)
+        throws AuthenticationException {
+        return sessionManager.createSession(credentialType, deviceCredentials);
     }
 }
