@@ -11,6 +11,7 @@ import com.aws.greengrass.authorization.Permission;
 import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.device.AuthorizationRequest;
 import com.aws.greengrass.device.ClientDevicesAuthService;
+import com.aws.greengrass.device.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.device.exception.InvalidSessionException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -38,26 +39,25 @@ public class AuthorizeClientDeviceActionOperationHandler
     private static final String NO_RESOURCE_ERROR = "Resource is required";
     private final String serviceName;
     private final AuthorizationHandler authorizationHandler;
-    private final ClientDevicesAuthService clientDevicesAuthService;
+    private final ClientDevicesAuthServiceApi clientDevicesAuthServiceApi;
 
     /**
      * Constructor.
      *
-     * @param context                  operation continuation handler
-     * @param clientDevicesAuthService client devices auth service handle
-     * @param authorizationHandler     authorization handler
+     * @param context                     operation continuation handler
+     * @param clientDevicesAuthServiceApi client devices auth service handle
+     * @param authorizationHandler        authorization handler
      */
     public AuthorizeClientDeviceActionOperationHandler(
             OperationContinuationHandlerContext context,
-            ClientDevicesAuthService clientDevicesAuthService,
+            ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
             AuthorizationHandler authorizationHandler
-
     ) {
 
         super(context);
         serviceName = context.getAuthenticationData().getIdentityLabel();
         this.authorizationHandler = authorizationHandler;
-        this.clientDevicesAuthService = clientDevicesAuthService;
+        this.clientDevicesAuthServiceApi = clientDevicesAuthServiceApi;
     }
 
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.PreserveStackTrace"})
@@ -72,7 +72,7 @@ public class AuthorizeClientDeviceActionOperationHandler
             }
             AuthorizationRequest authorizationRequest = getAuthzRequest(request);
             try {
-                boolean isAuthorized = clientDevicesAuthService.authorizeClientDeviceAction(authorizationRequest);
+                boolean isAuthorized = clientDevicesAuthServiceApi.authorizeClientDeviceAction(authorizationRequest);
                 AuthorizeClientDeviceActionResponse response = new AuthorizeClientDeviceActionResponse();
                 return response.withIsAuthorized(isAuthorized);
             } catch (InvalidSessionException e) {
@@ -120,12 +120,9 @@ public class AuthorizeClientDeviceActionOperationHandler
 
     @Override
     public void handleStreamEvent(EventStreamJsonMessage eventStreamJsonMessage) {
-
     }
 
     @Override
     protected void onStreamClosed() {
-
     }
-
 }
