@@ -43,7 +43,6 @@ import java.security.KeyStoreException;
 import java.security.cert.CertificateEncodingException;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -53,7 +52,10 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
+import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.AUTHORIZE_CLIENT_DEVICE_ACTION;
+import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.GET_CLIENT_DEVICE_AUTH_TOKEN;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.SUBSCRIBE_TO_CERTIFICATE_UPDATES;
+import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VERIFY_CLIENT_DEVICE_IDENTITY;
 
 @SuppressWarnings("PMD.DataClass")
 @ImplementsService(name = ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
@@ -228,7 +230,12 @@ public class ClientDevicesAuthService extends PluginService {
         super.postInject();
         try {
             authorizationHandler.registerComponent(this.getName(),
-                    new HashSet<>(Collections.singletonList(SUBSCRIBE_TO_CERTIFICATE_UPDATES)));
+                    new HashSet<>(Arrays.asList(new String[]{
+                            SUBSCRIBE_TO_CERTIFICATE_UPDATES,
+                            VERIFY_CLIENT_DEVICE_IDENTITY,
+                            GET_CLIENT_DEVICE_AUTH_TOKEN,
+                            AUTHORIZE_CLIENT_DEVICE_ACTION
+                    })));
         } catch (com.aws.greengrass.authorization.exceptions.AuthorizationException e) {
             logger.atError("initialize-cda-service-authorization-error", e)
                     .log("Failed to initialize the client device auth service with the Authorization module.");
