@@ -6,7 +6,6 @@
 package com.aws.greengrass.device;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
-import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.certificatemanager.CertificateManager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CertificatesConfig;
@@ -18,6 +17,7 @@ import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.exception.AuthenticationException;
+import com.aws.greengrass.device.exception.AuthorizationException;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.session.MqttSessionFactory;
@@ -240,7 +240,7 @@ public class ClientDevicesAuthService extends PluginService {
         try {
             authorizationHandler.registerComponent(this.getName(),
                     new HashSet<>(Collections.singletonList(SUBSCRIBE_TO_CERTIFICATE_UPDATES)));
-        } catch (AuthorizationException e) {
+        } catch (com.aws.greengrass.authorization.exceptions.AuthorizationException e) {
             logger.atError("initialize-cda-service-authorization-error", e)
                     .log("Failed to initialize the client device auth service with the Authorization module.");
         }
@@ -253,7 +253,7 @@ public class ClientDevicesAuthService extends PluginService {
                 new GetClientDeviceAuthTokenOperationHandler(context, this, authorizationHandler,
                         cloudCallThreadPool));
         greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
-                new AuthorizeClientDeviceActionOperationHandler(context, deviceAuthClient, authorizationHandler));
+                new AuthorizeClientDeviceActionOperationHandler(context, this, authorizationHandler));
     }
 
     public CertificateManager getCertificateManager() {
@@ -372,5 +372,16 @@ public class ClientDevicesAuthService extends PluginService {
     public String getClientDeviceAuthToken(String credentialType, Map<String, String> deviceCredentials)
         throws AuthenticationException {
         return sessionManager.createSession(credentialType, deviceCredentials);
+    }
+
+    /**
+     * Authorize client action.
+     * @param authorizationRequest Authorization request, including auth token, operation, and resource
+     * @return true if the client action is allowed
+     * @throws AuthorizationException if the client action is not allowed
+     */
+    public boolean authorizeClientDeviceAction(AuthorizationRequest authorizationRequest)
+            throws AuthorizationException {
+        return deviceAuthClient.canDevicePerform(authorizationRequest);
     }
 }

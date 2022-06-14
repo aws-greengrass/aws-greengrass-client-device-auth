@@ -11,7 +11,6 @@ import com.aws.greengrass.authorization.Permission;
 import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.device.AuthorizationRequest;
 import com.aws.greengrass.device.ClientDevicesAuthService;
-import com.aws.greengrass.device.DeviceAuthClient;
 import com.aws.greengrass.device.exception.InvalidSessionException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -39,18 +38,18 @@ public class AuthorizeClientDeviceActionOperationHandler
     private static final String NO_RESOURCE_ERROR = "Resource is required";
     private final String serviceName;
     private final AuthorizationHandler authorizationHandler;
-    private final DeviceAuthClient deviceAuthClient;
+    private final ClientDevicesAuthService clientDevicesAuthService;
 
     /**
      * Constructor.
      *
-     * @param context              operation continuation handler
-     * @param deviceAuthClient     device auth client
-     * @param authorizationHandler authorization handler
+     * @param context                  operation continuation handler
+     * @param clientDevicesAuthService client devices auth service handle
+     * @param authorizationHandler     authorization handler
      */
     public AuthorizeClientDeviceActionOperationHandler(
             OperationContinuationHandlerContext context,
-            DeviceAuthClient deviceAuthClient,
+            ClientDevicesAuthService clientDevicesAuthService,
             AuthorizationHandler authorizationHandler
 
     ) {
@@ -58,7 +57,7 @@ public class AuthorizeClientDeviceActionOperationHandler
         super(context);
         serviceName = context.getAuthenticationData().getIdentityLabel();
         this.authorizationHandler = authorizationHandler;
-        this.deviceAuthClient = deviceAuthClient;
+        this.clientDevicesAuthService = clientDevicesAuthService;
     }
 
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.PreserveStackTrace"})
@@ -73,7 +72,7 @@ public class AuthorizeClientDeviceActionOperationHandler
             }
             AuthorizationRequest authorizationRequest = getAuthzRequest(request);
             try {
-                boolean isAuthorized = deviceAuthClient.canDevicePerform(authorizationRequest);
+                boolean isAuthorized = clientDevicesAuthService.authorizeClientDeviceAction(authorizationRequest);
                 AuthorizeClientDeviceActionResponse response = new AuthorizeClientDeviceActionResponse();
                 return response.withIsAuthorized(isAuthorized);
             } catch (InvalidSessionException e) {
