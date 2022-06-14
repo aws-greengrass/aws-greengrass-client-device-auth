@@ -48,6 +48,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -231,6 +232,28 @@ public class ClientDevicesAuthService extends PluginService {
         certificateManager.stopMonitors();
     }
 
+    @Override
+    public void postInject() {
+        super.postInject();
+        try {
+            authorizationHandler.registerComponent(this.getName(),
+                    new HashSet<>(Collections.singletonList(SUBSCRIBE_TO_CERTIFICATE_UPDATES)));
+        } catch (AuthorizationException e) {
+            logger.atError("initialize-cda-service-authorization-error", e)
+                    .log("Failed to initialize the client device auth service with the Authorization module.");
+        }
+        greengrassCoreIPCService.setSubscribeToCertificateUpdatesHandler(context ->
+                new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
+        greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
+                new VerifyClientDeviceIdentityOperationHandler(context, this, authorizationHandler,
+                        cloudCallThreadPool));
+        greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
+                new GetClientDeviceAuthTokenOperationHandler(context, sessionManager,
+                        authorizationHandler, cloudCallThreadPool));
+        greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
+                new AuthorizeClientDeviceActionOperationHandler(context, deviceAuthClient, authorizationHandler));
+    }
+
     public CertificateManager getCertificateManager() {
         return certificateManager;
     }
@@ -322,25 +345,18 @@ public class ClientDevicesAuthService extends PluginService {
         }
     }
 
-    @Override
-    public void postInject() {
-        super.postInject();
-        try {
-            authorizationHandler.registerComponent(this.getName(),
-                    new HashSet<>(Collections.singletonList(SUBSCRIBE_TO_CERTIFICATE_UPDATES)));
-        } catch (AuthorizationException e) {
-            logger.atError("initialize-cda-service-authorization-error", e)
-                    .log("Failed to initialize the client device auth service with the Authorization module.");
+    /**
+     * Verify client device identity.
+     * @param certificatePem PEM encoded client certificate.
+     * @return True if the provided client certificate is trusted.
+     */
+    public boolean verifyClientDeviceIdentity(String certificatePem) {
+        // Allow internal clients to verify their identities
+        if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
+            return true;
+        } else {
+            Optional<String> certificateId = iotAuthClient.getActiveCertificateId(certificatePem);
+            return certificateId.isPresent();
         }
-        greengrassCoreIPCService.setSubscribeToCertificateUpdatesHandler(context ->
-                new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
-        greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
-                new VerifyClientDeviceIdentityOperationHandler(context, iotAuthClient,
-                        deviceAuthClient, authorizationHandler, cloudCallThreadPool));
-        greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
-                new GetClientDeviceAuthTokenOperationHandler(context, sessionManager,
-                        authorizationHandler, cloudCallThreadPool));
-        greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
-                new AuthorizeClientDeviceActionOperationHandler(context, deviceAuthClient, authorizationHandler));
     }
 }
