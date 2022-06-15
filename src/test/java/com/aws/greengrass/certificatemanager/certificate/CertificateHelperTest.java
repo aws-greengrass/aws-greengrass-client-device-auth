@@ -77,7 +77,7 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.RSA_2048);
 
         KeyPair kp = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN);
 
         X509Certificate certificate = signServerCSRWithCA(csr, Collections.emptyList());
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
@@ -89,7 +89,7 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.ECDSA_P256);
 
         KeyPair kp = CertificateStore.newECKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN);
 
         X509Certificate certificate = signServerCSRWithCA(csr, Collections.emptyList());
         assertThat(certificate.getSigAlgName(), equalTo(ECDSA_CERT_SIG_ALG));
@@ -101,7 +101,7 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.ECDSA_P256);
 
         KeyPair kp = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN);
 
         X509Certificate certificate = signServerCSRWithCA(csr, Collections.emptyList());
         assertThat(certificate.getSigAlgName(), equalTo(ECDSA_CERT_SIG_ALG));
@@ -113,7 +113,7 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.RSA_2048);
 
         KeyPair kp = CertificateStore.newECKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN);
 
         X509Certificate certificate = signServerCSRWithCA(csr, Collections.emptyList());
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
@@ -146,7 +146,7 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.RSA_2048);
 
         KeyPair kp = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN);
 
         X509Certificate certificate = signServerCSRWithCA(csr, Collections.singletonList("172.8.8.10"));
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
@@ -159,7 +159,7 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.RSA_2048);
 
         KeyPair kp = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN);
 
         X509Certificate certificate = signServerCSRWithCA(csr, Collections.singletonList("localhost"));
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
@@ -173,7 +173,7 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.RSA_2048);
 
         KeyPair kp = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN);
 
         X509Certificate certificate = signServerCSRWithCA(csr, Arrays.asList("172.8.8.10", "localhost"));
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
@@ -187,7 +187,7 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.RSA_2048);
 
         KeyPair kp = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN);
 
         X509Certificate certificate = signServerCSRWithCA(csr, Arrays.asList("localhost", "localhost"));
         assertThat(certificate.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
@@ -201,7 +201,7 @@ public class CertificateHelperTest {
         certificateStore.update(TEST_PASSPHRASE, CAType.RSA_2048);
 
         KeyPair kp = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN, null, null);
+        String csr = CertificateRequestGenerator.createCSR(kp, TEST_CN);
 
         Instant now = Instant.now();
         PKCS10CertificationRequest pkcs10CertificationRequest =
