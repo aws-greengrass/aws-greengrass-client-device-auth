@@ -80,16 +80,16 @@ public class CertificateRegistry {
         return iotAuthClient.getActiveCertificateId(certificatePem);
     }
 
+    /**
+     * Returns IoT Certificate ID associated locally for given certificate PEM.
+     *
+     * @param certificatePem Certificate PEM
+     * @return Certificate ID or empty optional
+     */
     private Optional<String> getAssociatedCertificateId(String certificatePem) {
-        try {
-            String certId = certificateHashToIdMap.get(Digest.calculate(certificatePem));
-            if (certId != null) {
-                return Optional.of(certId);
-            }
-        } catch (NoSuchAlgorithmException e) {
-            return Optional.empty();
-        }
-        return Optional.empty();
+        String certId =  Optional.ofNullable(getCertificateHash(certificatePem))
+                .map(certificateHashToIdMap::get).orElse(null);
+        return Optional.ofNullable(certId);
     }
 
     /**
@@ -99,10 +99,21 @@ public class CertificateRegistry {
      * @param certificatePem Certificate PEM
      */
     private void registerCertificateIdForPem(String certificateId, String certificatePem) {
+        Optional.ofNullable(getCertificateHash(certificatePem))
+                .ifPresent(certHash -> certificateHashToIdMap.put(certHash, certificateId));
+    }
+
+    /**
+     * Returns SHA-256 hash of given CertificatePem.
+     * @param certificatePem certificate pem
+     * @return Certificate hash or null if hash could not be calculated
+     */
+    private String getCertificateHash(String certificatePem) {
         try {
-            certificateHashToIdMap.put(Digest.calculate(certificatePem), certificateId);
+            return Digest.calculate(certificatePem);
         } catch (NoSuchAlgorithmException e) {
-            logger.atWarn().cause(e).log("Could not store CertificatePem to CertificateId mapping");
+            logger.atWarn().cause(e).log("CertificatePem to CertificateId mapping could not be cached");
         }
+        return null;
     }
 }
