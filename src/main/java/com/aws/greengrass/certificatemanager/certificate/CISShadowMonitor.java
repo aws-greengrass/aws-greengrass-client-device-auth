@@ -49,7 +49,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.inject.Inject;
 
@@ -317,12 +316,12 @@ public class CISShadowMonitor {
         /**
          * Last received CIS shadow version, used to de-duplicate processing requests.
          */
-        private final AtomicInteger lastCISShadowVersion = new AtomicInteger();
+        private int lastCISShadowVersion;
 
         /**
          * Host addresses obtained from CIS, used to de-duplicate processing requests.
          */
-        private final AtomicReference<List<String>> hostAddresses = new AtomicReference<>();
+        private List<String> hostAddresses;
 
         private final ScheduledExecutorService ses;
 
@@ -419,7 +418,7 @@ public class CISShadowMonitor {
             int version = request.getVersion();
             Map<String, Object> desiredState = request.getDesiredState();
 
-            if (version == lastCISShadowVersion.get()) {
+            if (version == lastCISShadowVersion) {
                 LOGGER.atInfo().kv(VERSION, version)
                         .log("Already processed CIS shadow version. Skipping cert regeneration");
                 updateCISShadowReportedState(version, desiredState);
@@ -444,7 +443,7 @@ public class CISShadowMonitor {
                 return;
             }
 
-            List<String> previousHostAddresses = hostAddresses.getAndSet(newHostAddresses);
+            List<String> previousHostAddresses = hostAddresses;
             if (Objects.equals(previousHostAddresses, newHostAddresses)) {
                 LOGGER.atInfo().kv(VERSION, version)
                         .log("No change in connectivity info. Skipping cert regeneration");
@@ -452,9 +451,11 @@ public class CISShadowMonitor {
                 return;
             }
 
+            hostAddresses = newHostAddresses;
+
             try {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
-                    cg.generateCertificate(() -> newHostAddresses, "connectivity info was updated");
+                    cg.generateCertificate(() -> hostAddresses, "connectivity info was updated");
                 }
             } catch (KeyStoreException e) {
                 LOGGER.atError().kv(VERSION, version).cause(e).log("Failed to generate new certificates");
@@ -464,7 +465,7 @@ public class CISShadowMonitor {
             try {
                 updateCISShadowReportedState(version, desiredState);
             } finally {
-                lastCISShadowVersion.set(version);
+                lastCISShadowVersion = version;
             }
         }
 
