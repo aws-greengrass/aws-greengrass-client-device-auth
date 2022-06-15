@@ -27,9 +27,10 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class CertificateRegistryTest {
+    private static final String mockCertPem = "certificatePem";
+    private static final String mockCertId = "certificateId";
     @Mock
     private IotAuthClient mockIotAuthClient;
-
     @Captor
     private ArgumentCaptor<String> certPemCaptor;
 
@@ -47,8 +48,6 @@ class CertificateRegistryTest {
 
     @Test
     void GIVEN_certificatePem_and_cloudProperResponse_WHEN_getIotCertificateIdForPem_THEN_certificateIdReturned() {
-        String mockCertPem = "certificatePem";
-        String mockCertId = "certificateId";
         when(mockIotAuthClient.getActiveCertificateId(anyString())).thenReturn(Optional.of(mockCertId));
 
         Optional<String> certificateId = registry.getIotCertificateIdForPem(mockCertPem);
@@ -60,8 +59,6 @@ class CertificateRegistryTest {
 
     @Test
     void GIVEN_cached_certificateId_WHEN_getIotCertificateIdForPem_THEN_return_cached_certificateId() {
-        String mockCertPem = "certificatePem";
-        String mockCertId = "certificateId";
         when(mockIotAuthClient.getActiveCertificateId(anyString())).thenReturn(Optional.of(mockCertId));
 
         assertThat(registry.getIotCertificateIdForPem(mockCertPem).get(), is(mockCertId));
@@ -75,7 +72,6 @@ class CertificateRegistryTest {
 
     @Test
     void GIVEN_inactiveCertificate_WHEN_getIotCertificateIdForPem_THEN_should_not_cache_certificateId() {
-        String mockCertPem = "certificatePem";
         when(mockIotAuthClient.getActiveCertificateId(anyString())).thenReturn(Optional.empty());
 
         assertThat(registry.getIotCertificateIdForPem(mockCertPem), is(Optional.empty()));

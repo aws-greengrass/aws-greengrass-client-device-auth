@@ -17,16 +17,19 @@ import java.util.Map;
 import java.util.Optional;
 import javax.inject.Inject;
 
-import static com.aws.greengrass.device.ClientDevicesAuthService.DEFAULT_MAX_ACTIVE_AUTH_TOKENS;
-
 
 public class CertificateRegistry {
     private static final Logger logger = LogManager.getLogger(CertificateRegistry.class);
-    public static final int REGISTRY_CACHE_SIZE = DEFAULT_MAX_ACTIVE_AUTH_TOKENS;
+    public static final int REGISTRY_CACHE_SIZE = 50;
     // holds mapping of certificateHash (SHA-256 hash of certificatePem) to IoT Certificate Id;
     // size-bound by default cache size, evicts oldest written entry if the max size is reached
     private static final Map<String, String> certificateHashToIdMap = Collections.synchronizedMap(
-            new LinkedHashMap<>(REGISTRY_CACHE_SIZE, 0.75f, false));
+            new LinkedHashMap<String, String>(REGISTRY_CACHE_SIZE, 0.75f, false) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry eldest) {
+                    return size() > REGISTRY_CACHE_SIZE;
+                }
+            });
 
     private final IotAuthClient iotAuthClient;
 
@@ -52,15 +55,11 @@ public class CertificateRegistry {
         if (Utils.isEmpty(certificatePem)) {
             throw new IllegalArgumentException("Certificate PEM is empty");
         }
+        Optional<String> certId = getAssociatedCertificateId(certificatePem).map(Optional::of)
+                .orElseGet(() -> fetchActiveCertificateId(certificatePem));
 
-        String certId = getAssociatedCertificateId(certificatePem)
-                .orElseGet(() -> fetchActiveCertificateId(certificatePem).orElse(null));
-
-        if (certId != null) {
-            registerCertificateIdForPem(certId, certificatePem);
-            return Optional.of(certId);
-        }
-        return Optional.empty();
+        certId.ifPresent(id -> registerCertificateIdForPem(id, certificatePem));
+        return certId;
     }
 
     /**
@@ -87,9 +86,8 @@ public class CertificateRegistry {
      * @return Certificate ID or empty optional
      */
     private Optional<String> getAssociatedCertificateId(String certificatePem) {
-        String certId =  Optional.ofNullable(getCertificateHash(certificatePem))
-                .map(certificateHashToIdMap::get).orElse(null);
-        return Optional.ofNullable(certId);
+        return Optional.ofNullable(getCertificateHash(certificatePem))
+                .map(certificateHashToIdMap::get);
     }
 
     /**
