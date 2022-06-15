@@ -63,6 +63,16 @@ public class ClientDevicesAuthServiceApi {
     }
 
     /**
+     * Close client auth session.
+     *
+     * <P>Note that closing auth sessions is strictly optional</P>
+     * @param authToken Auth token corresponding to the session to be closed.
+     */
+    public void closeClientDeviceAuthSession(String authToken) {
+        sessionManager.closeSession(authToken);
+    }
+
+    /**
      * Authorize client action.
      * @param authorizationRequest Authorization request, including auth token, operation, and resource
      * @return true if the client action is allowed
