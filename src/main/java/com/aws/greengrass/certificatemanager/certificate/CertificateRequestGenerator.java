@@ -52,9 +52,9 @@ public final class CertificateRequestGenerator {
      * @throws IOException fails to add SAN Extension to CSR builder
      */
     public static String createCSR(KeyPair keyPair,
-                                                  String thingName,
-                                                  List<InetAddress> ipAddresses,
-                                                  List<String> dnsNames) throws OperatorCreationException, IOException {
+                                   String thingName,
+                                   List<InetAddress> ipAddresses,
+                                   List<String> dnsNames) throws OperatorCreationException, IOException {
 
         // Create PKCS10 certificate request
         X500Principal x500Principal = getx500PrincipalForThing(thingName);
@@ -117,7 +117,7 @@ public final class CertificateRequestGenerator {
      * @return RDN sequence.
      */
     private static X500Principal getx500PrincipalForThing(String commonName) {
-        String distinguishedName = String.format("CN=%sC=%sST=%sL=%sO=%sOU=%s",
+        String distinguishedName = String.format("CN=%s,C=%s,ST=%s,L=%s,O=%s,OU=%s",
                 commonName,
                 CSR_COUNTRY,
                 CSR_PROVINCE,

@@ -36,7 +36,7 @@ public class CertificateHelperTest {
     private static final String EXPECTED_ISSUER_PRINCIPAL
             = "CN=Greengrass Core CA,L=Seattle,ST=Washington,OU=Amazon Web Services,O=Amazon.com Inc.,C=US";
     private static final String EXPECTED_SUBJECT_PRINCIPAL
-            = "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
+            = "CN=testCN,C=US,ST=Washington,L=Seattle,O=Amazon.com Inc.,OU=Amazon Web Services";
     private static final String RSA_CERT_SIG_ALG = "SHA256WITHRSA";
     private static final String ECDSA_CERT_SIG_ALG = "SHA256WITHECDSA";
 
