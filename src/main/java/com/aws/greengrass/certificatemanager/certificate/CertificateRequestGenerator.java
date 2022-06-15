@@ -5,11 +5,6 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.ExtensionsGenerator;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -23,7 +18,6 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.net.InetAddress;
 import java.security.KeyPair;
-import java.util.ArrayList;
 import java.util.List;
 import javax.security.auth.x500.X500Principal;
 
@@ -55,17 +49,24 @@ public final class CertificateRequestGenerator {
                                    String thingName,
                                    List<InetAddress> ipAddresses,
                                    List<String> dnsNames) throws OperatorCreationException, IOException {
+        // TODO: Remove once Moquette and Bridge no longer call this API
+        return createCSR(keyPair, thingName);
+    }
 
+    /**
+     * Returns a PEM encoded Certificate Signing request string for given connectivity info.
+     *
+     * @param keyPair     public/private key pair to generate cert
+     * @param thingName   common name for cert subject
+     * @return String
+     * @throws OperatorCreationException fails to build CSR content signer with the given private key
+     * @throws IOException fails to add SAN Extension to CSR builder
+     */
+    public static String createCSR(KeyPair keyPair, String thingName) throws OperatorCreationException, IOException {
         // Create PKCS10 certificate request
         X500Principal x500Principal = getx500PrincipalForThing(thingName);
         PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(
                 x500Principal, keyPair.getPublic());
-
-        // Add SAN cert extensions to request
-        ExtensionsGenerator extensions = getSANExtensions(ipAddresses, dnsNames);
-        if (extensions != null) {
-            p10Builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensions.generate());
-        }
 
         // Create signature and sign the certificate Request
         String keyType = CertificateHelper.CERTIFICATE_SIGNING_ALGORITHM.get(keyPair.getPrivate().getAlgorithm());
@@ -74,40 +75,6 @@ public final class CertificateRequestGenerator {
 
         PKCS10CertificationRequest csr = p10Builder.build(signer);
         return getEncodedString(csr);
-    }
-
-    /**
-     * From given IP addresses and dns names, generates a list of SAN extensions to be added to Certificate.
-     *
-     * @param ipAddresses IP Addresses to be added to SAN extensions.
-     * @param dnsNames    DNS Names to be added to SAN extensions.
-     * @return SAN extensions to be added to Certificate Request.
-     * @throws IOException when addExtension call on ExtensionsGenerator fails.
-     */
-    private static ExtensionsGenerator getSANExtensions(List<InetAddress> ipAddresses,
-                                                        List<String> dnsNames) throws IOException {
-        // Add ips and dns names to SAN extension
-        if (ipAddresses == null && dnsNames == null) {
-            // Nothing to add
-            return null;
-        }
-
-        final List<GeneralName> generalNamesArray = new ArrayList<>();
-        if (ipAddresses != null) {
-            for (InetAddress ipAddress : ipAddresses) {
-                generalNamesArray.add(new GeneralName(GeneralName.iPAddress, ipAddress.getHostAddress()));
-            }
-        }
-        if (dnsNames != null) {
-            for (String dnsName : dnsNames) {
-                generalNamesArray.add(new GeneralName(GeneralName.dNSName, dnsName));
-            }
-        }
-        final GeneralNames generalNames = new GeneralNames(generalNamesArray.toArray(new GeneralName[0]));
-        ExtensionsGenerator extensions = new ExtensionsGenerator();
-        extensions.addExtension(Extension.subjectAlternativeName, false, generalNames);
-
-        return extensions;
     }
 
     /**

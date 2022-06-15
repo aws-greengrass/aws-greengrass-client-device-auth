@@ -64,7 +64,7 @@ class CertificateRequestGeneratorTest {
             "MQIDAQAB";
 
     private static final String TEST_CSR = "-----BEGIN CERTIFICATE REQUEST-----\n" +
-            "MIIDAjCCAeoCAQAwgYcxHDAaBgNVBAsTE0FtYXpvbiBXZWIgU2VydmljZXMxGDAW\n" +
+            "MIICzTCCAbUCAQAwgYcxHDAaBgNVBAsTE0FtYXpvbiBXZWIgU2VydmljZXMxGDAW\n" +
             "BgNVBAoTD0FtYXpvbi5jb20gSW5jLjEQMA4GA1UEBxMHU2VhdHRsZTETMBEGA1UE\n" +
             "CBMKV2FzaGluZ3RvbjELMAkGA1UEBhMCVVMxGTAXBgNVBAMTEENTUkdlbmVyYXRv\n" +
             "clRlc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCxCHT3zdDxDTIH\n" +
@@ -73,14 +73,13 @@ class CertificateRequestGeneratorTest {
             "UVIheiPfsNMo9pAyQ2WnzhkWzcY6mWd349aWn0kWxbf3EqowTc+qnjxpSLkajoZy\n" +
             "ndAmotlyl3FLJ/2KNbfEKs4Kz2EQ95SzA6JNEuPvBQ3JQGX2N6+vTkqTxiN0NUbK\n" +
             "anEJRNt3Lf5Hwh+gAy4s9CakVOvdV9r9+aR4q/4rbY0tV3k7eI5M/L7IylZobqlV\n" +
-            "MiSjDEQxAgMBAAGgNTAzBgkqhkiG9w0BCQ4xJjAkMCIGA1UdEQQbMBmHBMCoAQGC\n" +
-            "EXNvbWVmYWtlLmhvc3QuY29tMA0GCSqGSIb3DQEBCwUAA4IBAQBJZFtYJriJoh3c\n" +
-            "+oaAFsuoCgD48R1MXqC8ua0X9jSfa/HFu6453QHvZwFyNGJXmuGN3OtlRsUSx8QX\n" +
-            "dQBKzVuMxaQmT9gvOR1co6p4gUYx6xSyJ8kFVOuR7SlQ02VYR8ocSgjYNXKA3hYJ\n" +
-            "LbyPCBwGgyr1jt+xa98dXGC0jIuvMN8nDLGRUkMNnpPOM9S92bjpSBFGl6/+X5uo\n" +
-            "TkJHyuNqwXJzcDWAADhANSJx4d3OEyGs+JZOxjN+HcY+m73jHxugcqfzRX4oQ9ew\n" +
-            "84NxfASp1jLWU+0viwQUo4eH32U22WDZrgIbYsUWp5KHbwqpwTniE2OI1E5kp54i\n" +
-            "8lGRZDBC\n" +
+            "MiSjDEQxAgMBAAGgADANBgkqhkiG9w0BAQsFAAOCAQEAq+74wEM0056PygmYqBKn\n" +
+            "tLr7AEMSuV6GY70PZWQlPQuwgUppxJcCXYZoh4nLJGDEbogBU6YgPAVobOa/7GFi\n" +
+            "g3SnVAY1yWFOw7+qNuWBDzr2LJj5D0Q1U4Gt90vQKXT/j84BU/4o0y0Gd0oKn5Er\n" +
+            "pec4dzf3HtXviqF9ggbejVWe8ZAKx0U2cuQBQS/iNs3JyxxpaqDEWhSMqrxW52Th\n" +
+            "Ut2zLsBQdChoVDqeaHjyPFtIQsuhBIuyWEOfJmmNTJleI+vfmAFpkjVX8x3Z0yvR\n" +
+            "pEBOHpf8rQf2igm5bMLZqUthaDLke7jKZqMZvU5hzo8AX7bAfCI8glLFtx+Yqe8s\n" +
+            "fA==\n" +
             "-----END CERTIFICATE REQUEST-----\n";
 
     @Test
