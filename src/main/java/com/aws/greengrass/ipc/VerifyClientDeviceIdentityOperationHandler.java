@@ -10,8 +10,7 @@ import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.authorization.Permission;
 import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.device.ClientDevicesAuthService;
-import com.aws.greengrass.device.DeviceAuthClient;
-import com.aws.greengrass.device.iot.IotAuthClient;
+import com.aws.greengrass.device.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
@@ -25,7 +24,6 @@ import software.amazon.awssdk.aws.greengrass.model.VerifyClientDeviceIdentityRes
 import software.amazon.awssdk.eventstreamrpc.OperationContinuationHandlerContext;
 import software.amazon.awssdk.eventstreamrpc.model.EventStreamJsonMessage;
 
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -40,8 +38,7 @@ public class VerifyClientDeviceIdentityOperationHandler
     private static final String UNAUTHORIZED_ERROR = "Not Authorized";
     private static final String NO_DEVICE_CREDENTIAL_ERROR = "Client device credential is required";
     private static final String NO_DEVICE_CERTIFICATE_ERROR = "Client device certificate is required";
-    private final IotAuthClient iotAuthClient;
-    private final DeviceAuthClient deviceAuthClient;
+    private final ClientDevicesAuthServiceApi clientDevicesAuthServiceApi;
     private final String serviceName;
     private final AuthorizationHandler authorizationHandler;
     private final ExecutorService cloudCallThreadPool;
@@ -49,23 +46,20 @@ public class VerifyClientDeviceIdentityOperationHandler
     /**
      * Constructor.
      *
-     * @param context              operation continuation handler
-     * @param iotAuthClient        auth client for client device calls
-     * @param deviceAuthClient     device auth client to check for internal clients
-     * @param authorizationHandler authorization handler
-     * @param cloudCallThreadPool  executor to run the call to the cloud asynchronously
+     * @param context                     operation continuation handler
+     * @param clientDevicesAuthServiceApi client devices auth service handle
+     * @param authorizationHandler        authorization handler
+     * @param cloudCallThreadPool         executor to run the call to the cloud asynchronously
      */
     public VerifyClientDeviceIdentityOperationHandler(
-            OperationContinuationHandlerContext context, IotAuthClient iotAuthClient,
-            DeviceAuthClient deviceAuthClient, AuthorizationHandler authorizationHandler,
-            ExecutorService cloudCallThreadPool) {
+            OperationContinuationHandlerContext context, ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
+            AuthorizationHandler authorizationHandler, ExecutorService cloudCallThreadPool) {
 
         super(context);
-        this.iotAuthClient = iotAuthClient;
-        this.deviceAuthClient = deviceAuthClient;
-        serviceName = context.getAuthenticationData().getIdentityLabel();
+        this.clientDevicesAuthServiceApi = clientDevicesAuthServiceApi;
         this.authorizationHandler = authorizationHandler;
         this.cloudCallThreadPool = cloudCallThreadPool;
+        serviceName = context.getAuthenticationData().getIdentityLabel();
     }
 
     @Override
@@ -95,13 +89,7 @@ public class VerifyClientDeviceIdentityOperationHandler
             String certificate = getCertificateFromCredential(request.getCredential());
             try {
                 VerifyClientDeviceIdentityResponse response = new VerifyClientDeviceIdentityResponse();
-                // Allow internal clients to verify their identities
-                if (deviceAuthClient.isGreengrassComponent(certificate)) {
-                    response.withIsValidClientDevice(true);
-                } else {
-                    Optional<String> certificateId = iotAuthClient.getActiveCertificateId(certificate);
-                    response.withIsValidClientDevice(certificateId.isPresent());
-                }
+                response.withIsValidClientDevice(clientDevicesAuthServiceApi.verifyClientDeviceIdentity(certificate));
                 return response;
             } catch (Exception e) {
                 logger.atError().cause(e).log("Unable to verify client device identity");

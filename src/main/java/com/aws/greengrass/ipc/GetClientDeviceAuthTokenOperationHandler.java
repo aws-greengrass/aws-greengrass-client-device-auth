@@ -10,8 +10,8 @@ import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.authorization.Permission;
 import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.device.ClientDevicesAuthService;
+import com.aws.greengrass.device.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.device.exception.AuthenticationException;
-import com.aws.greengrass.device.session.SessionManager;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import software.amazon.awssdk.aws.greengrass.GeneratedAbstractGetClientDeviceAuthTokenOperationHandler;
@@ -44,28 +44,28 @@ public class GetClientDeviceAuthTokenOperationHandler
     private static final String NO_DEVICE_CREDENTIAL_ERROR = "Invalid client device credentials";
     private final String serviceName;
     private final AuthorizationHandler authorizationHandler;
-    private final SessionManager sessionManager;
+    private final ClientDevicesAuthServiceApi clientDevicesAuthServiceApi;
     private final Map<String, String> credentialMap = new HashMap<>();
     private final ExecutorService cloudCallThreadPool;
 
     /**
      * Constructor.
      *
-     * @param context              operation continuation handler
-     * @param sessionManager       session manager
-     * @param authorizationHandler authorization handler
-     * @param cloudCallThreadPool  executor to run the call to the cloud asynchronously
+     * @param context                     operation continuation handler
+     * @param clientDevicesAuthServiceApi client devices auth service handle
+     * @param authorizationHandler        authorization handler
+     * @param cloudCallThreadPool         executor to run the call to the cloud asynchronously
      */
     public GetClientDeviceAuthTokenOperationHandler(
             OperationContinuationHandlerContext context,
-            SessionManager sessionManager,
+            ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
             AuthorizationHandler authorizationHandler,
             ExecutorService cloudCallThreadPool
     ) {
 
         super(context);
         serviceName = context.getAuthenticationData().getIdentityLabel();
-        this.sessionManager = sessionManager;
+        this.clientDevicesAuthServiceApi = clientDevicesAuthServiceApi;
         this.authorizationHandler = authorizationHandler;
         this.cloudCallThreadPool = cloudCallThreadPool;
     }
@@ -96,7 +96,8 @@ public class GetClientDeviceAuthTokenOperationHandler
             }
             Map<String, String> credentialMap = mapOfMqttCredential(request.getCredential());
             try {
-                String sessionId = sessionManager.createSession(MQTT_CREDENTIAL_TYPE, credentialMap);
+                String sessionId = clientDevicesAuthServiceApi.getClientDeviceAuthToken(MQTT_CREDENTIAL_TYPE,
+                        credentialMap);
                 GetClientDeviceAuthTokenResponse response = new GetClientDeviceAuthTokenResponse();
                 return response.withClientDeviceAuthToken(sessionId);
             } catch (AuthenticationException e) {
@@ -143,12 +144,9 @@ public class GetClientDeviceAuthTokenOperationHandler
 
     @Override
     public void handleStreamEvent(EventStreamJsonMessage eventStreamJsonMessage) {
-
     }
 
     @Override
     protected void onStreamClosed() {
-
     }
-
 }
