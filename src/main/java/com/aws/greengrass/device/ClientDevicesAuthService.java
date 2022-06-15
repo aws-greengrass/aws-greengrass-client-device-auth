@@ -6,7 +6,6 @@
 package com.aws.greengrass.device;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
-import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.certificatemanager.CertificateManager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CertificatesConfig;
@@ -18,7 +17,6 @@ import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.device.configuration.GroupConfiguration;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
-import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.session.MqttSessionFactory;
 import com.aws.greengrass.device.session.SessionConfig;
 import com.aws.greengrass.device.session.SessionCreator;
@@ -45,7 +43,6 @@ import java.security.KeyStoreException;
 import java.security.cert.CertificateEncodingException;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -55,7 +52,10 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
+import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.AUTHORIZE_CLIENT_DEVICE_ACTION;
+import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.GET_CLIENT_DEVICE_AUTH_TOKEN;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.SUBSCRIBE_TO_CERTIFICATE_UPDATES;
+import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VERIFY_CLIENT_DEVICE_IDENTITY;
 
 @SuppressWarnings("PMD.DataClass")
 @ImplementsService(name = ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
@@ -83,12 +83,10 @@ public class ClientDevicesAuthService extends PluginService {
 
     private final GreengrassServiceClientFactory clientFactory;
 
+    private final ClientDevicesAuthServiceApi clientDevicesAuthServiceApi;
     private final DeviceConfiguration deviceConfiguration;
     private final AuthorizationHandler authorizationHandler;
     private final GreengrassCoreIPCService greengrassCoreIPCService;
-    private final IotAuthClient iotAuthClient;
-    private final SessionManager sessionManager;
-    private final DeviceAuthClient deviceAuthClient;
     // Limit the queue size before we start rejecting requests
     private static final int DEFAULT_CLOUD_CALL_QUEUE_SIZE = 100;
     private static final int DEFAULT_THREAD_POOL_SIZE = 1;
@@ -100,17 +98,16 @@ public class ClientDevicesAuthService extends PluginService {
     /**
      * Constructor.
      *
-     * @param topics                   Root Configuration topic for this service
-     * @param groupManager             Group configuration management
-     * @param certificateManager       Certificate management
-     * @param clientFactory            Greengrass cloud service client factory
-     * @param deviceConfiguration      core device configuration
-     * @param authorizationHandler     authorization handler for IPC calls
-     * @param greengrassCoreIPCService core IPC service
-     * @param mqttSessionFactory       session factory to handling mqtt credentials
-     * @param iotAuthClient            iot auth client
-     * @param sessionManager           session manager
-     * @param deviceAuthClient         device auth client
+     * @param topics                      Root Configuration topic for this service
+     * @param groupManager                Group configuration management
+     * @param certificateManager          Certificate management
+     * @param clientFactory               Greengrass cloud service client factory
+     * @param deviceConfiguration         core device configuration
+     * @param authorizationHandler        authorization handler for IPC calls
+     * @param greengrassCoreIPCService    core IPC service
+     * @param mqttSessionFactory          session factory to handling mqtt credentials
+     * @param sessionManager              session manager
+     * @param clientDevicesAuthServiceApi client devices service api handle
      */
     @SuppressWarnings("PMD.ExcessiveParameterList")
     @Inject
@@ -120,9 +117,8 @@ public class ClientDevicesAuthService extends PluginService {
                                     AuthorizationHandler authorizationHandler,
                                     GreengrassCoreIPCService greengrassCoreIPCService,
                                     MqttSessionFactory mqttSessionFactory,
-                                    IotAuthClient iotAuthClient,
                                     SessionManager sessionManager,
-                                    DeviceAuthClient deviceAuthClient) {
+                                    ClientDevicesAuthServiceApi clientDevicesAuthServiceApi) {
         super(topics);
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
         cloudCallQueueSize = getValidCloudCallQueueSize(topics);
@@ -130,15 +126,13 @@ public class ClientDevicesAuthService extends PluginService {
                 DEFAULT_THREAD_POOL_SIZE, 60, TimeUnit.SECONDS,
                 new ResizableLinkedBlockingQueue<>(cloudCallQueueSize));
         cloudCallThreadPool.allowCoreThreadTimeOut(true); // act as a cached threadpool
+        this.clientDevicesAuthServiceApi = clientDevicesAuthServiceApi;
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
         this.clientFactory = clientFactory;
         this.deviceConfiguration = deviceConfiguration;
         this.authorizationHandler = authorizationHandler;
         this.greengrassCoreIPCService = greengrassCoreIPCService;
-        this.iotAuthClient = iotAuthClient;
-        this.sessionManager = sessionManager;
-        this.deviceAuthClient = deviceAuthClient;
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(this.getConfig()));
@@ -231,6 +225,34 @@ public class ClientDevicesAuthService extends PluginService {
         certificateManager.stopMonitors();
     }
 
+    @Override
+    public void postInject() {
+        super.postInject();
+        try {
+            authorizationHandler.registerComponent(this.getName(),
+                    new HashSet<>(Arrays.asList(new String[]{
+                            SUBSCRIBE_TO_CERTIFICATE_UPDATES,
+                            VERIFY_CLIENT_DEVICE_IDENTITY,
+                            GET_CLIENT_DEVICE_AUTH_TOKEN,
+                            AUTHORIZE_CLIENT_DEVICE_ACTION
+                    })));
+        } catch (com.aws.greengrass.authorization.exceptions.AuthorizationException e) {
+            logger.atError("initialize-cda-service-authorization-error", e)
+                    .log("Failed to initialize the client device auth service with the Authorization module.");
+        }
+        greengrassCoreIPCService.setSubscribeToCertificateUpdatesHandler(context ->
+                new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
+        greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
+                new VerifyClientDeviceIdentityOperationHandler(context, clientDevicesAuthServiceApi,
+                        authorizationHandler, cloudCallThreadPool));
+        greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
+                new GetClientDeviceAuthTokenOperationHandler(context, clientDevicesAuthServiceApi, authorizationHandler,
+                        cloudCallThreadPool));
+        greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
+                new AuthorizeClientDeviceActionOperationHandler(context, clientDevicesAuthServiceApi,
+                        authorizationHandler));
+    }
+
     public CertificateManager getCertificateManager() {
         return certificateManager;
     }
@@ -320,27 +342,5 @@ public class ClientDevicesAuthService extends PluginService {
             throw new CloudServiceInteractionException(
                     String.format("Failed to put core %s CA certificates to cloud", thingName), e);
         }
-    }
-
-    @Override
-    public void postInject() {
-        super.postInject();
-        try {
-            authorizationHandler.registerComponent(this.getName(),
-                    new HashSet<>(Collections.singletonList(SUBSCRIBE_TO_CERTIFICATE_UPDATES)));
-        } catch (AuthorizationException e) {
-            logger.atError("initialize-cda-service-authorization-error", e)
-                    .log("Failed to initialize the client device auth service with the Authorization module.");
-        }
-        greengrassCoreIPCService.setSubscribeToCertificateUpdatesHandler(context ->
-                new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
-        greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
-                new VerifyClientDeviceIdentityOperationHandler(context, iotAuthClient,
-                        deviceAuthClient, authorizationHandler, cloudCallThreadPool));
-        greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
-                new GetClientDeviceAuthTokenOperationHandler(context, sessionManager,
-                        authorizationHandler, cloudCallThreadPool));
-        greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
-                new AuthorizeClientDeviceActionOperationHandler(context, deviceAuthClient, authorizationHandler));
     }
 }
