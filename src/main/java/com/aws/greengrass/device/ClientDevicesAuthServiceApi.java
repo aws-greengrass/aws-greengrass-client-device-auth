@@ -7,7 +7,7 @@ package com.aws.greengrass.device;
 
 import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.exception.AuthorizationException;
-import com.aws.greengrass.device.iot.IotAuthClient;
+import com.aws.greengrass.device.iot.CertificateRegistry;
 import com.aws.greengrass.device.session.SessionManager;
 
 import java.util.Map;
@@ -15,22 +15,22 @@ import java.util.Optional;
 import javax.inject.Inject;
 
 public class ClientDevicesAuthServiceApi {
-    private final IotAuthClient iotAuthClient;
+    private final CertificateRegistry certificateRegistry;
     private final SessionManager sessionManager;
     private final DeviceAuthClient deviceAuthClient;
 
     /**
      * Constructor.
      *
-     * @param iotAuthClient    iot auth client
-     * @param sessionManager   session manager
-     * @param deviceAuthClient device auth client
+     * @param certificateRegistry iot auth client
+     * @param sessionManager      session manager
+     * @param deviceAuthClient    device auth client
      */
     @Inject
-    public ClientDevicesAuthServiceApi(IotAuthClient iotAuthClient,
+    public ClientDevicesAuthServiceApi(CertificateRegistry certificateRegistry,
                                        SessionManager sessionManager,
                                        DeviceAuthClient deviceAuthClient) {
-        this.iotAuthClient = iotAuthClient;
+        this.certificateRegistry = certificateRegistry;
         this.sessionManager = sessionManager;
         this.deviceAuthClient = deviceAuthClient;
     }
@@ -45,7 +45,7 @@ public class ClientDevicesAuthServiceApi {
         if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
             return true;
         } else {
-            Optional<String> certificateId = iotAuthClient.getActiveCertificateId(certificatePem);
+            Optional<String> certificateId = certificateRegistry.getIotCertificateIdForPem(certificatePem);
             return certificateId.isPresent();
         }
     }
