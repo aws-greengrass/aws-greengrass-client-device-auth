@@ -11,7 +11,6 @@ import com.aws.greengrass.device.iot.CertificateRegistry;
 import com.aws.greengrass.device.session.SessionManager;
 
 import java.util.Map;
-import java.util.Optional;
 import javax.inject.Inject;
 
 public class ClientDevicesAuthServiceApi {
@@ -45,8 +44,7 @@ public class ClientDevicesAuthServiceApi {
         if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
             return true;
         } else {
-            Optional<String> certificateId = certificateRegistry.getIotCertificateIdForPem(certificatePem);
-            return certificateId.isPresent();
+            return certificateRegistry.isCertificateValid(certificatePem);
         }
     }
 

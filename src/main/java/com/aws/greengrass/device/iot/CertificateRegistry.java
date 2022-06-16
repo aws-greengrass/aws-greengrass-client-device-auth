@@ -44,6 +44,18 @@ public class CertificateRegistry {
     }
 
     /**
+     * Returns whether the provided certificate is valid and active.
+     * @param certificatePem Certificate PEM
+     * @return true if the certificate is valid and active.
+     */
+    public boolean isCertificateValid(String certificatePem) {
+        // TODO: Check cache instead of calling the cloud once we have certificate revocation
+        Optional<String> certId = fetchActiveCertificateId(certificatePem);
+        certId.ifPresent(id -> registerCertificateIdForPem(id, certificatePem));
+        return certId.isPresent();
+    }
+
+    /**
      * Get IoT Certificate ID for given certificate pem.
      * Active IoT Certificate Ids are cached locally to avoid multiple cloud requests.
      *

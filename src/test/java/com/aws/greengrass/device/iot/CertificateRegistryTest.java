@@ -47,6 +47,18 @@ class CertificateRegistryTest {
     }
 
     @Test
+    void GIVEN_validAndActiveCertificatePem_WHEN_getIotCertificateIdForPem_THEN_certificateIdReturned() {
+        when(mockIotAuthClient.getActiveCertificateId(anyString())).thenReturn(Optional.of(mockCertId));
+
+        registry.isCertificateValid(mockCertPem);
+        Optional<String> certificateId = registry.getIotCertificateIdForPem(mockCertPem);
+
+        // Assert that we only call the cloud a single time
+        assertThat(certificateId.get(), is(mockCertId));
+        verify(mockIotAuthClient, times(1)).getActiveCertificateId(anyString());
+    }
+
+    @Test
     void GIVEN_certificatePem_and_cloudProperResponse_WHEN_getIotCertificateIdForPem_THEN_certificateIdReturned() {
         when(mockIotAuthClient.getActiveCertificateId(anyString())).thenReturn(Optional.of(mockCertId));
 
