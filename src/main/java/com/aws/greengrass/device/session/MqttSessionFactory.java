@@ -9,6 +9,7 @@ import com.aws.greengrass.device.DeviceAuthClient;
 import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.exception.CloudServiceInteractionException;
 import com.aws.greengrass.device.iot.Certificate;
+import com.aws.greengrass.device.iot.CertificateRegistry;
 import com.aws.greengrass.device.iot.Component;
 import com.aws.greengrass.device.iot.IotAuthClient;
 import com.aws.greengrass.device.iot.Thing;
@@ -20,11 +21,22 @@ import javax.inject.Inject;
 public class MqttSessionFactory implements SessionFactory {
     private final IotAuthClient iotAuthClient;
     private final DeviceAuthClient deviceAuthClient;
+    private final CertificateRegistry certificateRegistry;
 
+    /**
+     * Constructor.
+     *
+     * @param iotAuthClient       Iot auth client
+     * @param deviceAuthClient    Device auth client
+     * @param certificateRegistry device Certificate registry
+     */
     @Inject
-    public MqttSessionFactory(IotAuthClient iotAuthClient, DeviceAuthClient deviceAuthClient) {
+    public MqttSessionFactory(IotAuthClient iotAuthClient,
+                              DeviceAuthClient deviceAuthClient,
+                              CertificateRegistry certificateRegistry) {
         this.iotAuthClient = iotAuthClient;
         this.deviceAuthClient = deviceAuthClient;
+        this.certificateRegistry = certificateRegistry;
     }
 
     @Override
@@ -43,7 +55,7 @@ public class MqttSessionFactory implements SessionFactory {
     private Session createIotThingSession(MqttCredential mqttCredential) throws AuthenticationException {
         Optional<String> certificateId;
         try {
-            certificateId = iotAuthClient.getActiveCertificateId(mqttCredential.certificatePem);
+            certificateId = certificateRegistry.getIotCertificateIdForPem(mqttCredential.certificatePem);
             if (!certificateId.isPresent()) {
                 throw new AuthenticationException("Certificate isn't active");
             }
