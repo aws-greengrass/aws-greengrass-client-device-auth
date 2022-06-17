@@ -15,8 +15,7 @@ import com.aws.greengrass.certificatemanager.certificate.ClientCertificateGenera
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.certificatemanager.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
-import com.aws.greengrass.logging.api.Logger;
-import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import lombok.NonNull;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
@@ -36,8 +35,6 @@ import java.util.function.Consumer;
 import javax.inject.Inject;
 
 public class CertificateManager {
-    private final Logger logger = LogManager.getLogger(CertificateManager.class);
-
     private final CertificateStore certificateStore;
 
     private final ConnectivityInfoProvider connectivityInfoProvider;
@@ -132,13 +129,12 @@ public class CertificateManager {
      *
      * @param csr Certificate signing request
      * @param cb  Certificate consumer
-     * @throws KeyStoreException if unable to access KeyStore
      * @throws CsrProcessingException if unable to process CSR
      * @throws RuntimeException for any unknown runtime error
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.ExceptionAsFlowControl"})
     public void subscribeToServerCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
-            throws KeyStoreException, CsrProcessingException {
+            throws CsrProcessingException {
         // deduplicate subscriptions with the same callback
         try {
             serverCertSubscriptions.compute(cb, (k, v) -> {
@@ -166,19 +162,14 @@ public class CertificateManager {
                     certificateGenerator.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
                             "initialization of server cert subscription");
                     return certificateGenerator;
-                } catch (KeyStoreException e) {
-                    logger.atError().setCause(e).log("unable to subscribe to certificate update");
-                    throw new RuntimeException(e);
-                } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException e) {
+                } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException
+                        | CertificateGenerationException e) {
                     throw new RuntimeException(new CsrProcessingException(csr, e));
                 }
             });
         } catch (RuntimeException e) {
             if (e.getCause() != null) {
                 Throwable cause = e.getCause();
-                if (cause instanceof KeyStoreException) {
-                    throw (KeyStoreException) cause;
-                }
                 if (cause instanceof CsrProcessingException) {
                     throw (CsrProcessingException) cause;
                 }
@@ -197,12 +188,11 @@ public class CertificateManager {
      *
      * @param csr Certificate signing request
      * @param cb  Certificate consumer
-     * @throws KeyStoreException if unable to access KeyStore
      * @throws CsrProcessingException if unable to process CSR
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate[]> cb)
-            throws KeyStoreException, CsrProcessingException {
+            throws CsrProcessingException {
         // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
         // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
         try {
@@ -215,10 +205,8 @@ public class CertificateManager {
             certificateGenerator.generateCertificate(Collections::emptyList,
                     "initialization of client cert subscription");
             certExpiryMonitor.addToMonitor(certificateGenerator);
-        } catch (KeyStoreException e) {
-            logger.atError().setCause(e).log("unable to subscribe to certificate update");
-            throw e;
-        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException e) {
+        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException
+                | CertificateGenerationException e) {
             throw new CsrProcessingException(csr, e);
         }
     }

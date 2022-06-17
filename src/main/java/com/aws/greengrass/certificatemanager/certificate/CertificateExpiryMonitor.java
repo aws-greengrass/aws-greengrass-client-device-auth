@@ -6,12 +6,12 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.AccessLevel;
 import lombok.Setter;
 
-import java.security.KeyStoreException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -77,7 +77,7 @@ public class CertificateExpiryMonitor {
                     .ifPresent(reason -> {
                         try {
                             cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses, reason);
-                        } catch (KeyStoreException e) {
+                        } catch (CertificateGenerationException e) {
                             LOGGER.atError().cause(e).log(
                                     "Error generating certificate. Will be retried after {} seconds",
                                     DEFAULT_CERT_EXPIRY_CHECK_SECONDS);

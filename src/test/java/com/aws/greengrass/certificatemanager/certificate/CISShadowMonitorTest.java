@@ -6,6 +6,7 @@
 package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
@@ -425,8 +426,9 @@ public class CISShadowMonitorTest {
      *
      * @throws KeyStoreException n/a
      */
-    private void verifyCertsRotatedWhenConnectivityChanges() throws KeyStoreException {
-        verify(certificateGenerator, times(connectivityInfoProvider.getNumUniqueConnectivityInfoResponses())).generateCertificate(any(), any());
+    private void verifyCertsRotatedWhenConnectivityChanges() throws CertificateGenerationException {
+        verify(certificateGenerator, times(connectivityInfoProvider.getNumUniqueConnectivityInfoResponses()))
+                .generateCertificate(any(), any());
     }
 
     @Nonnull

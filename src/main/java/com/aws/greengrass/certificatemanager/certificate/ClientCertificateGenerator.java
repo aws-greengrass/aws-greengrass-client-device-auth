@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -50,7 +51,7 @@ public class ClientCertificateGenerator extends CertificateGenerator {
 
     @Override
     public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
-            throws KeyStoreException {
+            throws CertificateGenerationException {
         if (certificatesConfig.isCertificateRotationDisabled() && certificate != null) {
             logger.atWarn()
                     .kv("subject", subject)
@@ -69,18 +70,19 @@ public class ClientCertificateGenerator extends CertificateGenerator {
                     publicKey,
                     Date.from(now),
                     Date.from(now.plusSeconds(certificatesConfig.getClientCertValiditySeconds())));
-        } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException e) {
+
+            logger.atInfo()
+                    .kv("subject", subject)
+                    .kv("reason", reason)
+                    .kv("certExpiry", getExpiryTime())
+                    .log("New client certificate generated");
+
+            X509Certificate caCertificate = certificateStore.getCACertificate();
+            X509Certificate[] chain = {certificate, caCertificate};
+            callback.accept(chain);
+        } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException
+                | KeyStoreException e) {
             throw new CertificateGenerationException(e);
         }
-
-        logger.atInfo()
-                .kv("subject", subject)
-                .kv("reason", reason)
-                .kv("certExpiry", getExpiryTime())
-                .log("New client certificate generated");
-
-        X509Certificate caCertificate = certificateStore.getCACertificate();
-        X509Certificate[] chain = {certificate, caCertificate};
-        callback.accept(chain);
     }
 }

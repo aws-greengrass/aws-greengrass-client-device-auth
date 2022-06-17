@@ -7,6 +7,7 @@ package com.aws.greengrass.certificatemanager.certificate;
 
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.deployment.DeviceConfiguration;
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.mqttclient.MqttClient;
@@ -30,7 +31,6 @@ import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
-import java.security.KeyStoreException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -251,7 +251,7 @@ public class CISShadowMonitor {
                     cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
                             "connectivity info was updated");
                 }
-            } catch (KeyStoreException e) {
+            } catch (CertificateGenerationException e) {
                 LOGGER.atError().kv(VERSION, version).cause(e).log("Failed to generate new certificates");
                 return;
             }

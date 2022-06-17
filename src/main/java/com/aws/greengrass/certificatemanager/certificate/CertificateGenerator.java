@@ -5,12 +5,12 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import org.bouncycastle.asn1.x500.X500Name;
 
-import java.security.KeyStoreException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
@@ -56,10 +56,10 @@ public abstract class CertificateGenerator {
      *
      * @param connectivityInfoSupplier connectivity information
      * @param reason                   WHY cert gen was requested.
-     * @throws KeyStoreException if unable to retrieve CA key/cert
+     * @throws CertificateGenerationException if unable to generate certificate
      */
     public abstract void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
-            throws KeyStoreException;
+            throws CertificateGenerationException;
 
     /**
      * Get expiry time of certificate.

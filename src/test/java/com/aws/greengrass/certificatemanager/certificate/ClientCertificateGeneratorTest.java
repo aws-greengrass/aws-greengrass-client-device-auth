@@ -8,6 +8,7 @@ package com.aws.greengrass.certificatemanager.certificate;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
@@ -88,7 +89,7 @@ public class ClientCertificateGeneratorTest {
 
     @Test
     void GIVEN_ClientCertificateGenerator_WHEN_rotation_disabled_THEN_only_initial_certificate_generated()
-            throws KeyStoreException {
+            throws KeyStoreException, CertificateGenerationException {
         configurationTopics.lookup(CertificatesConfig.PATH_DISABLE_CERTIFICATE_ROTATION).withValue(true);
 
         // initial cert generation and some rotation attempts

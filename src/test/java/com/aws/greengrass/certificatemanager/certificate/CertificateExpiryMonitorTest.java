@@ -9,6 +9,7 @@ import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.junit.jupiter.api.AfterEach;
@@ -179,7 +180,7 @@ public class CertificateExpiryMonitorTest {
      * @throws KeyStoreException        if unable to generate certificate
      */
     private CertificateGenerator monitorNewServerCert(Clock clock)
-            throws NoSuchAlgorithmException, KeyStoreException {
+            throws NoSuchAlgorithmException, CertificateGenerationException {
         return monitorNewCert(key -> new ServerCertificateGenerator(
                 SUBJECT, key, cert -> {
         }, certificateStore, certificatesConfig, clock));
@@ -195,14 +196,14 @@ public class CertificateExpiryMonitorTest {
      * @throws KeyStoreException        if unable to generate certificate
      */
     private CertificateGenerator monitorNewClientCert(Clock clock)
-            throws NoSuchAlgorithmException, KeyStoreException {
+            throws NoSuchAlgorithmException, CertificateGenerationException {
         return monitorNewCert(key -> new ClientCertificateGenerator(
                 SUBJECT, key, cert -> {
         }, certificateStore, certificatesConfig, clock));
     }
 
-    private CertificateGenerator monitorNewCert(
-            Function<PublicKey, CertificateGenerator> cgFactory) throws NoSuchAlgorithmException, KeyStoreException {
+    private CertificateGenerator monitorNewCert(Function<PublicKey, CertificateGenerator> cgFactory)
+            throws NoSuchAlgorithmException, CertificateGenerationException {
         PublicKey key = CertificateStore.newRSAKeyPair().getPublic();
         CertificateGenerator cg = cgFactory.apply(key);
         cg.generateCertificate(Collections::emptyList, "test");

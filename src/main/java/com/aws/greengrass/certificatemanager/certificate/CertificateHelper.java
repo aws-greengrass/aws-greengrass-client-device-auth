@@ -259,7 +259,12 @@ public final class CertificateHelper {
         builder.addExtension(Extension.subjectAlternativeName, false, generalNames);
     }
 
-    private static X500Name getIssuer(String commonName) {
+    /**
+     * Construct X500Name from Common Name.
+     * @param commonName Common name to include in X500Name
+     * @return X500Name
+     */
+    public static X500Name getIssuer(String commonName) {
         X500NameBuilder nameBuilder = new X500NameBuilder(X500Name.getDefaultStyle());
         nameBuilder.addRDN(BCStyle.C, X500_DISTINGUISHED_NAME_COUNTRY_NAME);
         nameBuilder.addRDN(BCStyle.O, X500_DISTINGUISHED_NAME_ORGANIZATION_NAME);
