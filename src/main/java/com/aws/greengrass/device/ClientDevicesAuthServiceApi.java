@@ -5,8 +5,11 @@
 
 package com.aws.greengrass.device;
 
+import com.aws.greengrass.certificatemanager.CertificateManager;
+import com.aws.greengrass.device.api.GetCertificateRequest;
 import com.aws.greengrass.device.exception.AuthenticationException;
 import com.aws.greengrass.device.exception.AuthorizationException;
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import com.aws.greengrass.device.iot.CertificateRegistry;
 import com.aws.greengrass.device.session.SessionManager;
 
@@ -17,6 +20,7 @@ public class ClientDevicesAuthServiceApi {
     private final CertificateRegistry certificateRegistry;
     private final SessionManager sessionManager;
     private final DeviceAuthClient deviceAuthClient;
+    private final CertificateManager certificateManager;
 
     /**
      * Constructor.
@@ -24,14 +28,17 @@ public class ClientDevicesAuthServiceApi {
      * @param certificateRegistry iot auth client
      * @param sessionManager      session manager
      * @param deviceAuthClient    device auth client
+     * @param certificateManager  certificate manager
      */
     @Inject
     public ClientDevicesAuthServiceApi(CertificateRegistry certificateRegistry,
                                        SessionManager sessionManager,
-                                       DeviceAuthClient deviceAuthClient) {
+                                       DeviceAuthClient deviceAuthClient,
+                                       CertificateManager certificateManager) {
         this.certificateRegistry = certificateRegistry;
         this.sessionManager = sessionManager;
         this.deviceAuthClient = deviceAuthClient;
+        this.certificateManager = certificateManager;
     }
 
     /**
@@ -79,5 +86,23 @@ public class ClientDevicesAuthServiceApi {
     public boolean authorizeClientDeviceAction(AuthorizationRequest authorizationRequest)
             throws AuthorizationException {
         return deviceAuthClient.canDevicePerform(authorizationRequest);
+    }
+
+    /**
+     * Subscribe to certificate updates.
+     * @param getCertificateRequest subscription request parameters
+     * @throws CertificateGenerationException if unable to subscribe to certificate updates
+     */
+    public void subscribeToCertificateUpdates(GetCertificateRequest getCertificateRequest)
+            throws CertificateGenerationException {
+        certificateManager.subscribeToCertificateUpdates(getCertificateRequest);
+    }
+
+    /**
+     * Unsubscribe from certificate updates.
+     * @param getCertificateRequest request used to make the original certificate update subscription
+     */
+    public void unsubscribeFromCertificateUpdates(GetCertificateRequest getCertificateRequest) {
+        certificateManager.unsubscribeFromCertificateUpdates(getCertificateRequest);
     }
 }
