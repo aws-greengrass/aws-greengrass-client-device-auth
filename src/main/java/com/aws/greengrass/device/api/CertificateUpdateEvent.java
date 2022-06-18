@@ -12,7 +12,7 @@ import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 
 @Value
-public class GetCertificateUpdate {
+public class CertificateUpdateEvent {
     KeyPair keyPair;
     X509Certificate certificate;
     X509Certificate[] caCertificates;

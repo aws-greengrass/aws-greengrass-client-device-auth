@@ -14,5 +14,5 @@ import java.util.function.Consumer;
 public class GetCertificateRequest {
     private String serviceName;
     private GetCertificateRequestOptions certificateRequestOptions;
-    private Consumer<GetCertificateUpdate> certificateUpdateConsumer;
+    private Consumer<CertificateUpdateEvent> certificateUpdateConsumer;
 }

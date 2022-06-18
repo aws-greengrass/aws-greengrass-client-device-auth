@@ -15,9 +15,9 @@ import com.aws.greengrass.certificatemanager.certificate.ClientCertificateGenera
 import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.certificatemanager.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
+import com.aws.greengrass.device.api.CertificateUpdateEvent;
 import com.aws.greengrass.device.api.GetCertificateRequest;
 import com.aws.greengrass.device.api.GetCertificateRequestOptions;
-import com.aws.greengrass.device.api.GetCertificateUpdate;
 import com.aws.greengrass.device.exception.CertificateGenerationException;
 import lombok.NonNull;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
@@ -144,24 +144,25 @@ public class CertificateManager {
         try {
             GetCertificateRequestOptions.CertificateType certificateType =
                     getCertificateRequest.getCertificateRequestOptions().getCertificateType();
-            X509Certificate[] caCertificates = getX509CACertificates();
             KeyPair keyPair = CertificateStore.newRSAKeyPair(2048);
 
             if (certificateType.equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
                 KeyPair finalKeyPair = keyPair;
+                X509Certificate[] caCertificates = getX509CACertificates();
                 Consumer<X509Certificate> consumer = (t) -> {
-                    GetCertificateUpdate getCertificateUpdate =
-                            new GetCertificateUpdate(finalKeyPair, t, caCertificates);
-                    getCertificateRequest.getCertificateUpdateConsumer().accept(getCertificateUpdate);
+                    CertificateUpdateEvent certificateUpdateEvent =
+                            new CertificateUpdateEvent(finalKeyPair, t, caCertificates);
+                    getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest.getServiceName(),
                         keyPair.getPublic(), consumer);
             } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
                 KeyPair finalKeyPair = keyPair;
+                X509Certificate[] caCertificates = getX509CACertificates();
                 Consumer<X509Certificate[]> consumer = (t) -> {
-                    GetCertificateUpdate getCertificateUpdate =
-                            new GetCertificateUpdate(finalKeyPair, t[0], caCertificates);
-                    getCertificateRequest.getCertificateUpdateConsumer().accept(getCertificateUpdate);
+                    CertificateUpdateEvent certificateUpdateEvent =
+                            new CertificateUpdateEvent(finalKeyPair, t[0], caCertificates);
+                    getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest.getServiceName(),
                         keyPair.getPublic(), consumer);
@@ -223,6 +224,8 @@ public class CertificateManager {
         certificateGenerator.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
                 "initialization of server cert subscription");
 
+        // TODO: Don't use service name to track subscriptions since that prohibits
+        // components from subscribing to multiple certificates.
         serverCertSubscriptions.compute(serviceName, (k, v) -> {
             // A subscription already exists, we will replace it so that a new certificate is generated immediately
             if (v != null) {
