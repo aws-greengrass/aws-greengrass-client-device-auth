@@ -100,7 +100,7 @@ public class SubscribeToCertificateUpdatesOperationHandler
                 try {
                     final String csr = getCSRForServer();
                     certificateManager.subscribeToServerCertificateUpdates(csr, serverCertificateCallback);
-                } catch (KeyStoreException | CsrProcessingException e) {
+                } catch (CsrProcessingException e) {
                     logger.atError().cause(e).log("Unable to subscribe to the certificate updates.");
                     throw new ServiceError(
                             "Subscribe to certificate updates failed. Check Greengrass log for details.");
@@ -218,5 +218,4 @@ public class SubscribeToCertificateUpdatesOperationHandler
     protected void onStreamClosed() {
         certificateManager.unsubscribeFromServerCertificateUpdates(serverCertificateCallback);
     }
-
 }

@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.certificatemanager.certificate;
 
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -50,7 +51,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
 
     @Override
     public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
-            throws KeyStoreException {
+            throws CertificateGenerationException {
         if (certificatesConfig.isCertificateRotationDisabled() && certificate != null) {
             logger.atWarn()
                     .kv("subject", subject)
@@ -77,7 +78,8 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                     connectivityInfo,
                     Date.from(now),
                     Date.from(now.plusSeconds(certificatesConfig.getServerCertValiditySeconds())));
-        } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException e) {
+        } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException
+                | KeyStoreException e) {
             logger.atError().cause(e).log("Failed to generate new server certificate");
             throw new CertificateGenerationException(e);
         }
