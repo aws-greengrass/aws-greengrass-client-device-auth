@@ -7,14 +7,9 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
-import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
-import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidSessionException;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
-import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
-import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.logging.api.Logger;
@@ -38,7 +33,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import javax.inject.Inject;
 
 public class DeviceAuthClient {
@@ -47,7 +41,6 @@ public class DeviceAuthClient {
 
     private final SessionManager sessionManager;
     private final GroupManager groupManager;
-    private final IotAuthClient iotAuthClient;
     private final CertificateStore certificateStore;
 
     /**
@@ -55,32 +48,14 @@ public class DeviceAuthClient {
      *
      * @param sessionManager   Session manager
      * @param groupManager     Group manager
-     * @param iotAuthClient    Iot auth client
      * @param certificateStore Certificate store
      */
     @Inject
     public DeviceAuthClient(SessionManager sessionManager, GroupManager groupManager,
-                            IotAuthClient iotAuthClient, CertificateStore certificateStore) {
+                            CertificateStore certificateStore) {
         this.sessionManager = sessionManager;
         this.groupManager = groupManager;
-        this.iotAuthClient = iotAuthClient;
         this.certificateStore = certificateStore;
-    }
-
-    /**
-     * Create session from certificate PEM.
-     *
-     * @param certificatePem Client device/component certificate PEM
-     * @return Session ID
-     * @throws AuthenticationException if failed to authenticate
-     */
-    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
-    public String createSession(String certificatePem) throws AuthenticationException {
-        logger.atInfo().log("Creating new session");
-        if (isGreengrassComponent(certificatePem)) {
-            return ALLOW_ALL_SESSION;
-        }
-        return createSessionForClientDevice(certificatePem);
     }
 
     /**
@@ -136,67 +111,6 @@ public class DeviceAuthClient {
         }
 
         return false;
-    }
-
-    private String createSessionForClientDevice(String certificatePem) throws AuthenticationException {
-        Optional<String> certificateId;
-        try {
-            certificateId = iotAuthClient.getActiveCertificateId(certificatePem);
-        } catch (CloudServiceInteractionException e) {
-            throw new AuthenticationException("Failed to verify certificate with cloud", e);
-        }
-        if (!certificateId.isPresent()) {
-            throw new AuthenticationException("Certificate isn't active");
-        }
-
-        return sessionManager.createSession(new Certificate(certificateId.get()));
-    }
-
-    public void closeSession(String sessionId) {
-        sessionManager.closeSession(sessionId);
-    }
-
-    /**
-     * Attach thing to session in order to authorize.
-     *
-     * @param sessionId Session ID
-     * @param thingName IoT Thing Name
-     * @throws AuthenticationException if session not valid or verify thing identity error out
-     */
-    @SuppressWarnings("PMD.AvoidUncheckedExceptionsInSignatures")
-    public void attachThing(String sessionId, String thingName) throws AuthenticationException {
-        logger.atDebug()
-                .kv("sessionId", sessionId)
-                .kv("thingName", thingName)
-                .log("Attaching thing to session");
-
-        // Workaround for bridge component
-        if (ALLOW_ALL_SESSION.equals(sessionId)) {
-            return;
-        }
-
-        Session session = sessionManager.findSession(sessionId);
-        if (session == null) {
-            throw new AuthenticationException(
-                    String.format("Invalid session ID (%s)", sessionId));
-        }
-
-        Certificate certificate = (Certificate) session.getAttributeProvider(Certificate.NAMESPACE);
-        try {
-            session.computeAttributeProviderIfAbsent(Thing.NAMESPACE, k -> getValidThing(thingName, certificate));
-        } catch (CloudServiceInteractionException e) {
-            throw new AuthenticationException("Failed to verify thing identity with cloud", e);
-        }
-    }
-
-    private Thing getValidThing(String thingName, Certificate certificate) {
-        Thing thing = new Thing(thingName);
-        if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
-            return thing;
-        }
-        logger.atWarn().kv("iotCertificateId", certificate.getIotCertificateId()).kv("thing", thingName)
-                .log("Unable to validate thing");
-        return null;
     }
 
     /**
