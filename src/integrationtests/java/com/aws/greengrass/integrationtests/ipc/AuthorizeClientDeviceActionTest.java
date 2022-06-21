@@ -6,10 +6,10 @@
 package com.aws.greengrass.integrationtests.ipc;
 
 import com.aws.greengrass.dependency.State;
-import com.aws.greengrass.device.AuthorizationRequest;
-import com.aws.greengrass.device.ClientDevicesAuthService;
-import com.aws.greengrass.device.DeviceAuthClient;
-import com.aws.greengrass.device.exception.InvalidSessionException;
+import com.aws.greengrass.clientdevices.auth.AuthorizationRequest;
+import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
+import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidSessionException;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
