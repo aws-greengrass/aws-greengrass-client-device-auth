@@ -6,7 +6,6 @@
 package com.aws.greengrass.clientdevices.auth.session;
 
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.AccessLevel;
@@ -26,9 +25,6 @@ public class SessionManager {
 
     // Thread-safe LRU Session Cache that evicts the eldest entry (based on access order) upon reaching its size.
     // TODO: Support time-based cache eviction (Session timeout) and Session deduping.
-    // We can add this once sessions are created with the entire set of device credentials. However,
-    // Moquette is currently creating sessions using just the certificate. Since multiple clients could use the same
-    // certificate, we can't de-dup based on this alone.
     @Getter(AccessLevel.PACKAGE)
     private final Map<String, Session> sessionMap = Collections.synchronizedMap(
             new LinkedHashMap<String, Session>(getSessionCapacity(), 0.75f, true) {
@@ -54,18 +50,6 @@ public class SessionManager {
      */
     public Session findSession(String sessionId) {
         return sessionMap.get(sessionId);
-    }
-
-    /**
-     * Creates session with certificate.
-     *
-     * @deprecated Sessions should be created using device credentials instead of certificates
-     * @param certificate Client device certificate
-     * @return session id
-     */
-    @Deprecated public String createSession(Certificate certificate) {
-        Session session = new SessionImpl(certificate);
-        return addSessionInternal(session);
     }
 
     /**
