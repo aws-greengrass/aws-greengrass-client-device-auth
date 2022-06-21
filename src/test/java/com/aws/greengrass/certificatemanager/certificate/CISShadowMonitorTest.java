@@ -50,10 +50,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -91,6 +92,7 @@ public class CISShadowMonitorTest {
     FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
     MqttClientConnection shadowClientConnection = shadowClient.getConnection();
     ExecutorService executor = TestUtils.synchronousExecutorService();
+    ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor();
     FakeConnectivityInfoProvider connectivityInfoProvider = new FakeConnectivityInfoProvider();
 
     @Mock
@@ -107,15 +109,18 @@ public class CISShadowMonitorTest {
                 mqttClient,
                 shadowClientConnection,
                 shadowClient,
+                ses,
                 executor,
                 SHADOW_NAME,
                 connectivityInfoProvider
         );
+        cisShadowMonitor.setShadowProcessingDelayMs(1L);
     }
 
     @AfterEach
     void tearDown() {
         cisShadowMonitor.stopMonitor();
+        ses.shutdownNow();
     }
 
     @Test
@@ -250,10 +255,9 @@ public class CISShadowMonitorTest {
     }
 
     @Test
-    @SuppressWarnings({"unchecked", "PMD.AvoidCatchingGenericException"})
+    @SuppressWarnings("unchecked")
     void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changes_AND_shadow_update_request_fails_THEN_delta_processing_is_unaffected(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, RuntimeException.class);
-        ignoreExceptionOfType(context, CompletionException.class);
 
         // capture the subscription callback for shadow delta update
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
@@ -285,6 +289,9 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
+        AtomicReference<CountDownLatch> requestProcessed = new AtomicReference<>(new CountDownLatch(1));
+        cisShadowMonitor.setOnShadowProcessingWorkComplete(() -> requestProcessed.get().countDown());
+
         // trigger update delta subscription callbacks
         int version = 1;
         for (Map<String, Object> delta : deltas) {
@@ -292,16 +299,13 @@ public class CISShadowMonitorTest {
             deltaUpdatedEvent.version = version++;
             deltaUpdatedEvent.state = new HashMap<>(delta);
 
-            try {
-                wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(resp ->
-                        shadowDeltaUpdatedCallback.getValue().accept(resp));
-            } catch (RuntimeException e) {
-                if (version == 1) {
-                    // expected exception on first publish
-                    continue;
-                }
-                throw e;
-            }
+            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(resp ->
+                    shadowDeltaUpdatedCallback.getValue().accept(resp));
+
+            // force requests to process one-at-at-time,
+            // rather than being deduped at queue-time.
+            assertTrue(requestProcessed.get().await(5L, TimeUnit.SECONDS));
+            requestProcessed.set(new CountDownLatch(1)); // reset the latch
         }
 
         assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
@@ -337,23 +341,83 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
+        AtomicReference<CountDownLatch> requestProcessed = new AtomicReference<>(new CountDownLatch(1));
+        cisShadowMonitor.setOnShadowProcessingWorkComplete(() -> requestProcessed.get().countDown());
+
         // trigger update delta subscription callbacks
-        AtomicInteger version = new AtomicInteger(1);
-        deltas.forEach(delta -> {
+        int version = 1;
+        for (Map<String, Object> delta : deltas) {
             ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-            deltaUpdatedEvent.version = version.getAndIncrement();
+            deltaUpdatedEvent.version = version++;
             deltaUpdatedEvent.state = new HashMap<>(delta);
 
             // original message
             wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(resp ->
                     shadowDeltaUpdatedCallback.getValue().accept(resp));
 
-            // duplicate message
-            // opted to throw this scenario in rather than split it out into its own test.
-            // we already have a specific test for duplicate messages, so no need for extra clutter.
-            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, true).ifPresent(resp ->
+            // force requests to process one-at-at-time,
+            // rather than being deduped at queue-time.
+            assertTrue(requestProcessed.get().await(5L, TimeUnit.SECONDS));
+            requestProcessed.set(new CountDownLatch(1)); // reset the latch
+        }
+
+        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
+        verifyCertsRotatedWhenConnectivityChanges();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changes_AND_connectivity_response_does_not_change_THEN_delta_processing_is_deduped() throws Exception {
+        // simulate a race condition where CIS service state changes before we call getConnectivityInfo.
+        // so even though connectivity changes twice, CISShadowMonitor only sees the second value:
+        //
+        //  1) CIS state changes to "A", delta "1" sent
+        //  2) receive and start processing shadow delta "1"
+        //  3) CIS state changes to "B", delta "2" sent
+        //  4) connectivity response for delta "1":  "B"
+        //  5) receive and start processing shadow delta "2"
+        //  6) connectivity response for delta "2":  "B"
+        connectivityInfoProvider.setMode(FakeConnectivityInfoProvider.Mode.CONSTANT);
+
+        // capture the subscription callback for shadow delta update
+        ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
+        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(), shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+
+        // generated list of deltas to feed to the shadow monitor
+        List<Map<String, Object>> deltas = IntStream.range(0, 2)
+                .mapToObj(i -> Utils.immutableMap("field", (Object) String.valueOf(i)))
+                .collect(Collectors.toList());
+        Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
+
+        // notify when last shadow update is published
+        WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
+                .expectedReportedState(lastDelta) // reported state updated to desired state
+                .expectedDesiredState(null) // desired state isn't modified
+                .build();
+        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean()))
+                .thenAnswer(whenUpdateIsPublished);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        AtomicReference<CountDownLatch> requestProcessed = new AtomicReference<>(new CountDownLatch(1));
+        cisShadowMonitor.setOnShadowProcessingWorkComplete(() -> requestProcessed.get().countDown());
+
+        // trigger update delta subscription callbacks
+        AtomicInteger version = new AtomicInteger(1);
+        for (Map<String, Object> delta : deltas) {
+            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
+            deltaUpdatedEvent.version = version.getAndIncrement();
+            deltaUpdatedEvent.state = new HashMap<>(delta);
+
+            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(resp ->
                     shadowDeltaUpdatedCallback.getValue().accept(resp));
-        });
+
+            // force requests to process one-at-at-time,
+            // rather than being deduped at queue-time.
+            assertTrue(requestProcessed.get().await(5L, TimeUnit.SECONDS));
+            requestProcessed.set(new CountDownLatch(1)); // reset the latch
+        }
 
         assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
         verifyCertsRotatedWhenConnectivityChanges();
@@ -390,11 +454,18 @@ public class CISShadowMonitorTest {
         deltaUpdatedEvent.version = version.getAndIncrement();
         deltaUpdatedEvent.state = new HashMap<>(delta);
 
+        AtomicReference<CountDownLatch> requestProcessed = new AtomicReference<>(new CountDownLatch(1));
+        cisShadowMonitor.setOnShadowProcessingWorkComplete(() -> requestProcessed.get().countDown());
 
         // send the same message multiple times
         for (int i = 0; i < 2; i++) {
             wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, i > 0).ifPresent(resp ->
                     shadowDeltaUpdatedCallback.getValue().accept(resp));
+
+            // force requests to process one-at-at-time,
+            // rather than being deduped at queue-time.
+            assertTrue(requestProcessed.get().await(5L, TimeUnit.SECONDS));
+            requestProcessed.set(new CountDownLatch(1)); // reset the latch
         }
 
         assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
