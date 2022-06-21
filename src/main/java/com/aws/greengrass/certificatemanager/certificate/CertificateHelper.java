@@ -23,23 +23,16 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
 import software.amazon.awssdk.utils.ImmutableMap;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.io.StringWriter;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
@@ -104,7 +97,7 @@ public final class CertificateHelper {
                                                       @NonNull String caCommonName)
             throws NoSuchAlgorithmException, CertIOException, OperatorCreationException, CertificateException {
 
-        final X500Name issuer = getIssuer(caCommonName);
+        final X500Name issuer = getX500Name(caCommonName);
         X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, newSerialNumber(),
                 caNotBefore, caNotAfter, issuer, keyPair.getPublic()
         );
@@ -123,7 +116,7 @@ public final class CertificateHelper {
     }
 
     /**
-     * Generate server certificate from CSR.
+     * Generate server certificate.
      *
      * @param caCert                CA Certificate
      * @param caPrivateKey          CA Private Key
@@ -138,20 +131,20 @@ public final class CertificateHelper {
      * @throws CertificateException       CertificateException
      * @throws IOException                IOException
      */
-    public static X509Certificate signServerCertificateRequest(@NonNull X509Certificate caCert,
-                                                               @NonNull PrivateKey caPrivateKey,
-                                                               @NonNull X500Name subject,
-                                                               @NonNull PublicKey publicKey,
-                                                               @NonNull List<String> connectivityInfoItems,
-                                                               @NonNull Date notBefore,
-                                                               @NonNull Date notAfter)
+    public static X509Certificate issueServerCertificate(@NonNull X509Certificate caCert,
+                                                         @NonNull PrivateKey caPrivateKey,
+                                                         @NonNull X500Name subject,
+                                                         @NonNull PublicKey publicKey,
+                                                         @NonNull List<String> connectivityInfoItems,
+                                                         @NonNull Date notBefore,
+                                                         @NonNull Date notAfter)
                         throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
-        return signCertificateRequest(caCert, caPrivateKey, subject, publicKey, connectivityInfoItems, notBefore,
+        return issueCertificate(caCert, caPrivateKey, subject, publicKey, connectivityInfoItems, notBefore,
                 notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
     }
 
     /**
-     * Generate client certificate from CSR.
+     * Generate client certificate.
      *
      * @param caCert        CA Certificate
      * @param caPrivateKey  CA Private Key
@@ -165,25 +158,25 @@ public final class CertificateHelper {
      * @throws CertificateException       CertificateException
      * @throws IOException                IOException
      */
-    public static X509Certificate signClientCertificateRequest(@NonNull X509Certificate caCert,
-                                                               @NonNull PrivateKey caPrivateKey,
-                                                               @NonNull X500Name subject,
-                                                               @NonNull PublicKey publicKey,
-                                                               @NonNull Date notBefore,
-                                                               @NonNull Date notAfter)
+    public static X509Certificate issueClientCertificate(@NonNull X509Certificate caCert,
+                                                         @NonNull PrivateKey caPrivateKey,
+                                                         @NonNull X500Name subject,
+                                                         @NonNull PublicKey publicKey,
+                                                         @NonNull Date notBefore,
+                                                         @NonNull Date notAfter)
             throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
-        return signCertificateRequest(caCert, caPrivateKey, subject, publicKey, null, notBefore,
+        return issueCertificate(caCert, caPrivateKey, subject, publicKey, null, notBefore,
                 notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth));
     }
 
-    private static X509Certificate signCertificateRequest(@NonNull X509Certificate caCert,
-                                                          @NonNull PrivateKey caPrivateKey,
-                                                          @NonNull X500Name subject,
-                                                          @NonNull PublicKey publicKey,
-                                                          List<String> connectivityInfoItems,
-                                                          @NonNull Date notBefore,
-                                                          @NonNull Date notAfter,
-                                                          @NonNull ExtendedKeyUsage keyUsage)
+    private static X509Certificate issueCertificate(@NonNull X509Certificate caCert,
+                                                    @NonNull PrivateKey caPrivateKey,
+                                                    @NonNull X500Name subject,
+                                                    @NonNull PublicKey publicKey,
+                                                    List<String> connectivityInfoItems,
+                                                    @NonNull Date notBefore,
+                                                    @NonNull Date notAfter,
+                                                    @NonNull ExtendedKeyUsage keyUsage)
             throws NoSuchAlgorithmException, CertificateException, IOException, OperatorCreationException {
         X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                 caCert, newSerialNumber(), notBefore, notAfter, subject, publicKey
@@ -205,22 +198,6 @@ public final class CertificateHelper {
         return new JcaX509CertificateConverter().setProvider("BC")
                 .getCertificate(builder.build(contentSigner));
     }
-
-    /**
-     * Parse CSR string into PKCS10CertificationRequest.
-     *
-     * @param csrString PEM encoded CSR
-     * @return PKCS10CertificationRequest
-     * @throws IOException If unable to read CSR
-     */
-    public static PKCS10CertificationRequest getPKCS10CertificationRequestFromPem(String csrString) throws IOException {
-        ByteArrayInputStream pemStream = new ByteArrayInputStream(csrString.getBytes(StandardCharsets.UTF_8));
-        Reader pemReader = new BufferedReader(new InputStreamReader(pemStream, StandardCharsets.UTF_8));
-        try (PEMParser pemParser = new PEMParser(pemReader)) {
-            return (PKCS10CertificationRequest)pemParser.readObject();
-        }
-    }
-
 
     /**
      * Convert an X509Certificate into a PEM encoded string.
@@ -264,7 +241,7 @@ public final class CertificateHelper {
      * @param commonName Common name to include in X500Name
      * @return X500Name
      */
-    public static X500Name getIssuer(String commonName) {
+    public static X500Name getX500Name(String commonName) {
         X500NameBuilder nameBuilder = new X500NameBuilder(X500Name.getDefaultStyle());
         nameBuilder.addRDN(BCStyle.C, X500_DISTINGUISHED_NAME_COUNTRY_NAME);
         nameBuilder.addRDN(BCStyle.O, X500_DISTINGUISHED_NAME_ORGANIZATION_NAME);
