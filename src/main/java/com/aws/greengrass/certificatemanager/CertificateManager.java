@@ -135,6 +135,7 @@ public class CertificateManager {
         try {
             GetCertificateRequestOptions.CertificateType certificateType =
                     getCertificateRequest.getCertificateRequestOptions().getCertificateType();
+            // TODO: Should be configurable
             KeyPair keyPair = CertificateStore.newRSAKeyPair(4096);
 
             if (certificateType.equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
