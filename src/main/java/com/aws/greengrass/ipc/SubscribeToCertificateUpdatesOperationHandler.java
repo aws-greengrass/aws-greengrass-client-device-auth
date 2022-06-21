@@ -10,14 +10,13 @@ import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.authorization.Permission;
 import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.certificatemanager.CertificateManager;
-import com.aws.greengrass.certificatemanager.certificate.CertificateRequestGenerator;
-import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
-import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.device.ClientDevicesAuthService;
+import com.aws.greengrass.device.api.GetCertificateRequest;
+import com.aws.greengrass.device.api.GetCertificateRequestOptions;
+import com.aws.greengrass.device.exception.CertificateGenerationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.EncryptionUtils;
-import org.bouncycastle.operator.OperatorCreationException;
 import software.amazon.awssdk.aws.greengrass.GeneratedAbstractSubscribeToCertificateUpdatesOperationHandler;
 import software.amazon.awssdk.aws.greengrass.model.CertificateOptions;
 import software.amazon.awssdk.aws.greengrass.model.CertificateType;
@@ -34,10 +33,7 @@ import software.amazon.awssdk.eventstreamrpc.model.EventStreamJsonMessage;
 import java.io.IOException;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
-import java.security.cert.X509Certificate;
-import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -55,14 +51,14 @@ public class SubscribeToCertificateUpdatesOperationHandler
     private static final String NO_CERT_OPTIONS_ERROR = "Certificate options are required.";
     private static final String INVALID_CERT_TYPE_ERROR = "Valid certificate type is required.";
     private static final String UNAUTHORIZED_ERROR = "Not Authorized";
-    private static final int RSA_KEY_LENGTH_FOR_SERVER_CERT = 4096;
     private final String serviceName;
     private final CertificateManager certificateManager;
     private final AtomicBoolean subscriptionResponseSent = new AtomicBoolean(false);
     private final AtomicReference<CertificateUpdateEvent> firstStreamingEvent = new AtomicReference<>(null);
     private final AuthorizationHandler authorizationHandler;
-    private KeyPair keyPair;
-    private final Consumer<X509Certificate> serverCertificateCallback = this::forwardServerCertificates;
+    private final GetCertificateRequest getCertificateRequest;
+    private final Consumer<com.aws.greengrass.device.api.CertificateUpdateEvent> serverCertificateCallback =
+            this::forwardServerCertificates;
 
     /**
      * Constructor.
@@ -78,7 +74,9 @@ public class SubscribeToCertificateUpdatesOperationHandler
         serviceName = context.getAuthenticationData().getIdentityLabel();
         this.certificateManager = certificateManager;
         this.authorizationHandler = authorizationHandler;
-
+        GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
+        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.SERVER);
+        getCertificateRequest = new GetCertificateRequest(serviceName, requestOptions, serverCertificateCallback);
     }
 
 
@@ -98,9 +96,8 @@ public class SubscribeToCertificateUpdatesOperationHandler
                     subscribeToCertificateUpdatesRequest.getCertificateOptions());
             if (CertificateType.SERVER.equals(certificateType)) {
                 try {
-                    final String csr = getCSRForServer();
-                    certificateManager.subscribeToServerCertificateUpdates(csr, serverCertificateCallback);
-                } catch (CsrProcessingException e) {
+                    certificateManager.subscribeToCertificateUpdates(getCertificateRequest);
+                } catch (CertificateGenerationException e) {
                     logger.atError().cause(e).log("Unable to subscribe to the certificate updates.");
                     throw new ServiceError(
                             "Subscribe to certificate updates failed. Check Greengrass log for details.");
@@ -144,29 +141,18 @@ public class SubscribeToCertificateUpdatesOperationHandler
     }
     
     @SuppressWarnings("PMD.PreserveStackTrace")
-    private String getCSRForServer() {
-        try {
-            this.keyPair = CertificateStore.newRSAKeyPair(RSA_KEY_LENGTH_FOR_SERVER_CERT);
-            return CertificateRequestGenerator
-                    .createCSR(keyPair, serviceName, Collections.emptyList(), Collections.singletonList("localhost"));
-        } catch (NoSuchAlgorithmException | OperatorCreationException | IOException e) {
-            logger.atError().cause(e).log("Unable to create the certificate signing request");
-            throw new ServiceError(
-                    "Subscribe to certificate update failed. Check Greengrass log for details.");
-        }
-    }
-
-    @SuppressWarnings("PMD.PreserveStackTrace")
-    private void forwardServerCertificates(X509Certificate certificate) {
+    private void forwardServerCertificates(com.aws.greengrass.device.api.CertificateUpdateEvent updateEvent) {
         CertificateUpdate certificateUpdate = new CertificateUpdate();
         try {
+            KeyPair kp = updateEvent.getKeyPair();
             certificateUpdate
-                    .withCertificate(EncryptionUtils.encodeToPem(PEM_BOUNDARY_CERTIFICATE, certificate.getEncoded()))
+                    .withCertificate(EncryptionUtils.encodeToPem(PEM_BOUNDARY_CERTIFICATE,
+                            updateEvent.getCertificate().getEncoded()))
                     .withCaCertificates(this.certificateManager.getCACertificates())
                     .withPublicKey(
-                            EncryptionUtils.encodeToPem(PEM_BOUNDARY_PUBLIC_KEY, keyPair.getPublic().getEncoded()))
+                            EncryptionUtils.encodeToPem(PEM_BOUNDARY_PUBLIC_KEY, kp.getPublic().getEncoded()))
                     .withPrivateKey(
-                            EncryptionUtils.encodeToPem(PEM_BOUNDARY_PRIVATE_KEY, keyPair.getPrivate().getEncoded()));
+                            EncryptionUtils.encodeToPem(PEM_BOUNDARY_PRIVATE_KEY, kp.getPrivate().getEncoded()));
         } catch (CertificateEncodingException | IOException | KeyStoreException e) {
             logger.atError().cause(e).log("Unable to attach certificates to the response");
             throw new ServiceError("Subscribe to certificate update failed. Check Greengrass log for details.");
@@ -193,7 +179,6 @@ public class SubscribeToCertificateUpdatesOperationHandler
     public void handleStreamEvent(EventStreamJsonMessage eventStreamJsonMessage) {
     }
 
-
     /**
      * <p>
      * Here, since this method is called after handling the request successfully, we know that the initial
@@ -216,6 +201,6 @@ public class SubscribeToCertificateUpdatesOperationHandler
 
     @Override
     protected void onStreamClosed() {
-        certificateManager.unsubscribeFromServerCertificateUpdates(serverCertificateCallback);
+        certificateManager.unsubscribeFromCertificateUpdates(getCertificateRequest);
     }
 }

@@ -12,7 +12,6 @@ import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CertificatesConfig;
 import com.aws.greengrass.certificatemanager.certificate.ClientCertificateGenerator;
-import com.aws.greengrass.certificatemanager.certificate.CsrProcessingException;
 import com.aws.greengrass.certificatemanager.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.device.api.CertificateUpdateEvent;
@@ -20,11 +19,8 @@ import com.aws.greengrass.device.api.GetCertificateRequest;
 import com.aws.greengrass.device.api.GetCertificateRequestOptions;
 import com.aws.greengrass.device.exception.CertificateGenerationException;
 import lombok.NonNull;
-import org.bouncycastle.pkcs.PKCS10CertificationRequest;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 
 import java.io.IOException;
-import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -41,18 +37,11 @@ import javax.inject.Inject;
 
 public class CertificateManager {
     private final CertificateStore certificateStore;
-
     private final ConnectivityInfoProvider connectivityInfoProvider;
-
     private final CertificateExpiryMonitor certExpiryMonitor;
-
     private final CISShadowMonitor cisShadowMonitor;
-
     private final Clock clock;
-
-    private final Map<String, CertificateGenerator> serverCertSubscriptions =
-            new ConcurrentHashMap<>();
-
+    private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private CertificatesConfig certificatesConfig;
 
     /**
@@ -128,12 +117,14 @@ public class CertificateManager {
     }
 
     /**
-     * Subscribe to server certificate updates.
+     * Subscribe to certificate updates.
      * <p>
-     * The certificate manager will save the given CSR and generate a new certificate under the following scenarios:
+     * The certificate manager will save the given request and generate a new certificate under the following scenarios:
      *   1) The previous certificate is nearing expiry
-     *   2) GGC connectivity information changes
+     *   2) GGC connectivity information changes (for server certificates only)
      * Certificates will continue to be generated until the client calls unsubscribeFromCertificateUpdates.
+     * </p>
+     * An initial certificate will be generated and sent to the consumer prior to this function returning.
      * </p>
      *
      * @param getCertificateRequest get certificate request
@@ -144,7 +135,7 @@ public class CertificateManager {
         try {
             GetCertificateRequestOptions.CertificateType certificateType =
                     getCertificateRequest.getCertificateRequestOptions().getCertificateType();
-            KeyPair keyPair = CertificateStore.newRSAKeyPair(2048);
+            KeyPair keyPair = CertificateStore.newRSAKeyPair(4096);
 
             if (certificateType.equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
                 KeyPair finalKeyPair = keyPair;
@@ -154,8 +145,7 @@ public class CertificateManager {
                             new CertificateUpdateEvent(finalKeyPair, t, caCertificates);
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
-                subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest.getServiceName(),
-                        keyPair.getPublic(), consumer);
+                subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
                 KeyPair finalKeyPair = keyPair;
                 X509Certificate[] caCertificates = getX509CACertificates();
@@ -164,57 +154,33 @@ public class CertificateManager {
                             new CertificateUpdateEvent(finalKeyPair, t[0], caCertificates);
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
-                subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest.getServiceName(),
-                        keyPair.getPublic(), consumer);
+                subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
         } catch (NoSuchAlgorithmException | KeyStoreException e) {
             throw new CertificateGenerationException(e);
         }
     }
 
-    public void unsubscribeFromCertificateUpdates(GetCertificateRequest getCertificateRequest) {
-        // TODO
-    }
-
     /**
-     * Subscribe to server certificate updates.
-     * <p>
-     * The certificate manager will save the given CSR and generate a new certificate under the following scenarios:
-     *   1) The previous certificate is nearing expiry
-     *   2) GGC connectivity information changes
-     * Certificates will continue to be generated until the client calls unsubscribeFromCertificateUpdates.
-     * </p>
+     * Unsubscribe from certificate updates.
      *
-     * @param csr Certificate signing request
-     * @param cb  Certificate consumer
-     * @throws CsrProcessingException if unable to process CSR
-     * @throws RuntimeException for any unknown runtime error
+     * @param getCertificateRequest get certificate request object used to make the initial subscription request
      */
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    @Deprecated
-    public void subscribeToServerCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate> cb)
-            throws CsrProcessingException {
-        try {
-            PKCS10CertificationRequest pkcs10CertificationRequest =
-                    CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
-            JcaPKCS10CertificationRequest jcaRequest =
-                    new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
-
-            String subject = "temp"; // This is a temporary change, so don't bother properly extracting CN
-            subscribeToServerCertificateUpdatesNoCSR(subject, jcaRequest.getPublicKey(), cb);
-        } catch (CertificateGenerationException | IOException | NoSuchAlgorithmException | InvalidKeyException
-                | RuntimeException e) {
-            throw new CsrProcessingException(csr, e);
+    public void unsubscribeFromCertificateUpdates(GetCertificateRequest getCertificateRequest) {
+        CertificateGenerator certGen = certSubscriptions.remove(getCertificateRequest);
+        if (certGen != null) {
+            removeCGFromMonitors(certGen);
         }
     }
 
-    private void subscribeToServerCertificateUpdatesNoCSR(@NonNull String serviceName,
-                                                         @NonNull PublicKey publicKey,
-                                                         @NonNull Consumer<X509Certificate> cb)
+    private void subscribeToServerCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
+                                                          @NonNull PublicKey publicKey,
+                                                          @NonNull Consumer<X509Certificate> cb)
             throws CertificateGenerationException {
         CertificateGenerator certificateGenerator =
-                new ServerCertificateGenerator(CertificateHelper.getIssuer(serviceName), publicKey, cb,
-                        certificateStore, certificatesConfig, clock);
+                new ServerCertificateGenerator(
+                        CertificateHelper.getX500Name(certificateRequest.getServiceName()),
+                        publicKey, cb, certificateStore, certificatesConfig, clock);
 
         // Add certificate generator to monitors first in order to avoid missing events
         // that happen while the initial certificate is being generated.
@@ -224,9 +190,7 @@ public class CertificateManager {
         certificateGenerator.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
                 "initialization of server cert subscription");
 
-        // TODO: Don't use service name to track subscriptions since that prohibits
-        // components from subscribing to multiple certificates.
-        serverCertSubscriptions.compute(serviceName, (k, v) -> {
+        certSubscriptions.compute(certificateRequest, (k, v) -> {
             // A subscription already exists, we will replace it so that a new certificate is generated immediately
             if (v != null) {
                 removeCGFromMonitors(v);
@@ -235,59 +199,26 @@ public class CertificateManager {
         });
     }
 
-    /**
-     * Subscribe to client certificate updates.
-     * <p>
-     * The certificate manager will save the given CSR and generate a new certificate under the following scenarios:
-     *   1) The previous certificate is nearing expiry
-     * Certificates will continue to be generated until the client calls unsubscribeFromCertificateUpdates.
-     * </p>
-     *
-     * @param csr Certificate signing request
-     * @param cb  Certificate consumer
-     * @throws CsrProcessingException if unable to process CSR
-     */
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    @Deprecated
-    public void subscribeToClientCertificateUpdates(@NonNull String csr, @NonNull Consumer<X509Certificate[]> cb)
-            throws CsrProcessingException {
-        // BouncyCastle can throw RuntimeExceptions, and unfortunately it is not easy to detect
-        // bad input beforehand. For now, just catch and re-throw a CsrProcessingException
-        try {
-            PKCS10CertificationRequest pkcs10CertificationRequest =
-                    CertificateHelper.getPKCS10CertificationRequestFromPem(csr);
-            JcaPKCS10CertificationRequest jcaRequest = new JcaPKCS10CertificationRequest(pkcs10CertificationRequest);
-            String subject = "temp"; // This is a temporary change so don't bother properly extracting CN
-            subscribeToClientCertificateUpdatesNoCSR(subject, jcaRequest.getPublicKey(), cb);
-        } catch (RuntimeException | NoSuchAlgorithmException | InvalidKeyException | IOException
-                | CertificateGenerationException e) {
-            throw new CsrProcessingException(csr, e);
-        }
-    }
-
-    private void subscribeToClientCertificateUpdatesNoCSR(@NonNull String serviceName,
-                                                         @NonNull PublicKey publicKey,
-                                                         @NonNull Consumer<X509Certificate[]> cb)
+    private void subscribeToClientCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
+                                                          @NonNull PublicKey publicKey,
+                                                          @NonNull Consumer<X509Certificate[]> cb)
             throws CertificateGenerationException {
         CertificateGenerator certificateGenerator =
-                new ClientCertificateGenerator(CertificateHelper.getIssuer(serviceName), publicKey, cb,
-                        certificateStore, certificatesConfig, clock);
+                new ClientCertificateGenerator(
+                        CertificateHelper.getX500Name(certificateRequest.getServiceName()),
+                        publicKey, cb, certificateStore, certificatesConfig, clock);
+
+        certExpiryMonitor.addToMonitor(certificateGenerator);
         certificateGenerator.generateCertificate(Collections::emptyList,
                 "initialization of client cert subscription");
-        certExpiryMonitor.addToMonitor(certificateGenerator);
-    }
 
-    /**
-     * Unsubscribe from server certificate updates.
-     *
-     * @param cb Certificate consumer
-     */
-    @Deprecated
-    public void unsubscribeFromServerCertificateUpdates(@NonNull Consumer<X509Certificate> cb) {
-        CertificateGenerator gen = serverCertSubscriptions.remove(cb);
-        if (gen != null) {
-            removeCGFromMonitors(gen);
-        }
+        certSubscriptions.compute(certificateRequest, (k, v) -> {
+            // A subscription already exists, we will replace it so that a new certificate is generated immediately
+            if (v != null) {
+                removeCGFromMonitors(v);
+            }
+            return certificateGenerator;
+        });
     }
 
     private void removeCGFromMonitors(CertificateGenerator gen) {

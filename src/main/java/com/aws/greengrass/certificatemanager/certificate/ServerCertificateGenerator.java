@@ -70,7 +70,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
         connectivityInfo.add("localhost");
 
         try {
-            certificate = CertificateHelper.signServerCertificateRequest(
+            certificate = CertificateHelper.issueServerCertificate(
                     certificateStore.getCACertificate(),
                     certificateStore.getCAPrivateKey(),
                     subject,

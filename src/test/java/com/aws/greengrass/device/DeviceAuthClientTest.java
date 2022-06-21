@@ -9,13 +9,15 @@ import com.aws.greengrass.certificatemanager.CertificateManager;
 import com.aws.greengrass.certificatemanager.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CISShadowMonitor;
 import com.aws.greengrass.certificatemanager.certificate.CertificateHelper;
-import com.aws.greengrass.certificatemanager.certificate.CertificateRequestGenerator;
 import com.aws.greengrass.certificatemanager.certificate.CertificateStore;
 import com.aws.greengrass.certificatemanager.certificate.CertificatesConfig;
 import com.aws.greengrass.cisclient.ConnectivityInfoProvider;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
+import com.aws.greengrass.device.api.CertificateUpdateEvent;
+import com.aws.greengrass.device.api.GetCertificateRequest;
+import com.aws.greengrass.device.api.GetCertificateRequestOptions;
 import com.aws.greengrass.device.configuration.GroupManager;
 import com.aws.greengrass.device.configuration.Permission;
 import com.aws.greengrass.device.exception.AuthenticationException;
@@ -41,7 +43,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.util.Collections;
@@ -227,19 +228,23 @@ public class DeviceAuthClientTest {
         CertificateManager certificateManager = new CertificateManager(certificateStore, mockConnectivityInfoProvider,
                 mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC());
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(configurationTopics));
-        KeyPair clientKeyPair = CertificateStore.newRSAKeyPair();
-        String csr = CertificateRequestGenerator.createCSR(clientKeyPair, "Thing", null, null);
 
-        AtomicReference<X509Certificate[]> clientCertChain = new AtomicReference<>();
-        Consumer<X509Certificate[]> cb = t -> {
-            clientCertChain.set(t);
+        AtomicReference<X509Certificate> clientCert = new AtomicReference<>();
+        AtomicReference<X509Certificate[]> caChain = new AtomicReference<>();
+        Consumer<CertificateUpdateEvent> cb = t -> {
+            clientCert.set(t.getCertificate());
+            caChain.set(t.getCaCertificates());
         };
-        certificateManager.subscribeToClientCertificateUpdates(csr, cb);
+
+        GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
+        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CLIENT);
+        GetCertificateRequest certificateRequest =
+                new GetCertificateRequest("testService", requestOptions, cb);
+        certificateManager.subscribeToCertificateUpdates(certificateRequest);
 
         authClient = new DeviceAuthClient(sessionManager, groupManager, iotClient, certificateStore);
 
-        String certificatePem =
-                CertificateHelper.toPem(clientCertChain.get()[0]) + CertificateHelper.toPem(clientCertChain.get()[1]);
+        String certificatePem = CertificateHelper.toPem(clientCert.get()) + CertificateHelper.toPem(caChain.get()[0]);
         assertThat(authClient.createSession(certificatePem), is("ALLOW_ALL"));
 
         AuthorizationRequest authorizationRequest =

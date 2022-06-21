@@ -63,7 +63,7 @@ public class ClientCertificateGenerator extends CertificateGenerator {
         Instant now = Instant.now(clock);
 
         try {
-            certificate = CertificateHelper.signClientCertificateRequest(
+            certificate = CertificateHelper.issueClientCertificate(
                     certificateStore.getCACertificate(),
                     certificateStore.getCAPrivateKey(),
                     subject,
