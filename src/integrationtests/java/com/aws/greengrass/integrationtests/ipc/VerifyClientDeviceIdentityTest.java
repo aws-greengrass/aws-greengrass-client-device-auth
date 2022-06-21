@@ -6,9 +6,9 @@
 package com.aws.greengrass.integrationtests.ipc;
 
 import com.aws.greengrass.dependency.State;
-import com.aws.greengrass.device.ClientDevicesAuthService;
-import com.aws.greengrass.device.exception.CloudServiceInteractionException;
-import com.aws.greengrass.device.iot.IotAuthClient;
+import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
+import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;

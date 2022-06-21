@@ -18,7 +18,7 @@ PARSER_BEGIN(RuleExpression)
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.device.configuration.parser;
+package com.aws.greengrass.clientdevices.auth.configuration.parser;
 
 public class RuleExpression {
 }
