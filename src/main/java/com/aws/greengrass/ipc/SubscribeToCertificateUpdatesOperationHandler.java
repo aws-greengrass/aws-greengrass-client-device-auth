@@ -9,11 +9,11 @@ package com.aws.greengrass.ipc;
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.authorization.Permission;
 import com.aws.greengrass.authorization.exceptions.AuthorizationException;
-import com.aws.greengrass.certificatemanager.CertificateManager;
-import com.aws.greengrass.device.ClientDevicesAuthService;
-import com.aws.greengrass.device.api.GetCertificateRequest;
-import com.aws.greengrass.device.api.GetCertificateRequestOptions;
-import com.aws.greengrass.device.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.CertificateManager;
+import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
+import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
+import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.EncryptionUtils;
@@ -38,9 +38,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static com.aws.greengrass.certificatemanager.certificate.CertificateHelper.PEM_BOUNDARY_CERTIFICATE;
-import static com.aws.greengrass.certificatemanager.certificate.CertificateHelper.PEM_BOUNDARY_PRIVATE_KEY;
-import static com.aws.greengrass.certificatemanager.certificate.CertificateHelper.PEM_BOUNDARY_PUBLIC_KEY;
+import static com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper.PEM_BOUNDARY_CERTIFICATE;
+import static com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper.PEM_BOUNDARY_PRIVATE_KEY;
+import static com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper.PEM_BOUNDARY_PUBLIC_KEY;
 import static com.aws.greengrass.ipc.common.ExceptionUtil.translateExceptions;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.SUBSCRIBE_TO_CERTIFICATE_UPDATES;
 
@@ -57,7 +57,7 @@ public class SubscribeToCertificateUpdatesOperationHandler
     private final AtomicReference<CertificateUpdateEvent> firstStreamingEvent = new AtomicReference<>(null);
     private final AuthorizationHandler authorizationHandler;
     private final GetCertificateRequest getCertificateRequest;
-    private final Consumer<com.aws.greengrass.device.api.CertificateUpdateEvent> serverCertificateCallback =
+    private final Consumer<com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent> serverCertificateCallback =
             this::forwardServerCertificates;
 
     /**
@@ -141,7 +141,8 @@ public class SubscribeToCertificateUpdatesOperationHandler
     }
     
     @SuppressWarnings("PMD.PreserveStackTrace")
-    private void forwardServerCertificates(com.aws.greengrass.device.api.CertificateUpdateEvent updateEvent) {
+    private void forwardServerCertificates(
+            com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent updateEvent) {
         CertificateUpdate certificateUpdate = new CertificateUpdate();
         try {
             KeyPair kp = updateEvent.getKeyPair();

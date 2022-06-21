@@ -6,10 +6,10 @@
 package com.aws.greengrass.integrationtests.ipc;
 
 import com.aws.greengrass.dependency.State;
-import com.aws.greengrass.device.ClientDevicesAuthService;
-import com.aws.greengrass.device.exception.AuthenticationException;
-import com.aws.greengrass.device.exception.CloudServiceInteractionException;
-import com.aws.greengrass.device.session.SessionManager;
+import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
+import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
+import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
@@ -50,8 +50,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
-import static com.aws.greengrass.device.ClientDevicesAuthService.CLOUD_REQUEST_QUEUE_SIZE_TOPIC;
-import static com.aws.greengrass.device.ClientDevicesAuthService.PERFORMANCE_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CLOUD_REQUEST_QUEUE_SIZE_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.PERFORMANCE_TOPIC;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssertOnConsumer;
 import static org.hamcrest.MatcherAssert.assertThat;

@@ -181,7 +181,7 @@
                     <includeTests>true</includeTests>
                     <!-- Exclude auto-generated JavaCC code -->
                     <excludes>
-                        <exclude>**/device/configuration/parser/*.java</exclude>
+                        <exclude>**/clientdevices/auth/configuration/parser/*.java</exclude>
                     </excludes>
                     <skip>${skipTests}</skip>
                 </configuration>
@@ -264,7 +264,7 @@
                     <configLocation>codestyle/checkstyle.xml</configLocation>
                     <violationSeverity>warning</violationSeverity>
                     <maxAllowedViolations>0</maxAllowedViolations>
-                    <excludes>**/device/configuration/parser/*.java</excludes>
+                    <excludes>**/clientdevices/auth/configuration/parser/*.java</excludes>
                     <skip>${skipTests}</skip>
                 </configuration>
                 <executions>
