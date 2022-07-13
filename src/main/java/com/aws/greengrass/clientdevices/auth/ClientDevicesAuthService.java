@@ -27,6 +27,8 @@ import com.aws.greengrass.ipc.GetClientDeviceAuthTokenOperationHandler;
 import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
 import com.aws.greengrass.ipc.VerifyClientDeviceIdentityOperationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
+import com.aws.greengrass.security.SecurityService;
+import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
@@ -39,10 +41,16 @@ import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuth
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.KeyPair;
 import java.security.KeyStoreException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -62,6 +70,9 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VER
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
     public static final String DEVICE_GROUPS_TOPICS = "deviceGroups";
+    public static final String CERTIFICATE_AUTHORITY_TOPIC = "certificateAuthority";
+    public static final String CA_PRIVATE_KEY_URI = "privateKeyUri";
+    public static final String CA_CERTIFICATE_URI = "certificateUri";
     public static final String CA_TYPE_TOPIC = "ca_type";
     public static final String CA_PASSPHRASE = "ca_passphrase";
     public static final String CERTIFICATES_KEY = "certificates";
@@ -87,6 +98,7 @@ public class ClientDevicesAuthService extends PluginService {
     private final DeviceConfiguration deviceConfiguration;
     private final AuthorizationHandler authorizationHandler;
     private final GreengrassCoreIPCService greengrassCoreIPCService;
+    private final SecurityService securityService;
     // Limit the queue size before we start rejecting requests
     private static final int DEFAULT_CLOUD_CALL_QUEUE_SIZE = 100;
     private static final int DEFAULT_THREAD_POOL_SIZE = 1;
@@ -94,6 +106,12 @@ public class ClientDevicesAuthService extends PluginService {
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private final ThreadPoolExecutor cloudCallThreadPool;
     private int cloudCallQueueSize;
+    private static final RetryUtils.RetryConfig GET_CERTIFICATE_CHAIN_RETRY_CONFIG = RetryUtils.RetryConfig.builder()
+            .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
+            .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
+    private static final RetryUtils.RetryConfig GET_KEY_PAIR_RETRY_CONFIG = RetryUtils.RetryConfig.builder()
+            .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
+            .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
 
     /**
      * Constructor.
@@ -118,7 +136,8 @@ public class ClientDevicesAuthService extends PluginService {
                                     GreengrassCoreIPCService greengrassCoreIPCService,
                                     MqttSessionFactory mqttSessionFactory,
                                     SessionManager sessionManager,
-                                    ClientDevicesAuthServiceApi clientDevicesAuthServiceApi) {
+                                    ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
+                                    SecurityService securityService) {
         super(topics);
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
         cloudCallQueueSize = getValidCloudCallQueueSize(topics);
@@ -133,6 +152,7 @@ public class ClientDevicesAuthService extends PluginService {
         this.deviceConfiguration = deviceConfiguration;
         this.authorizationHandler = authorizationHandler;
         this.greengrassCoreIPCService = greengrassCoreIPCService;
+        this.securityService = securityService;
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(this.getConfig()));
@@ -161,6 +181,10 @@ public class ClientDevicesAuthService extends PluginService {
      * |         |---- definitions : {}
      * |         |---- policies : {}
      * |    |---- ca_type: [...]
+     * |    |---- certificateAuthority:
+     * |        |---- ca_type: "..."
+     * |        |---- certificateUri: "..."
+     * |        |---- privateKeyUri: "..."
      * |    |---- certificates: {}
      * |---- runtime
      * |    |---- ca_passphrase: "..."
@@ -176,7 +200,7 @@ public class ClientDevicesAuthService extends PluginService {
             }
             logger.atDebug().kv("why", whatHappened).kv("node", node).log();
             Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
-            Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC);
+            Topic certificateAuthorityTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC);
 
             // Attempt to update the thread pool size as needed
             try {
@@ -200,17 +224,68 @@ public class ClientDevicesAuthService extends PluginService {
 
             if (whatHappened == WhatHappened.initialized || node == null) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-                updateCAType(caTypeTopic);
+                updateCertificateAuthority();
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-            } else if (node.childOf(CA_TYPE_TOPIC)) {
-                if (caTypeTopic.getOnce() == null) {
+            } else if (node.childOf(CERTIFICATE_AUTHORITY_TOPIC)) {
+                if (certificateAuthorityTopic.getOnce() == null) {
                     return;
                 }
-                updateCAType(caTypeTopic);
+                updateCertificateAuthority();
             }
         });
 
+    }
+
+    private void updateCertificateAuthority() {
+        String caKeyPath = Coerce.toString(config.findOrDefault("",
+                CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI));
+        String caCertPath = Coerce.toString(config.findOrDefault("",
+                CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI));
+        Topic caType = config.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_TOPIC);
+
+        // If the key and cert path of CA are empty, generate a CA
+        if (Utils.isEmpty(caKeyPath) || Utils.isEmpty(caCertPath)) {
+            updateCAType(caType);
+        } else {
+            // Update certificate manager with the customer provided CA configuration
+            try {
+                URI privateKeyUri = new URI(caKeyPath);
+                URI certificateUri = new URI(caCertPath);
+                updateCertificateManager(privateKeyUri, certificateUri);
+            } catch (URISyntaxException e) {
+                logger.atError().kv(CA_PRIVATE_KEY_URI, "")
+                        .kv(CA_CERTIFICATE_URI, "")
+                        .setCause(e)
+                        .log("Exception occurred while parsing the certificate authority configuration");
+                serviceErrored(e);
+            }
+        }
+        // Upload the generated or provided CA certificates to the GG cloud and update config
+        try {
+            List<String> caCerts = certificateManager.getCACertificates();
+            uploadCoreDeviceCAs(caCerts);
+            updateCACertificateConfig(caCerts);
+        } catch (KeyStoreException | IOException | CertificateEncodingException e) {
+            logger.atError().cause(e).log("Failed to get the CA certificates");
+            serviceErrored(e);
+        }
+    }
+
+    private void updateCertificateManager(URI privateKeyUri, URI certificateUri) {
+        try {
+            KeyPair keyPair = RetryUtils.runWithRetry(GET_KEY_PAIR_RETRY_CONFIG,
+                    () -> securityService.getKeyPair(privateKeyUri, certificateUri),
+                    "get-key-pair", logger);
+            List<X509Certificate> certificateChain = RetryUtils.runWithRetry(GET_CERTIFICATE_CHAIN_RETRY_CONFIG,
+                    () -> securityService.getCertificateChain(privateKeyUri, certificateUri),
+                    "get-certificate-chain", logger);
+            certificateManager.setCA(keyPair.getPrivate(), (Certificate[]) certificateChain.toArray());
+        } catch (Exception e) {
+            logger.atError().setCause(e).log("Exception occurred while getting the certificate authority from"
+                    + " the provider");
+            serviceErrored(e);
+        }
     }
 
     @Override
@@ -285,12 +360,8 @@ public class ClientDevicesAuthService extends PluginService {
                 String caType = caTypeList.get(0);
                 certificateManager.update(getPassphrase(), CertificateStore.CAType.valueOf(caType));
             }
-
-            List<String> caCerts = certificateManager.getCACertificates();
-            uploadCoreDeviceCAs(caCerts);
-            updateCACertificateConfig(caCerts);
             updateCaPassphraseConfig(certificateManager.getCaPassPhrase());
-        } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException
+        } catch (KeyStoreException | IllegalArgumentException
                 | CloudServiceInteractionException e) {
             serviceErrored(e);
         }

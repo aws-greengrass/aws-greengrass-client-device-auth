@@ -68,6 +68,8 @@ public class CertificateStore {
     private char[] passphrase;
     private final Path workPath;
     private final Platform platform = Platform.getInstance();
+    private Certificate[] caCertChain;
+    private PrivateKey caPrivateKey;
 
     public enum CAType {
         RSA_2048, ECDSA_P256
@@ -105,6 +107,17 @@ public class CertificateStore {
             createAndStoreDefaultKeyStore(caType);
             logger.atDebug().log("successfully created new CA keystore");
         }
+
+        try {
+            caCertChain = keyStore.getCertificateChain(CA_KEY_ALIAS);
+            Key key = keyStore.getKey(CA_KEY_ALIAS, getPassphrase());
+            if (!(key instanceof PrivateKey)) {
+                throw new KeyStoreException("unable to retrieve CA private key");
+            }
+            caPrivateKey = (PrivateKey) key;
+        } catch (NoSuchAlgorithmException | UnrecoverableKeyException e) {
+            throw new KeyStoreException("unable to retrieve CA private key", e);
+        }
     }
 
     /**
@@ -114,11 +127,7 @@ public class CertificateStore {
      * @throws KeyStoreException if unable to retrieve PrivateKey object
      */
     public PrivateKey getCAPrivateKey() throws KeyStoreException {
-        try {
-            return (PrivateKey) keyStore.getKey(CA_KEY_ALIAS, getPassphrase());
-        } catch (NoSuchAlgorithmException | UnrecoverableKeyException e) {
-            throw new KeyStoreException("unable to retrieve CA private key", e);
-        }
+        return caPrivateKey;
     }
 
     /**
@@ -128,7 +137,19 @@ public class CertificateStore {
      * @throws KeyStoreException if unable to retrieve the certificate
      */
     public X509Certificate getCACertificate() throws KeyStoreException {
-        return (X509Certificate) keyStore.getCertificate(CA_KEY_ALIAS);
+        return (X509Certificate) caCertChain[0];
+    }
+
+    public Certificate[] getCACertificateChain() {
+        return caCertChain;
+    }
+
+    public void setCaCertChain(Certificate[] certificateChain) {
+        caCertChain = certificateChain;
+    }
+
+    public void setCaPrivateKey(PrivateKey privateKey) {
+        caPrivateKey = privateKey;
     }
 
     public String loadDeviceCertificate(String certificateId) throws IOException {
@@ -279,7 +300,7 @@ public class CertificateStore {
 
         // TODO: Clean this up
         // Temporarily store public CA since CA information is not yet available in cloud
-        X509Certificate caCert = getCACertificate();
+        Certificate caCert = keyStore.getCertificate(CA_KEY_ALIAS);
         saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME),
                 EncryptionUtils.encodeToPem(CertificateHelper.PEM_BOUNDARY_CERTIFICATE,caCert.getEncoded()));
     }
