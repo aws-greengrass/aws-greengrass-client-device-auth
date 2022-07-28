@@ -45,7 +45,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
-import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
@@ -126,6 +125,7 @@ public class ClientDevicesAuthService extends PluginService {
      * @param mqttSessionFactory          session factory to handling mqtt credentials
      * @param sessionManager              session manager
      * @param clientDevicesAuthServiceApi client devices service api handle
+     * @param securityService             security service
      */
     @SuppressWarnings("PMD.ExcessiveParameterList")
     @Inject
@@ -180,7 +180,6 @@ public class ClientDevicesAuthService extends PluginService {
      * |    |---- deviceGroups:
      * |         |---- definitions : {}
      * |         |---- policies : {}
-     * |    |---- ca_type: [...]
      * |    |---- certificateAuthority:
      * |        |---- ca_type: "..."
      * |        |---- certificateUri: "..."
@@ -199,8 +198,6 @@ public class ClientDevicesAuthService extends PluginService {
                 return;
             }
             logger.atDebug().kv("why", whatHappened).kv("node", node).log();
-            Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
-            Topic certificateAuthorityTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC);
 
             // Attempt to update the thread pool size as needed
             try {
@@ -222,41 +219,46 @@ public class ClientDevicesAuthService extends PluginService {
                 }
             }
 
+            Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
+            Topics certAuthorityTopic = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC);
+            String caKeyPath = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_PRIVATE_KEY_URI));
+            String caCertPath = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_CERTIFICATE_URI));
+            Topic caType = certAuthorityTopic.lookup(CA_TYPE_TOPIC);
+
             if (whatHappened == WhatHappened.initialized || node == null) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-                updateCertificateAuthority();
+                updateCertificateAuthority(caType, caCertPath, caKeyPath);
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
             } else if (node.childOf(CERTIFICATE_AUTHORITY_TOPIC)) {
-                if (certificateAuthorityTopic.getOnce() == null) {
+                // If the CA type is null because of the change to its configuration to null, do not update the CA.
+
+                // If the CA type is null and if either of the customer provided CA key and CA certificate (or both)
+                // are empty, do not update the CA.
+                if (caType.getOnce() == null
+                        && (node.childOf(CA_TYPE_TOPIC) || Utils.isEmpty(caKeyPath) || Utils.isEmpty(caCertPath))) {
                     return;
                 }
-                updateCertificateAuthority();
+                updateCertificateAuthority(caType, caCertPath, caKeyPath);
             }
         });
 
     }
 
-    private void updateCertificateAuthority() {
-        String caKeyPath = Coerce.toString(config.findOrDefault("",
-                CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI));
-        String caCertPath = Coerce.toString(config.findOrDefault("",
-                CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI));
-        Topic caType = config.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_TOPIC);
-
-        // If the key and cert path of CA are empty, generate a CA
+    private void updateCertificateAuthority(Topic caType, String caCertPath, String caKeyPath) {
+        // If the key or cert path of the CA are empty, generate a CA
         if (Utils.isEmpty(caKeyPath) || Utils.isEmpty(caCertPath)) {
             updateCAType(caType);
         } else {
+            logger.atInfo().kv(CA_PRIVATE_KEY_URI, caKeyPath).kv(CA_CERTIFICATE_URI, caCertPath)
+                    .log("Using certificate authority URIs provided in the configuration.");
             // Update certificate manager with the customer provided CA configuration
             try {
                 URI privateKeyUri = new URI(caKeyPath);
                 URI certificateUri = new URI(caCertPath);
                 updateCertificateManager(privateKeyUri, certificateUri);
             } catch (URISyntaxException e) {
-                logger.atError().kv(CA_PRIVATE_KEY_URI, "")
-                        .kv(CA_CERTIFICATE_URI, "")
-                        .setCause(e)
+                logger.atError().kv(CA_PRIVATE_KEY_URI, caKeyPath).kv(CA_CERTIFICATE_URI, caCertPath).setCause(e)
                         .log("Exception occurred while parsing the certificate authority configuration");
                 serviceErrored(e);
             }
@@ -272,6 +274,7 @@ public class ClientDevicesAuthService extends PluginService {
         }
     }
 
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void updateCertificateManager(URI privateKeyUri, URI certificateUri) {
         try {
             KeyPair keyPair = RetryUtils.runWithRetry(GET_KEY_PAIR_RETRY_CONFIG,
@@ -280,7 +283,10 @@ public class ClientDevicesAuthService extends PluginService {
             List<X509Certificate> certificateChain = RetryUtils.runWithRetry(GET_CERTIFICATE_CHAIN_RETRY_CONFIG,
                     () -> securityService.getCertificateChain(privateKeyUri, certificateUri),
                     "get-certificate-chain", logger);
-            certificateManager.setCA(keyPair.getPrivate(), (Certificate[]) certificateChain.toArray());
+            if (keyPair == null || certificateChain == null) {
+                throw new Exception("Invalid key pair or certificate chain is found for the given URIs");
+            }
+            certificateManager.setCA(keyPair.getPrivate(), certificateChain.toArray(new X509Certificate[0]));
         } catch (Exception e) {
             logger.atError().setCause(e).log("Exception occurred while getting the certificate authority from"
                     + " the provider");

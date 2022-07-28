@@ -31,6 +31,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -83,8 +84,8 @@ public class CertificateManager {
         certificateStore.update(caPassphrase, caType);
     }
 
-    public void setCA(PrivateKey privateKey, Certificate[] certificates) {
-        certificateStore.setCaCertChain(certificates);
+    public void setCA(PrivateKey privateKey, X509Certificate... certificates) {
+        certificateStore.setCaCertificateChain(certificates);
         certificateStore.setCaPrivateKey(privateKey);
     }
 
@@ -114,7 +115,7 @@ public class CertificateManager {
      */
     public List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
         List<String> certificatePems = new ArrayList<>();
-        Certificate[] certs = certificateStore.getCACertificateChain();
+        Certificate[] certs = certificateStore.getCaCertificateChain();
         for (Certificate cert : certs) {
             certificatePems.add(CertificateHelper.toPem((X509Certificate) cert));
         }
@@ -122,7 +123,7 @@ public class CertificateManager {
     }
 
     private X509Certificate[] getX509CACertificates() throws KeyStoreException {
-        return new X509Certificate[]{certificateStore.getCACertificate()};
+        return Arrays.asList(certificateStore.getCaCertificateChain()).toArray(new X509Certificate[0]);
     }
 
     public String getCaPassPhrase() {

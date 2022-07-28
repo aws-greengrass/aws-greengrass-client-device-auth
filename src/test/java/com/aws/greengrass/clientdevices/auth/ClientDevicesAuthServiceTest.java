@@ -7,14 +7,14 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
-import com.aws.greengrass.componentmanager.KernelConfigResolver;
-import com.aws.greengrass.config.Topic;
-import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.clientdevices.auth.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
+import com.aws.greengrass.componentmanager.KernelConfigResolver;
+import com.aws.greengrass.config.Topic;
+import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
@@ -35,6 +35,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.aws.greengrass.model.ServiceError;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuthoritiesRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
@@ -42,8 +43,12 @@ import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundEx
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.KeyStoreException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
@@ -127,18 +132,28 @@ class ClientDevicesAuthServiceTest {
     }
 
 
-    private void startNucleusWithConfig(String configFileName, State expectedServiceState) throws InterruptedException {
+    private void startNucleusWithConfig(String configFile, State expectedServiceState) throws InterruptedException {
         CountDownLatch authServiceRunning = new CountDownLatch(1);
-        kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
-                getClass().getResource(configFileName).toString());
+        String configFilePath = getConfigFilePath(configFile);
+        kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i", configFilePath);
         kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
-            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName()) && service.getState()
-                    .equals(expectedServiceState)) {
+            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName()) &&
+                    service.getState()
+                            .equals(expectedServiceState)) {
                 authServiceRunning.countDown();
             }
         });
         kernel.launch();
         assertThat(authServiceRunning.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS), is(true));
+    }
+
+    // Get config file from resources if it exists else use the path directly
+    private String getConfigFilePath(String configFile) {
+        URL configFileUrl = getClass().getResource(configFile);
+        if (configFileUrl != null) {
+            return configFileUrl.toString();
+        }
+        return configFile;
     }
 
     @Test
@@ -310,10 +325,13 @@ class ClientDevicesAuthServiceTest {
 
         kernel.getContext().runOnPublishQueueAndWait(() -> {
             kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
-                    .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, ClientDevicesAuthService.CA_TYPE_TOPIC);
+                    .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                            ClientDevicesAuthService.CERTIFICATE_AUTHORITY_TOPIC,
+                            ClientDevicesAuthService.CA_TYPE_TOPIC);
         });
         Topic topic = kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
-                .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, ClientDevicesAuthService.CA_TYPE_TOPIC);
+                .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                        ClientDevicesAuthService.CERTIFICATE_AUTHORITY_TOPIC, ClientDevicesAuthService.CA_TYPE_TOPIC);
         topic.withValue(Collections.singletonList("RSA_2048"));
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();
@@ -363,6 +381,55 @@ class ClientDevicesAuthServiceTest {
         when(client.putCertificateAuthorities(any(PutCertificateAuthoritiesRequest.class))).thenThrow(
                 ResourceNotFoundException.class);
         startNucleusWithConfig("config_with_ec_ca.yaml", State.ERRORED);
+    }
+
+    @Test
+    void GIVEN_cda_with_BYOCA_config_WHEN_install_THEN_use_ca_from_config()
+            throws IOException, InterruptedException, ServiceLoadException, CertificateException, KeyStoreException,
+            URISyntaxException {
+        String content = new String(Files.readAllBytes(
+                Paths.get(ClientDevicesAuthService.class.getResource("byocaConfig.yaml").getPath())),
+                StandardCharsets.UTF_8);
+        String byocaRecipe = content
+                .replace("PRIVATE_KEY_URI",
+                        Paths.get(getClass().getResource("ca_key.pem.key").toURI()).toString())
+                .replace("CERTIFICATE_URI",
+                        Paths.get(getClass().getResource("ca_cert.pem.crt").toURI()).toString());
+        Files.write(rootDir.resolve("config_with_byoca.yaml"), byocaRecipe.getBytes(StandardCharsets.UTF_8));
+        startNucleusWithConfig(rootDir.resolve("config_with_byoca.yaml").toString());
+
+        List<String> initialCACerts = getCaCertificates();
+        X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
+        assertThat(initialCA.getSigAlgName(), is(CertificateHelper.RSA_SIGNING_ALGORITHM));
+        verify(client).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
+        PutCertificateAuthoritiesRequest request = putCARequestArgumentCaptor.getValue();
+        assertThat(request.coreDeviceCertificates(), is(initialCACerts));
+    }
+
+    @Test
+    void GIVEN_cda_with_invalid_BYOCA_config_URIs_WHEN_install_THEN_use_ca_from_config(ExtensionContext context) throws
+            IOException, InterruptedException {
+        ignoreExceptionOfType(context, URISyntaxException.class);
+        ignoreExceptionOfType(context, ServiceError.class);
+        String content = new String(Files.readAllBytes(
+                Paths.get(ClientDevicesAuthService.class.getResource("byocaConfig.yaml").getPath())),
+                StandardCharsets.UTF_8);
+        String byocaRecipe = content
+                .replace("file://PRIVATE_KEY_URI",
+                        "^^")
+                .replace("file://CERTIFICATE_URI",
+                        "^^");
+        Files.write(rootDir.resolve("config_with_byoca.yaml"), byocaRecipe.getBytes(StandardCharsets.UTF_8));
+        startNucleusWithConfig(rootDir.resolve("config_with_byoca.yaml").toString(), State.ERRORED);
+
+    }
+
+    @Test
+    void GIVEN_cda_with_BYOCA_config_WHEN_install_and_exception_while_updating_CA_THEN_service_in_error_state
+            (ExtensionContext context) throws InterruptedException {
+        ignoreExceptionOfType(context, IllegalArgumentException.class);
+        ignoreExceptionOfType(context, ServiceError.class);
+        startNucleusWithConfig("byocaConfig.yaml", State.ERRORED);
     }
 
     private X509Certificate pemToX509Certificate(String certPem) throws IOException, CertificateException {

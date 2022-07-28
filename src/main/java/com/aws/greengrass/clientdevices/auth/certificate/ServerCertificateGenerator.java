@@ -72,7 +72,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
         try {
             certificate = CertificateHelper.issueServerCertificate(
                     certificateStore.getCACertificate(),
-                    certificateStore.getCAPrivateKey(),
+                    certificateStore.getCaPrivateKey(),
                     subject,
                     publicKey,
                     connectivityInfo,

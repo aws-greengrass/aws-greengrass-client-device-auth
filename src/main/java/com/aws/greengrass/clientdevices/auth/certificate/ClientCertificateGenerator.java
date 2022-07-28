@@ -65,7 +65,7 @@ public class ClientCertificateGenerator extends CertificateGenerator {
         try {
             certificate = CertificateHelper.issueClientCertificate(
                     certificateStore.getCACertificate(),
-                    certificateStore.getCAPrivateKey(),
+                    certificateStore.getCaPrivateKey(),
                     subject,
                     publicKey,
                     Date.from(now),
