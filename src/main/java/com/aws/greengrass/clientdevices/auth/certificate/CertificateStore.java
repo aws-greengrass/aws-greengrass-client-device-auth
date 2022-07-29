@@ -139,11 +139,12 @@ public class CertificateStore {
      * @return caCertificateChain
      * @throws ServiceError service error
      **/
+    @SuppressWarnings("PMD.MethodReturnsInternalArray")
     public Certificate[] getCaCertificateChain() {
         if (caCertificateChain == null) {
-            throw new ServiceError("Unable to find the CA certificate chain");
+            return new Certificate[0];
         }
-        return caCertificateChain.clone();
+        return caCertificateChain;
     }
 
     /**
@@ -154,9 +155,6 @@ public class CertificateStore {
      * @throws ServiceError service error
      **/
     public PrivateKey getCaPrivateKey() {
-        if (caPrivateKey == null) {
-            throw new ServiceError("Unable to find the CA private key");
-        }
         return caPrivateKey;
     }
 

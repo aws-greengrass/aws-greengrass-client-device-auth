@@ -19,7 +19,9 @@ import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import com.aws.greengrass.util.EncryptionUtilsTest;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import com.aws.greengrass.util.Pair;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsMapContaining;
@@ -49,6 +51,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
@@ -384,19 +387,23 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_cda_with_BYOCA_config_WHEN_install_THEN_use_ca_from_config()
-            throws IOException, InterruptedException, ServiceLoadException, CertificateException, KeyStoreException,
-            URISyntaxException {
+    void GIVEN_cda_with_BYOCA_config_WHEN_install_THEN_use_ca_from_config() throws Exception {
+        Path certificatePath = rootDir.resolve("certificate-test.pem");
+        Path privateKeyPath = rootDir.resolve("private-test.pem");
+        //generate test files
+        generateKeyPairAndCertPaths(privateKeyPath, certificatePath);
+
+        // Replace the file URIs with the generated files
         String content = new String(Files.readAllBytes(
                 Paths.get(ClientDevicesAuthService.class.getResource("byocaConfig.yaml").getPath())),
                 StandardCharsets.UTF_8);
         String byocaRecipe = content
-                .replace("PRIVATE_KEY_URI",
-                        Paths.get(getClass().getResource("ca_key.pem.key").toURI()).toString())
-                .replace("CERTIFICATE_URI",
-                        Paths.get(getClass().getResource("ca_cert.pem.crt").toURI()).toString());
-        Files.write(rootDir.resolve("config_with_byoca.yaml"), byocaRecipe.getBytes(StandardCharsets.UTF_8));
-        startNucleusWithConfig(rootDir.resolve("config_with_byoca.yaml").toString());
+                .replace("PRIVATE_KEY_URI", privateKeyPath.toString())
+                .replace("CERTIFICATE_URI", certificatePath.toString());
+        // Update the recipe in test
+        Files.write(rootDir.resolve("byocaConfig.yaml"), byocaRecipe.getBytes(StandardCharsets.UTF_8));
+
+        startNucleusWithConfig(rootDir.resolve("byocaConfig.yaml").toString());
 
         List<String> initialCACerts = getCaCertificates();
         X509Certificate initialCA = pemToX509Certificate(initialCACerts.get(0));
@@ -440,5 +447,19 @@ class ClientDevicesAuthServiceTest {
             cert = (X509Certificate) certFactory.generateCertificate(certStream);
         }
         return cert;
+    }
+
+    private void generateKeyPairAndCertPaths(Path privateKeyFilePath, Path certificateFilePath) throws Exception {
+        int keySize = 4096;
+        boolean generatePem = true;
+        boolean ec = false;
+
+        // Generate a key pair and its certificate and write it as a pem file at the path specified
+        Pair<Path, KeyPair> pair = EncryptionUtilsTest.generateCertificateFile(keySize, generatePem,
+                certificateFilePath, ec);
+        // Extract private key from the above key pair and write it as a pem at the path specified
+        EncryptionUtilsTest.writePemFile("PRIVATE KEY", pair.getRight().getPrivate().getEncoded(),
+                privateKeyFilePath);
+
     }
 }
