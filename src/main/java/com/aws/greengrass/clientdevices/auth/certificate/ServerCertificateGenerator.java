@@ -60,6 +60,11 @@ public class ServerCertificateGenerator extends CertificateGenerator {
             return;
         }
 
+        if (certificateStore.getCaPrivateKey() == null) {
+            logger.atWarn().log("Not generating new server certificate as CA private key is not found");
+            return;
+        }
+
         Instant now = Instant.now(clock);
 
         // Always include "localhost" in server certificates so that components can
@@ -72,7 +77,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
         try {
             certificate = CertificateHelper.issueServerCertificate(
                     certificateStore.getCACertificate(),
-                    certificateStore.getCAPrivateKey(),
+                    certificateStore.getCaPrivateKey(),
                     subject,
                     publicKey,
                     connectivityInfo,

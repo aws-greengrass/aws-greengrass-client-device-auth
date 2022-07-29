@@ -15,8 +15,10 @@ import com.aws.greengrass.util.FileSystemPermission;
 import com.aws.greengrass.util.platforms.Platform;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.operator.OperatorCreationException;
+import software.amazon.awssdk.aws.greengrass.model.ServiceError;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,6 +70,10 @@ public class CertificateStore {
     private char[] passphrase;
     private final Path workPath;
     private final Platform platform = Platform.getInstance();
+    @Setter
+    private Certificate[] caCertificateChain;
+    @Setter
+    private PrivateKey caPrivateKey;
 
     public enum CAType {
         RSA_2048, ECDSA_P256
@@ -105,18 +111,13 @@ public class CertificateStore {
             createAndStoreDefaultKeyStore(caType);
             logger.atDebug().log("successfully created new CA keystore");
         }
-    }
-
-    /**
-     * Get CA PrivateKey.
-     *
-     * @return                   CA PrivateKey object
-     * @throws KeyStoreException if unable to retrieve PrivateKey object
-     */
-    public PrivateKey getCAPrivateKey() throws KeyStoreException {
+        // Update the certificate chain of the certificate store
+        setCaCertificateChain(keyStore.getCertificateChain(CA_KEY_ALIAS));
+        // Update private key of the certificate store
         try {
-            return (PrivateKey) keyStore.getKey(CA_KEY_ALIAS, getPassphrase());
-        } catch (NoSuchAlgorithmException | UnrecoverableKeyException e) {
+            Key key = keyStore.getKey(CA_KEY_ALIAS, getPassphrase());
+            setCaPrivateKey((PrivateKey) key);
+        } catch (NoSuchAlgorithmException | UnrecoverableKeyException | ClassCastException e) {
             throw new KeyStoreException("unable to retrieve CA private key", e);
         }
     }
@@ -124,11 +125,37 @@ public class CertificateStore {
     /**
      * Get CA Public Certificate.
      *
-     * @return                   CA X509Certificate object
+     * @return CA X509Certificate object
      * @throws KeyStoreException if unable to retrieve the certificate
      */
     public X509Certificate getCACertificate() throws KeyStoreException {
-        return (X509Certificate) keyStore.getCertificate(CA_KEY_ALIAS);
+        return (X509Certificate) getCaCertificateChain()[0];
+    }
+
+    /**
+     * Get CA certificate chain.
+     * This getter method checks if the certificate chain is null before returning it to avoid null pointer exceptions.
+     *
+     * @return caCertificateChain
+     * @throws ServiceError service error
+     **/
+    @SuppressWarnings("PMD.MethodReturnsInternalArray")
+    public Certificate[] getCaCertificateChain() {
+        if (caCertificateChain == null) {
+            return new Certificate[0];
+        }
+        return caCertificateChain;
+    }
+
+    /**
+     * Get CA private key.
+     * This getter method checks if the private key is null before returning it to avoid null pointer exceptions.
+     *
+     * @return caCertificateChain
+     * @throws ServiceError service error
+     **/
+    public PrivateKey getCaPrivateKey() {
+        return caPrivateKey;
     }
 
     public String loadDeviceCertificate(String certificateId) throws IOException {
@@ -184,7 +211,7 @@ public class CertificateStore {
         // generate new passphrase for new CA certificate
         passphrase = generateRandomPassphrase().toCharArray();
         Certificate[] certificateChain = { caCertificate };
-        ks.setKeyEntry("CA", kp.getPrivate(), getPassphrase(), certificateChain);
+        ks.setKeyEntry(CA_KEY_ALIAS, kp.getPrivate(), getPassphrase(), certificateChain);
         keyStore = ks;
 
         try {
@@ -279,7 +306,7 @@ public class CertificateStore {
 
         // TODO: Clean this up
         // Temporarily store public CA since CA information is not yet available in cloud
-        X509Certificate caCert = getCACertificate();
+        Certificate caCert = keyStore.getCertificate(CA_KEY_ALIAS);
         saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME),
                 EncryptionUtils.encodeToPem(CertificateHelper.PEM_BOUNDARY_CERTIFICATE,caCert.getEncoded()));
     }

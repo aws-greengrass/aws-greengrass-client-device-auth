@@ -62,7 +62,7 @@ public class CertificateStoreTest {
     @Test
     public void GIVEN_missing_keystore_WHEN_init_with_RSA_THEN_new_rsa_ca_created() throws KeyStoreException {
         certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
-        PrivateKey pk = certificateStore.getCAPrivateKey();
+        PrivateKey pk = certificateStore.getCaPrivateKey();
         X509Certificate cert = certificateStore.getCACertificate();
 
         assertThat(pk.getAlgorithm(), equalTo(RSA_KEY_ALGORITHM));
@@ -73,7 +73,7 @@ public class CertificateStoreTest {
     @Test
     public void GIVEN_missing_keystore_WHEN_init_with_EC_THEN_new_ec_ca_created() throws KeyStoreException {
         certificateStore.update(DEFAULT_PASSPHRASE, CAType.ECDSA_P256);
-        PrivateKey pk = certificateStore.getCAPrivateKey();
+        PrivateKey pk = certificateStore.getCaPrivateKey();
         X509Certificate cert = certificateStore.getCACertificate();
 
         assertThat(pk.getAlgorithm(), equalTo(EC_KEY_ALGORITHM));

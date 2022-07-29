@@ -60,12 +60,17 @@ public class ClientCertificateGenerator extends CertificateGenerator {
             return;
         }
 
+        if (certificateStore.getCaPrivateKey() == null) {
+            logger.atWarn().log("Not generating new client certificate as CA private key is not found");
+            return;
+        }
+
         Instant now = Instant.now(clock);
 
         try {
             certificate = CertificateHelper.issueClientCertificate(
                     certificateStore.getCACertificate(),
-                    certificateStore.getCAPrivateKey(),
+                    certificateStore.getCaPrivateKey(),
                     subject,
                     publicKey,
                     Date.from(now),

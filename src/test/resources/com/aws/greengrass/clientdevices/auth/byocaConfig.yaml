@@ -3,7 +3,9 @@ services:
   aws.greengrass.clientdevices.Auth:
     configuration:
       certificateAuthority:
-        ca_type: ["ECDSA_P256"]
+        certificateUri: "file://CERTIFICATE_URI"
+        privateKeyUri: "file://PRIVATE_KEY_URI"
+
   main:
     lifecycle:
       install:
