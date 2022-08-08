@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.iot.registry.RegistryRefreshMonitor;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -80,6 +81,7 @@ public class ClientDevicesAuthService extends PluginService {
     private final GroupManager groupManager;
 
     private final CertificateManager certificateManager;
+    private final RegistryRefreshMonitor registryRefreshMonitor;
 
     private final GreengrassServiceClientFactory clientFactory;
 
@@ -107,6 +109,7 @@ public class ClientDevicesAuthService extends PluginService {
      * @param greengrassCoreIPCService    core IPC service
      * @param mqttSessionFactory          session factory to handling mqtt credentials
      * @param sessionManager              session manager
+     * @param registryMonitor             registry-refresh monitor
      * @param clientDevicesAuthServiceApi client devices service api handle
      */
     @SuppressWarnings("PMD.ExcessiveParameterList")
@@ -118,6 +121,7 @@ public class ClientDevicesAuthService extends PluginService {
                                     GreengrassCoreIPCService greengrassCoreIPCService,
                                     MqttSessionFactory mqttSessionFactory,
                                     SessionManager sessionManager,
+                                    RegistryRefreshMonitor registryMonitor,
                                     ClientDevicesAuthServiceApi clientDevicesAuthServiceApi) {
         super(topics);
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
@@ -133,9 +137,11 @@ public class ClientDevicesAuthService extends PluginService {
         this.deviceConfiguration = deviceConfiguration;
         this.authorizationHandler = authorizationHandler;
         this.greengrassCoreIPCService = greengrassCoreIPCService;
+        this.registryRefreshMonitor = registryMonitor;
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(this.getConfig()));
+        registryMonitor.startMonitor();
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {
@@ -223,6 +229,7 @@ public class ClientDevicesAuthService extends PluginService {
     protected void shutdown() throws InterruptedException {
         super.shutdown();
         certificateManager.stopMonitors();
+        registryRefreshMonitor.stopMonitor();
     }
 
     @Override

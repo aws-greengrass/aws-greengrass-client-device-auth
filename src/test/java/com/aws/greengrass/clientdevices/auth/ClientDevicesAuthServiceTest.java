@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
+import com.aws.greengrass.clientdevices.auth.iot.registry.RegistryRefreshMonitor;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.dependency.State;
@@ -96,6 +97,9 @@ class ClientDevicesAuthServiceTest {
     @Mock
     CertificateExpiryMonitor certExpiryMonitor;
 
+    @Mock
+    RegistryRefreshMonitor registryRefreshMonitor;
+
     @Captor
     private ArgumentCaptor<GroupConfiguration> configurationCaptor;
 
@@ -112,6 +116,7 @@ class ClientDevicesAuthServiceTest {
         kernel = new Kernel();
         kernel.getContext().put(GroupManager.class, groupManager);
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitor);
+        kernel.getContext().put(RegistryRefreshMonitor.class, registryRefreshMonitor);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
         lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
@@ -272,6 +277,7 @@ class ClientDevicesAuthServiceTest {
         kernel.shutdown();
         kernel = new Kernel().parseArgs("-r", rootDir.toAbsolutePath().toString());
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitor);
+        kernel.getContext().put(RegistryRefreshMonitor.class, registryRefreshMonitor);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
         startNucleusWithConfig("config.yaml");
 

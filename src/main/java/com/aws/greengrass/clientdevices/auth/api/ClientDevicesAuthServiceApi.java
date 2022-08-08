@@ -11,7 +11,9 @@ import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.registry.CertificateRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.registry.RegistryRefreshMonitor;
+import com.aws.greengrass.clientdevices.auth.iot.registry.ThingRegistry;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 
 import java.util.Map;
@@ -26,20 +28,27 @@ public class ClientDevicesAuthServiceApi {
     /**
      * Constructor.
      *
-     * @param certificateRegistry iot auth client
+     * @param certificateRegistry certificate registry
+     * @param thingRegistry       thing registry
      * @param sessionManager      session manager
      * @param deviceAuthClient    device auth client
      * @param certificateManager  certificate manager
+     * @param registryMonitor     registry-refresh monitor
      */
     @Inject
     public ClientDevicesAuthServiceApi(CertificateRegistry certificateRegistry,
+                                       ThingRegistry thingRegistry,
                                        SessionManager sessionManager,
                                        DeviceAuthClient deviceAuthClient,
-                                       CertificateManager certificateManager) {
+                                       CertificateManager certificateManager,
+                                       RegistryRefreshMonitor registryMonitor) {
         this.certificateRegistry = certificateRegistry;
         this.sessionManager = sessionManager;
         this.deviceAuthClient = deviceAuthClient;
         this.certificateManager = certificateManager;
+
+        registryMonitor.addToMonitor(certificateRegistry);
+        registryMonitor.addToMonitor(thingRegistry);
     }
 
     /**

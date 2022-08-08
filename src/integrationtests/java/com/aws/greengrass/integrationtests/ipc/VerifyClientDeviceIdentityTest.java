@@ -30,7 +30,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCClient;
 import software.amazon.awssdk.aws.greengrass.VerifyClientDeviceIdentityResponseHandler;
 import software.amazon.awssdk.aws.greengrass.model.ClientDeviceCredential;
-import software.amazon.awssdk.aws.greengrass.model.ServiceError;
 import software.amazon.awssdk.aws.greengrass.model.UnauthorizedError;
 import software.amazon.awssdk.aws.greengrass.model.VerifyClientDeviceIdentityRequest;
 import software.amazon.awssdk.aws.greengrass.model.VerifyClientDeviceIdentityResponse;
@@ -52,7 +51,6 @@ import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssert
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -218,7 +216,7 @@ class VerifyClientDeviceIdentityTest {
     }
 
     @Test
-    void GIVEN_broker_WHEN_verify_client_identity_with_internal_server_exception_THEN_error_is_thrown(
+    void GIVEN_broker_WHEN_verify_client_identity_with_internal_server_exception_THEN_verify_with_cached_result(
             ExtensionContext context)
             throws Exception {
         startNucleusWithConfig("cda.yaml");
@@ -234,16 +232,19 @@ class VerifyClientDeviceIdentityTest {
                     .withCredential(new ClientDeviceCredential()
                             .withClientDeviceCertificate("abc"));
 
-            Exception err = Assertions.assertThrows(Exception.class, () -> {
-                verifyClientIdentity(ipcClient, request, null);
-            });
-            assertEquals(err.getCause().getClass(), ServiceError.class);
+            Pair<CompletableFuture<Void>, Consumer<VerifyClientDeviceIdentityResponse>> cb =
+                    asyncAssertOnConsumer((m) -> {
+                        assertFalse(m.isIsValidClientDevice());
+                    });
+
+            verifyClientIdentity(ipcClient, request, cb.getRight());
+            cb.getLeft().get(10, TimeUnit.SECONDS);
         }
     }
 
     @Test
-    void GIVEN_broker_WHEN_verify_client_identity_with_exception_THEN_error_is_thrown(ExtensionContext context)
-            throws ExecutionException, InterruptedException {
+    void GIVEN_broker_WHEN_verify_client_identity_with_exception_THEN_verify_with_cached_result(ExtensionContext context)
+            throws Exception {
         startNucleusWithConfig("cda.yaml");
         ignoreExceptionOfType(context, NullPointerException.class);
         ignoreExceptionOfType(context, CloudServiceInteractionException.class);
@@ -254,10 +255,13 @@ class VerifyClientDeviceIdentityTest {
                     .withCredential(new ClientDeviceCredential()
                             .withClientDeviceCertificate("abc"));
 
-            Exception err = Assertions.assertThrows(Exception.class, () -> {
-                verifyClientIdentity(ipcClient, request, null);
-            });
-            assertEquals(err.getCause().getClass(), ServiceError.class);
+            Pair<CompletableFuture<Void>, Consumer<VerifyClientDeviceIdentityResponse>> cb =
+                    asyncAssertOnConsumer((m) -> {
+                        assertFalse(m.isIsValidClientDevice());
+                    });
+
+            verifyClientIdentity(ipcClient, request, cb.getRight());
+            cb.getLeft().get(10, TimeUnit.SECONDS);
         }
     }
 }
