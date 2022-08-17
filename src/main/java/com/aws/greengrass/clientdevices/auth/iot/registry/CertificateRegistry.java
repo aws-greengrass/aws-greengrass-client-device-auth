@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.iot.registry;
 
+import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -23,7 +24,7 @@ public class CertificateRegistry {
     private static final Logger logger = LogManager.getLogger(CertificateRegistry.class);
     // holds mapping of certificateHash (SHA-256 hash of certificatePem) to IoT Certificate Id;
     // size-bound by default cache size, evicts oldest written entry if the max size is reached
-    private static final Map<String, String> certificateHashToIdMap = Collections.synchronizedMap(
+    private final Map<String, String> registry = Collections.synchronizedMap(
             new LinkedHashMap<String, String>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry eldest) {
@@ -45,14 +46,19 @@ public class CertificateRegistry {
 
     /**
      * Returns whether the provided certificate is valid and active.
+     * Returns locally registered result when IoT Core cannot be reached.
+     *
      * @param certificatePem Certificate PEM
      * @return true if the certificate is valid and active.
      */
     public boolean isCertificateValid(String certificatePem) {
-        // TODO: Check cache instead of calling the cloud once we have certificate revocation
-        Optional<String> certId = fetchActiveCertificateId(certificatePem);
-        certId.ifPresent(id -> registerCertificateIdForPem(id, certificatePem));
-        return certId.isPresent();
+        try {
+            Optional<String> certId = fetchActiveCertificateId(certificatePem);
+            updateRegistryForCertificate(certificatePem, certId);
+            return certId.isPresent();
+        } catch (CloudServiceInteractionException e) {
+            return getAssociatedCertificateId(certificatePem).isPresent();
+        }
     }
 
     /**
@@ -67,18 +73,14 @@ public class CertificateRegistry {
         if (Utils.isEmpty(certificatePem)) {
             throw new IllegalArgumentException("Certificate PEM is empty");
         }
-        Optional<String> certId = getAssociatedCertificateId(certificatePem).map(Optional::of)
-                .orElseGet(() -> fetchActiveCertificateId(certificatePem));
-
-        certId.ifPresent(id -> registerCertificateIdForPem(id, certificatePem));
-        return certId;
-    }
-
-    /**
-     * Clears registry cache.
-     */
-    public void clear() {
-        certificateHashToIdMap.clear();
+        try {
+            Optional<String> certId = getAssociatedCertificateId(certificatePem).map(Optional::of)
+                    .orElseGet(() -> fetchActiveCertificateId(certificatePem));
+            updateRegistryForCertificate(certificatePem, certId);
+            return certId;
+        } catch (CloudServiceInteractionException e) {
+            return getAssociatedCertificateId(certificatePem);
+        }
     }
 
     /**
@@ -99,7 +101,7 @@ public class CertificateRegistry {
      */
     private Optional<String> getAssociatedCertificateId(String certificatePem) {
         return Optional.ofNullable(getCertificateHash(certificatePem))
-                .map(certificateHashToIdMap::get);
+                .map(registry::get);
     }
 
     /**
@@ -110,7 +112,31 @@ public class CertificateRegistry {
      */
     private void registerCertificateIdForPem(String certificateId, String certificatePem) {
         Optional.ofNullable(getCertificateHash(certificatePem))
-                .ifPresent(certHash -> certificateHashToIdMap.put(certHash, certificateId));
+                .ifPresent(certHash -> registry.put(certHash, certificateId));
+    }
+
+    /**
+     * Updates certPem <-> IoT Certificate ID association in the registry.
+     *
+     * @param certificatePem Certificate PEM
+     * @param iotCertificateId Optional of IoT Certificate ID
+     */
+    private void updateRegistryForCertificate(String certificatePem, Optional<String> iotCertificateId) {
+        if (iotCertificateId.isPresent()) {
+            registerCertificateIdForPem(iotCertificateId.get(), certificatePem);
+        } else {
+            clearRegistryForPem(certificatePem);
+        }
+    }
+
+    /**
+     * Removes registry entry for Certificate PEM.
+     *
+     * @param certificatePem Certificate PEM
+     */
+    private void clearRegistryForPem(String certificatePem) {
+        Optional.ofNullable(getCertificateHash(certificatePem))
+                .ifPresent(registry::remove);
     }
 
     /**

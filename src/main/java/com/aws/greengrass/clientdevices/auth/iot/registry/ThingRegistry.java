@@ -19,7 +19,7 @@ import javax.inject.Inject;
 public class ThingRegistry {
     // holds mapping of thingName to IoT Certificate ID;
     // size-bound by default cache size, evicts oldest written entry if the max size is reached
-    static final Map<String, String> registry = Collections.synchronizedMap(
+    private final Map<String, String> registry = Collections.synchronizedMap(
             new LinkedHashMap<String, String>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry eldest) {

@@ -18,7 +18,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doThrow;
@@ -53,8 +52,6 @@ class ThingRegistryTest {
         reset(mockIotAuthClient);
         when(mockIotAuthClient.isThingAttachedToCertificate(any(Thing.class), any(Certificate.class))).thenReturn(false);
         assertFalse(registry.isThingAttachedToCertificate(mockThing, mockCertificate));
-        // registry should be cleared for negative result
-        assertNull(ThingRegistry.registry.get(mockThing.getThingName()));
     }
 
     @Test
