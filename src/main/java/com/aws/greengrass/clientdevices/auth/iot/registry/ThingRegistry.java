@@ -57,10 +57,6 @@ public class ThingRegistry {
         return false;
     }
 
-    void clear() {
-        registry.clear();
-    }
-
     private void registerCertificateForThing(Thing thing, Certificate certificate) {
         registry.put(thing.getThingName(), certificate.getIotCertificateId());
     }

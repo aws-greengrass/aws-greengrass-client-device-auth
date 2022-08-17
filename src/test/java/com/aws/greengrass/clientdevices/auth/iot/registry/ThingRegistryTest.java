@@ -11,7 +11,6 @@ import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,11 +40,6 @@ class ThingRegistryTest {
     @BeforeEach
     void beforeEach() {
         registry = new ThingRegistry(mockIotAuthClient);
-    }
-
-    @AfterEach
-    void afterEach() {
-        registry.clear();
     }
 
     @Test
