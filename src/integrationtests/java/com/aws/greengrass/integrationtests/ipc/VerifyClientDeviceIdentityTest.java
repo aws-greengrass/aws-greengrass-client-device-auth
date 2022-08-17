@@ -241,7 +241,7 @@ class VerifyClientDeviceIdentityTest {
     }
 
     @Test
-    void GIVEN_broker_WHEN_verify_client_identity_with_exception_THEN_error_is_thrown(ExtensionContext context)
+    void GIVEN_broker_WHEN_verify_client_identity_with_exception_THEN_return_cached_result(ExtensionContext context)
             throws Exception {
         startNucleusWithConfig("cda.yaml");
         ignoreExceptionOfType(context, NullPointerException.class);
