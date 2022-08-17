@@ -9,34 +9,34 @@ import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
-import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
-import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
+import com.aws.greengrass.clientdevices.auth.iot.registry.CertificateRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.registry.ThingRegistry;
 
 import java.util.Map;
 import java.util.Optional;
 import javax.inject.Inject;
 
 public class MqttSessionFactory implements SessionFactory {
-    private final IotAuthClient iotAuthClient;
     private final DeviceAuthClient deviceAuthClient;
     private final CertificateRegistry certificateRegistry;
+    private final ThingRegistry thingRegistry;
 
     /**
      * Constructor.
      *
-     * @param iotAuthClient       Iot auth client
      * @param deviceAuthClient    Device auth client
      * @param certificateRegistry device Certificate registry
+     * @param thingRegistry       thing registry
      */
     @Inject
-    public MqttSessionFactory(IotAuthClient iotAuthClient,
-                              DeviceAuthClient deviceAuthClient,
-                              CertificateRegistry certificateRegistry) {
-        this.iotAuthClient = iotAuthClient;
+    public MqttSessionFactory(DeviceAuthClient deviceAuthClient,
+                              CertificateRegistry certificateRegistry,
+                              ThingRegistry thingRegistry) {
         this.deviceAuthClient = deviceAuthClient;
         this.certificateRegistry = certificateRegistry;
+        this.thingRegistry = thingRegistry;
     }
 
     @Override
@@ -61,7 +61,7 @@ public class MqttSessionFactory implements SessionFactory {
             }
             Thing thing = new Thing(mqttCredential.clientId);
             Certificate cert = new Certificate(certificateId.get());
-            if (!iotAuthClient.isThingAttachedToCertificate(thing, cert)) {
+            if (!thingRegistry.isThingAttachedToCertificate(thing, cert)) {
                 throw new AuthenticationException("unable to authenticate device");
             }
             Session session = new SessionImpl(cert);

@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.iot;
+package com.aws.greengrass.clientdevices.auth.iot.registry;
 
+import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Digest;
@@ -20,14 +21,13 @@ import javax.inject.Inject;
 
 public class CertificateRegistry {
     private static final Logger logger = LogManager.getLogger(CertificateRegistry.class);
-    public static final int REGISTRY_CACHE_SIZE = 50;
     // holds mapping of certificateHash (SHA-256 hash of certificatePem) to IoT Certificate Id;
     // size-bound by default cache size, evicts oldest written entry if the max size is reached
     private static final Map<String, String> certificateHashToIdMap = Collections.synchronizedMap(
-            new LinkedHashMap<String, String>(REGISTRY_CACHE_SIZE, 0.75f, false) {
+            new LinkedHashMap<String, String>(RegistryConfig.REGISTRY_SIZE, 0.75f, false) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry eldest) {
-                    return size() > REGISTRY_CACHE_SIZE;
+                    return size() > RegistryConfig.REGISTRY_SIZE;
                 }
             });
 
