@@ -24,10 +24,10 @@ public class CertificateRegistry {
     // holds mapping of certificateHash (SHA-256 hash of certificatePem) to IoT Certificate Id;
     // size-bound by default cache size, evicts oldest written entry if the max size is reached
     private static final Map<String, String> certificateHashToIdMap = Collections.synchronizedMap(
-            new LinkedHashMap<String, String>(RegistryConfig.REGISTRY_SIZE, 0.75f, false) {
+            new LinkedHashMap<String, String>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry eldest) {
-                    return size() > RegistryConfig.REGISTRY_SIZE;
+                    return size() > RegistryConfig.REGISTRY_CACHE_SIZE;
                 }
             });
 

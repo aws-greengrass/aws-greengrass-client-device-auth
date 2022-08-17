@@ -20,10 +20,10 @@ public class ThingRegistry {
     // holds mapping of thingName to IoT Certificate ID;
     // size-bound by default cache size, evicts oldest written entry if the max size is reached
     static final Map<String, String> registry = Collections.synchronizedMap(
-            new LinkedHashMap<String, String>(RegistryConfig.REGISTRY_SIZE, 0.75f, false) {
+            new LinkedHashMap<String, String>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry eldest) {
-                    return size() > RegistryConfig.REGISTRY_SIZE;
+                    return size() > RegistryConfig.REGISTRY_CACHE_SIZE;
                 }
             });
 
@@ -57,10 +57,7 @@ public class ThingRegistry {
         return false;
     }
 
-    /**
-     * Clears registry cache.
-     */
-    public void clear() {
+    void clear() {
         registry.clear();
     }
 

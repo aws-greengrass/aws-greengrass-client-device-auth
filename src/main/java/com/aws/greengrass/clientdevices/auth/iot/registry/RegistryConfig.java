@@ -6,5 +6,5 @@
 package com.aws.greengrass.clientdevices.auth.iot.registry;
 
 public class RegistryConfig {
-    public static final int REGISTRY_SIZE = 50;
+    public static final int REGISTRY_CACHE_SIZE = 50;
 }
