@@ -5,10 +5,10 @@
 
 package com.aws.greengrass.clientdevices.auth.certificate;
 
+import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
-import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
@@ -41,10 +41,8 @@ import static org.mockito.Mockito.verify;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class ServerCertificateGeneratorTest {
-    private static final String TEST_PASSPHRASE = "testPassphrase";
     private static final String SUBJECT_PRINCIPAL
             = "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
-
     @Mock
     private Consumer<X509Certificate> mockCallback;
 
@@ -59,12 +57,12 @@ public class ServerCertificateGeneratorTest {
     void setup() throws KeyStoreException, NoSuchAlgorithmException {
         X500Name subject = new X500Name(SUBJECT_PRINCIPAL);
         publicKey = CertificateStore.newRSAKeyPair().getPublic();
-        CertificateStore certificateStore = new CertificateStore(tmpPath);
-        certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
+        CertificateStore certificateStore = new CertificateStore(tmpPath );
         configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         CertificatesConfig certificatesConfig = new CertificatesConfig(configurationTopics);
         certificateGenerator = new ServerCertificateGenerator(subject, publicKey, mockCallback, certificateStore,
                 certificatesConfig, Clock.systemUTC());
+        certificateStore.setCertificateStoreConfig(configurationTopics, configurationTopics.lookupTopics("runtime"));
     }
 
     @AfterEach

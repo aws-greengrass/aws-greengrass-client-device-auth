@@ -7,10 +7,10 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
-import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateAuthorityNotFoundException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
@@ -30,11 +30,10 @@ import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
-import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
-import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
+import software.amazon.awssdk.services.greengrassv2.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuthoritiesRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
@@ -63,6 +62,7 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VER
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
     public static final String DEVICE_GROUPS_TOPICS = "deviceGroups";
+    public static final String CERTIFICATE_AUTHORITY_TOPIC = "certificateAuthority";
     public static final String CA_TYPE_TOPIC = "ca_type";
     public static final String CA_PASSPHRASE = "ca_passphrase";
     public static final String CERTIFICATES_KEY = "certificates";
@@ -83,7 +83,6 @@ public class ClientDevicesAuthService extends PluginService {
     private final CertificateManager certificateManager;
 
     private final GreengrassServiceClientFactory clientFactory;
-
     private final ClientDevicesAuthServiceApi clientDevicesAuthServiceApi;
     private final DeviceConfiguration deviceConfiguration;
     private final AuthorizationHandler authorizationHandler;
@@ -137,6 +136,7 @@ public class ClientDevicesAuthService extends PluginService {
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(this.getConfig()));
+        certificateManager.setCertificateStoreConfig(this.getConfig(), this.getRuntimeConfig());
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {
@@ -161,7 +161,8 @@ public class ClientDevicesAuthService extends PluginService {
      * |    |---- deviceGroups:
      * |         |---- definitions : {}
      * |         |---- policies : {}
-     * |    |---- ca_type: [...]
+     * |    |---- certificateAuthority:
+     * |        |---- ca_type: "..."
      * |    |---- certificates: {}
      * |---- runtime
      * |    |---- ca_passphrase: "..."
@@ -171,7 +172,19 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void install() throws InterruptedException {
         super.install();
+
+        // Before subscribing to the config updates, look up for CA type topic. This will create a node with default
+        // value as null if the topic doesn't exist already.
+        getContext().runOnPublishQueueAndWait(() -> {
+            this.config.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_TOPIC);
+        });
+        getContext().waitForPublishQueueToClear();
+
+        // Subscribe to config updates
         configChangeHandler();
+
+        // Update CA based on the config.
+        updateCAType();
     }
 
     private void configChangeHandler() {
@@ -181,7 +194,6 @@ public class ClientDevicesAuthService extends PluginService {
             }
             logger.atDebug().kv("why", whatHappened).kv("node", node).log();
             Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
-            Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC);
 
             // Attempt to update the thread pool size as needed
             try {
@@ -205,14 +217,12 @@ public class ClientDevicesAuthService extends PluginService {
 
             if (whatHappened == WhatHappened.initialized || node == null) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-                updateCAType(caTypeTopic);
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-            } else if (node.childOf(CA_TYPE_TOPIC)) {
-                if (caTypeTopic.getOnce() == null) {
-                    return;
-                }
-                updateCAType(caTypeTopic);
+            } else if (node.childOf(CERTIFICATE_AUTHORITY_TOPIC)) {
+                logger.atInfo("service-config-change").kv("event", whatHappened).kv("node", node)
+                        .log("Requesting re-installation of client device auth component");
+                requestReinstall();
             }
         });
     }
@@ -234,12 +244,10 @@ public class ClientDevicesAuthService extends PluginService {
         super.postInject();
         try {
             authorizationHandler.registerComponent(this.getName(),
-                    new HashSet<>(Arrays.asList(new String[]{
-                            SUBSCRIBE_TO_CERTIFICATE_UPDATES,
+                    new HashSet<>(Arrays.asList(SUBSCRIBE_TO_CERTIFICATE_UPDATES,
                             VERIFY_CLIENT_DEVICE_IDENTITY,
                             GET_CLIENT_DEVICE_AUTH_TOKEN,
-                            AUTHORIZE_CLIENT_DEVICE_ACTION
-                    })));
+                            AUTHORIZE_CLIENT_DEVICE_ACTION)));
         } catch (com.aws.greengrass.authorization.exceptions.AuthorizationException e) {
             logger.atError("initialize-cda-service-authorization-error", e)
                     .log("Failed to initialize the client device auth service with the Authorization module.");
@@ -274,32 +282,17 @@ public class ClientDevicesAuthService extends PluginService {
         }
     }
 
-    private void updateCAType(Topic topic) {
+    private void updateCAType() {
         try {
-            List<String> caTypeList = Coerce.toStringList(topic);
-            logger.atDebug().kv("CA type", caTypeList).log("CA type list updated");
-
-            if (Utils.isEmpty(caTypeList)) {
-                logger.atDebug().log("CA type list null or empty. Defaulting to RSA");
-                certificateManager.update(getPassphrase(), CertificateStore.CAType.RSA_2048);
-            } else {
-                if (caTypeList.size() > 1) {
-                    logger.atWarn().log("Only one CA type is supported. Ignoring subsequent CAs in the list.");
-                }
-                String caType = caTypeList.get(0);
-                certificateManager.update(getPassphrase(), CertificateStore.CAType.valueOf(caType));
-            }
-
             List<String> caCerts = certificateManager.getCACertificates();
             uploadCoreDeviceCAs(caCerts);
             updateCACertificateConfig(caCerts);
-            updateCaPassphraseConfig(certificateManager.getCaPassPhrase());
         } catch (CloudServiceInteractionException e) {
             logger.atError().cause(e)
                     .kv("coreThingName", deviceConfiguration.getThingName())
                     .log("Unable to upload core CA certificates to the cloud");
         } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException
-                e) {
+                | CertificateAuthorityNotFoundException e) {
             serviceErrored(e);
         }
     }
@@ -307,17 +300,6 @@ public class ClientDevicesAuthService extends PluginService {
     void updateCACertificateConfig(List<String> caCerts) {
         Topic caCertsTopic = getRuntimeConfig().lookup(CERTIFICATES_KEY, AUTHORITIES_TOPIC);
         caCertsTopic.withValue(caCerts);
-    }
-
-    void updateCaPassphraseConfig(String passphrase) {
-        Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE);
-        // TODO: This passphrase needs to be encrypted prior to storing in TLOG
-        caPassphrase.withValue(passphrase);
-    }
-
-    private String getPassphrase() {
-        Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE).dflt("");
-        return Coerce.toString(caPassphrase);
     }
 
     @Override

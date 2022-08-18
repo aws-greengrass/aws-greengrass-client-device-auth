@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateAuthorityNotFoundException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidSessionException;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
 import com.aws.greengrass.clientdevices.auth.session.Session;
@@ -19,7 +20,6 @@ import software.amazon.awssdk.utils.StringInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertPath;
 import java.security.cert.CertPathValidator;
@@ -106,8 +106,8 @@ public class DeviceAuthClient {
             logger.atError().cause(e).log("Unable to load certificate validator");
         } catch (CertPathValidatorException e) {
             logger.atDebug().log("Certificate was not issued by local CA");
-        } catch (KeyStoreException e) {
-            logger.atError().cause(e).log("Unable to load CA keystore");
+        }  catch (CertificateAuthorityNotFoundException e) {
+            logger.atError().cause(e).log("Unable to the find core device CA");
         }
 
         return false;

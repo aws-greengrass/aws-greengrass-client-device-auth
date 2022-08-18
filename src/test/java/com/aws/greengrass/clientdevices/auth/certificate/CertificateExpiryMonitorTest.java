@@ -38,7 +38,6 @@ import static org.mockito.Mockito.mock;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateExpiryMonitorTest {
-    private static final String TEST_PASSPHRASE = "testPassphrase";
     private static final String SUBJECT_PRINCIPAL
             = "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
     private static final X500Name SUBJECT = new X500Name(SUBJECT_PRINCIPAL);
@@ -58,8 +57,7 @@ public class CertificateExpiryMonitorTest {
         certificatesConfig = new CertificatesConfig(configTopics);
 
         certificateStore = new CertificateStore(tmpPath);
-        certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
-
+        certificateStore.setCertificateStoreConfig(configTopics, configTopics.lookupTopics("runtime"));
         certExpiryMonitor = new CertificateExpiryMonitor(mock(ScheduledExecutorService.class), mock(ConnectivityInfoProvider.class), Clock.systemUTC());
     }
 

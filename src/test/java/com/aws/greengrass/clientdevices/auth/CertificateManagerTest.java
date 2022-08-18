@@ -5,18 +5,19 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
+import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
+import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
+import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateAuthorityNotFoundException;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
-import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
-import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
-import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
-import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.Pair;
@@ -46,6 +47,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static org.mockito.Mockito.mock;
+
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateManagerTest {
     @Mock
@@ -66,15 +69,19 @@ public class CertificateManagerTest {
     void beforeEach() throws KeyStoreException {
         certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider,
                 mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC());
-        certificateManager.update("", CertificateStore.CAType.RSA_2048);
         CertificatesConfig certificatesConfig = new CertificatesConfig(
                 Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
+        Topics cdaConfigurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                mock(Topics.class));
+        Topics cdaRuntimeTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                mock(Topics.class));
+        certificateManager.setCertificateStoreConfig(cdaConfigurationTopics, cdaRuntimeTopics);
     }
 
     @Test
     void GIVEN_defaultCertManager_WHEN_getCACertificates_THEN_singleCAReturned()
-            throws CertificateEncodingException, KeyStoreException, IOException {
+            throws CertificateEncodingException, KeyStoreException, IOException, CertificateAuthorityNotFoundException {
         List<String> caPemList = certificateManager.getCACertificates();
         Assertions.assertEquals(1, caPemList.size(), "expected single CA certificate");
     }

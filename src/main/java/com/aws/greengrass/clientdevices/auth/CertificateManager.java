@@ -16,8 +16,10 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateAuthorityNotFoundException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
+import com.aws.greengrass.config.Topics;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -25,9 +27,11 @@ import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -70,14 +74,8 @@ public class CertificateManager {
         this.certificatesConfig = certificatesConfig;
     }
 
-    /**
-     * Initialize the certificate manager.
-     * @param caPassphrase  CA Passphrase
-     * @param caType        CA type
-     * @throws KeyStoreException if unable to load the CA key store
-     */
-    public void update(String caPassphrase, CertificateStore.CAType caType) throws KeyStoreException {
-        certificateStore.update(caPassphrase, caType);
+    public void setCertificateStoreConfig(Topics config, Topics runtimeConfig) {
+        certificateStore.setCertificateStoreConfig(config, runtimeConfig);
     }
 
     /**
@@ -103,17 +101,20 @@ public class CertificateManager {
      * @throws KeyStoreException if unable to retrieve the certificate
      * @throws IOException if unable to write certificate
      * @throws CertificateEncodingException if unable to get certificate encoding
+     * @throws CertificateAuthorityNotFoundException if unable to retrieve the CA
      */
-    public List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
-        return Collections.singletonList(CertificateHelper.toPem(certificateStore.getCACertificate()));
+    public List<String> getCACertificates() throws KeyStoreException, IOException,
+            CertificateEncodingException, CertificateAuthorityNotFoundException {
+        List<String> certificatePems = new ArrayList<>();
+        Certificate[] certs = certificateStore.getCaCertificateChain();
+        for (Certificate cert : certs) {
+            certificatePems.add(CertificateHelper.toPem((X509Certificate) cert));
+        }
+        return certificatePems;
     }
 
-    private X509Certificate[] getX509CACertificates() throws KeyStoreException {
-        return new X509Certificate[]{certificateStore.getCACertificate()};
-    }
-
-    public String getCaPassPhrase() {
-        return certificateStore.getCaPassphrase();
+    private X509Certificate[] getX509CACertificates() throws KeyStoreException, CertificateAuthorityNotFoundException {
+        return certificateStore.getCaCertificateChain();
     }
 
     /**
@@ -129,6 +130,7 @@ public class CertificateManager {
      *
      * @param getCertificateRequest get certificate request
      * @throws CertificateGenerationException if unable to generate certificate
+     * @throws CertificateAuthorityNotFoundException if unable to retrieve the CA
      */
     public void subscribeToCertificateUpdates(GetCertificateRequest getCertificateRequest)
             throws CertificateGenerationException {
@@ -157,7 +159,7 @@ public class CertificateManager {
                 };
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
-        } catch (NoSuchAlgorithmException | KeyStoreException e) {
+        } catch (NoSuchAlgorithmException | KeyStoreException | CertificateAuthorityNotFoundException e) {
             throw new CertificateGenerationException(e);
         }
     }

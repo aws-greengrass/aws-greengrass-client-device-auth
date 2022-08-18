@@ -13,6 +13,7 @@ import com.aws.greengrass.clientdevices.auth.CertificateManager;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateAuthorityNotFoundException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -154,7 +155,8 @@ public class SubscribeToCertificateUpdatesOperationHandler
                             EncryptionUtils.encodeToPem(PEM_BOUNDARY_PUBLIC_KEY, kp.getPublic().getEncoded()))
                     .withPrivateKey(
                             EncryptionUtils.encodeToPem(PEM_BOUNDARY_PRIVATE_KEY, kp.getPrivate().getEncoded()));
-        } catch (CertificateEncodingException | IOException | KeyStoreException e) {
+        } catch (CertificateEncodingException | IOException | KeyStoreException
+                | CertificateAuthorityNotFoundException e) {
             logger.atError().cause(e).log("Unable to attach certificates to the response");
             throw new ServiceError("Subscribe to certificate update failed. Check Greengrass log for details.");
         }

@@ -6,12 +6,18 @@
 package com.aws.greengrass.clientdevices.auth.certificate;
 
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateAuthorityNotFoundException;
+import com.aws.greengrass.config.Topic;
+import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.Digest;
 import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.FileSystemPermission;
+import com.aws.greengrass.util.Pair;
+import com.aws.greengrass.util.Utils;
 import com.aws.greengrass.util.platforms.Platform;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -34,14 +40,22 @@ import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import javax.inject.Inject;
+
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_PASSPHRASE;
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_TYPE_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CERTIFICATE_AUTHORITY_TOPIC;
+import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 
 public class CertificateStore {
     private static final long   DEFAULT_CA_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
@@ -73,9 +87,18 @@ public class CertificateStore {
         RSA_2048, ECDSA_P256
     }
 
+    private Topics cdaRuntimeConfiguration;
+    private Topics cdaComponentConfiguration;
+
+
     @Inject
     public CertificateStore(Kernel kernel) throws IOException {
         this.workPath = kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
+    }
+
+    public void setCertificateStoreConfig(Topics componentConfig, Topics componentRuntimeConfig) {
+        cdaComponentConfiguration = componentConfig;
+        cdaRuntimeConfiguration = componentRuntimeConfig;
     }
 
     // For unit tests
@@ -94,30 +117,16 @@ public class CertificateStore {
      * @param caType CA key type.
      * @throws KeyStoreException if unable to load or create CA KeyStore
      */
-    public void update(String passphrase, CAType caType) throws KeyStoreException {
+    private synchronized void update(String passphrase, CAType caType) throws KeyStoreException {
         this.passphrase = passphrase.toCharArray();
         try {
             keyStore = loadDefaultKeyStore(caType);
-            logger.atDebug().log("successfully loaded existing CA keystore");
+            logger.atInfo().log("successfully loaded existing CA keystore " + caType);
         } catch (KeyStoreException | IOException | CertificateException | NoSuchAlgorithmException
                 | UnrecoverableKeyException e) {
             logger.atDebug().cause(e).log("failed to load existing CA keystore");
             createAndStoreDefaultKeyStore(caType);
-            logger.atDebug().log("successfully created new CA keystore");
-        }
-    }
-
-    /**
-     * Get CA PrivateKey.
-     *
-     * @return                   CA PrivateKey object
-     * @throws KeyStoreException if unable to retrieve PrivateKey object
-     */
-    public PrivateKey getCAPrivateKey() throws KeyStoreException {
-        try {
-            return (PrivateKey) keyStore.getKey(CA_KEY_ALIAS, getPassphrase());
-        } catch (NoSuchAlgorithmException | UnrecoverableKeyException e) {
-            throw new KeyStoreException("unable to retrieve CA private key", e);
+            logger.atInfo().log("successfully created new CA keystore " + caType);
         }
     }
 
@@ -125,10 +134,31 @@ public class CertificateStore {
      * Get CA Public Certificate.
      *
      * @return                   CA X509Certificate object
-     * @throws KeyStoreException if unable to retrieve the certificate
+     * @throws CertificateAuthorityNotFoundException if unable to retrieve the CA certificate
      */
-    public X509Certificate getCACertificate() throws KeyStoreException {
-        return (X509Certificate) keyStore.getCertificate(CA_KEY_ALIAS);
+    public X509Certificate getCACertificate() throws CertificateAuthorityNotFoundException {
+        return  getCaCertificateChain()[0];
+    }
+
+    /**
+     * Get CA certificate chain.
+     *
+     * @return caCertificateChain
+     * @throws CertificateAuthorityNotFoundException if unable to retrieve the CA
+     **/
+    @SuppressWarnings("PMD.MethodReturnsInternalArray")
+    public X509Certificate[] getCaCertificateChain() throws CertificateAuthorityNotFoundException {
+        return getCertificateAuthority().getRight();
+    }
+
+    /**
+     * Get CA private key.
+     *
+     * @return caCertificateChain
+     * @throws CertificateAuthorityNotFoundException if unable to retrieve the CA
+     **/
+    public PrivateKey getCAPrivateKey() throws CertificateAuthorityNotFoundException {
+       return getCertificateAuthority().getLeft();
     }
 
     public String loadDeviceCertificate(String certificateId) throws IOException {
@@ -184,7 +214,7 @@ public class CertificateStore {
         // generate new passphrase for new CA certificate
         passphrase = generateRandomPassphrase().toCharArray();
         Certificate[] certificateChain = { caCertificate };
-        ks.setKeyEntry("CA", kp.getPrivate(), getPassphrase(), certificateChain);
+        ks.setKeyEntry(CA_KEY_ALIAS, kp.getPrivate(), getPassphrase(), certificateChain);
         keyStore = ks;
 
         try {
@@ -242,10 +272,8 @@ public class CertificateStore {
 
     private KeyStore loadDefaultKeyStore(CAType caType) throws KeyStoreException, IOException,
             CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException {
-        KeyStore ks = KeyStore.getInstance("JKS");
-        try (InputStream ksInputStream = Files.newInputStream(workPath.resolve(DEFAULT_KEYSTORE_FILENAME))) {
-            ks.load(ksInputStream, getPassphrase());
-        }
+        KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+        loadKeyStoreFromFile(ks);
 
         Key caKey = ks.getKey(CA_KEY_ALIAS, getPassphrase());
         if (!isKeyOfType(caKey, caType)) {
@@ -277,11 +305,20 @@ public class CertificateStore {
 
         platform.setPermissions(OWNER_RW_ONLY, caPath);
 
-        // TODO: Clean this up
-        // Temporarily store public CA since CA information is not yet available in cloud
-        X509Certificate caCert = getCACertificate();
-        saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME),
-                EncryptionUtils.encodeToPem(CertificateHelper.PEM_BOUNDARY_CERTIFICATE,caCert.getEncoded()));
+        // Save the certificate chain as a PEM file in the work directory
+        Certificate[] certificateChain = keyStore.getCertificateChain(CA_KEY_ALIAS);
+        saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME), getCertificateChainPem(certificateChain));
+    }
+
+
+    private String getCertificateChainPem(Certificate... certificateChain) throws
+            CertificateEncodingException, IOException {
+        StringBuilder certificateChainPem = new StringBuilder();
+        for (Certificate cert : certificateChain) {
+            certificateChainPem.append(
+                    EncryptionUtils.encodeToPem(CertificateHelper.PEM_BOUNDARY_CERTIFICATE, cert.getEncoded()));
+        }
+        return certificateChainPem.toString();
     }
 
     private String loadCertificatePem(Path filePath) throws IOException {
@@ -331,5 +368,76 @@ public class CertificateStore {
             //the exception shouldn't happen, even happens it's valid runtime exception case that should report bug
             throw new RuntimeException("Can't compute hash of certificate", e);
         }
+    }
+
+
+    private Pair<PrivateKey,X509Certificate[]> getCertificateAuthority() throws CertificateAuthorityNotFoundException {
+        List<String> caTypeList = getCATypeList();
+        String caType = updateCA(caTypeList);
+
+        Pair<PrivateKey, X509Certificate[]> keyAndCert = null;
+        try {
+            synchronized (this) {
+                update(getCaPassphraseFromConfig(), CAType.valueOf(caType));
+                keyAndCert = getCAFromKeyStore();
+                updateCaPassphraseConfig(getCaPassphrase());
+            }
+        } catch (KeyStoreException | CertificateException | IOException | UnrecoverableKeyException
+                | NoSuchAlgorithmException e) {
+            logger.atError().setCause(e).log("Exception occurred while updating the certificate authority keystore");
+        }
+
+        if (keyAndCert == null) {
+            throw new CertificateAuthorityNotFoundException("Unable to find core device CA");
+        }
+        return keyAndCert;
+    }
+
+
+    private String updateCA(List<String> caTypeList) {
+        if (Utils.isEmpty(caTypeList)) {
+            logger.atDebug().log("CA type list null or empty. Defaulting to RSA");
+            return CAType.RSA_2048.toString();
+        } else {
+            if (caTypeList.size() > 1) {
+                logger.atWarn().log("Only one CA type is supported. Ignoring subsequent CAs in the list.");
+            }
+            return caTypeList.get(0);
+        }
+    }
+
+    private Pair<PrivateKey,X509Certificate[]> getCAFromKeyStore()
+            throws CertificateException, IOException, KeyStoreException, UnrecoverableKeyException,
+            NoSuchAlgorithmException {
+            loadKeyStoreFromFile(keyStore);
+            Certificate[] certChain = keyStore.getCertificateChain(CA_KEY_ALIAS);
+            Key key = keyStore.getKey(CA_KEY_ALIAS, getPassphrase());
+            if (key instanceof PrivateKey && certChain[0] instanceof X509Certificate) {
+                return new Pair<>((PrivateKey) key, Arrays.asList(certChain).toArray(new X509Certificate[0]));
+            }
+        return null;
+    }
+
+    private void loadKeyStoreFromFile(KeyStore ks) throws CertificateException, IOException, NoSuchAlgorithmException {
+        try (InputStream ksInputStream = Files.newInputStream(workPath.resolve(DEFAULT_KEYSTORE_FILENAME))) {
+            ks.load(ksInputStream, getPassphrase());
+        }
+    }
+
+    private List<String> getCATypeList() {
+        Topics certAuthorityTopic = cdaComponentConfiguration.lookupTopics(CONFIGURATION_CONFIG_KEY,
+                CERTIFICATE_AUTHORITY_TOPIC);
+        return Coerce.toStringList(certAuthorityTopic.find(CA_TYPE_TOPIC));
+    }
+
+    private void updateCaPassphraseConfig(String passphrase) {
+        Topic caPassphrase = cdaRuntimeConfiguration.lookup(CA_PASSPHRASE);
+        // TODO: This passphrase needs to be encrypted prior to storing in TLOG
+        caPassphrase.withValue(passphrase);
+    }
+
+    private String getCaPassphraseFromConfig() {
+        Topic caPassphrase = cdaRuntimeConfiguration.lookup(CA_PASSPHRASE).dflt("");
+        return Coerce.toString(caPassphrase);
     }
 }

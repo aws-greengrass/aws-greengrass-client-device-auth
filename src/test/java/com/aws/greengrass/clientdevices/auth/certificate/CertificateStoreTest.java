@@ -5,7 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth.certificate;
 
-import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore.CAType;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateAuthorityNotFoundException;
+import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -28,6 +30,9 @@ import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.RSAPrivateKey;
 
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_TYPE_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CERTIFICATE_AUTHORITY_TOPIC;
+import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -40,28 +45,35 @@ public class CertificateStoreTest {
     static final int    RSA_BIT_LENGTH = 2048;
     static final String EC_KEY_ALGORITHM = "EC";
     static final int    EC_BIT_LENGTH = 256;
-    static final String RSA_CERT_SIG_ALG = "SHA256WITHRSA";
-    static final String ECDSA_CERT_SIG_ALG = "SHA256WITHECDSA";
+    static final String RSA_CERT_SIG_ALG = "SHA256withRSA";
+    static final String ECDSA_CERT_SIG_ALG = "SHA256withECDSA";
     static final String DEFAULT_PASSPHRASE = "defaultPassphrase";
 
     private CertificateStore certificateStore;
-
+    private Topics cdaConfigurationTopics;
     @TempDir
     Path tmpPath;
 
     @BeforeEach
     public void beforeEach() {
         certificateStore = new CertificateStore(tmpPath);
+        cdaConfigurationTopics = Topics.of(new Context(), CONFIGURATION_CONFIG_KEY,
+                null);
+        certificateStore.setCertificateStoreConfig(cdaConfigurationTopics, cdaConfigurationTopics.lookupTopics("runtime"));
     }
 
     @AfterEach
     public void afterEach() throws IOException {
+        cdaConfigurationTopics.getContext().close();
         FileUtils.cleanDirectory(tmpPath.toFile());
     }
 
     @Test
-    public void GIVEN_missing_keystore_WHEN_init_with_RSA_THEN_new_rsa_ca_created() throws KeyStoreException {
-        certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
+    public void GIVEN_missing_keystore_WHEN_init_with_RSA_THEN_new_rsa_ca_created() throws KeyStoreException,
+            CertificateAuthorityNotFoundException {
+        cdaConfigurationTopics.lookupTopics(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC)
+                .lookup(CA_TYPE_TOPIC).withValue(String.valueOf(CertificateStore.CAType.RSA_2048));
+
         PrivateKey pk = certificateStore.getCAPrivateKey();
         X509Certificate cert = certificateStore.getCACertificate();
 
@@ -71,8 +83,11 @@ public class CertificateStoreTest {
     }
 
     @Test
-    public void GIVEN_missing_keystore_WHEN_init_with_EC_THEN_new_ec_ca_created() throws KeyStoreException {
-        certificateStore.update(DEFAULT_PASSPHRASE, CAType.ECDSA_P256);
+    public void GIVEN_missing_keystore_WHEN_init_with_EC_THEN_new_ec_ca_created() throws KeyStoreException,
+            CertificateAuthorityNotFoundException {
+        cdaConfigurationTopics.lookupTopics(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC)
+                .lookup(CA_TYPE_TOPIC).withValue(String.valueOf(CertificateStore.CAType.ECDSA_P256));
+
         PrivateKey pk = certificateStore.getCAPrivateKey();
         X509Certificate cert = certificateStore.getCACertificate();
 
@@ -102,13 +117,14 @@ public class CertificateStoreTest {
 
     @Test
     public void GIVEN_existing_keystore_WHEN_initialized_with_passphrase_and_same_ca_type_THEN_keystore_is_loaded()
-            throws KeyStoreException {
-        certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
+            throws KeyStoreException, CertificateAuthorityNotFoundException {
+        cdaConfigurationTopics.lookupTopics(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC)
+                .lookup(CA_TYPE_TOPIC).withValue(String.valueOf(CertificateStore.CAType.RSA_2048));
+
         X509Certificate initialCert = certificateStore.getCACertificate();
-        String passphrase = certificateStore.getCaPassphrase();
 
         CertificateStore certificateStore2 = new CertificateStore(tmpPath);
-        certificateStore2.update(passphrase, CAType.RSA_2048);
+        certificateStore2.setCertificateStoreConfig(cdaConfigurationTopics, cdaConfigurationTopics.lookupTopics("runtime"));
         X509Certificate secondCert = certificateStore2.getCACertificate();
 
         assertThat(initialCert, equalTo(secondCert));
@@ -116,12 +132,15 @@ public class CertificateStoreTest {
 
     @Test
     public void GIVEN_existing_keystore_WHEN_initialized_with_wrong_passphrase_THEN_new_keystore_is_created()
-            throws KeyStoreException {
-        certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
+            throws KeyStoreException, CertificateAuthorityNotFoundException {
+        cdaConfigurationTopics.lookupTopics(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC)
+                .lookup(CA_TYPE_TOPIC).withValue(String.valueOf(CertificateStore.CAType.RSA_2048));
+
         X509Certificate initialCert = certificateStore.getCACertificate();
 
         CertificateStore certificateStore2 = new CertificateStore(tmpPath);
-        certificateStore2.update("wrongPassphrase", CAType.RSA_2048);
+        certificateStore2.setCertificateStoreConfig(cdaConfigurationTopics, cdaConfigurationTopics);
+
         X509Certificate secondCert = certificateStore2.getCACertificate();
 
         assertThat(initialCert, not(equalTo(secondCert)));
@@ -129,15 +148,19 @@ public class CertificateStoreTest {
 
     @Test
     public void GIVEN_existing_keystore_WHEN_initialized_with_different_ca_type_THEN_new_keystore_is_created()
-            throws KeyStoreException {
-        certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
+            throws KeyStoreException, CertificateAuthorityNotFoundException {
+        cdaConfigurationTopics.lookupTopics(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC)
+                .lookup(CA_TYPE_TOPIC).withValue(String.valueOf(CertificateStore.CAType.RSA_2048));
         X509Certificate initialCert = certificateStore.getCACertificate();
 
-        CertificateStore certificateStore2 = new CertificateStore(tmpPath);
-        certificateStore2.update(DEFAULT_PASSPHRASE, CAType.ECDSA_P256);
-        X509Certificate secondCert = certificateStore2.getCACertificate();
+        cdaConfigurationTopics.lookupTopics(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC)
+                .lookup(CA_TYPE_TOPIC).withValue(String.valueOf(CertificateStore.CAType.ECDSA_P256));
 
+        X509Certificate secondCert = certificateStore.getCACertificate();
         assertThat(initialCert, not(equalTo(secondCert)));
+        assertThat(initialCert.getSigAlgName(), equalTo(RSA_CERT_SIG_ALG));
+        assertThat(secondCert.getSigAlgName(), equalTo(ECDSA_CERT_SIG_ALG));
+
     }
 
     @Test

@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.certificate;
 
+import com.aws.greengrass.clientdevices.auth.exception.CertificateAuthorityNotFoundException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -12,7 +13,6 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
 
 import java.io.IOException;
-import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.CertificateException;
@@ -79,7 +79,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                     Date.from(now),
                     Date.from(now.plusSeconds(certificatesConfig.getServerCertValiditySeconds())));
         } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException
-                | KeyStoreException e) {
+                | CertificateAuthorityNotFoundException e) {
             logger.atError().cause(e).log("Failed to generate new server certificate");
             throw new CertificateGenerationException(e);
         }
