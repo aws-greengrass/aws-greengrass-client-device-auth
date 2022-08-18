@@ -41,7 +41,6 @@ import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyStoreException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -121,11 +120,16 @@ public class CISShadowMonitorTest {
     @Test
     @SuppressWarnings("unchecked")
     void GIVEN_CISShadowMonitor_WHEN_start_monitor_OR_reconnect_THEN_get_shadow_is_processed() throws Exception {
+        // make connectivity call yield the same response each time.
+        // so for this scenario, the monitor starts up (we process get shadow response) and we
+        // simulate a reconnection (process another get shadow response);
+        // no extra rotations should occur.
+        connectivityInfoProvider.setMode(FakeConnectivityInfoProvider.Mode.CONSTANT);
 
         int shadowInitialVersion = 1;
-        Map<String, Object> shadowInitialDesiredState = Utils.immutableMap("field", "value");
+        Map<String, Object> shadowInitialDesiredState = Utils.immutableMap("version", "value");
         Map<String, Object> shadowInitialReportedState = Collections.emptyMap();
-        Map<String, Object> shadowInitialDelta = Utils.immutableMap("field", "value");
+        Map<String, Object> shadowInitialDelta = Utils.immutableMap("version", "value");
 
         // capture the subscription callback for get shadow operation.
         ArgumentCaptor<Consumer<MqttMessage>> getShadowCallback = ArgumentCaptor.forClass(Consumer.class);
@@ -176,7 +180,7 @@ public class CISShadowMonitorTest {
 
         // generated list of deltas to feed to the shadow monitor
         List<Map<String, Object>> deltas = IntStream.range(0, 5)
-                .mapToObj(i -> Utils.immutableMap("field", (Object) String.valueOf(i)))
+                .mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
                 .collect(Collectors.toList());
         Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
 
@@ -215,7 +219,7 @@ public class CISShadowMonitorTest {
 
         // generated list of deltas to feed to the shadow monitor
         List<Map<String, Object>> deltas = IntStream.range(0, 5)
-                .mapToObj(i -> Utils.immutableMap("field", (Object) String.valueOf(i)))
+                .mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
                 .collect(Collectors.toList());
         Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
 
@@ -261,7 +265,7 @@ public class CISShadowMonitorTest {
 
         // generated list of deltas to feed to the shadow monitor
         List<Map<String, Object>> deltas = IntStream.range(0, 5)
-                .mapToObj(i -> Utils.immutableMap("field", (Object) String.valueOf(i)))
+                .mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
                 .collect(Collectors.toList());
         Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
 
@@ -322,7 +326,7 @@ public class CISShadowMonitorTest {
 
         // generated list of deltas to feed to the shadow monitor
         List<Map<String, Object>> deltas = IntStream.range(0, 5)
-                .mapToObj(i -> Utils.immutableMap("field", (Object) String.valueOf(i)))
+                .mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
                 .collect(Collectors.toList());
         Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
 
@@ -370,7 +374,7 @@ public class CISShadowMonitorTest {
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
         when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(), shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
 
-        Map<String, Object> delta = Utils.immutableMap("field", "1");
+        Map<String, Object> delta = Utils.immutableMap("version", "1");
 
         // notify when last shadow update is published
         WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
@@ -424,7 +428,7 @@ public class CISShadowMonitorTest {
     /**
      * Verify that certificates are rotated only when connectivity info changes.
      *
-     * @throws KeyStoreException n/a
+     * @throws CertificateGenerationException n/a
      */
     private void verifyCertsRotatedWhenConnectivityChanges() throws CertificateGenerationException {
         verify(certificateGenerator, times(connectivityInfoProvider.getNumUniqueConnectivityInfoResponses()))

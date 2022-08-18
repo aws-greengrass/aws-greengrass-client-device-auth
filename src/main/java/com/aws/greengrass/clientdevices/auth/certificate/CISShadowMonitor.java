@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -64,7 +65,7 @@ public class CISShadowMonitor {
 
     private MqttClientConnection connection;
     private IotShadowClient iotShadowClient;
-    private int lastVersion = 0;
+    private String lastVersion;
     private Future<?> subscribeTaskFuture;
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
@@ -209,18 +210,25 @@ public class CISShadowMonitor {
     }
 
     private void processCISShadow(GetShadowResponse response) {
-        processCISShadow(response.version, response.state.desired);
+        String cisVersion = Coerce.toString(response.state.desired.get("version"));
+        processCISShadow(cisVersion, response.state.desired);
     }
 
     private void processCISShadow(ShadowDeltaUpdatedEvent event) {
-        processCISShadow(event.version, event.state);
+        String cisVersion = Coerce.toString(event.state.get("version"));
+        processCISShadow(cisVersion, event.state);
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private synchronized void processCISShadow(int version, Map<String, Object> desiredState) {
-        if (version == lastVersion) {
+    private synchronized void processCISShadow(String version, Map<String, Object> desiredState) {
+        if (version == null) {
+            LOGGER.atWarn().log("Ignoring CIS shadow response, version is missing");
+            return;
+        }
+
+        if (Objects.equals(version, lastVersion)) {
             LOGGER.atInfo().kv(VERSION, version).log("Already processed version. Skipping cert re-generation");
-            updateCISShadowReportedState(version, desiredState);
+            updateCISShadowReportedState(desiredState);
             return;
         }
 
@@ -257,7 +265,8 @@ public class CISShadowMonitor {
             }
 
             try {
-                updateCISShadowReportedState(version, desiredState);
+                // update CIS shadow so reported state matches desired state
+                updateCISShadowReportedState(desiredState);
             } finally {
                 lastVersion = version;
             }
@@ -268,21 +277,18 @@ public class CISShadowMonitor {
     }
 
     /**
-     * Asynchronously update the CIS shadow's <b>reported</b> state for the given shadow version.
+     * Asynchronously update the CIS shadow's reported state for the given shadow version.
      *
-     * @param version CIS shadow version
-     * @param desired CIS shadow <b>desired</b> state
+     * @param reportedState CIS shadow reported state
      */
-    private void updateCISShadowReportedState(int version, Map<String, Object> desired) {
-        LOGGER.atInfo().kv(VERSION, version).log("Reporting CIS version");
+    private void updateCISShadowReportedState(Map<String, Object> reportedState) {
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
         updateShadowRequest.thingName = shadowName;
-        updateShadowRequest.version = version;
         updateShadowRequest.state = new ShadowState();
-        updateShadowRequest.state.reported = desired == null ? null : new HashMap<>(desired);
+        updateShadowRequest.state.reported = reportedState == null ? null : new HashMap<>(reportedState);
         iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE)
                 .exceptionally(e -> {
-                    LOGGER.atWarn().kv(VERSION, version).cause(e).log("Unable to report CIS shadow version");
+                    LOGGER.atWarn().cause(e).log("Unable to update CIS shadow reported state");
                     return null;
                 });
     }
