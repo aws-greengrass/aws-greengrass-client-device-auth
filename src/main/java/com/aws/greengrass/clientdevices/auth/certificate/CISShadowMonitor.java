@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -64,7 +65,14 @@ public class CISShadowMonitor {
 
     private MqttClientConnection connection;
     private IotShadowClient iotShadowClient;
-    private int lastVersion = 0;
+    /**
+     * Lock to ensure shadow changes are processed serially.
+     */
+    private final Object shadowProcessingLock = new Object();
+    /**
+     * Host addresses obtained from CIS, used to de-duplicate processing requests.
+     */
+    private List<String> hostAddresses;
     private Future<?> subscribeTaskFuture;
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
@@ -217,54 +225,72 @@ public class CISShadowMonitor {
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private synchronized void processCISShadow(int version, Map<String, Object> desiredState) {
-        if (version == lastVersion) {
-            LOGGER.atInfo().kv(VERSION, version).log("Already processed version. Skipping cert re-generation");
-            updateCISShadowReportedState(version, desiredState);
-            return;
-        }
-
-        LOGGER.atInfo().log("New CIS version: {}", version);
-
+    private void processCISShadow(int version, Map<String, Object> desiredState) {
         // NOTE: This method executes in an MQTT CRT thread. Since certificate generation is a compute intensive
-        // operation (particularly on low end devices) it is imperative that we process this event asynchronously
+        // operation (particularly on low-end devices) it is imperative that we process this event asynchronously
         // to avoid blocking other MQTT subscribers in the Nucleus
         CompletableFuture.runAsync(() -> {
-            try {
-                RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInfoProvider::getConnectivityInfo,
-                        "get-connectivity", LOGGER);
-            } catch (InterruptedException e) {
-                LOGGER.atDebug().kv(VERSION, version).cause(e)
-                        .log("Retry workflow for getting connectivity info interrupted");
-                Thread.currentThread().interrupt();
-                return;
-            } catch (Exception e) {
-                LOGGER.atError().kv(VERSION, version).cause(e)
-                        .log("Failed to get connectivity info from cloud."
-                                + " Check that the core device's IoT policy "
-                                + "grants the greengrass:GetConnectivityInfo permission");
-                return;
-            }
+            synchronized (shadowProcessingLock) {
+                LOGGER.atInfo().log("Processing CIS version: {}", version);
 
-            try {
-                for (CertificateGenerator cg : monitoredCertificateGenerators) {
-                    cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
-                            "connectivity info was updated");
+                List<String> newHostAddresses;
+                try {
+                    newHostAddresses = fetchHostAddressesFromCIS();
+                } catch (InterruptedException e) {
+                    LOGGER.atDebug().kv(VERSION, version).cause(e)
+                            .log("Retry workflow for getting connectivity info interrupted");
+                    Thread.currentThread().interrupt();
+                    return;
+                } catch (Exception e) {
+                    LOGGER.atError().kv(VERSION, version).cause(e)
+                            .log("Failed to get connectivity info from cloud."
+                                    + " Check that the core device's IoT policy "
+                                    + "grants the greengrass:GetConnectivityInfo permission");
+                    return;
                 }
-            } catch (CertificateGenerationException e) {
-                LOGGER.atError().kv(VERSION, version).cause(e).log("Failed to generate new certificates");
-                return;
-            }
 
-            try {
-                updateCISShadowReportedState(version, desiredState);
-            } finally {
-                lastVersion = version;
+                List<String> previousHostAddresses = hostAddresses;
+                hostAddresses = newHostAddresses;
+                if (Objects.equals(previousHostAddresses, newHostAddresses)) {
+                    LOGGER.atInfo().kv(VERSION, version)
+                            .log("No change in connectivity info. Skipping cert regeneration");
+                    updateCISShadowReportedState(version, desiredState);
+                    return;
+                }
+
+                try {
+                    for (CertificateGenerator cg : monitoredCertificateGenerators) {
+                        cg.generateCertificate(() -> newHostAddresses, "connectivity info was updated");
+                    }
+                } catch (CertificateGenerationException e) {
+                    // since certificate generation failed, reset hostAddresses to match the certs.
+                    // this will also allow generation to be retried the next time a CIS shadow is processed
+                    hostAddresses = previousHostAddresses;
+                    LOGGER.atError().kv(VERSION, version).cause(e).log("Failed to generate new certificates");
+                    return;
+                }
+
+                try {
+                    updateCISShadowReportedState(version, desiredState);
+                } catch (Exception e) {
+                    LOGGER.atWarn().kv(VERSION, version).cause(e).log("Unable to update CIS shadow");
+                }
             }
         }, executorService).exceptionally(e -> {
             LOGGER.atError().kv(VERSION, version).cause(e).log("Unable to handle CIS shadow delta");
             return null;
         });
+    }
+
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
+    private List<String> fetchHostAddressesFromCIS() throws Exception {
+        RetryUtils.runWithRetry(
+                GET_CONNECTIVITY_RETRY_CONFIG,
+                connectivityInfoProvider::getConnectivityInfo,
+                "get-connectivity",
+                LOGGER
+        );
+        return connectivityInfoProvider.getCachedHostAddresses();
     }
 
     /**

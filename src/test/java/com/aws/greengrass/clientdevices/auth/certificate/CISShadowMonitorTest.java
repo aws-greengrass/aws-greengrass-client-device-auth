@@ -41,7 +41,6 @@ import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyStoreException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -121,6 +120,11 @@ public class CISShadowMonitorTest {
     @Test
     @SuppressWarnings("unchecked")
     void GIVEN_CISShadowMonitor_WHEN_start_monitor_OR_reconnect_THEN_get_shadow_is_processed() throws Exception {
+        // make connectivity call yield the same response each time.
+        // so for this scenario, the monitor starts up (we process get shadow response) and we
+        // simulate a reconnection (process another get shadow response);
+        // no extra rotations should occur.
+        connectivityInfoProvider.setMode(FakeConnectivityInfoProvider.Mode.CONSTANT);
 
         int shadowInitialVersion = 1;
         Map<String, Object> shadowInitialDesiredState = Utils.immutableMap("field", "value");
@@ -424,7 +428,7 @@ public class CISShadowMonitorTest {
     /**
      * Verify that certificates are rotated only when connectivity info changes.
      *
-     * @throws KeyStoreException n/a
+     * @throws CertificateGenerationException n/a
      */
     private void verifyCertsRotatedWhenConnectivityChanges() throws CertificateGenerationException {
         verify(certificateGenerator, times(connectivityInfoProvider.getNumUniqueConnectivityInfoResponses()))
