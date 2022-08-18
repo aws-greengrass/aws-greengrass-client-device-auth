@@ -52,6 +52,9 @@ public class ConnectivityInfoProvider {
      * @return list of cached connectivity info items
      */
     public List<String> getCachedHostAddresses() {
+        if (cachedHostAddresses.isEmpty()) {
+            getConnectivityInfo();
+        }
         return cachedHostAddresses;
     }
 
@@ -68,7 +71,9 @@ public class ConnectivityInfoProvider {
         try {
             GetConnectivityInfoResponse getConnectivityInfoResponse = clientFactory.getGreengrassV2DataClient()
                     .getConnectivityInfo(getConnectivityInfoRequest);
-            if (getConnectivityInfoResponse.hasConnectivityInfo()) {
+            if (getConnectivityInfoResponse == null) {
+                LOGGER.atWarn().log("Failed to get response when retrieving connectivity info");
+            } else if (getConnectivityInfoResponse.hasConnectivityInfo()) {
                 // Filter out port and metadata since it is not needed
                 connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
                 cachedHostAddresses = new ArrayList<>(connectivityInfoList.stream()

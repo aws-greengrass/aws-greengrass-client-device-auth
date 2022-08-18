@@ -65,7 +65,7 @@ public class ConnectivityInfoProviderTest {
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     @Test
-    void GIVEN_connectivity_info_WHEN_get_connectivity_info_THEN_connectivity_info_returned() {
+    void GIVEN_connectivity_info_WHEN_getConnectivityInfo_THEN_connectivity_info_returned() {
         ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
                 .metadata("").id("172.8.8.10").portNumber(8883).build();
         ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
@@ -82,7 +82,7 @@ public class ConnectivityInfoProviderTest {
     }
 
     @Test
-    void GIVEN_no_connectivity_info_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned() {
+    void GIVEN_no_connectivity_info_WHEN_getConnectivityInfo_THEN_no_connectivity_info_returned() {
         GetConnectivityInfoResponse getConnectivityInfoResponse = GetConnectivityInfoResponse.builder().build();
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
@@ -94,7 +94,7 @@ public class ConnectivityInfoProviderTest {
     }
 
     @Test
-    void GIVEN_cloudThrowValidationException_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned(
+    void GIVEN_cloudThrowValidationException_WHEN_getConnectivityInfo_THEN_no_connectivity_info_returned(
             ExtensionContext context) {
         ignoreExceptionOfType(context, ValidationException.class);
         when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class)))
@@ -105,7 +105,7 @@ public class ConnectivityInfoProviderTest {
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     @Test
-    void GIVEN_cached_connectivity_info_WHEN_get_cached_connectivity_info_THEN_connectivity_info_returned() {
+    void GIVEN_no_cached_connectivity_info_WHEN_getCachedHostAddresses_THEN_connectivity_info_lazy_loaded() {
         ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
                 .metadata("").id("172.8.8.10").portNumber(8883).build();
         ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
@@ -115,7 +115,6 @@ public class ConnectivityInfoProviderTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        connectivityInfoProvider.getConnectivityInfo();
         List<String> connectivityInfos = connectivityInfoProvider.getCachedHostAddresses();
         assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
     }
