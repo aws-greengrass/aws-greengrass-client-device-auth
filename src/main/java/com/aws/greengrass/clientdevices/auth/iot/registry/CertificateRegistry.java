@@ -46,10 +46,11 @@ public class CertificateRegistry {
 
     /**
      * Returns whether the provided certificate is valid and active.
-     * Returns locally registered result when IoT Core cannot be reached.
+     * Returns valid locally registered result when IoT Core cannot be reached.
      *
      * @param certificatePem Certificate PEM
      * @return true if the certificate is valid and active.
+     * @throws CloudServiceInteractionException if the certificate cannot be validated
      */
     public boolean isCertificateValid(String certificatePem) {
         try {
@@ -57,7 +58,9 @@ public class CertificateRegistry {
             updateRegistryForCertificate(certificatePem, certId);
             return certId.isPresent();
         } catch (CloudServiceInteractionException e) {
-            return getAssociatedCertificateId(certificatePem).isPresent();
+            return getAssociatedCertificateId(certificatePem)
+                    .map(certId -> true)
+                    .orElseThrow(() -> e);
         }
     }
 
@@ -68,6 +71,7 @@ public class CertificateRegistry {
      * @param certificatePem Certificate PEM
      * @return IoT Certificate ID or empty Optional if certificate is inactive/invalid
      * @throws IllegalArgumentException for empty certificate PEM
+     * @throws CloudServiceInteractionException if IoT certificate Id cannot be fetched
      */
     public Optional<String> getIotCertificateIdForPem(String certificatePem) {
         if (Utils.isEmpty(certificatePem)) {
@@ -79,7 +83,8 @@ public class CertificateRegistry {
             updateRegistryForCertificate(certificatePem, certId);
             return certId;
         } catch (CloudServiceInteractionException e) {
-            return getAssociatedCertificateId(certificatePem);
+            return getAssociatedCertificateId(certificatePem).map(Optional::of)
+                    .orElseThrow(() -> e);
         }
     }
 

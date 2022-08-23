@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
@@ -71,11 +72,12 @@ class ThingRegistryTest {
     }
 
     @Test
-    void GIVEN_offline_initialization_WHEN_isThingAttachedToCertificate_THEN_return_false_by_default() {
+    void GIVEN_offline_initialization_WHEN_isThingAttachedToCertificate_THEN_throws_exception() {
         doThrow(CloudServiceInteractionException.class)
                 .when(mockIotAuthClient).isThingAttachedToCertificate(any(), any());
 
-        assertFalse(registry.isThingAttachedToCertificate(mockThing, mockCertificate));
+        assertThrows(CloudServiceInteractionException.class, () ->
+                registry.isThingAttachedToCertificate(mockThing, mockCertificate));
         verify(mockIotAuthClient, times(1)).isThingAttachedToCertificate(any(), any());
     }
 

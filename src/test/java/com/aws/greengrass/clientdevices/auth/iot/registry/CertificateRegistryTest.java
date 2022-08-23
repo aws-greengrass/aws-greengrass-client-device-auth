@@ -20,8 +20,8 @@ import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
@@ -109,10 +109,10 @@ class CertificateRegistryTest {
     }
 
     @Test
-    void GIVEN_offline_initialization_WHEN_isCertificateValid_THEN_return_false_by_default() {
+    void GIVEN_offline_initialization_WHEN_isCertificateValid_THEN_throw_exception() {
         doThrow(CloudServiceInteractionException.class).when(mockIotAuthClient).getActiveCertificateId(anyString());
 
-        assertFalse(registry.isCertificateValid(mockCertPem));
-        assertThat(registry.getIotCertificateIdForPem(mockCertPem), is(Optional.empty()));
+        assertThrows(CloudServiceInteractionException.class, () -> registry.isCertificateValid(mockCertPem));
+        assertThrows(CloudServiceInteractionException.class, () -> registry.getIotCertificateIdForPem(mockCertPem));
     }
 }

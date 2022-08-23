@@ -36,12 +36,13 @@ public class ThingRegistry {
 
     /**
      * Returns whether the Thing is associated to the given IoT Certificate.
-     * Returns locally registered result when IoT Core cannot be reached.
+     * Returns valid locally registered result when IoT Core cannot be reached.
      * TODO: add a separate refreshable caching layer for offline auth
      *
      * @param thing IoT Thing
      * @param certificate IoT Certificate
      * @return whether thing is attached to the certificate
+     * @throws CloudServiceInteractionException when thing <-> certificate association cannot be verified
      */
     public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
         try {
@@ -52,7 +53,10 @@ public class ThingRegistry {
                 clearRegistryForThing(thing);
             }
         } catch (CloudServiceInteractionException e) {
-            return isCertificateRegisteredForThing(thing, certificate);
+            if (isCertificateRegisteredForThing(thing, certificate)) {
+                return true;
+            }
+            throw e;
         }
         return false;
     }
