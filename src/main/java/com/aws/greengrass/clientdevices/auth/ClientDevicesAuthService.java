@@ -295,7 +295,7 @@ public class ClientDevicesAuthService extends PluginService {
             updateCACertificateConfig(caCerts);
             updateCaPassphraseConfig(certificateManager.getCaPassPhrase());
         } catch (CloudServiceInteractionException e) {
-            logger.atError().cause(e).log("Unable to upload core CA certs to the cloud. ");
+            logger.atError().log(e.getMessage());
         } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException
                 e) {
             serviceErrored(e);
@@ -346,7 +346,7 @@ public class ClientDevicesAuthService extends PluginService {
                     .log("Failed to put core CA certificates to cloud. Check that the core device's IoT policy grants"
                             + " the greengrass:PutCertificateAuthorities permission.");
             throw new CloudServiceInteractionException(
-                    String.format("Failed to put core %s CA certificates to cloud", thingName), e);
+                    String.format("Failed to upload core %s CA certificates to cloud", thingName), e);
         }
     }
 
