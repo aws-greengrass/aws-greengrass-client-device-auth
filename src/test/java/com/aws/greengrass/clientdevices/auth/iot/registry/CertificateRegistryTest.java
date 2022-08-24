@@ -5,9 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth.iot.registry;
 
+import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,7 +20,11 @@ import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.mockito.Mockito.anyString;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,25 +46,20 @@ class CertificateRegistryTest {
         registry = new CertificateRegistry(mockIotAuthClient);
     }
 
-    @AfterEach
-    void afterEach() {
-        registry.clear();
-    }
-
     @Test
     void GIVEN_validAndActiveCertificatePem_WHEN_getIotCertificateIdForPem_THEN_certificateIdReturned() {
         when(mockIotAuthClient.getActiveCertificateId(anyString())).thenReturn(Optional.of(mockCertId));
 
-        registry.isCertificateValid(mockCertPem);
+        assertTrue(registry.isCertificateValid(mockCertPem));
         Optional<String> certificateId = registry.getIotCertificateIdForPem(mockCertPem);
 
-        // Assert that we only call the cloud a single time
+        // Assert that we only make cloud request once
         assertThat(certificateId.get(), is(mockCertId));
         verify(mockIotAuthClient, times(1)).getActiveCertificateId(anyString());
     }
 
     @Test
-    void GIVEN_certificatePem_and_cloudProperResponse_WHEN_getIotCertificateIdForPem_THEN_certificateIdReturned() {
+    void GIVEN_certificatePem_and_uncachedCertId_WHEN_getIotCertificateIdForPem_THEN_certificateIdFetched() {
         when(mockIotAuthClient.getActiveCertificateId(anyString())).thenReturn(Optional.of(mockCertId));
 
         Optional<String> certificateId = registry.getIotCertificateIdForPem(mockCertPem);
@@ -79,7 +78,6 @@ class CertificateRegistryTest {
         // request certificateId for the same certificatePem multiple times;
         // actual cloud request should be made only once and cached value should be returned for subsequent calls
         assertThat(registry.getIotCertificateIdForPem(mockCertPem).get(), is(mockCertId));
-        assertThat(registry.getIotCertificateIdForPem(mockCertPem).get(), is(mockCertId));
         verify(mockIotAuthClient, times(1)).getActiveCertificateId(anyString());
     }
 
@@ -92,7 +90,29 @@ class CertificateRegistryTest {
         // request certificateId for the same invalid certificatePem multiple times;
         // new cloud request should be made every time and result should not be cached
         assertThat(registry.getIotCertificateIdForPem(mockCertPem), is(Optional.empty()));
-        assertThat(registry.getIotCertificateIdForPem(mockCertPem), is(Optional.empty()));
-        verify(mockIotAuthClient, times(3)).getActiveCertificateId(anyString());
+        verify(mockIotAuthClient, times(2)).getActiveCertificateId(anyString());
+    }
+
+    @Test
+    void GIVEN_unreachable_cloud_WHEN_isCertificateValid_THEN_return_cached_result() {
+        // cache result before going offline
+        when(mockIotAuthClient.getActiveCertificateId(anyString())).thenReturn(Optional.of(mockCertId));
+        assertTrue(registry.isCertificateValid(mockCertPem));
+
+        // go offline
+        reset(mockIotAuthClient);
+        doThrow(CloudServiceInteractionException.class).when(mockIotAuthClient).getActiveCertificateId(anyString());
+
+        // verify cached result
+        assertTrue(registry.isCertificateValid(mockCertPem));
+        assertThat(registry.getIotCertificateIdForPem(mockCertPem), is(Optional.of(mockCertId)));
+    }
+
+    @Test
+    void GIVEN_offline_initialization_WHEN_isCertificateValid_THEN_throw_exception() {
+        doThrow(CloudServiceInteractionException.class).when(mockIotAuthClient).getActiveCertificateId(anyString());
+
+        assertThrows(CloudServiceInteractionException.class, () -> registry.isCertificateValid(mockCertPem));
+        assertThrows(CloudServiceInteractionException.class, () -> registry.getIotCertificateIdForPem(mockCertPem));
     }
 }
