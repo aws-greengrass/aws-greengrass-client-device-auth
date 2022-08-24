@@ -34,6 +34,7 @@ import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
+import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuthoritiesRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
@@ -72,7 +73,7 @@ public class ClientDevicesAuthService extends PluginService {
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
     private static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
             RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(Integer.MAX_VALUE)
-                    .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
+                    .retryableExceptions(uploadCARetryExceptions())
                     .build();
     public static final String CLOUD_REQUEST_QUEUE_SIZE_TOPIC = "cloudRequestQueueSize";
     public static final String MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC = "maxConcurrentCloudRequests";
@@ -170,6 +171,10 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void install() throws InterruptedException {
         super.install();
+        configChangeHandler();
+    }
+
+    private void configChangeHandler() {
         this.config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe((whatHappened, node) -> {
             if (whatHappened == WhatHappened.timestampUpdated || whatHappened == WhatHappened.interiorAdded) {
                 return;
@@ -210,7 +215,6 @@ public class ClientDevicesAuthService extends PluginService {
                 updateCAType(caTypeTopic);
             }
         });
-
     }
 
     @Override
@@ -290,8 +294,12 @@ public class ClientDevicesAuthService extends PluginService {
             uploadCoreDeviceCAs(caCerts);
             updateCACertificateConfig(caCerts);
             updateCaPassphraseConfig(certificateManager.getCaPassPhrase());
+        } catch (CloudServiceInteractionException e) {
+            logger.atError().cause(e)
+                    .kv("coreThingName", deviceConfiguration.getThingName())
+                    .log("Unable to upload core CA certificates to the cloud");
         } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException
-                | CloudServiceInteractionException e) {
+                e) {
             serviceErrored(e);
         }
     }
@@ -335,12 +343,14 @@ public class ClientDevicesAuthService extends PluginService {
             // interrupt the current thread so that higher-level interrupt handlers can take care of it
             Thread.currentThread().interrupt();
         } catch (Exception e) {
-            logger.atError().cause(e)
-                    .kv("coreThingName", thingName)
-                    .log("Failed to put core CA certificates to cloud. Check that the core device's IoT policy grants"
-                            + " the greengrass:PutCertificateAuthorities permission.");
-            throw new CloudServiceInteractionException(
-                    String.format("Failed to put core %s CA certificates to cloud", thingName), e);
+            throw new CloudServiceInteractionException("Failed to put core CA certificates to cloud. Check that the "
+                    + "core device's IoT policy grants the greengrass:PutCertificateAuthorities permission.",e);
         }
+    }
+
+    private static List<Class> uploadCARetryExceptions() {
+        return Arrays.asList(ThrottlingException.class,
+                InternalServerException.class,
+                AccessDeniedException.class);
     }
 }
