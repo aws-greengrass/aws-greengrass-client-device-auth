@@ -7,14 +7,15 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
-import com.aws.greengrass.componentmanager.KernelConfigResolver;
-import com.aws.greengrass.config.Topic;
-import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.clientdevices.auth.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
+import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.componentmanager.KernelConfigResolver;
+import com.aws.greengrass.config.Topic;
+import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
@@ -356,13 +357,13 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_cloud_service_error_WHEN_update_ca_type_THEN_service_in_error_state(ExtensionContext context)
+    void GIVEN_cloud_service_error_WHEN_update_ca_type_THEN_service_in_running_state(ExtensionContext context)
             throws InterruptedException {
         ignoreExceptionOfType(context, ResourceNotFoundException.class);
-
+        ignoreExceptionOfType(context, CloudServiceInteractionException.class);
         when(client.putCertificateAuthorities(any(PutCertificateAuthoritiesRequest.class))).thenThrow(
                 ResourceNotFoundException.class);
-        startNucleusWithConfig("config_with_ec_ca.yaml", State.ERRORED);
+        startNucleusWithConfig("config_with_ec_ca.yaml", State.RUNNING);
     }
 
     private X509Certificate pemToX509Certificate(String certPem) throws IOException, CertificateException {
