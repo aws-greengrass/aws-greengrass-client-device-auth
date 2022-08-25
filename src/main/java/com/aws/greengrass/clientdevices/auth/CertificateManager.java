@@ -18,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenera
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
+import com.aws.greengrass.config.Topics;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -44,6 +45,7 @@ public class CertificateManager {
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private CertificatesConfig certificatesConfig;
 
+
     /**
      * Construct a new CertificateManager.
      *
@@ -68,6 +70,10 @@ public class CertificateManager {
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
         this.certificatesConfig = certificatesConfig;
+    }
+
+    public void setCertificateStoreConfig(Topics cdaComponentConfiguration, Topics cdaRuntimeConfiguration) {
+        certificateStore.setCertificateStoreConfig(cdaComponentConfiguration, cdaRuntimeConfiguration);
     }
 
     /**

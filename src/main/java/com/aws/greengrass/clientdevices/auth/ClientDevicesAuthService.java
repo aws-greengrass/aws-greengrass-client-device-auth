@@ -63,6 +63,9 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VER
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
     public static final String DEVICE_GROUPS_TOPICS = "deviceGroups";
+    public static final String CERTIFICATE_AUTHORITY_TOPIC = "certificateAuthority";
+    public static final String CA_CERTIFICATE_URI = "certificateUri";
+    public static final String CA_PRIVATE_KEY_URI = "privateKeyUri";
     public static final String CA_TYPE_TOPIC = "ca_type";
     public static final String CA_PASSPHRASE = "ca_passphrase";
     public static final String CERTIFICATES_KEY = "certificates";
@@ -137,6 +140,7 @@ public class ClientDevicesAuthService extends PluginService {
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(this.getConfig()));
+        certificateManager.setCertificateStoreConfig(this.getConfig(), this.getRuntimeConfig());
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {
@@ -181,7 +185,8 @@ public class ClientDevicesAuthService extends PluginService {
             }
             logger.atDebug().kv("why", whatHappened).kv("node", node).log();
             Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
-            Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC);
+            Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC,
+                    CA_TYPE_TOPIC);
 
             // Attempt to update the thread pool size as needed
             try {

@@ -311,10 +311,14 @@ class ClientDevicesAuthServiceTest {
 
         kernel.getContext().runOnPublishQueueAndWait(() -> {
             kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
-                    .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, ClientDevicesAuthService.CA_TYPE_TOPIC);
+                    .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                            ClientDevicesAuthService.CERTIFICATE_AUTHORITY_TOPIC,
+                            ClientDevicesAuthService.CA_TYPE_TOPIC);
         });
         Topic topic = kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
-                .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, ClientDevicesAuthService.CA_TYPE_TOPIC);
+                .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                        ClientDevicesAuthService.CERTIFICATE_AUTHORITY_TOPIC,
+                        ClientDevicesAuthService.CA_TYPE_TOPIC);
         topic.withValue(Collections.singletonList("RSA_2048"));
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();

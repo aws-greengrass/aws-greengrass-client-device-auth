@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.certificate;
 
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
+import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -68,6 +69,10 @@ public class CertificateStore {
     private char[] passphrase;
     private final Path workPath;
     private final Platform platform = Platform.getInstance();
+    @SuppressWarnings("PMD.UnusedPrivateField")
+    private Topics cdaRuntimeConfiguration;
+    @SuppressWarnings("PMD.UnusedPrivateField")
+    private Topics cdaComponentConfiguration;
 
     public enum CAType {
         RSA_2048, ECDSA_P256
@@ -81,6 +86,11 @@ public class CertificateStore {
     // For unit tests
     public CertificateStore(Path workPath) {
         this.workPath = workPath;
+    }
+
+    public void setCertificateStoreConfig(Topics cdaComponentConfiguration, Topics cdaRuntimeConfiguration) {
+        this.cdaRuntimeConfiguration = cdaRuntimeConfiguration;
+        this.cdaComponentConfiguration = cdaComponentConfiguration;
     }
 
     public String getCaPassphrase() {
