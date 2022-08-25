@@ -182,9 +182,6 @@ public class ClientDevicesAuthService extends PluginService {
 
         // Subscribe to config updates
         configChangeHandler();
-
-        // Update CA based on the config.
-        updateCAType();
     }
 
     private void configChangeHandler() {
@@ -194,6 +191,7 @@ public class ClientDevicesAuthService extends PluginService {
             }
             logger.atDebug().kv("why", whatHappened).kv("node", node).log();
             Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
+            Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CA_TYPE_TOPIC);
 
             // Attempt to update the thread pool size as needed
             try {
@@ -217,12 +215,11 @@ public class ClientDevicesAuthService extends PluginService {
 
             if (whatHappened == WhatHappened.initialized || node == null) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
+                updateCAType();
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
             } else if (node.childOf(CERTIFICATE_AUTHORITY_TOPIC)) {
-                logger.atInfo("service-config-change").kv("event", whatHappened).kv("node", node)
-                        .log("Requesting re-installation of client device auth component");
-                requestReinstall();
+                updateCAType();
             }
         });
     }

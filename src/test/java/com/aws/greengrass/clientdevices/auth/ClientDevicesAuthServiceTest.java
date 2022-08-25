@@ -64,6 +64,7 @@ import java.util.stream.Collectors;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasProperty;
@@ -71,9 +72,9 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -340,13 +341,12 @@ class ClientDevicesAuthServiceTest {
         assertThat(initialCA, not(thirdCA));
         assertThat(getCaPassphrase(), not(initialCaPassPhrase));
 
-        verify(client, atMost(3)).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
+        verify(client, times(3)).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
         List<List<String>> certificatesInRequests =
                 putCARequestArgumentCaptor.getAllValues().stream().map(
                         PutCertificateAuthoritiesRequest::coreDeviceCertificates).collect(
                         Collectors.toList());
-        assertThat("putCertificateAuthorities is called for at most 3 times",
-                certificatesInRequests.size()<=3);
+        assertThat(certificatesInRequests, contains(initialCACerts, secondCACerts, thirdCACerts));
     }
 
     @Test
