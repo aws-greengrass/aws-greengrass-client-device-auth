@@ -27,7 +27,6 @@ import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
-import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
@@ -106,9 +105,9 @@ public class CertificateManager {
     public List<String> getCACertificates() throws KeyStoreException, IOException,
             CertificateEncodingException, CertificateAuthorityNotFoundException {
         List<String> certificatePems = new ArrayList<>();
-        Certificate[] certs = certificateStore.getCaCertificateChain();
-        for (Certificate cert : certs) {
-            certificatePems.add(CertificateHelper.toPem((X509Certificate) cert));
+        X509Certificate[] certs = certificateStore.getCaCertificateChain();
+        for (X509Certificate cert : certs) {
+            certificatePems.add(CertificateHelper.toPem(cert));
         }
         return certificatePems;
     }
