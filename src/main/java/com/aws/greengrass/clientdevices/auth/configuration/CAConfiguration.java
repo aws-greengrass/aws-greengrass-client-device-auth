@@ -10,7 +10,6 @@ import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.util.Coerce;
 
 import java.util.List;
-import javax.inject.Inject;
 
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_CERTIFICATE_URI;
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_PASSPHRASE;
@@ -29,7 +28,6 @@ public class CAConfiguration {
      *
      * @param cdaConfigTopics CDA service configuration topics
      */
-    @Inject
     public CAConfiguration(Topics cdaConfigTopics) {
         this.certificateAuthorityTopics = cdaConfigTopics.lookupTopics(CONFIGURATION_CONFIG_KEY,
                 CERTIFICATE_AUTHORITY_TOPIC);

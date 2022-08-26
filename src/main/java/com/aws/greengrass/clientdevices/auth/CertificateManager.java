@@ -44,6 +44,7 @@ public class CertificateManager {
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private CertificatesConfig certificatesConfig;
+    @SuppressWarnings("PMD.UnusedPrivateField")
     private CAConfiguration caConfiguration;
 
 

@@ -176,7 +176,6 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void install() throws InterruptedException {
         super.install();
-        System.out.println();
         configChangeHandler();
     }
 
