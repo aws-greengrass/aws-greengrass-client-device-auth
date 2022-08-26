@@ -9,6 +9,7 @@ import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
@@ -140,7 +141,7 @@ public class ClientDevicesAuthService extends PluginService {
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(this.getConfig()));
-        certificateManager.setCertificateStoreConfig(this.getConfig(), this.getRuntimeConfig());
+        certificateManager.setCAConfiguration(new CAConfiguration(this.getConfig()));
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {
@@ -175,6 +176,7 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void install() throws InterruptedException {
         super.install();
+        System.out.println();
         configChangeHandler();
     }
 

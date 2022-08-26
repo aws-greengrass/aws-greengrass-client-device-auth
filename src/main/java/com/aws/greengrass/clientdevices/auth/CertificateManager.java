@@ -16,9 +16,9 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
-import com.aws.greengrass.config.Topics;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -44,6 +44,7 @@ public class CertificateManager {
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private CertificatesConfig certificatesConfig;
+    private CAConfiguration caConfiguration;
 
 
     /**
@@ -72,8 +73,8 @@ public class CertificateManager {
         this.certificatesConfig = certificatesConfig;
     }
 
-    public void setCertificateStoreConfig(Topics cdaComponentConfiguration, Topics cdaRuntimeConfiguration) {
-        certificateStore.setCertificateStoreConfig(cdaComponentConfiguration, cdaRuntimeConfiguration);
+    public void setCAConfiguration(CAConfiguration caConfiguration) {
+        this.caConfiguration = caConfiguration;
     }
 
     /**
