@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.iot.registry.RegistryRefreshScheduler;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -88,6 +89,7 @@ public class ClientDevicesAuthService extends PluginService {
     private final DeviceConfiguration deviceConfiguration;
     private final AuthorizationHandler authorizationHandler;
     private final GreengrassCoreIPCService greengrassCoreIPCService;
+    private final RegistryRefreshScheduler registryRefreshScheduler;
     // Limit the queue size before we start rejecting requests
     private static final int DEFAULT_CLOUD_CALL_QUEUE_SIZE = 100;
     private static final int DEFAULT_THREAD_POOL_SIZE = 1;
@@ -109,6 +111,7 @@ public class ClientDevicesAuthService extends PluginService {
      * @param mqttSessionFactory          session factory to handling mqtt credentials
      * @param sessionManager              session manager
      * @param clientDevicesAuthServiceApi client devices service api handle
+     * @param registryRefreshScheduler    registry refresh scheduler
      */
     @SuppressWarnings("PMD.ExcessiveParameterList")
     @Inject
@@ -119,7 +122,8 @@ public class ClientDevicesAuthService extends PluginService {
                                     GreengrassCoreIPCService greengrassCoreIPCService,
                                     MqttSessionFactory mqttSessionFactory,
                                     SessionManager sessionManager,
-                                    ClientDevicesAuthServiceApi clientDevicesAuthServiceApi) {
+                                    ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
+                                    RegistryRefreshScheduler registryRefreshScheduler) {
         super(topics);
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
         cloudCallQueueSize = getValidCloudCallQueueSize(topics);
@@ -128,6 +132,7 @@ public class ClientDevicesAuthService extends PluginService {
                 new ResizableLinkedBlockingQueue<>(cloudCallQueueSize));
         cloudCallThreadPool.allowCoreThreadTimeOut(true); // act as a cached threadpool
         this.clientDevicesAuthServiceApi = clientDevicesAuthServiceApi;
+        this.registryRefreshScheduler = registryRefreshScheduler;
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
         this.clientFactory = clientFactory;
@@ -220,6 +225,7 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void startup() throws InterruptedException {
         certificateManager.startMonitors();
+        registryRefreshScheduler.startScheduler();
         super.startup();
     }
 
@@ -227,6 +233,7 @@ public class ClientDevicesAuthService extends PluginService {
     protected void shutdown() throws InterruptedException {
         super.shutdown();
         certificateManager.stopMonitors();
+        registryRefreshScheduler.stopScheduler();
     }
 
     @Override

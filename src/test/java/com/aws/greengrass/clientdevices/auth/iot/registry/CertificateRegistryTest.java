@@ -16,10 +16,13 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -36,6 +39,8 @@ class CertificateRegistryTest {
     private static final String mockCertId = "certificateId";
     @Mock
     private IotAuthClient mockIotAuthClient;
+    @Mock
+    private RegistryRefreshScheduler mockRefreshScheduler;
     @Captor
     private ArgumentCaptor<String> certPemCaptor;
 
@@ -43,7 +48,7 @@ class CertificateRegistryTest {
 
     @BeforeEach
     void beforeEach() {
-        registry = new CertificateRegistry(mockIotAuthClient);
+        registry = new CertificateRegistry(mockIotAuthClient, mockRefreshScheduler);
     }
 
     @Test
@@ -114,5 +119,30 @@ class CertificateRegistryTest {
 
         assertThrows(CloudServiceInteractionException.class, () -> registry.isCertificateValid(mockCertPem));
         assertThrows(CloudServiceInteractionException.class, () -> registry.getIotCertificateIdForPem(mockCertPem));
+    }
+
+    @Test
+    void GIVEN_certRegistry_WHEN_refreshRegistry_THEN_stale_entries_removed() {
+        String certHash1 = "certHash1";
+        String certHash2 = "certHash2";
+        String certHash3 = "certHash3";
+
+        CertificateEntry validEntry = new CertificateEntry(Instant.now().plusSeconds(10L),
+                certHash1, mockCertId);
+        CertificateEntry invalidEntry1 = new CertificateEntry(Instant.now().minusSeconds(10L),
+                certHash2, mockCertId);
+        CertificateEntry invalidEntry2 = new CertificateEntry(Instant.now(), certHash3, mockCertId);
+
+        registry.getRegistry().put(certHash1, validEntry);
+        registry.getRegistry().put(certHash2, invalidEntry1);
+        registry.getRegistry().put(certHash3, invalidEntry2);
+        assertThat(registry.getRegistry().size(), is(3));
+
+        registry.refreshRegistry();
+        assertThat(registry.getRegistry().size(), is(1));
+        assertNotNull(registry.getRegistry().get(certHash1));
+        assertThat(registry.getRegistry().get(certHash1).getCertificateHash(), is(certHash1));
+        assertNull(registry.getRegistry().get(certHash2));
+        assertNull(registry.getRegistry().get(certHash3));
     }
 }

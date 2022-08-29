@@ -17,7 +17,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
@@ -34,12 +42,14 @@ class ThingRegistryTest {
 
     @Mock
     private IotAuthClient mockIotAuthClient;
+    @Mock
+    private RegistryRefreshScheduler mockRefreshScheduler;
 
     private ThingRegistry registry;
 
     @BeforeEach
     void beforeEach() {
-        registry = new ThingRegistry(mockIotAuthClient);
+        registry = new ThingRegistry(mockIotAuthClient, mockRefreshScheduler);
     }
 
     @Test
@@ -81,4 +91,37 @@ class ThingRegistryTest {
         verify(mockIotAuthClient, times(1)).isThingAttachedToCertificate(any(), any());
     }
 
+    @Test
+    void GIVEN_certRegistry_WHEN_refreshRegistry_THEN_stale_entries_removed() {
+        String mockThing1 = "thing1";
+        String mockThing2 = "thing2";
+        String mockCertId1 = "mockCertId1";
+        String mockCertId2 = "mockCertId2";
+        String mockCertId3 = "mockCertId3";
+        Set<CertificateEntry> certSet1 = new HashSet<>();
+        Set<CertificateEntry> certSet2 = new HashSet<>();
+
+        CertificateEntry validEntry = new CertificateEntry(Instant.now().plusSeconds(10L),
+                null, mockCertId1);
+        CertificateEntry invalidEntry1 = new CertificateEntry(Instant.now().minusSeconds(10L),
+                null, mockCertId2);
+        CertificateEntry invalidEntry2 = new CertificateEntry(Instant.now(),
+                null, mockCertId3);
+
+        certSet1.add(validEntry);
+        certSet1.add(invalidEntry1);
+        certSet2.add(invalidEntry2);
+
+        registry.getRegistry().put(mockThing1, certSet1);
+        registry.getRegistry().put(mockThing2, certSet2);
+
+        assertThat(registry.getRegistry().size(), is(2));
+
+        registry.refreshRegistry();
+        assertThat(registry.getRegistry().size(), is(1));
+        assertNotNull(registry.getRegistry().get(mockThing1));
+        assertThat(registry.getRegistry().get(mockThing1).size(), is(1));
+        assertTrue(registry.getRegistry().get(mockThing1).contains(validEntry));
+        assertNull(registry.getRegistry().get(mockThing2));
+    }
 }

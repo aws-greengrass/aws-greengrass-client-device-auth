@@ -11,8 +11,11 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Digest;
 import com.aws.greengrass.util.Utils;
+import lombok.AccessLevel;
+import lombok.Getter;
 
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -22,10 +25,11 @@ import javax.inject.Inject;
 
 public class CertificateRegistry {
     private static final Logger logger = LogManager.getLogger(CertificateRegistry.class);
-    // holds mapping of certificateHash (SHA-256 hash of certificatePem) to IoT Certificate Id;
+    // holds mapping of certificateHash (SHA-256 hash of certificatePem) to its registry entry;
     // size-bound by default cache size, evicts oldest written entry if the max size is reached
-    private final Map<String, String> registry = Collections.synchronizedMap(
-            new LinkedHashMap<String, String>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
+    @Getter(AccessLevel.PROTECTED)
+    private final Map<String, CertificateEntry> registry = Collections.synchronizedMap(
+            new LinkedHashMap<String, CertificateEntry>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry eldest) {
                     return size() > RegistryConfig.REGISTRY_CACHE_SIZE;
@@ -37,11 +41,13 @@ public class CertificateRegistry {
     /**
      * Constructor.
      *
-     * @param iotAuthClient IoT Auth Client
+     * @param iotAuthClient    IoT Auth Client
+     * @param refreshScheduler Registry refresh scheduler
      */
     @Inject
-    public CertificateRegistry(IotAuthClient iotAuthClient) {
+    public CertificateRegistry(IotAuthClient iotAuthClient, RegistryRefreshScheduler refreshScheduler) {
         this.iotAuthClient = iotAuthClient;
+        refreshScheduler.schedule(this::refreshRegistry);
     }
 
     /**
@@ -106,7 +112,8 @@ public class CertificateRegistry {
      */
     private Optional<String> getAssociatedCertificateId(String certificatePem) {
         return Optional.ofNullable(getCertificateHash(certificatePem))
-                .map(registry::get);
+                .map(registry::get)
+                .map(CertificateEntry::getIotCertificateId);
     }
 
     /**
@@ -117,7 +124,8 @@ public class CertificateRegistry {
      */
     private void registerCertificateIdForPem(String certificateId, String certificatePem) {
         Optional.ofNullable(getCertificateHash(certificatePem))
-                .ifPresent(certHash -> registry.put(certHash, certificateId));
+                .ifPresent(certHash ->
+                        registry.put(certHash, getNewRegistryEntry(certHash, certificateId)));
     }
 
     /**
@@ -156,5 +164,22 @@ public class CertificateRegistry {
             logger.atWarn().cause(e).log("CertificatePem to CertificateId mapping could not be cached");
         }
         return null;
+    }
+
+    private CertificateEntry getNewRegistryEntry(String certHash, String iotCertId) {
+        return new CertificateEntry(
+                Instant.now().plusSeconds(RegistryConfig.REGISTRY_CACHE_ENTRY_TTL_SECONDS),
+                certHash, iotCertId);
+    }
+
+    private boolean isValidCertificateEntry(CertificateEntry certEntry) {
+        return certEntry.getValidTill().isAfter(Instant.now());
+    }
+
+    /**
+     * Removes stale (invalid) registry entries.
+     */
+    void refreshRegistry() {
+        registry.values().removeIf(registryEntry -> !isValidCertificateEntry(registryEntry));
     }
 }
