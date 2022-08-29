@@ -5,23 +5,27 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
-import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.util.Coerce;
+import lombok.Getter;
 
 import java.util.List;
 
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_CERTIFICATE_URI;
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_PASSPHRASE;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_PRIVATE_KEY_URI;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_TYPE_TOPIC;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CERTIFICATE_AUTHORITY_TOPIC;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
 
+@Getter
 public class CAConfiguration {
-    private final Topics certificateAuthorityTopics;
-    private final Topics cdaRuntimeTopics;
+    public static final String CERTIFICATE_AUTHORITY_TOPIC = "certificateAuthority";
+    public static final String CA_CERTIFICATE_URI = "certificateUri";
+    public static final String CA_PRIVATE_KEY_URI = "privateKeyUri";
+    public static final String CA_TYPE_TOPIC = "ca_type";
+    private String caPrivateKeyUri;
+    private String caCertificateUri;
+    private List<String> caTypeList;
+    private String caPassphrase;
+    private final Topics cdaConfigTopics;
 
     /**
      * Construct CA Configuration object from the CDA component configuration.
@@ -29,38 +33,21 @@ public class CAConfiguration {
      * @param cdaConfigTopics CDA service configuration topics
      */
     public CAConfiguration(Topics cdaConfigTopics) {
-        this.certificateAuthorityTopics = cdaConfigTopics.lookupTopics(CONFIGURATION_CONFIG_KEY,
-                CERTIFICATE_AUTHORITY_TOPIC);
-        this.cdaRuntimeTopics = cdaConfigTopics.lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC);
+        this.cdaConfigTopics = cdaConfigTopics;
+        this.updateCAConfiguration();
     }
-
-    public List<String> getCATypeList() {
-        return Coerce.toStringList(certificateAuthorityTopics.find(CA_TYPE_TOPIC));
-    }
-
-    public String getCakeyUri() {
-        return Coerce.toString(certificateAuthorityTopics.find(CA_PRIVATE_KEY_URI));
-    }
-
-    public String getCaCertUri() {
-        return Coerce.toString(certificateAuthorityTopics.find(CA_CERTIFICATE_URI));
-    }
-
 
     /**
-     * Update the passphrase of the keystore CDA runtime configuration.
-     *
-     * @param passphrase   Passphrase used for KeyStore and private key entries.
+     * Updates the CA configuration with the latest CDA config.
      */
-    public void updateCaPassphraseConfig(String passphrase) {
-        Topic caPassphrase = cdaRuntimeTopics.lookup(CA_PASSPHRASE);
-        // TODO: This passphrase needs to be encrypted prior to storing in TLOG
-        caPassphrase.withValue(passphrase);
-    }
+    public synchronized void updateCAConfiguration() {
+        Topics certificateAuthorityTopics = cdaConfigTopics.lookupTopics(CONFIGURATION_CONFIG_KEY,
+                CERTIFICATE_AUTHORITY_TOPIC);
+        caPrivateKeyUri = Coerce.toString(certificateAuthorityTopics.find(CA_PRIVATE_KEY_URI));
+        caCertificateUri = Coerce.toString(certificateAuthorityTopics.find(CA_CERTIFICATE_URI));
+        caTypeList = Coerce.toStringList(certificateAuthorityTopics.find(CA_TYPE_TOPIC));
 
-    public String getCaPassphraseFromConfig() {
-        Topic caPassphrase = cdaRuntimeTopics.lookup(CA_PASSPHRASE).dflt("");
-        return Coerce.toString(caPassphrase);
+        Topics cdaRuntimeTopics = cdaConfigTopics.lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC);
+        caPassphrase = Coerce.toString(cdaRuntimeTopics.find(CA_PASSPHRASE));
     }
-
 }

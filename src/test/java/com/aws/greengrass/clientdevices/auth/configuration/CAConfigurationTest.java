@@ -5,9 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
-
-
-
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -21,15 +18,14 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_CERTIFICATE_URI;
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_PASSPHRASE;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_PRIVATE_KEY_URI;
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_TYPE_TOPIC;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CERTIFICATE_AUTHORITY_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_URI;
+import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_PRIVATE_KEY_URI;
+import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -51,50 +47,53 @@ public class CAConfigurationTest {
 
     @Test
     public void GIVEN_cdaDefaultConfiguration_WHEN_getCATypeList_THEN_returnsEmptyList() {
-        assertThat(caConfiguration.getCATypeList(), is(equalTo(Collections.emptyList())));
+        assertThat(caConfiguration.getCaTypeList(), is(Collections.emptyList()));
     }
 
     @Test
     public void GIVEN_cdaDefaultConfiguration_WHEN_getCAKeyUri_THEN_returnsNull() {
-        assertThat(caConfiguration.getCakeyUri(), is(nullValue()));
+        assertThat(caConfiguration.getCaPrivateKeyUri(), is(nullValue()));
     }
 
     @Test
     public void GIVEN_cdaDefaultConfiguration_WHEN_getCACertUri_THEN_returnsNull() {
-        assertThat(caConfiguration.getCaCertUri(), is(nullValue()));
+        assertThat(caConfiguration.getCaCertificateUri(), is(nullValue()));
     }
 
     @Test
     public void GIVEN_cdaConfiguration_WHEN_getCACertUri_THEN_returnsCACertUri() {
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue("file:///cert-uri");
-        assertThat(caConfiguration.getCaCertUri(), is("file:///cert-uri"));
+        assertThat(caConfiguration.getCaCertificateUri(), is(nullValue()));
+        caConfiguration.updateCAConfiguration();
+        assertThat(caConfiguration.getCaCertificateUri(), is("file:///cert-uri"));
     }
 
     @Test
     public void GIVEN_cdaConfiguration_WHEN_getCAKeyUri_THEN_returnsCACertUri() {
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
                 .withValue("file:///key-uri");
-        assertThat(caConfiguration.getCakeyUri(), is("file:///key-uri"));
+        assertThat(caConfiguration.getCaPrivateKeyUri(), is(nullValue()));
+        caConfiguration.updateCAConfiguration();
+        assertThat(caConfiguration.getCaPrivateKeyUri(), is("file:///key-uri"));
     }
 
     @Test
     public void GIVEN_cdaConfiguration_WHEN_getCATypeList_THEN_returnsCATypeList() {
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_TOPIC)
                 .withValue(Arrays.asList("RSA_2048","EC_DSA"));
-        assertThat(caConfiguration.getCATypeList(), is(Arrays.asList("RSA_2048","EC_DSA")));
+        assertThat(caConfiguration.getCaTypeList(), is(Collections.emptyList()));
+        caConfiguration.updateCAConfiguration();
+        assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("RSA_2048","EC_DSA")));
     }
 
     @Test
     public void GIVEN_cdaConfiguration_WHEN_getCaPassphrase_THEN_returnsCAPassphrase() {
         configurationTopics.lookup(RUNTIME_STORE_NAMESPACE_TOPIC, CA_PASSPHRASE)
                 .withValue("passphrase");
-        assertThat(caConfiguration.getCaPassphraseFromConfig(), is("passphrase"));
+        assertThat(caConfiguration.getCaPassphrase(), is(nullValue()));
+        caConfiguration.updateCAConfiguration();
+        assertThat(caConfiguration.getCaPassphrase(), is("passphrase"));
     }
 
-    @Test
-    public void GIVEN_cdaConfiguration_WHEN_updateCaPassphrase_THEN_updateCAPassphrase() {
-        caConfiguration.updateCaPassphraseConfig("passphrase");
-        assertThat(caConfiguration.getCaPassphraseFromConfig(), is("passphrase"));
-    }
 }

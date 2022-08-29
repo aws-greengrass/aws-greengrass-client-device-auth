@@ -53,6 +53,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
+import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.AUTHORIZE_CLIENT_DEVICE_ACTION;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.GET_CLIENT_DEVICE_AUTH_TOKEN;
@@ -64,9 +65,6 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VER
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
     public static final String DEVICE_GROUPS_TOPICS = "deviceGroups";
-    public static final String CERTIFICATE_AUTHORITY_TOPIC = "certificateAuthority";
-    public static final String CA_CERTIFICATE_URI = "certificateUri";
-    public static final String CA_PRIVATE_KEY_URI = "privateKeyUri";
     public static final String CA_TYPE_TOPIC = "ca_type";
     public static final String CA_PASSPHRASE = "ca_passphrase";
     public static final String CERTIFICATES_KEY = "certificates";
@@ -141,7 +139,7 @@ public class ClientDevicesAuthService extends PluginService {
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(this.getConfig()));
-        certificateManager.setCAConfiguration(new CAConfiguration(this.getConfig()));
+        certificateManager.setCAConfiguration(new CAConfiguration(getConfig()));
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {
@@ -185,6 +183,7 @@ public class ClientDevicesAuthService extends PluginService {
                 return;
             }
             logger.atDebug().kv("why", whatHappened).kv("node", node).log();
+            certificateManager.updateCAConfiguration();
             Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
             Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC,
                     CA_TYPE_TOPIC);

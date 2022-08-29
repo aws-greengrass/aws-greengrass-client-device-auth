@@ -234,4 +234,8 @@ public class CertificateManager {
         certExpiryMonitor.removeFromMonitor(gen);
         cisShadowMonitor.removeFromMonitor(gen);
     }
+
+    public void  updateCAConfiguration() {
+        caConfiguration.updateCAConfiguration();
+    }
 }
