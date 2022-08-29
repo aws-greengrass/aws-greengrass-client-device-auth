@@ -113,6 +113,7 @@ public class CertificateRegistry {
     private Optional<String> getAssociatedCertificateId(String certificatePem) {
         return Optional.ofNullable(getCertificateHash(certificatePem))
                 .map(registry::get)
+                .filter(this::isValidCertificateEntry)
                 .map(CertificateEntry::getIotCertificateId);
     }
 

@@ -87,6 +87,7 @@ public class ThingRegistry {
         Set<CertificateEntry> certSet = registry.get(thing.getThingName());
         if (certSet != null) {
             return certSet.stream()
+                    .filter(this::isValidCertificateEntry)
                     .anyMatch(certEntry -> certEntry.getIotCertificateId().equals(certificate.getIotCertificateId()));
         }
         return false;
