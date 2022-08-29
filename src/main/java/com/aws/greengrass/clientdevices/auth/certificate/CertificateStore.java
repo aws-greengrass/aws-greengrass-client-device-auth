@@ -83,7 +83,6 @@ public class CertificateStore {
         this.workPath = workPath;
     }
 
-
     public String getCaPassphrase() {
         return passphrase == null ? null : new String(passphrase);
     }

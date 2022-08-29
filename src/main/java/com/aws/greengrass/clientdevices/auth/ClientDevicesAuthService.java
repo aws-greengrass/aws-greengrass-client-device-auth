@@ -9,7 +9,6 @@ import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
-import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
@@ -139,7 +138,7 @@ public class ClientDevicesAuthService extends PluginService {
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(this.getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(this.getConfig()));
-        certificateManager.setCAConfiguration(new CAConfiguration(getConfig()));
+        certificateManager.setCAConfiguration(this.getConfig());
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {
@@ -183,7 +182,7 @@ public class ClientDevicesAuthService extends PluginService {
                 return;
             }
             logger.atDebug().kv("why", whatHappened).kv("node", node).log();
-            certificateManager.updateCAConfiguration();
+            certificateManager.setCAConfiguration(this.getConfig());
             Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
             Topic caTypeTopic = this.config.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC,
                     CA_TYPE_TOPIC);

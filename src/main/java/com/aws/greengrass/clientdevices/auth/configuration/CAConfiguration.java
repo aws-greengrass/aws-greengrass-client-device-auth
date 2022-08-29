@@ -25,22 +25,13 @@ public class CAConfiguration {
     private String caCertificateUri;
     private List<String> caTypeList;
     private String caPassphrase;
-    private final Topics cdaConfigTopics;
-
-    /**
-     * Construct CA Configuration object from the CDA component configuration.
-     *
-     * @param cdaConfigTopics CDA service configuration topics
-     */
-    public CAConfiguration(Topics cdaConfigTopics) {
-        this.cdaConfigTopics = cdaConfigTopics;
-        this.updateCAConfiguration();
-    }
 
     /**
      * Updates the CA configuration with the latest CDA config.
+     *
+     * @param cdaConfigTopics CDA service configuration topics
      */
-    public synchronized void updateCAConfiguration() {
+    public synchronized void setCAConfiguration(Topics cdaConfigTopics) {
         Topics certificateAuthorityTopics = cdaConfigTopics.lookupTopics(CONFIGURATION_CONFIG_KEY,
                 CERTIFICATE_AUTHORITY_TOPIC);
         caPrivateKeyUri = Coerce.toString(certificateAuthorityTopics.find(CA_PRIVATE_KEY_URI));

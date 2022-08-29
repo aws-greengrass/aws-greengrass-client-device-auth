@@ -37,7 +37,8 @@ public class CAConfigurationTest {
     @BeforeEach
     void beforeEach() {
         configurationTopics = Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null);
-        caConfiguration = new CAConfiguration(configurationTopics);
+        caConfiguration = new CAConfiguration();
+        caConfiguration.setCAConfiguration(configurationTopics);
     }
 
     @AfterEach
@@ -65,7 +66,7 @@ public class CAConfigurationTest {
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue("file:///cert-uri");
         assertThat(caConfiguration.getCaCertificateUri(), is(nullValue()));
-        caConfiguration.updateCAConfiguration();
+        caConfiguration.setCAConfiguration(configurationTopics);
         assertThat(caConfiguration.getCaCertificateUri(), is("file:///cert-uri"));
     }
 
@@ -74,7 +75,7 @@ public class CAConfigurationTest {
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
                 .withValue("file:///key-uri");
         assertThat(caConfiguration.getCaPrivateKeyUri(), is(nullValue()));
-        caConfiguration.updateCAConfiguration();
+        caConfiguration.setCAConfiguration(configurationTopics);
         assertThat(caConfiguration.getCaPrivateKeyUri(), is("file:///key-uri"));
     }
 
@@ -83,7 +84,7 @@ public class CAConfigurationTest {
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_TOPIC)
                 .withValue(Arrays.asList("RSA_2048","EC_DSA"));
         assertThat(caConfiguration.getCaTypeList(), is(Collections.emptyList()));
-        caConfiguration.updateCAConfiguration();
+        caConfiguration.setCAConfiguration(configurationTopics);
         assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("RSA_2048","EC_DSA")));
     }
 
@@ -92,7 +93,7 @@ public class CAConfigurationTest {
         configurationTopics.lookup(RUNTIME_STORE_NAMESPACE_TOPIC, CA_PASSPHRASE)
                 .withValue("passphrase");
         assertThat(caConfiguration.getCaPassphrase(), is(nullValue()));
-        caConfiguration.updateCAConfiguration();
+        caConfiguration.setCAConfiguration(configurationTopics);
         assertThat(caConfiguration.getCaPassphrase(), is("passphrase"));
     }
 
