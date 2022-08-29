@@ -19,7 +19,6 @@ import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenera
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
-import com.aws.greengrass.config.Topics;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -45,7 +44,8 @@ public class CertificateManager {
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private CertificatesConfig certificatesConfig;
-    private final CAConfiguration caConfiguration;
+    @SuppressWarnings("PMD.UnusedPrivateField")
+    private CAConfiguration caConfiguration;
 
 
     /**
@@ -56,21 +56,18 @@ public class CertificateManager {
      * @param certExpiryMonitor        Certificate Expiry Monitor
      * @param cisShadowMonitor         CIS Shadow Monitor
      * @param clock                    clock
-     * @param caConfiguration          Certificate Authority configuration
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore,
                               ConnectivityInfoProvider connectivityInfoProvider,
                               CertificateExpiryMonitor certExpiryMonitor,
                               CISShadowMonitor cisShadowMonitor,
-                              Clock clock,
-                              CAConfiguration caConfiguration) {
+                              Clock clock) {
         this.certificateStore = certificateStore;
         this.connectivityInfoProvider = connectivityInfoProvider;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
         this.clock = clock;
-        this.caConfiguration = caConfiguration;
     }
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
@@ -80,10 +77,10 @@ public class CertificateManager {
     /**
      * Update the CA configuration with the latest CDA config.
      *
-     * @param cdaConfigTopics  CDA service configuration topics
+     * @param caConfiguration CA configuration object
      */
-    public void setCAConfiguration(Topics cdaConfigTopics) {
-        caConfiguration.setCAConfiguration(cdaConfigTopics);
+    public void setCAConfiguration(CAConfiguration caConfiguration) {
+        this.caConfiguration = caConfiguration;
     }
 
     /**

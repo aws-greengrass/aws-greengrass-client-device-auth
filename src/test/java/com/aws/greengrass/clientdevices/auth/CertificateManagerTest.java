@@ -5,19 +5,18 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
+import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
+import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
+import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
-import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
-import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
-import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
-import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
-import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.Pair;
@@ -57,8 +56,6 @@ public class CertificateManagerTest {
 
     @Mock
     CISShadowMonitor mockShadowMonitor;
-    @Mock
-    CAConfiguration mockCaConfiguration;
 
     @TempDir
     Path tmpPath;
@@ -68,7 +65,7 @@ public class CertificateManagerTest {
     @BeforeEach
     void beforeEach() throws KeyStoreException {
         certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider,
-                mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), mockCaConfiguration);
+                mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC());
         certificateManager.update("", CertificateStore.CAType.RSA_2048);
         CertificatesConfig certificatesConfig = new CertificatesConfig(
                 Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));

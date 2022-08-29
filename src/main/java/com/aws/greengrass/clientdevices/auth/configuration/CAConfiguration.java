@@ -16,22 +16,23 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
 import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
 
 @Getter
+@SuppressWarnings("PMD.DataClass")
 public class CAConfiguration {
     public static final String CERTIFICATE_AUTHORITY_TOPIC = "certificateAuthority";
     public static final String CA_CERTIFICATE_URI = "certificateUri";
     public static final String CA_PRIVATE_KEY_URI = "privateKeyUri";
     public static final String CA_TYPE_TOPIC = "ca_type";
-    private String caPrivateKeyUri;
-    private String caCertificateUri;
-    private List<String> caTypeList;
-    private String caPassphrase;
+    private final String caPrivateKeyUri;
+    private final String caCertificateUri;
+    private final List<String> caTypeList;
+    private final String caPassphrase;
 
     /**
-     * Updates the CA configuration with the latest CDA config.
+     * Creates CA configuration object with the latest CDA config.
      *
      * @param cdaConfigTopics CDA service configuration topics
      */
-    public synchronized void setCAConfiguration(Topics cdaConfigTopics) {
+    public CAConfiguration(Topics cdaConfigTopics) {
         Topics certificateAuthorityTopics = cdaConfigTopics.lookupTopics(CONFIGURATION_CONFIG_KEY,
                 CERTIFICATE_AUTHORITY_TOPIC);
         caPrivateKeyUri = Coerce.toString(certificateAuthorityTopics.find(CA_PRIVATE_KEY_URI));
