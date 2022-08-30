@@ -16,9 +16,13 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.certificate.certificateauthority.BringYourOwnCAStore;
+import com.aws.greengrass.clientdevices.auth.certificate.certificateauthority.CAStore;
+import com.aws.greengrass.clientdevices.auth.certificate.certificateauthority.GeneratedCAStore;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
+import com.aws.greengrass.util.Utils;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -46,6 +50,8 @@ public class CertificateManager {
     private CertificatesConfig certificatesConfig;
     @SuppressWarnings("PMD.UnusedPrivateField")
     private CAConfiguration caConfiguration;
+    @SuppressWarnings("PMD.UnusedPrivateField")
+    private CAStore caStore = null;
 
 
     /**
@@ -81,6 +87,7 @@ public class CertificateManager {
      */
     public void setCAConfiguration(CAConfiguration caConfiguration) {
         this.caConfiguration = caConfiguration;
+        setCertificateAuthorityStore();
     }
 
     /**
@@ -91,6 +98,16 @@ public class CertificateManager {
      */
     public void update(String caPassphrase, CertificateStore.CAType caType) throws KeyStoreException {
         certificateStore.update(caPassphrase, caType);
+    }
+
+    private void setCertificateAuthorityStore() {
+        String caCertificateUri = caConfiguration.getCaCertificateUri();
+        String caPrivateKeyUri = caConfiguration.getCaPrivateKeyUri();
+        if (Utils.isEmpty(caCertificateUri) && Utils.isEmpty(caPrivateKeyUri)) {
+            caStore = new GeneratedCAStore();
+        } else {
+            caStore = new BringYourOwnCAStore();
+        }
     }
 
     /**
