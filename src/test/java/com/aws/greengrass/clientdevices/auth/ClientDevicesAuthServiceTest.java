@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
@@ -311,10 +312,14 @@ class ClientDevicesAuthServiceTest {
 
         kernel.getContext().runOnPublishQueueAndWait(() -> {
             kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
-                    .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, ClientDevicesAuthService.CA_TYPE_TOPIC);
+                    .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                            CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
+                            ClientDevicesAuthService.CA_TYPE_TOPIC);
         });
         Topic topic = kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
-                .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, ClientDevicesAuthService.CA_TYPE_TOPIC);
+                .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
+                        CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
+                        ClientDevicesAuthService.CA_TYPE_TOPIC);
         topic.withValue(Collections.singletonList("RSA_2048"));
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();

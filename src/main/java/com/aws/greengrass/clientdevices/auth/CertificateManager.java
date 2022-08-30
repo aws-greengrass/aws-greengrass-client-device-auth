@@ -16,6 +16,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import lombok.NonNull;
@@ -43,6 +44,9 @@ public class CertificateManager {
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private CertificatesConfig certificatesConfig;
+    @SuppressWarnings("PMD.UnusedPrivateField")
+    private CAConfiguration caConfiguration;
+
 
     /**
      * Construct a new CertificateManager.
@@ -68,6 +72,15 @@ public class CertificateManager {
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
         this.certificatesConfig = certificatesConfig;
+    }
+
+    /**
+     * Update the CA configuration with the latest CDA config.
+     *
+     * @param caConfiguration CA configuration object
+     */
+    public void setCAConfiguration(CAConfiguration caConfiguration) {
+        this.caConfiguration = caConfiguration;
     }
 
     /**
@@ -226,4 +239,5 @@ public class CertificateManager {
         certExpiryMonitor.removeFromMonitor(gen);
         cisShadowMonitor.removeFromMonitor(gen);
     }
+
 }
