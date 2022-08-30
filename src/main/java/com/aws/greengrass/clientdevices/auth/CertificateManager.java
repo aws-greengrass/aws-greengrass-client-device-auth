@@ -16,9 +16,19 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import com.aws.greengrass.util.RetryUtils;
 import lombok.NonNull;
+import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
+import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
+import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuthoritiesRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
 import java.io.IOException;
 import java.security.KeyPair;
@@ -28,6 +38,8 @@ import java.security.PublicKey;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +54,11 @@ public class CertificateManager {
     private final CISShadowMonitor cisShadowMonitor;
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
+    private final GreengrassServiceClientFactory clientFactory;
+    private CAConfiguration caConfiguration;
     private CertificatesConfig certificatesConfig;
+    private static final Logger logger = LogManager.getLogger(CAConfiguration.class);
+
 
     /**
      * Construct a new CertificateManager.
@@ -52,32 +68,42 @@ public class CertificateManager {
      * @param certExpiryMonitor        Certificate Expiry Monitor
      * @param cisShadowMonitor         CIS Shadow Monitor
      * @param clock                    clock
+     * @param clientFactory            Greengrass cloud service client factory
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore,
                               ConnectivityInfoProvider connectivityInfoProvider,
                               CertificateExpiryMonitor certExpiryMonitor,
                               CISShadowMonitor cisShadowMonitor,
-                              Clock clock) {
+                              Clock clock,
+                              GreengrassServiceClientFactory clientFactory) {
         this.certificateStore = certificateStore;
         this.connectivityInfoProvider = connectivityInfoProvider;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
         this.clock = clock;
+        this.clientFactory = clientFactory;
     }
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
         this.certificatesConfig = certificatesConfig;
     }
 
+    public void updateCAConfiguration(CAConfiguration caConfiguration) {
+        this.caConfiguration = caConfiguration;
+    }
+
     /**
      * Initialize the certificate manager.
-     * @param caPassphrase  CA Passphrase
-     * @param caType        CA type
+     *
+     * @param caPassphrase CA Passphrase
      * @throws KeyStoreException if unable to load the CA key store
+     * @throws CertificateEncodingException if unable to get certificate encoding
+     * @throws IOException if unable to write certificate
      */
-    public void update(String caPassphrase, CertificateStore.CAType caType) throws KeyStoreException {
-        certificateStore.update(caPassphrase, caType);
+    public void update(String caPassphrase) throws KeyStoreException,
+            CertificateEncodingException, IOException {
+        certificateStore.update(caPassphrase, caConfiguration.getCaType());
     }
 
     /**
@@ -100,8 +126,8 @@ public class CertificateManager {
      * Return a list of CA certificates used to issue client certs.
      *
      * @return a list of CA certificates for issuing client certs
-     * @throws KeyStoreException if unable to retrieve the certificate
-     * @throws IOException if unable to write certificate
+     * @throws KeyStoreException            if unable to retrieve the certificate
+     * @throws IOException                  if unable to write certificate
      * @throws CertificateEncodingException if unable to get certificate encoding
      */
     public List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
@@ -120,8 +146,8 @@ public class CertificateManager {
      * Subscribe to certificate updates.
      * <p>
      * The certificate manager will save the given request and generate a new certificate under the following scenarios:
-     *   1) The previous certificate is nearing expiry
-     *   2) GGC connectivity information changes (for server certificates only)
+     * 1) The previous certificate is nearing expiry
+     * 2) GGC connectivity information changes (for server certificates only)
      * Certificates will continue to be generated until the client calls unsubscribeFromCertificateUpdates.
      * </p>
      * An initial certificate will be generated and sent to the consumer prior to this function returning.
@@ -226,4 +252,52 @@ public class CertificateManager {
         certExpiryMonitor.removeFromMonitor(gen);
         cisShadowMonitor.removeFromMonitor(gen);
     }
+
+
+    private RetryUtils.RetryConfig getRetryConfig() {
+        List<Class> retriableExceptions = Arrays.asList(
+                ThrottlingException.class,
+                InternalServerException.class,
+                AccessDeniedException.class);
+
+        return RetryUtils.RetryConfig.builder()
+                .initialRetryInterval(Duration.ofSeconds(3))
+                .maxAttempt(Integer.MAX_VALUE)
+                .retryableExceptions(retriableExceptions)
+                .build();
+    }
+
+    /**
+     * Uploads the stored certificates to the cloud.
+     *
+     * @param thingName  Core device name
+     *
+     * @throws CertificateEncodingException  If unable to get certificate encoding
+     * @throws KeyStoreException if unable to retrieve the certificate
+     * @throws IOException If unable to read certificate
+     */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    public void uploadCoreDeviceCAs(String thingName) throws CertificateEncodingException, KeyStoreException,
+            IOException {
+        List<String> certificatePemList = getCACertificates();
+
+        PutCertificateAuthoritiesRequest request =
+                PutCertificateAuthoritiesRequest.builder().coreDeviceThingName(thingName)
+                        .coreDeviceCertificates(certificatePemList).build();
+        try {
+            RetryUtils.runWithRetry(getRetryConfig(),
+                    () -> clientFactory.getGreengrassV2DataClient().putCertificateAuthorities(request),
+                    "put-core-ca-certificate", logger);
+        } catch (InterruptedException e) {
+            logger.atInfo().log("Put core CA certificates got interrupted");
+            // interrupt the current thread so that higher-level interrupt handlers can take care of it
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            throw new CloudServiceInteractionException("Failed to put core CA certificates to cloud. Check that the "
+                    + "core device's IoT policy grants the greengrass:PutCertificateAuthorities permission.", e);
+        }
+    }
+
+
+
 }
