@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
@@ -66,10 +67,11 @@ public class CertificateManagerTest {
     void beforeEach() throws KeyStoreException {
         certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider,
                 mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC());
-        certificateManager.update("", CertificateStore.CAType.RSA_2048);
-        CertificatesConfig certificatesConfig = new CertificatesConfig(
-                Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
+        Topics cdaConfig = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
+        CertificatesConfig certificatesConfig = new CertificatesConfig(cdaConfig);
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
+        certificateManager.setCAConfiguration(new CAConfiguration(cdaConfig));
+        certificateManager.update();
     }
 
     @Test

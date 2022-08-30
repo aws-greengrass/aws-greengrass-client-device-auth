@@ -19,6 +19,9 @@ import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenera
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Utils;
 import lombok.NonNull;
 
 import java.io.IOException;
@@ -44,8 +47,8 @@ public class CertificateManager {
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private CertificatesConfig certificatesConfig;
-    @SuppressWarnings("PMD.UnusedPrivateField")
     private CAConfiguration caConfiguration;
+    private final Logger logger = LogManager.getLogger(CertificateManager.class);
 
 
     /**
@@ -84,13 +87,30 @@ public class CertificateManager {
     }
 
     /**
-     * Initialize the certificate manager.
-     * @param caPassphrase  CA Passphrase
-     * @param caType        CA type
+     * Update the certificate manager.
+     *
      * @throws KeyStoreException if unable to load the CA key store
      */
-    public void update(String caPassphrase, CertificateStore.CAType caType) throws KeyStoreException {
-        certificateStore.update(caPassphrase, caType);
+    public synchronized void update() throws KeyStoreException {
+        String caPassphraseFromConfig = caConfiguration.getCaPassphrase();
+        CertificateStore.CAType caTypeFromConfig = getCAType(caConfiguration.getCaTypeList());
+        certificateStore.update(caPassphraseFromConfig, caTypeFromConfig);
+        updateCaPassphraseConfig();
+    }
+
+    private CertificateStore.CAType getCAType(List<String> caTypeList) {
+        if (Utils.isEmpty(caTypeList)) {
+            return CertificateStore.CAType.RSA_2048;
+        } else {
+            if (caTypeList.size() > 1) {
+                logger.atDebug().log("Only one CA type is supported. Ignoring subsequent CAs in the list.");
+            }
+            return CertificateStore.CAType.valueOf(caTypeList.get(0));
+        }
+    }
+
+    void updateCaPassphraseConfig() {
+        caConfiguration.updateCaPassphraseConfig(certificateStore.getCaPassphrase());
     }
 
     /**
@@ -125,9 +145,6 @@ public class CertificateManager {
         return new X509Certificate[]{certificateStore.getCACertificate()};
     }
 
-    public String getCaPassPhrase() {
-        return certificateStore.getCaPassphrase();
-    }
 
     /**
      * Subscribe to certificate updates.

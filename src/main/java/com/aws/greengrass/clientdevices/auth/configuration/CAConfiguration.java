@@ -25,7 +25,8 @@ public class CAConfiguration {
     private final String caPrivateKeyUri;
     private final String caCertificateUri;
     private final List<String> caTypeList;
-    private final String caPassphrase;
+    private String caPassphrase;
+    private final Topics cdaConfigTopics;
 
     /**
      * Creates CA configuration object with the latest CDA config.
@@ -33,6 +34,7 @@ public class CAConfiguration {
      * @param cdaConfigTopics CDA service configuration topics
      */
     public CAConfiguration(Topics cdaConfigTopics) {
+        this.cdaConfigTopics = cdaConfigTopics;
         Topics certificateAuthorityTopics = cdaConfigTopics.lookupTopics(CONFIGURATION_CONFIG_KEY,
                 CERTIFICATE_AUTHORITY_TOPIC);
         caPrivateKeyUri = Coerce.toString(certificateAuthorityTopics.find(CA_PRIVATE_KEY_URI));
@@ -40,6 +42,11 @@ public class CAConfiguration {
         caTypeList = Coerce.toStringList(certificateAuthorityTopics.find(CA_TYPE_TOPIC));
 
         Topics cdaRuntimeTopics = cdaConfigTopics.lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC);
-        caPassphrase = Coerce.toString(cdaRuntimeTopics.find(CA_PASSPHRASE));
+        caPassphrase = Coerce.toString(cdaRuntimeTopics.lookup(CA_PASSPHRASE).dflt(""));
+    }
+
+    public void updateCaPassphraseConfig(String newPassphrase) {
+        cdaConfigTopics.lookup(RUNTIME_STORE_NAMESPACE_TOPIC, CA_PASSPHRASE).withValue(newPassphrase);
+        caPassphrase = newPassphrase;
     }
 }

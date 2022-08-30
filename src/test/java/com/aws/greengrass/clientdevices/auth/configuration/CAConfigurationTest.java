@@ -91,7 +91,7 @@ public class CAConfigurationTest {
     public void GIVEN_cdaConfiguration_WHEN_getCaPassphrase_THEN_returnsCAPassphrase() {
         configurationTopics.lookup(RUNTIME_STORE_NAMESPACE_TOPIC, CA_PASSPHRASE)
                 .withValue("passphrase");
-        assertThat(caConfiguration.getCaPassphrase(), is(nullValue()));
+        assertThat(caConfiguration.getCaPassphrase(), is(""));
         caConfiguration = new CAConfiguration(configurationTopics);
         assertThat(caConfiguration.getCaPassphrase(), is("passphrase"));
     }

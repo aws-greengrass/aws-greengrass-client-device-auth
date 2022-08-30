@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
-import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
@@ -31,7 +30,6 @@ import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
-import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
@@ -210,14 +208,14 @@ public class ClientDevicesAuthService extends PluginService {
 
             if (whatHappened == WhatHappened.initialized || node == null) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-                updateCAType(caTypeTopic);
+                updateCAType();
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
             } else if (node.childOf(CA_TYPE_TOPIC)) {
                 if (caTypeTopic.getOnce() == null) {
                     return;
                 }
-                updateCAType(caTypeTopic);
+                updateCAType();
             }
         });
     }
@@ -279,26 +277,12 @@ public class ClientDevicesAuthService extends PluginService {
         }
     }
 
-    private void updateCAType(Topic topic) {
+    private void updateCAType() {
         try {
-            List<String> caTypeList = Coerce.toStringList(topic);
-            logger.atDebug().kv("CA type", caTypeList).log("CA type list updated");
-
-            if (Utils.isEmpty(caTypeList)) {
-                logger.atDebug().log("CA type list null or empty. Defaulting to RSA");
-                certificateManager.update(getPassphrase(), CertificateStore.CAType.RSA_2048);
-            } else {
-                if (caTypeList.size() > 1) {
-                    logger.atWarn().log("Only one CA type is supported. Ignoring subsequent CAs in the list.");
-                }
-                String caType = caTypeList.get(0);
-                certificateManager.update(getPassphrase(), CertificateStore.CAType.valueOf(caType));
-            }
-
+            certificateManager.update();
             List<String> caCerts = certificateManager.getCACertificates();
             uploadCoreDeviceCAs(caCerts);
             updateCACertificateConfig(caCerts);
-            updateCaPassphraseConfig(certificateManager.getCaPassPhrase());
         } catch (CloudServiceInteractionException e) {
             logger.atError().cause(e)
                     .kv("coreThingName", deviceConfiguration.getThingName())
@@ -312,17 +296,6 @@ public class ClientDevicesAuthService extends PluginService {
     void updateCACertificateConfig(List<String> caCerts) {
         Topic caCertsTopic = getRuntimeConfig().lookup(CERTIFICATES_KEY, AUTHORITIES_TOPIC);
         caCertsTopic.withValue(caCerts);
-    }
-
-    void updateCaPassphraseConfig(String passphrase) {
-        Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE);
-        // TODO: This passphrase needs to be encrypted prior to storing in TLOG
-        caPassphrase.withValue(passphrase);
-    }
-
-    private String getPassphrase() {
-        Topic caPassphrase = getRuntimeConfig().lookup(CA_PASSPHRASE).dflt("");
-        return Coerce.toString(caPassphrase);
     }
 
     @Override
