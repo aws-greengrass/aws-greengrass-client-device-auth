@@ -16,11 +16,13 @@ import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
+import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.Pair;
+import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +49,11 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.AUTHORITIES_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CERTIFICATES_KEY;
+import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateManagerTest {
     @Mock
@@ -63,11 +70,13 @@ public class CertificateManagerTest {
 
     private CertificateManager certificateManager;
 
+    private Topics cdaConfig;
+
     @BeforeEach
-    void beforeEach() throws KeyStoreException {
+    void beforeEach() throws KeyStoreException, CertificateEncodingException, IOException {
         certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider,
                 mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC());
-        Topics cdaConfig = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
+        cdaConfig = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         CertificatesConfig certificatesConfig = new CertificatesConfig(cdaConfig);
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
         certificateManager.setCAConfiguration(new CAConfiguration(cdaConfig));
@@ -79,6 +88,7 @@ public class CertificateManagerTest {
             throws CertificateEncodingException, KeyStoreException, IOException {
         List<String> caPemList = certificateManager.getCACertificates();
         Assertions.assertEquals(1, caPemList.size(), "expected single CA certificate");
+        assertCaCertTopicContains(caPemList);
     }
 
     @Test
@@ -153,5 +163,34 @@ public class CertificateManagerTest {
     void GIVEN_nullRequest_WHEN_subscribeToCertificateUpdates_THEN_throwsNPE() {
         Assertions.assertThrows(NullPointerException.class, () ->
                 certificateManager.subscribeToCertificateUpdates(null));
+    }
+
+//    @Test
+//    void GIVEN_updated_ca_certs_WHEN_updateCACertificateConfig_THEN_cert_topic_updated()
+//            throws InterruptedException, ServiceLoadException, IOException {
+//        startNucleusWithConfig("config.yaml");
+//
+//        ClientDevicesAuthService clientDevicesAuthService =
+//                (ClientDevicesAuthService) kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
+//
+//        List<String> expectedCACerts = new ArrayList<>(Arrays.asList("CA1"));
+//        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
+//        assertCaCertTopicContains(expectedCACerts);
+//
+//        expectedCACerts.add("CA2");
+//        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
+//        assertCaCertTopicContains(expectedCACerts);
+//
+//        expectedCACerts.remove("CA1");
+//        expectedCACerts.add("CA3");
+//        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
+//        assertCaCertTopicContains(expectedCACerts);
+//    }
+
+    void assertCaCertTopicContains(List<String> expectedCerts) {
+        Topic caCertTopic = cdaConfig.lookup(RUNTIME_STORE_NAMESPACE_TOPIC, CERTIFICATES_KEY, AUTHORITIES_TOPIC);
+        List<String> caPemList = (List<String>) caCertTopic.toPOJO();
+        Assertions.assertNotNull(caPemList);
+        assertThat(caPemList, IsIterableContainingInAnyOrder.containsInAnyOrder(expectedCerts.toArray()));
     }
 }

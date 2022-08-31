@@ -11,7 +11,9 @@ import lombok.Getter;
 
 import java.util.List;
 
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.AUTHORITIES_TOPIC;
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_PASSPHRASE;
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CERTIFICATES_KEY;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
 
@@ -48,5 +50,10 @@ public class CAConfiguration {
     public void updateCaPassphraseConfig(String newPassphrase) {
         cdaConfigTopics.lookup(RUNTIME_STORE_NAMESPACE_TOPIC, CA_PASSPHRASE).withValue(newPassphrase);
         caPassphrase = newPassphrase;
+    }
+
+    public void updateCaCertificateConfig(List<String> caCertificates) {
+        cdaConfigTopics.lookup(RUNTIME_STORE_NAMESPACE_TOPIC, CERTIFICATES_KEY, AUTHORITIES_TOPIC)
+                .withValue(caCertificates);
     }
 }

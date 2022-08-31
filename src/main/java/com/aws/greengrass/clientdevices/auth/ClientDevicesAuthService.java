@@ -282,7 +282,6 @@ public class ClientDevicesAuthService extends PluginService {
             certificateManager.update();
             List<String> caCerts = certificateManager.getCACertificates();
             uploadCoreDeviceCAs(caCerts);
-            updateCACertificateConfig(caCerts);
         } catch (CloudServiceInteractionException e) {
             logger.atError().cause(e)
                     .kv("coreThingName", deviceConfiguration.getThingName())
@@ -293,10 +292,6 @@ public class ClientDevicesAuthService extends PluginService {
         }
     }
 
-    void updateCACertificateConfig(List<String> caCerts) {
-        Topic caCertsTopic = getRuntimeConfig().lookup(CERTIFICATES_KEY, AUTHORITIES_TOPIC);
-        caCertsTopic.withValue(caCerts);
-    }
 
     @Override
     protected CompletableFuture<Void> close(boolean waitForDependers) {

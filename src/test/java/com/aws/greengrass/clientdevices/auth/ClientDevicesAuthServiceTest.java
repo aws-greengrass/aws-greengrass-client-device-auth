@@ -23,7 +23,6 @@ import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
-import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsMapContaining;
 import org.hamcrest.collection.IsMapWithSize;
 import org.junit.jupiter.api.AfterEach;
@@ -51,8 +50,6 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -228,36 +225,6 @@ class ClientDevicesAuthServiceTest {
             }
         });
         Assertions.assertTrue(countDownLatch.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS));
-    }
-
-    @Test
-    void GIVEN_updated_ca_certs_WHEN_updateCACertificateConfig_THEN_cert_topic_updated()
-            throws InterruptedException, ServiceLoadException, IOException {
-        startNucleusWithConfig("config.yaml");
-
-        ClientDevicesAuthService clientDevicesAuthService =
-                (ClientDevicesAuthService) kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
-
-        List<String> expectedCACerts = new ArrayList<>(Arrays.asList("CA1"));
-        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
-        assertCaCertTopicContains(expectedCACerts);
-
-        expectedCACerts.add("CA2");
-        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
-        assertCaCertTopicContains(expectedCACerts);
-
-        expectedCACerts.remove("CA1");
-        expectedCACerts.add("CA3");
-        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
-        assertCaCertTopicContains(expectedCACerts);
-    }
-
-    void assertCaCertTopicContains(List<String> expectedCerts) {
-        Topic caCertTopic = kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
-                .lookup("runtime", "certificates", "authorities");
-        List<String> caPemList = (List<String>) caCertTopic.toPOJO();
-        Assertions.assertNotNull(caPemList);
-        assertThat(caPemList, IsIterableContainingInAnyOrder.containsInAnyOrder(expectedCerts.toArray()));
     }
 
     @Test

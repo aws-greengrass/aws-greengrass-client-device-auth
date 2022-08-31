@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import com.aws.greengrass.util.Coerce;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,8 +19,10 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.AUTHORITIES_TOPIC;
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_PASSPHRASE;
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_TYPE_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CERTIFICATES_KEY;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_PRIVATE_KEY_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC;
@@ -94,6 +97,22 @@ public class CAConfigurationTest {
         assertThat(caConfiguration.getCaPassphrase(), is(""));
         caConfiguration = new CAConfiguration(configurationTopics);
         assertThat(caConfiguration.getCaPassphrase(), is("passphrase"));
+    }
+
+    @Test
+    public void GIVEN_cdaConfiguration_WHEN_updateCaPassphrase_THEN_updateCAPassphraseWithoutReInstantiation() {
+        assertThat(caConfiguration.getCaPassphrase(), is(""));
+        caConfiguration.updateCaPassphraseConfig("newPassphrase");
+        assertThat(caConfiguration.getCaPassphrase(), is("newPassphrase"));
+    }
+
+    @Test
+    public void GIVEN_cdaConfiguration_WHEN_updateCaCerts_THEN_updateCaCertsWithoutReInstantiation() {
+        assertThat(Coerce.toStringList(configurationTopics.lookup(RUNTIME_STORE_NAMESPACE_TOPIC,
+                CERTIFICATES_KEY, AUTHORITIES_TOPIC)), is(Collections.emptyList()));
+        caConfiguration.updateCaCertificateConfig(Arrays.asList("CA_CERT"));
+        assertThat(Coerce.toStringList(configurationTopics.lookup(RUNTIME_STORE_NAMESPACE_TOPIC,
+                CERTIFICATES_KEY, AUTHORITIES_TOPIC)), is(Arrays.asList("CA_CERT")));
     }
 
 }

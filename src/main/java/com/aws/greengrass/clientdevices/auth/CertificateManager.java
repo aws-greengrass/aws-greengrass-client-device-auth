@@ -90,8 +90,10 @@ public class CertificateManager {
      * Update the certificate manager.
      *
      * @throws KeyStoreException if unable to load the CA key store
+     * @throws CertificateEncodingException if unable to get the CA certificates
+     * @throws IOException if unable to get the CA certificates
      */
-    public synchronized void update() throws KeyStoreException {
+    public synchronized void update() throws KeyStoreException, CertificateEncodingException, IOException {
         String caPassphraseFromConfig = caConfiguration.getCaPassphrase();
         CertificateStore.CAType caTypeFromConfig = getCAType(caConfiguration.getCaTypeList());
         certificateStore.update(caPassphraseFromConfig, caTypeFromConfig);
@@ -110,8 +112,9 @@ public class CertificateManager {
         }
     }
 
-    private void updateCaRuntimeConfig() {
+    private void updateCaRuntimeConfig() throws CertificateEncodingException, KeyStoreException, IOException {
         caConfiguration.updateCaPassphraseConfig(certificateStore.getCaPassphrase());
+        caConfiguration.updateCaCertificateConfig(getCACertificates());
     }
 
     /**
