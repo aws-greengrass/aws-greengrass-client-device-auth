@@ -95,21 +95,22 @@ public class CertificateManager {
         String caPassphraseFromConfig = caConfiguration.getCaPassphrase();
         CertificateStore.CAType caTypeFromConfig = getCAType(caConfiguration.getCaTypeList());
         certificateStore.update(caPassphraseFromConfig, caTypeFromConfig);
-        updateCaPassphraseConfig();
+        updateCaRuntimeConfig();
     }
 
     private CertificateStore.CAType getCAType(List<String> caTypeList) {
         if (Utils.isEmpty(caTypeList)) {
+            logger.atDebug().log("CA type list null or empty. Defaulting to RSA");
             return CertificateStore.CAType.RSA_2048;
         } else {
             if (caTypeList.size() > 1) {
-                logger.atDebug().log("Only one CA type is supported. Ignoring subsequent CAs in the list.");
+                logger.atDebug().log("Only one CA type is supported. Ignoring subsequent CAs in the list");
             }
             return CertificateStore.CAType.valueOf(caTypeList.get(0));
         }
     }
 
-    void updateCaPassphraseConfig() {
+    private void updateCaRuntimeConfig() {
         caConfiguration.updateCaPassphraseConfig(certificateStore.getCaPassphrase());
     }
 
