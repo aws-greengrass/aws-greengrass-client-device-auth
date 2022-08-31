@@ -165,28 +165,6 @@ public class CertificateManagerTest {
                 certificateManager.subscribeToCertificateUpdates(null));
     }
 
-//    @Test
-//    void GIVEN_updated_ca_certs_WHEN_updateCACertificateConfig_THEN_cert_topic_updated()
-//            throws InterruptedException, ServiceLoadException, IOException {
-//        startNucleusWithConfig("config.yaml");
-//
-//        ClientDevicesAuthService clientDevicesAuthService =
-//                (ClientDevicesAuthService) kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
-//
-//        List<String> expectedCACerts = new ArrayList<>(Arrays.asList("CA1"));
-//        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
-//        assertCaCertTopicContains(expectedCACerts);
-//
-//        expectedCACerts.add("CA2");
-//        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
-//        assertCaCertTopicContains(expectedCACerts);
-//
-//        expectedCACerts.remove("CA1");
-//        expectedCACerts.add("CA3");
-//        clientDevicesAuthService.updateCACertificateConfig(expectedCACerts);
-//        assertCaCertTopicContains(expectedCACerts);
-//    }
-
     void assertCaCertTopicContains(List<String> expectedCerts) {
         Topic caCertTopic = cdaConfig.lookup(RUNTIME_STORE_NAMESPACE_TOPIC, CERTIFICATES_KEY, AUTHORITIES_TOPIC);
         List<String> caPemList = (List<String>) caCertTopic.toPOJO();
