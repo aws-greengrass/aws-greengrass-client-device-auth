@@ -11,6 +11,7 @@ import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Coerce;
+import lombok.Getter;
 
 import java.util.Collections;
 import java.util.List;
@@ -28,43 +29,57 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
  * |          |---- caType: [...]
  * </p>
  */
-public class CAConfiguration {
+@Getter
+public final class CAConfiguration {
     public static final String CA_CERTIFICATE_URI = "certificateUri";
     public static final String CA_PRIVATE_KEY_URI = "privateKeyUri";
     public static final String DEPRECATED_CA_TYPE_KEY = "ca_type";
     public static final String CA_TYPE_KEY = "caType";
     public static final String CERTIFICATE_AUTHORITY_TOPIC = "certificateAuthority";
     private static final Logger logger = LogManager.getLogger(CAConfiguration.class);
-    private final Topics config;
+
+    private CertificateStore.CAType caType;
+    private List<String> caTypeList;
+    private String privateKeyUri;
+    private String certificateUri;
+
+
+    private CAConfiguration(List<String> caTypes, CertificateStore.CAType caType,
+                            String privateKeyUri, String certificateUri) {
+        this.caType = caType;
+        this.caTypeList = caTypes;
+        this.privateKeyUri = privateKeyUri;
+        this.certificateUri = certificateUri;
+    }
 
     /**
-     * Update the CA configuration with the latest CDA config.
+     * Factory method for creating an immutable CAConfiguration from the service configuration.
      *
-     * @param config CA configuration object
+     * @param config the root service configuration
      */
-    public CAConfiguration(Topics config) {
-        // NOTE: Validate topics schema upon initialization. Better to fail fast if there is
-        // something wrong
-        this.config = config;
+    public static CAConfiguration from(Topics config) {
+        Topics configurationTopic = config.lookupTopics(CONFIGURATION_CONFIG_KEY);
+        Topics certAuthorityTopic = configurationTopic.lookupTopics(CERTIFICATE_AUTHORITY_TOPIC);
+
+        return new CAConfiguration(
+                getCaTypeListFromConfiguration(configurationTopic),
+                getCaTypeFromConfiguration(configurationTopic),
+                getCaPrivateKeyUriFromConfiguration(certAuthorityTopic),
+                getCaCertificateUriFromConfiguration(certAuthorityTopic)
+        );
     }
 
-    private Topics getCAConfigTopics() {
-        return config.lookupTopics(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC);
-    }
 
-    /**
-     * Returns the configuration value for ca_type.
-     */
-    public List<String> getCaTypeList() {
+    private static List<String> getCaTypeListFromConfiguration(Topics configurationTopic) {
         // NOTE: This should be a list of CertificateStore.CAType and not any random Strings
-        Topic caTypeTopic = getCAConfigTopics().lookup(CA_TYPE_KEY);
+        Topic caTypeTopic = configurationTopic.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_KEY);
         if (caTypeTopic.getOnce() != null) {
             return Coerce.toStringList(caTypeTopic.getOnce());
         }
 
         // NOTE: Ensure backwards compat with v.2.2.2 we are moving the ca_type key to be under
         // certificateAuthority and changing its name to caType. (ONLY REMOVE AFTER IT IS SAFE)
-        Topic deprecatedCaTypeTopic = config.lookup(CONFIGURATION_CONFIG_KEY, DEPRECATED_CA_TYPE_KEY);
+        Topic deprecatedCaTypeTopic = configurationTopic.lookup(DEPRECATED_CA_TYPE_KEY);
         if (deprecatedCaTypeTopic.getOnce() != null) {
             return Coerce.toStringList(deprecatedCaTypeTopic.getOnce());
         }
@@ -72,17 +87,13 @@ public class CAConfiguration {
         return Collections.emptyList();
     }
 
-    /**
-     * Returns the certificate type based on the ca_types configuration. If it is empty the type will
-     * default to RSA_2048, otherwise it will use the first value of that list.
-     */
-    public CertificateStore.CAType getCaType() {
-        List<String> caTypeList = getCaTypeList();
+    private static CertificateStore.CAType getCaTypeFromConfiguration(Topics configurationTopic) {
+        List<String> caTypeList = getCaTypeListFromConfiguration(configurationTopic);
         logger.atDebug().kv("CA type", caTypeList).log("CA type list updated");
 
         if (caTypeList.isEmpty()) {
             logger.atDebug().log("CA type list null or empty. Defaulting to RSA");
-            return  CertificateStore.CAType.RSA_2048;
+            return CertificateStore.CAType.RSA_2048;
         }
 
         if (caTypeList.size() > 1) {
@@ -93,24 +104,17 @@ public class CAConfiguration {
         return CertificateStore.CAType.valueOf(caType);
     }
 
-
-    /**
-     * Returns the privateKeyUri value from the configuration.
-     */
-    public String getCaPrivateKeyUri() {
+    private static String getCaPrivateKeyUriFromConfiguration(Topics certAuthorityTopic) {
         // NOTE: Parse the key to ensure it is a valid URI
         //  before returning it
-        Topic privateKeyUriTopic = getCAConfigTopics().find(CA_PRIVATE_KEY_URI);
+        Topic privateKeyUriTopic = certAuthorityTopic.find(CA_PRIVATE_KEY_URI);
         return Coerce.toString(privateKeyUriTopic);
     }
 
-    /**
-     * Returns the certificateUri from the configuration.
-     */
-    public String getCaCertificateUri() {
+    private static String getCaCertificateUriFromConfiguration(Topics certAuthorityTopic) {
         // NOTE: Parse the key to ensure it is a valid URI
         //  before returning it
-        Topic privateKeyUriTopic = getCAConfigTopics().find(CA_CERTIFICATE_URI);
+        Topic privateKeyUriTopic = certAuthorityTopic.find(CA_CERTIFICATE_URI);
         return Coerce.toString(privateKeyUriTopic);
     }
 }

@@ -129,7 +129,7 @@ public class ClientDevicesAuthService extends PluginService {
 
     private void onConfigurationChanged() {
         runtimeConfiguration = new RuntimeConfiguration(getRuntimeConfig());
-        caConfiguration = new CAConfiguration(getConfig());
+        caConfiguration = CAConfiguration.from(getConfig());
         certificateManager.updateCAConfiguration(caConfiguration);
     }
 

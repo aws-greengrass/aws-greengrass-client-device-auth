@@ -45,50 +45,51 @@ public class CAConfigurationTest {
 
     @Test
     public void GIVEN_cdaDefaultConfiguration_WHEN_getCATypeList_THEN_returnsEmptyList() {
-        CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
+        CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(caConfiguration.getCaTypeList(), is(Collections.emptyList()));
     }
 
     @Test
     public void GIVEN_cdaDefaultConfiguration_WHEN_getCAKeyUri_THEN_returnsNull() {
-        CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
-        assertThat(caConfiguration.getCaPrivateKeyUri(), is(nullValue()));
+        CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
+        assertThat(caConfiguration.getPrivateKeyUri(), is(nullValue()));
     }
 
     @Test
     public void GIVEN_cdaDefaultConfiguration_WHEN_getCACertUri_THEN_returnsNull() {
-        CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
-        assertThat(caConfiguration.getCaCertificateUri(), is(nullValue()));
+        CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
+        assertThat(caConfiguration.getCertificateUri(), is(nullValue()));
     }
 
     @Test
     public void GIVEN_cdaConfiguration_WHEN_getCACertUri_THEN_returnsCACertUri() {
-        CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
-        assertThat(caConfiguration.getCaCertificateUri(), is(nullValue()));
+        CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
+        assertThat(caConfiguration.getCertificateUri(), is(nullValue()));
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue("file:///cert-uri");
-        caConfiguration = new CAConfiguration(configurationTopics);
-        assertThat(caConfiguration.getCaCertificateUri(), is("file:///cert-uri"));
+        caConfiguration = CAConfiguration.from(configurationTopics);
+        assertThat(caConfiguration.getCertificateUri(), is("file:///cert-uri"));
     }
 
     @Test
     public void GIVEN_cdaConfiguration_WHEN_getCAKeyUri_THEN_returnsCACertUri() {
-        CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
-        assertThat(caConfiguration.getCaPrivateKeyUri(), is(nullValue()));
+        CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
+        assertThat(caConfiguration.getPrivateKeyUri(), is(nullValue()));
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
                 .withValue("file:///key-uri");
-        caConfiguration = new CAConfiguration(configurationTopics);
-        assertThat(caConfiguration.getCaPrivateKeyUri(), is("file:///key-uri"));
+        caConfiguration = CAConfiguration.from(configurationTopics);
+        assertThat(caConfiguration.getPrivateKeyUri(), is("file:///key-uri"));
     }
 
     @Test
     public void GIVEN_cdaConfiguration_WHEN_getCATypeList_THEN_returnsCATypeList() {
-        CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
-        assertThat(caConfiguration.getCaTypeList(), is(Collections.emptyList()));
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_KEY)
                 .withValue(Arrays.asList("RSA_2048","ECDSA_P256"));
-        caConfiguration = new CAConfiguration(configurationTopics);
+        CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
+        caConfiguration = CAConfiguration.from(configurationTopics);
+        assertThat(caConfiguration.getCaType(), is(CertificateStore.CAType.RSA_2048));
         assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("RSA_2048","ECDSA_P256")));
+
     }
 
     @Test
@@ -97,9 +98,10 @@ public class CAConfigurationTest {
         // we are changing how/where ca_type is stored
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, DEPRECATED_CA_TYPE_KEY)
                 .withValue(Arrays.asList("ECDSA_P256"));
-        CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
+        CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(caConfiguration.getCaType(), is(CertificateStore.CAType.ECDSA_P256));
         assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("ECDSA_P256")));
+
     }
 
     @Test
@@ -110,8 +112,9 @@ public class CAConfigurationTest {
         // New path - post v.2.2.2
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_KEY)
                 .withValue(Arrays.asList("RSA_2048"));
-        CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
+        CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(caConfiguration.getCaType(), is(CertificateStore.CAType.RSA_2048));
         assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("RSA_2048")));
+
     }
 }

@@ -75,7 +75,7 @@ public class CertificateManagerTest {
 
         CertificatesConfig certificatesConfig = new CertificatesConfig(
                 Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
-        CAConfiguration caConfiguration = new CAConfiguration(
+        CAConfiguration caConfiguration = CAConfiguration.from(
                 Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
 
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
