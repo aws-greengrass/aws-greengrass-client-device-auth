@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
@@ -19,6 +20,7 @@ import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
+import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,19 +59,28 @@ public class CertificateManagerTest {
     @Mock
     CISShadowMonitor mockShadowMonitor;
 
+    @Mock
+    GreengrassServiceClientFactory clientFactory;
+
+
     @TempDir
     Path tmpPath;
 
     private CertificateManager certificateManager;
 
     @BeforeEach
-    void beforeEach() throws KeyStoreException {
+    void beforeEach() throws KeyStoreException, CertificateEncodingException, IOException {
         certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider,
-                mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC());
-        certificateManager.update("", CertificateStore.CAType.RSA_2048);
+                mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactory);
+
         CertificatesConfig certificatesConfig = new CertificatesConfig(
                 Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
+        CAConfiguration caConfiguration = new CAConfiguration(
+                Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null));
+
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
+        certificateManager.updateCAConfiguration(caConfiguration);
+        certificateManager.update("");
     }
 
     @Test
