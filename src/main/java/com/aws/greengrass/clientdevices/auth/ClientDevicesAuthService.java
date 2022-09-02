@@ -158,7 +158,7 @@ public class ClientDevicesAuthService extends PluginService {
      * |    |---- certificateAuthority:
      * |         |---- privateKeyUri: "..."
      * |         |---- certificateUri: "..."
-     * |         |---- ca_type: [...]
+     * |         |---- caType: [...]
      * |    |---- certificates: {}
      * |---- runtime
      * |    |---- ca_passphrase: "..."

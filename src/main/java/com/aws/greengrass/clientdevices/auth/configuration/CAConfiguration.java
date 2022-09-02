@@ -25,7 +25,7 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
  * |    |---- certificateAuthority:
  * |          |---- privateKeyUri: "..."
  * |          |---- certificateUri: "..."
- * |          |---- ca_type: [...]
+ * |          |---- caType: [...]
  * </p>
  */
 public class CAConfiguration {
