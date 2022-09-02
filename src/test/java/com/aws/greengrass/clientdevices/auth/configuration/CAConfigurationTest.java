@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -18,10 +19,11 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CA_TYPE_TOPIC;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_PRIVATE_KEY_URI;
+import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_TYPE_KEY;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.DEPRECATED_CA_TYPE_KEY;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -83,9 +85,33 @@ public class CAConfigurationTest {
     public void GIVEN_cdaConfiguration_WHEN_getCATypeList_THEN_returnsCATypeList() {
         CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
         assertThat(caConfiguration.getCaTypeList(), is(Collections.emptyList()));
-        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_TOPIC)
-                .withValue(Arrays.asList("RSA_2048","EC_DSA"));
+        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_KEY)
+                .withValue(Arrays.asList("RSA_2048","ECDSA_P256"));
         caConfiguration = new CAConfiguration(configurationTopics);
-        assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("RSA_2048","EC_DSA")));
+        assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("RSA_2048","ECDSA_P256")));
+    }
+
+    @Test
+    public void GIVEN_oldCdaConfiguration_WHEN_reading_ca_type_THEN_returns_ca_type() {
+        // NOTE: This test is to ensure we are backwards compatible with the v.2.2.2
+        // we are changing how/where ca_type is stored
+       configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, DEPRECATED_CA_TYPE_KEY)
+               .withValue(Arrays.asList("ECDSA_P256"));
+       CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
+       assertThat(caConfiguration.getCaType(), is(CertificateStore.CAType.ECDSA_P256));
+       assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("ECDSA_P256")));
+    }
+
+    @Test
+    public void GIVEN_oldCdaConfiguration_and_newCdaConfiguration_WHEN_reading_caType_THEN_newValueRead() {
+        // Old path - pre v.2.2.2
+        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, DEPRECATED_CA_TYPE_KEY)
+                .withValue(Arrays.asList("ECDSA_P256"));
+        // New path - post v.2.2.2
+        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_KEY)
+                .withValue(Arrays.asList("RSA_2048"));
+        CAConfiguration caConfiguration = new CAConfiguration(configurationTopics);
+        assertThat(caConfiguration.getCaType(), is(CertificateStore.CAType.RSA_2048));
+        assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("RSA_2048")));
     }
 }

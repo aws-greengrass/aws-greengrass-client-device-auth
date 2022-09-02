@@ -31,12 +31,20 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
 public class CAConfiguration {
     public static final String CA_CERTIFICATE_URI = "certificateUri";
     public static final String CA_PRIVATE_KEY_URI = "privateKeyUri";
-    public static final String CA_TYPE_KEY = "ca_type";
+    public static final String DEPRECATED_CA_TYPE_KEY = "ca_type";
+    public static final String CA_TYPE_KEY = "caType";
     public static final String CERTIFICATE_AUTHORITY_TOPIC = "certificateAuthority";
     private static final Logger logger = LogManager.getLogger(CAConfiguration.class);
     private final Topics config;
 
+    /**
+     * Update the CA configuration with the latest CDA config.
+     *
+     * @param config CA configuration object
+     */
     public CAConfiguration(Topics config) {
+        // NOTE: Validate topics schema upon initialization. Better to fail fast if there is
+        // something wrong
         this.config = config;
     }
 
@@ -48,13 +56,20 @@ public class CAConfiguration {
      * Returns the configuration value for ca_type.
      */
     public List<String> getCaTypeList() {
+        // TODO: This should be a list of CertificateStore.CAType and not any random Strings
         Topic caTypeTopic = getCAConfigTopics().lookup(CA_TYPE_KEY);
-
-        if (caTypeTopic.getOnce() == null) {
-            return Collections.emptyList();
+        if (caTypeTopic.getOnce() != null) {
+            return Coerce.toStringList(caTypeTopic.getOnce());
         }
 
-        return Coerce.toStringList(caTypeTopic.getOnce());
+        // NOTE: Ensure backwards compat with v.2.2.2 we are moving the ca_type key to be under
+        // certificateAuthority and changing its name to caType. (ONLY REMOVE AFTER IT IS SAFE)
+        Topic deprecatedCaTypeTopic = config.lookup(CONFIGURATION_CONFIG_KEY, DEPRECATED_CA_TYPE_KEY);
+        if (deprecatedCaTypeTopic.getOnce() != null) {
+            return Coerce.toStringList(deprecatedCaTypeTopic.getOnce());
+        }
+
+        return Collections.emptyList();
     }
 
     /**
@@ -83,6 +98,8 @@ public class CAConfiguration {
      * Returns the privateKeyUri value from the configuration.
      */
     public String getCaPrivateKeyUri() {
+        // NOTE: Parse the key to ensure it is a valid URI
+        //  before returning it
         Topic privateKeyUriTopic = getCAConfigTopics().find(CA_PRIVATE_KEY_URI);
         return Coerce.toString(privateKeyUriTopic);
     }
@@ -91,6 +108,8 @@ public class CAConfiguration {
      * Returns the certificateUri from the configuration.
      */
     public String getCaCertificateUri() {
+        // NOTE: Parse the key to ensure it is a valid URI
+        //  before returning it
         Topic privateKeyUriTopic = getCAConfigTopics().find(CA_CERTIFICATE_URI);
         return Coerce.toString(privateKeyUriTopic);
     }

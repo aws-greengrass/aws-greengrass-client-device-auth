@@ -45,6 +45,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
+import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_TYPE_KEY;
+import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.DEPRECATED_CA_TYPE_KEY;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.AUTHORIZE_CLIENT_DEVICE_ACTION;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.GET_CLIENT_DEVICE_AUTH_TOKEN;
@@ -56,7 +58,6 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VER
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
     public static final String DEVICE_GROUPS_TOPICS = "deviceGroups";
-    public static final String CA_TYPE_TOPIC = "ca_type";
     public static final String PERFORMANCE_TOPIC = "performance";
     public static final String MAX_ACTIVE_AUTH_TOKENS_TOPIC = "maxActiveAuthTokens";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
@@ -182,10 +183,12 @@ public class ClientDevicesAuthService extends PluginService {
         }
         logger.atDebug().kv("why", whatHappened).kv("node", node).log();
         onConfigurationChanged();
+        // NOTE: This should not live here. The service doesn't have to have knowledge about where/how
+        // keys are stored
         Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
 
-        // Attempt to update the thread pool size as needed
         try {
+            // NOTE: Extract this to a method these are infrastructure concerns.
             int threadPoolSize = Coerce.toInt(this.config.findOrDefault(DEFAULT_THREAD_POOL_SIZE,
                     CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC));
             if (threadPoolSize >= cloudCallThreadPool.getCorePoolSize()) {
@@ -196,6 +199,7 @@ public class ClientDevicesAuthService extends PluginService {
         }
 
         if (whatHappened != WhatHappened.initialized && node != null && node.childOf(CLOUD_REQUEST_QUEUE_SIZE_TOPIC)) {
+            // NOTE: Extract this to a method these are infrastructure concerns.
             BlockingQueue<Runnable> q = cloudCallThreadPool.getQueue();
             if (q instanceof ResizableLinkedBlockingQueue) {
                 cloudCallQueueSize = getValidCloudCallQueueSize(this.config);
@@ -208,7 +212,7 @@ public class ClientDevicesAuthService extends PluginService {
             updateCAType();
         } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
             updateDeviceGroups(whatHappened, deviceGroupTopics);
-        } else if (node.childOf(CA_TYPE_TOPIC)) {
+        } else if (node.childOf(CA_TYPE_KEY) || node.childOf(DEPRECATED_CA_TYPE_KEY)) {
             if (caConfiguration.getCaTypeList().isEmpty()) {
                 return;
             }
@@ -272,9 +276,11 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void updateCAType() {
+        // NOTE: This entire method will be moved out of here and will become part of a workflow.
         String thingName = Coerce.toString(deviceConfiguration.getThingName());
         try {
             certificateManager.update(runtimeConfiguration.getCaPassphrase());
+            // NOTE: uploadCoreDeviceCAs should not block execution.
             certificateManager.uploadCoreDeviceCAs(thingName);
 
             runtimeConfiguration.updateCACertificates(certificateManager.getCACertificates());
@@ -289,6 +295,8 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     void updateCACertificateConfig(List<String> caCerts) {
+        // NOTE: This shouldn't exist - This is just being exposed for test shouldn't be
+        // public API
         runtimeConfiguration.updateCACertificates(caCerts);
     }
 
