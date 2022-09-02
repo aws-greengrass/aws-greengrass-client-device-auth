@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.ConfigurationFormatVe
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
@@ -61,6 +62,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -221,18 +223,18 @@ class ClientDevicesAuthServiceTest {
 
         kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
                 .lookup("runtime", "certificates", "authorities").subscribe((why, newv) -> {
-            List<String> caPemList = (List<String>) newv.toPOJO();
-            if (caPemList != null) {
-                Assertions.assertEquals(1, caPemList.size());
-                countDownLatch.countDown();
-            }
-        });
+                    List<String> caPemList = (List<String>) newv.toPOJO();
+                    if (caPemList != null) {
+                        Assertions.assertEquals(1, caPemList.size());
+                        countDownLatch.countDown();
+                    }
+                });
         Assertions.assertTrue(countDownLatch.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS));
     }
 
     @Test
     void GIVEN_updated_ca_certs_WHEN_updateCACertificateConfig_THEN_cert_topic_updated()
-            throws InterruptedException, ServiceLoadException, IOException {
+            throws InterruptedException, ServiceLoadException {
         startNucleusWithConfig("config.yaml");
 
         ClientDevicesAuthService clientDevicesAuthService =
@@ -288,7 +290,7 @@ class ClientDevicesAuthServiceTest {
 
     private String getCaPassphrase() {
         Topic caPassphraseTopic = kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
-                .lookup("runtime", "ca_passphrase");
+                .lookup(RUNTIME_STORE_NAMESPACE_TOPIC, RuntimeConfiguration.CA_PASSPHRASE_KEY);
         return (String) caPassphraseTopic.toPOJO();
     }
 
@@ -314,12 +316,12 @@ class ClientDevicesAuthServiceTest {
             kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
                     .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
                             CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
-                            ClientDevicesAuthService.CA_TYPE_TOPIC);
+                            CAConfiguration.CA_TYPE_KEY);
         });
         Topic topic = kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
                 .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
                         CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
-                        ClientDevicesAuthService.CA_TYPE_TOPIC);
+                        CAConfiguration.CA_TYPE_KEY);
         topic.withValue(Collections.singletonList("RSA_2048"));
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();
