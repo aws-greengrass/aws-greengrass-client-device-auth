@@ -12,7 +12,6 @@ import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
-import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -33,9 +32,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
 
-import java.io.IOException;
-import java.security.KeyStoreException;
-import java.security.cert.CertificateEncodingException;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -127,11 +124,7 @@ public class ClientDevicesAuthService extends PluginService {
         sessionManager.setSessionConfig(new SessionConfig(getConfig()));
     }
 
-    private void onConfigurationChanged() {
-        runtimeConfiguration = new RuntimeConfiguration(getRuntimeConfig());
-        caConfiguration = CAConfiguration.from(getConfig());
-        certificateManager.updateCAConfiguration(caConfiguration);
-    }
+
 
     private int getValidCloudCallQueueSize(Topics topics) {
         int newSize = Coerce.toInt(
@@ -177,6 +170,17 @@ public class ClientDevicesAuthService extends PluginService {
         config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(this::configChangeHandler);
     }
 
+    private void onConfigurationChanged() {
+        runtimeConfiguration = new RuntimeConfiguration(getRuntimeConfig());
+
+        try {
+            caConfiguration = CAConfiguration.from(getConfig());
+            certificateManager.updateCAConfiguration(caConfiguration);
+        } catch (URISyntaxException e) {
+            serviceErrored(e);
+        }
+    }
+
     private void configChangeHandler(WhatHappened whatHappened, Node node) {
         if (whatHappened == WhatHappened.timestampUpdated || whatHappened == WhatHappened.interiorAdded) {
             return;
@@ -209,14 +213,14 @@ public class ClientDevicesAuthService extends PluginService {
 
         if (whatHappened == WhatHappened.initialized || node == null) {
             updateDeviceGroups(whatHappened, deviceGroupTopics);
-            updateCAType();
+            updateCertificateAuthority();
         } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
             updateDeviceGroups(whatHappened, deviceGroupTopics);
         } else if (node.childOf(CA_TYPE_KEY) || node.childOf(DEPRECATED_CA_TYPE_KEY)) {
             if (caConfiguration.getCaTypeList().isEmpty()) {
                 return;
             }
-            updateCAType();
+            updateCertificateAuthority();
         }
     }
 
@@ -275,28 +279,30 @@ public class ClientDevicesAuthService extends PluginService {
         }
     }
 
-    private void updateCAType() {
-        // NOTE: This entire method will be moved out of here and will become part of a workflow.
-        String thingName = Coerce.toString(deviceConfiguration.getThingName());
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private void updateCertificateAuthority() {
+        // NOTE: This entire method will be moved out of here and will become part of a workflow/usecase
         try {
-            certificateManager.update(runtimeConfiguration.getCaPassphrase());
-            // NOTE: uploadCoreDeviceCAs should not block execution.
-            certificateManager.uploadCoreDeviceCAs(thingName);
+            if (caConfiguration.isUsingCustomCA()) {
+                certificateManager.configureCustomCA();
+            } else {
+                certificateManager.generateCA(runtimeConfiguration.getCaPassphrase());
+                runtimeConfiguration.updateCAPassphrase(certificateManager.getCaPassPhrase());
+            }
 
+            // Upload the generated or provided CA certificates to the GG cloud and update config
+            // NOTE: uploadCoreDeviceCAs should not block execution.
+            String thingName = Coerce.toString(deviceConfiguration.getThingName());
+            certificateManager.uploadCoreDeviceCAs(thingName);
             runtimeConfiguration.updateCACertificates(certificateManager.getCACertificates());
-            runtimeConfiguration.updateCAPassphrase(certificateManager.getCaPassPhrase());
-        } catch (CloudServiceInteractionException e) {
-            logger.atError().cause(e)
-                    .kv("coreThingName", thingName)
-                    .log("Unable to upload core CA certificates to the cloud");
-        } catch (KeyStoreException | IOException | CertificateEncodingException | IllegalArgumentException e) {
+        }  catch (Exception e) {
+            logger.atError().cause(e).log("Failed to get the CA certificates");
             serviceErrored(e);
         }
     }
 
     void updateCACertificateConfig(List<String> caCerts) {
-        // NOTE: This shouldn't exist - This is just being exposed for test shouldn't be
-        // public API
+        // NOTE: This shouldn't exist - This is just being exposed for test shouldn't be public API
         runtimeConfiguration.updateCACertificates(caCerts);
     }
 

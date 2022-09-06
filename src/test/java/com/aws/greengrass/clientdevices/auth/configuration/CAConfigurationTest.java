@@ -16,6 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -27,7 +29,7 @@ import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguratio
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CAConfigurationTest {
@@ -44,56 +46,55 @@ public class CAConfigurationTest {
     }
 
     @Test
-    public void GIVEN_cdaDefaultConfiguration_WHEN_getCATypeList_THEN_returnsEmptyList() {
+    public void GIVEN_cdaDefaultConfiguration_WHEN_getCATypeList_THEN_returnsEmptyList() throws URISyntaxException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(caConfiguration.getCaTypeList(), is(Collections.emptyList()));
     }
 
     @Test
-    public void GIVEN_cdaDefaultConfiguration_WHEN_getCAKeyUri_THEN_returnsNull() {
+    public void GIVEN_cdaDefaultConfiguration_WHEN_getCAKeyUri_THEN_returnsNull() throws URISyntaxException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
-        assertThat(caConfiguration.getPrivateKeyUri(), is(nullValue()));
+        assertFalse(caConfiguration.getPrivateKeyUri().isPresent());
     }
 
     @Test
-    public void GIVEN_cdaDefaultConfiguration_WHEN_getCACertUri_THEN_returnsNull() {
+    public void GIVEN_cdaDefaultConfiguration_WHEN_getCACertUri_THEN_returnsNull() throws URISyntaxException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
-        assertThat(caConfiguration.getCertificateUri(), is(nullValue()));
+        assertFalse(caConfiguration.getCertificateUri().isPresent());
     }
 
     @Test
-    public void GIVEN_cdaConfiguration_WHEN_getCACertUri_THEN_returnsCACertUri() {
+    public void GIVEN_cdaConfiguration_WHEN_getCACertUri_THEN_returnsCACertUri() throws URISyntaxException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
-        assertThat(caConfiguration.getCertificateUri(), is(nullValue()));
+        assertFalse(caConfiguration.getCertificateUri().isPresent());
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue("file:///cert-uri");
         caConfiguration = CAConfiguration.from(configurationTopics);
-        assertThat(caConfiguration.getCertificateUri(), is("file:///cert-uri"));
+        assertThat(caConfiguration.getCertificateUri().get(), is(new URI("file:///cert-uri")));
     }
 
     @Test
-    public void GIVEN_cdaConfiguration_WHEN_getCAKeyUri_THEN_returnsCACertUri() {
+    public void GIVEN_cdaConfiguration_WHEN_getCAKeyUri_THEN_returnsCACertUri() throws URISyntaxException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
-        assertThat(caConfiguration.getPrivateKeyUri(), is(nullValue()));
+        assertFalse(caConfiguration.getPrivateKeyUri().isPresent());
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
                 .withValue("file:///key-uri");
         caConfiguration = CAConfiguration.from(configurationTopics);
-        assertThat(caConfiguration.getPrivateKeyUri(), is("file:///key-uri"));
+        assertThat(caConfiguration.getPrivateKeyUri().get(), is(new URI("file:///key-uri")));
     }
 
     @Test
-    public void GIVEN_cdaConfiguration_WHEN_getCATypeList_THEN_returnsCATypeList() {
+    public void GIVEN_cdaConfiguration_WHEN_getCATypeList_THEN_returnsCATypeList() throws URISyntaxException {
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_KEY)
                 .withValue(Arrays.asList("RSA_2048","ECDSA_P256"));
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
-        caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(caConfiguration.getCaType(), is(CertificateStore.CAType.RSA_2048));
         assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("RSA_2048","ECDSA_P256")));
 
     }
 
     @Test
-    public void GIVEN_oldCdaConfiguration_WHEN_reading_ca_type_THEN_returns_ca_type() {
+    public void GIVEN_oldCdaConfiguration_WHEN_reading_ca_type_THEN_returns_ca_type() throws URISyntaxException {
         // NOTE: This test is to ensure we are backwards compatible with the v.2.2.2
         // we are changing how/where ca_type is stored
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, DEPRECATED_CA_TYPE_KEY)
@@ -105,7 +106,8 @@ public class CAConfigurationTest {
     }
 
     @Test
-    public void GIVEN_oldCdaConfiguration_and_newCdaConfiguration_WHEN_reading_caType_THEN_newValueRead() {
+    public void GIVEN_oldCdaConfiguration_and_newCdaConfiguration_WHEN_reading_caType_THEN_newValueRead() throws
+            URISyntaxException {
         // Old path - pre v.2.2.2
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, DEPRECATED_CA_TYPE_KEY)
                 .withValue(Arrays.asList("ECDSA_P256"));
