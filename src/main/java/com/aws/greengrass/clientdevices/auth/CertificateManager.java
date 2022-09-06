@@ -18,6 +18,9 @@ import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenera
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -259,15 +262,14 @@ public class CertificateManager {
     /**
      * Configures the KeyStore to use a certificates provided from the CA configuration.
      *
-     * @throws KeyStoreException if the stored key is not a private key
-     * @throws Exception if failing to get the keyPair or certificateChain
-     * @throws IllegalArgumentException if configuration is invalid for CA
+     * @throws InvalidConfigurationException if the CA configuration doesn't have both a privateKeyUri and
+     *                                      certificateUri
      */
-    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
-    public void configureCustomCA() throws KeyStoreException, Exception {
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    public void configureCustomCA() throws InvalidConfigurationException {
         if (!caConfiguration.isUsingCustomCA()) {
-            String errMsg = "Invalid configuration: certificateUri and privateKeyUri are required.";
-            throw new IllegalArgumentException(errMsg);
+            throw new InvalidConfigurationException(
+                    "Invalid configuration: certificateUri and privateKeyUri are required.");
         }
 
         URI privateKeyUri = caConfiguration.getPrivateKeyUri().get();
@@ -278,27 +280,30 @@ public class CertificateManager {
                 .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
 
 
-        KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
-                () -> securityService.getKeyPair(privateKeyUri, certificateUri),
-                "get-key-pair", logger);
+        try {
+            KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
+                    () -> securityService.getKeyPair(privateKeyUri, certificateUri),
+                    "get-key-pair", logger);
 
-        X509Certificate[] certificateChain = RetryUtils.runWithRetry(retryConfig,
-                () -> securityService.getCertificateChain(privateKeyUri, certificateUri),
-                "get-certificate-chain", logger);
+            X509Certificate[] certificateChain = RetryUtils.runWithRetry(retryConfig,
+                    () -> securityService.getCertificateChain(privateKeyUri, certificateUri),
+                    "get-certificate-chain", logger);
 
-
-        certificateStore.setCaCertificateChain(certificateChain);
-        certificateStore.setCaPrivateKey(keyPair.getPrivate());
+            certificateStore.setCaCertificateChain(certificateChain);
+            certificateStore.setCaPrivateKey(keyPair.getPrivate());
+        } catch (Exception e) {
+            throw new InvalidCertificateAuthorityException(String.format("Failed to configure CA: There was an error "
+                    + "reading the provided private key %s or certificate chain %s", privateKeyUri, certificateUri), e);
+        }
     }
 
     /**
      * Uploads the stored certificates to the cloud.
      *
-     * @param thingName  Core device name
-     *
-     * @throws CertificateEncodingException  If unable to get certificate encoding
-     * @throws KeyStoreException if unable to retrieve the certificate
-     * @throws IOException If unable to read certificate
+     * @param thingName Core device name
+     * @throws CertificateEncodingException      If unable to get certificate encoding
+     * @throws KeyStoreException                if unable to retrieve the certificate
+     * @throws IOException                      If unable to read certificate
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void uploadCoreDeviceCAs(String thingName) throws CertificateEncodingException, KeyStoreException,
@@ -307,7 +312,7 @@ public class CertificateManager {
         List<Class> retryAbleExceptions = Arrays.asList(ThrottlingException.class, InternalServerException.class,
                 AccessDeniedException.class);
 
-        RetryUtils.RetryConfig retryConfig  = RetryUtils.RetryConfig.builder()
+        RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
                 .initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(Integer.MAX_VALUE)
                 .retryableExceptions(retryAbleExceptions)
                 .build();
@@ -325,9 +330,8 @@ public class CertificateManager {
             // interrupt the current thread so that higher-level interrupt handlers can take care of it
             Thread.currentThread().interrupt();
         } catch (Exception e) {
-            String errMsg = "Failed to put core CA certificates to cloud. Check that the "
-                    + "core device's IoT policy grants the greengrass:PutCertificateAuthorities permission.";
-            logger.atError().cause(e).kv("coreThingName", thingName).log(errMsg);
+            throw new CloudServiceInteractionException("Failed to put core CA certificates to cloud. Check that the "
+                    + "core device's IoT policy grants the greengrass:PutCertificateAuthorities permission.", e);
         }
     }
 

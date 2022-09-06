@@ -12,6 +12,9 @@ import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
+import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -32,7 +35,10 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
+import java.security.KeyStoreException;
+import java.security.cert.CertificateEncodingException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -279,8 +285,9 @@ public class ClientDevicesAuthService extends PluginService {
         }
     }
 
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void updateCertificateAuthority() {
+        String thingName = Coerce.toString(deviceConfiguration.getThingName());
+
         // NOTE: This entire method will be moved out of here and will become part of a workflow/usecase
         try {
             if (caConfiguration.isUsingCustomCA()) {
@@ -292,10 +299,13 @@ public class ClientDevicesAuthService extends PluginService {
 
             // Upload the generated or provided CA certificates to the GG cloud and update config
             // NOTE: uploadCoreDeviceCAs should not block execution.
-            String thingName = Coerce.toString(deviceConfiguration.getThingName());
             certificateManager.uploadCoreDeviceCAs(thingName);
             runtimeConfiguration.updateCACertificates(certificateManager.getCACertificates());
-        }  catch (Exception e) {
+        } catch (CloudServiceInteractionException e) {
+            logger.atError().cause(e).kv("coreThingName", thingName)
+                    .log("Unable to upload core CA certificates to the cloud");
+        } catch (KeyStoreException | IOException | CertificateEncodingException | InvalidCertificateAuthorityException
+                 | InvalidConfigurationException e) {
             logger.atError().cause(e).log("Failed to get the CA certificates");
             serviceErrored(e);
         }
