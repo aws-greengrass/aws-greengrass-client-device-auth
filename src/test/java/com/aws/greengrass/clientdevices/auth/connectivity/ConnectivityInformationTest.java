@@ -3,9 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.iot;
+package com.aws.greengrass.clientdevices.auth.connectivity;
 
-import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoAggregator;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.deployment.DeviceConfiguration;
@@ -25,6 +24,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.ValidationExceptio
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static com.aws.greengrass.deployment.DeviceConfiguration.DEVICE_PARAM_THING_NAME;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
@@ -41,9 +41,9 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
-public class ConnectivityInfoAggregatorTest {
+public class ConnectivityInformationTest {
 
-    private ConnectivityInfoAggregator connectivityInfoAggregator;
+    private ConnectivityInformation connectivityInformation;
     @Mock
     private DeviceConfiguration deviceConfiguration;
 
@@ -61,7 +61,7 @@ public class ConnectivityInfoAggregatorTest {
         Topic thingNameTopic = Topic.of(context, DEVICE_PARAM_THING_NAME, "testThing");
         lenient().doReturn(thingNameTopic).when(deviceConfiguration).getThingName();
         lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(greengrassV2DataClient);
-        connectivityInfoAggregator = new ConnectivityInfoAggregator(deviceConfiguration, clientFactory);
+        connectivityInformation = new ConnectivityInformation(deviceConfiguration, clientFactory);
     }
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
@@ -76,7 +76,7 @@ public class ConnectivityInfoAggregatorTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        List<ConnectivityInfo> connectivityInfos = connectivityInfoAggregator.getConnectivityInfo();
+        List<ConnectivityInfo> connectivityInfos = connectivityInformation.getConnectivityInfo();
         verify(greengrassV2DataClient, times(1))
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
         assertThat(connectivityInfos, containsInAnyOrder(connectivityInfo, connectivityInfo1));
@@ -88,7 +88,7 @@ public class ConnectivityInfoAggregatorTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        List<ConnectivityInfo> connectivityInfos = connectivityInfoAggregator.getConnectivityInfo();
+        List<ConnectivityInfo> connectivityInfos = connectivityInformation.getConnectivityInfo();
         verify(greengrassV2DataClient, times(1))
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
         assertThat(connectivityInfos, is(empty()));
@@ -101,7 +101,7 @@ public class ConnectivityInfoAggregatorTest {
         when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class)))
                 .thenThrow(ValidationException.class);
 
-        assertThat(connectivityInfoAggregator.getConnectivityInfo(), is(empty()));
+        assertThat(connectivityInformation.getConnectivityInfo(), is(empty()));
     }
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
@@ -116,8 +116,24 @@ public class ConnectivityInfoAggregatorTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        connectivityInfoAggregator.getConnectivityInfo();
-        List<String> connectivityInfos = connectivityInfoAggregator.getCachedHostAddresses();
+        connectivityInformation.getConnectivityInfo();
+        List<String> connectivityInfos = connectivityInformation.getCachedHostAddresses();
         assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
+    }
+
+    @Test
+    void GIVEN_missingConnectivityInfo_WHEN_getConnectivityInformation_THEN_returnEmptySet() {
+        Set<HostAddress> connectivityInfo = connectivityInformation.getConnectivityInformationMap();
+        assertThat(connectivityInfo, is(empty()));
+    }
+
+    @Test
+    void GIVEN_connectivityInfoFromSingleSource_WHEN_getConnectivityInformation_THEN_connectivityInfoReturned() {
+        // TODO
+    }
+
+    @Test
+    void GIVEN_connectivityInfoFromMultipleSources_WHEN_getConnectivityInformation_THEN_mergedConnectivityInfoReturned() {
+        // TODO
     }
 }

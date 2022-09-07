@@ -90,7 +90,7 @@ public class CISShadowMonitorTest {
     FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
     MqttClientConnection shadowClientConnection = shadowClient.getConnection();
     ExecutorService executor = TestUtils.synchronousExecutorService();
-    FakeConnectivityInfoAggregator connectivityInfoProvider = new FakeConnectivityInfoAggregator();
+    FakeConnectivityInformation connectivityInfoProvider = new FakeConnectivityInformation();
 
     @Mock
     MqttClient mqttClient;
@@ -124,7 +124,7 @@ public class CISShadowMonitorTest {
         // so for this scenario, the monitor starts up (we process get shadow response) and we
         // simulate a reconnection (process another get shadow response);
         // no extra rotations should occur.
-        connectivityInfoProvider.setMode(FakeConnectivityInfoAggregator.Mode.CONSTANT);
+        connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.CONSTANT);
 
         int shadowInitialVersion = 1;
         Map<String, Object> shadowInitialDesiredState = Utils.immutableMap("version", "value");
@@ -318,7 +318,7 @@ public class CISShadowMonitorTest {
         ignoreExceptionOfType(context, RuntimeException.class);
 
         // make connectivity call fail the first time
-        connectivityInfoProvider.setMode(FakeConnectivityInfoAggregator.Mode.FAIL_ONCE);
+        connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.FAIL_ONCE);
 
         // capture the subscription callback for shadow delta update
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
@@ -368,7 +368,7 @@ public class CISShadowMonitorTest {
     void GIVEN_CISShadowMonitor_WHEN_cis_shadow_delta_duplicate_received_THEN_delta_processing_is_deduped(ExtensionContext context) throws Exception {
         // make connectivity call yield the same response each time,
         // to match scenario where we receive same shadow delta version multiple times.
-        connectivityInfoProvider.setMode(FakeConnectivityInfoAggregator.Mode.CONSTANT);
+        connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.CONSTANT);
 
         // capture the subscription callback for shadow delta update
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
@@ -526,7 +526,7 @@ public class CISShadowMonitorTest {
         }
     }
 
-    static class FakeConnectivityInfoAggregator extends ConnectivityInfoAggregator {
+    static class FakeConnectivityInformation extends ConnectivityInformation {
 
         private final AtomicReference<List<ConnectivityInfo>> CONNECTIVITY_INFO_SAMPLE = new AtomicReference<>(Collections.singletonList(connectivityInfoWithRandomHost()));
         private final Set<Integer> responseHashes = new CopyOnWriteArraySet<>();
@@ -549,7 +549,7 @@ public class CISShadowMonitorTest {
             FAIL_ONCE
         }
 
-        FakeConnectivityInfoAggregator() {
+        FakeConnectivityInformation() {
             super(null, null);
         }
 

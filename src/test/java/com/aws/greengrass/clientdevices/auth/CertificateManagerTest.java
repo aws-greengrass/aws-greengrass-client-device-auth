@@ -9,7 +9,7 @@ import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
-import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoAggregator;
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
@@ -67,7 +67,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateManagerTest {
     @Mock
-    ConnectivityInfoAggregator mockConnectivityInfoAggregator;
+    ConnectivityInformation mockConnectivityInformation;
 
     @Mock
     CertificateExpiryMonitor mockCertExpiryMonitor;
@@ -87,15 +87,9 @@ public class CertificateManagerTest {
     private CertificateManager certificateManager;
 
     @BeforeEach
-<<<<<<< HEAD
     void beforeEach() throws KeyStoreException, CertificateEncodingException, IOException, URISyntaxException {
-        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider,
+        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInformation,
                 mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactoryMock, securityServiceMock);
-=======
-    void beforeEach() throws KeyStoreException, CertificateEncodingException, IOException {
-        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoAggregator,
-                mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactory);
->>>>>>> 6d369ef (refactor: initial connectivity domain structure)
 
         CertificatesConfig certificatesConfig = new CertificatesConfig(
                 Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));

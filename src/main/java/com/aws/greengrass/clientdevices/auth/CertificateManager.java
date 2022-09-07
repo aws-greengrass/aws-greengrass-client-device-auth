@@ -17,7 +17,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenera
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
-import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoAggregator;
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
@@ -54,7 +54,7 @@ import javax.inject.Inject;
 
 public class CertificateManager {
     private final CertificateStore certificateStore;
-    private final ConnectivityInfoAggregator connectivityInfoAggregator;
+    private final ConnectivityInformation connectivityInformation;
     private final CertificateExpiryMonitor certExpiryMonitor;
     private final CISShadowMonitor cisShadowMonitor;
     private final Clock clock;
@@ -69,24 +69,24 @@ public class CertificateManager {
     /**
      * Construct a new CertificateManager.
      *
-     * @param certificateStore         Helper class for managing certificate authorities
-     * @param connectivityInfoAggregator Connectivity Info Provider
-     * @param certExpiryMonitor        Certificate Expiry Monitor
-     * @param cisShadowMonitor         CIS Shadow Monitor
-     * @param clock                    clock
-     * @param clientFactory            Greengrass cloud service client factory
+     * @param certificateStore        Helper class for managing certificate authorities
+     * @param connectivityInformation Connectivity Info Provider
+     * @param certExpiryMonitor       Certificate Expiry Monitor
+     * @param cisShadowMonitor        CIS Shadow Monitor
+     * @param clock                   clock
+     * @param clientFactory           Greengrass cloud service client factory
      * @param securityService          Security Service
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore,
-                              ConnectivityInfoAggregator connectivityInfoAggregator,
+                              ConnectivityInformation connectivityInformation,
                               CertificateExpiryMonitor certExpiryMonitor,
                               CISShadowMonitor cisShadowMonitor,
                               Clock clock,
                               GreengrassServiceClientFactory clientFactory,
                               SecurityService securityService) {
         this.certificateStore = certificateStore;
-        this.connectivityInfoAggregator = connectivityInfoAggregator;
+        this.connectivityInformation = connectivityInformation;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
         this.clock = clock;
@@ -220,7 +220,7 @@ public class CertificateManager {
         certExpiryMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
-        certificateGenerator.generateCertificate(connectivityInfoAggregator::getCachedHostAddresses,
+        certificateGenerator.generateCertificate(connectivityInformation::getCachedHostAddresses,
                 "initialization of server cert subscription");
 
         certSubscriptions.compute(certificateRequest, (k, v) -> {

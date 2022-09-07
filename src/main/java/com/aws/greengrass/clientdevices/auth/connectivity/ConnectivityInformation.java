@@ -5,123 +5,114 @@
 
 package com.aws.greengrass.clientdevices.auth.connectivity;
 
+import com.aws.greengrass.deployment.DeviceConfiguration;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Coerce;
+import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
+import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoResponse;
+import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import javax.inject.Inject;
 
+/**
+ * Retrieving connectivity info from CIS - Connectivity Info Service.
+ */
 public class ConnectivityInformation {
-    private static final Pattern IPV4_PAT = Pattern.compile("^(\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)(?::(\\d+)){0,1}$");
-    private static final Pattern IPV6_DOUBL_COL_PAT = Pattern.compile(
-            "^\\[{0,1}([0-9a-f:]*)::([0-9a-f:]*)(?:\\]:(\\d+)){0,1}$");
-    private static String ipv6Pattern;
-    private static final Pattern IPV6_PAT = Pattern.compile(ipv6Pattern);
+    private static final Logger LOGGER = LogManager.getLogger(ConnectivityInformation.class);
 
-    static {
-        ipv6Pattern = "^\\[{0,1}";
-        for (int i = 1; i <= 7; i++) {
-            ipv6Pattern += "([0-9a-f]+):";
-        }
-        ipv6Pattern += "([0-9a-f]+)(?:\\]:(\\d+)){0,1}$";
-    }
+    private final DeviceConfiguration deviceConfiguration;
+    private final GreengrassServiceClientFactory clientFactory;
 
-    private final String hostAddress;
+    // TODO: Legacy structure to be removed later
+    protected volatile List<String> cachedHostAddresses = Collections.emptyList();
 
+    private final Map<String, Set<HostAddress>> connectivityInformationMap = new ConcurrentHashMap<>();
 
-    public ConnectivityInformation(String hostAddress) {
-        this.hostAddress = hostAddress;
-    }
-
-    public static ConnectivityInformation fromConnectivityInfo(ConnectivityInfo connectivityInfo) {
-        return new ConnectivityInformation(connectivityInfo.hostAddress());
-    }
-
-    // TODO: Need to implement equals method so de-dup works as intended when adding multiple
-    // connectivity information objects to a set
 
     /**
-     * Checks if the connectivity information is a valid IPv4 or IPv6 address.
+     * Constructor.
      *
-     * @return true if valid IPv4 or IPv6 address, else false
+     * @param deviceConfiguration client to get the device details
+     * @param clientFactory       factory to get data plane client
      */
-    public boolean isIPAddress() {
-        return isValidIP(hostAddress);
+    @Inject
+    public ConnectivityInformation(DeviceConfiguration deviceConfiguration,
+                                   GreengrassServiceClientFactory clientFactory) {
+        this.deviceConfiguration = deviceConfiguration;
+        this.clientFactory = clientFactory;
     }
 
     /**
-     * Checks if the connectivity information is a valid DNS name.
+     * Get cached connectivity info.
      *
-     * @return false if valid IPv4 or IPv6 address, else true
+     * @return list of cached connectivity info items
      */
-    public boolean isDNSName() {
-        return !isIPAddress();
+    public List<String> getCachedHostAddresses() {
+        return cachedHostAddresses;
     }
 
+    /**
+     * Get connectivity info.
+     *
+     * @return list of connectivity info items
+     */
+    public List<ConnectivityInfo> getConnectivityInfo() {
+        GetConnectivityInfoRequest getConnectivityInfoRequest = GetConnectivityInfoRequest.builder()
+                .thingName(Coerce.toString(deviceConfiguration.getThingName())).build();
+        List<ConnectivityInfo> connectivityInfoList = Collections.emptyList();
 
-    private static boolean isValidIP(String host) {
-        //  IPV4
-        Matcher ipv4Matcher = IPV4_PAT.matcher(host);
-        if (ipv4Matcher.matches()) {
-            for (int i = 1; i <= 4; i++) {
-                if (!isValidHex4(ipv4Matcher.group(i))) {
-                    return false;
-                }
+        try {
+            GetConnectivityInfoResponse getConnectivityInfoResponse = clientFactory.getGreengrassV2DataClient()
+                    .getConnectivityInfo(getConnectivityInfoRequest);
+            if (getConnectivityInfoResponse.hasConnectivityInfo()) {
+                // Filter out port and metadata since it is not needed
+                connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
+                cachedHostAddresses = new ArrayList<>(connectivityInfoList.stream()
+                        .map(ci -> ci.hostAddress())
+                        .collect(Collectors.toSet()));
             }
-            return true;
+        } catch (ValidationException | ResourceNotFoundException e) {
+            LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
         }
 
-        //  IPV6, double colon
-        Matcher ipv6DoubleColonMatcher = IPV6_DOUBL_COL_PAT.matcher(host);
-        if (ipv6DoubleColonMatcher.matches()) {
-            String p1 = ipv6DoubleColonMatcher.group(1);
-            if (p1.isEmpty()) {
-                p1 = "0";
-            }
-            String p2 = ipv6DoubleColonMatcher.group(2);
-            if (p2.isEmpty()) {
-                p2 = "0";
-            }
-            host =  p1 + getZero(8 - numCount(p1) - numCount(p2)) + p2;
-            if (ipv6DoubleColonMatcher.group(3) != null) {
-                host = "[" + host + "]:" + ipv6DoubleColonMatcher.group(3);
-            }
-        }
-
-        //  IPV6
-        Matcher ipv6Matcher = IPV6_PAT.matcher(host);
-        if (ipv6Matcher.matches()) {
-            for (int i = 1; i <= 8; i++) {
-                if (!isValidHex6(ipv6Matcher.group(i))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        return false;
+        return connectivityInfoList;
     }
 
-    private static int numCount(String s) {
-        return s.split(":").length;
+    /**
+     * Get connectivity information.
+     *
+     * @return set of connectivity information from all connectivity sources.
+     */
+    public Set<HostAddress> getConnectivityInformationMap() {
+        return connectivityInformationMap.entrySet()
+                .stream()
+                .map(Map.Entry::getValue)
+                .flatMap(Set::stream)
+                .collect(Collectors.toSet());
     }
 
-    private static String getZero(int count) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(':');
-        while (count > 0) {
-            sb.append("0:");
-            count--;
-        }
-        return sb.toString();
-    }
-
-    private static boolean isValidHex4(String s) {
-        int val = Integer.parseInt(s);
-        return val >= 0 && val <= 255;
-    }
-
-    private static boolean isValidHex6(String s) {
-        int val = Integer.parseInt(s, 16);
-        return val >= 0 && val <= 65_536;
+    /**
+     * Update connectivity information.
+     *
+     * @param source                 connectivity information source.
+     * @param sourceConnectivityInfo connectivity information.
+     */
+    public void updateConnectivityInformation(String source, Set<HostAddress> sourceConnectivityInfo) {
+        LOGGER.atInfo()
+                .kv("source", source)
+                .kv("connectivityInformation", sourceConnectivityInfo)
+                .log("Updating connectivity information");
+        connectivityInformationMap.put(source, sourceConnectivityInfo);
     }
 }

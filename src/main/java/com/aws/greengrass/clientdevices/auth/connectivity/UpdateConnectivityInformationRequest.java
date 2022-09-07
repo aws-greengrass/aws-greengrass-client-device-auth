@@ -12,9 +12,9 @@ import java.util.Set;
 @Getter
 public class UpdateConnectivityInformationRequest {
     private final String source;
-    private final Set<ConnectivityInformation> connectivityInformation;
+    private final Set<HostAddress> connectivityInformation;
 
-    public UpdateConnectivityInformationRequest(String source, Set<ConnectivityInformation> connectivityInformation) {
+    public UpdateConnectivityInformationRequest(String source, Set<HostAddress> connectivityInformation) {
         this.source = source;
         this.connectivityInformation = connectivityInformation;
     }

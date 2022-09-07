@@ -6,7 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.connectivity.usecases;
 
 import com.aws.greengrass.clientdevices.auth.UseCase;
-import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoAggregator;
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.connectivity.UpdateConnectivityInformationRequest;
 
 import javax.inject.Inject;
@@ -19,17 +19,19 @@ import javax.inject.Inject;
  * last update.
  */
 public class UpdateConnectivityInformationUseCase implements UseCase {
-    private final ConnectivityInfoAggregator connectivityInfoAggregator;
+    private final ConnectivityInformation connectivityInformation;
 
     @Inject
-    public UpdateConnectivityInformationUseCase(ConnectivityInfoAggregator connectivityInfoAggregator) {
-        this.connectivityInfoAggregator = connectivityInfoAggregator;
+    public UpdateConnectivityInformationUseCase(ConnectivityInformation connectivityInformation) {
+        this.connectivityInformation = connectivityInformation;
     }
 
     @Override
     public Object execute(Object request) {
         // TODO: Update once UseCase is implemented
-        connectivityInfoAggregator.updateConnectivityInformation((UpdateConnectivityInformationRequest) request);
+        UpdateConnectivityInformationRequest updateRequest = (UpdateConnectivityInformationRequest) request;
+        connectivityInformation.updateConnectivityInformation(
+                updateRequest.getSource(), updateRequest.getConnectivityInformation());
         return new Object();
     }
 }
