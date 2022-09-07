@@ -77,7 +77,7 @@ public final class CAConfiguration {
      * privateKeyUri and the certificateUri must be provided.
      */
     public boolean isUsingCustomCA() {
-       return privateKeyUri.isPresent() && certificateUri.isPresent();
+        return privateKeyUri.isPresent() && certificateUri.isPresent();
     }
 
     private static List<String> getCaTypeListFromConfiguration(Topics configurationTopic) {

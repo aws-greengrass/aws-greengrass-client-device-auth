@@ -197,8 +197,8 @@ public class ClientDevicesAuthService extends PluginService {
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
             } else if (
-                (node.childOf(CA_TYPE_KEY) || node.childOf(DEPRECATED_CA_TYPE_KEY))
-                && cdaConfiguration.isCaTypesProvided()
+                    (node.childOf(CA_TYPE_KEY) || node.childOf(DEPRECATED_CA_TYPE_KEY))
+                            && cdaConfiguration.isCaTypesProvided()
             ) {
                 ((ConfigureCertificateAuthorityUseCase) useCases.get(ConfigureCertificateAuthorityUseCase.class))
                         .execute(cdaConfiguration);

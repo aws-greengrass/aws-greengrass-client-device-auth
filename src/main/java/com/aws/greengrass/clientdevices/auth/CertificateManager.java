@@ -332,6 +332,4 @@ public class CertificateManager {
                     + "core device's IoT policy grants the greengrass:PutCertificateAuthorities permission.", e);
         }
     }
-
-
 }
