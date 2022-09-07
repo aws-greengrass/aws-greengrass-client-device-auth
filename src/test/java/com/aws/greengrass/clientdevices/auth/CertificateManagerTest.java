@@ -13,7 +13,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonito
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
-import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.config.Topics;
@@ -34,7 +34,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyStore;
@@ -55,6 +54,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_PRIVATE_KEY_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC;
@@ -87,18 +87,15 @@ public class CertificateManagerTest {
     private CertificateManager certificateManager;
 
     @BeforeEach
-    void beforeEach() throws KeyStoreException, CertificateEncodingException, IOException, URISyntaxException {
+    void beforeEach() throws KeyStoreException {
         certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider,
                 mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactoryMock, securityServiceMock);
 
         CertificatesConfig certificatesConfig = new CertificatesConfig(
                 Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
-        CAConfiguration caConfiguration = CAConfiguration.from(
-                Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
 
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
-        certificateManager.updateCAConfiguration(caConfiguration);
-        certificateManager.generateCA("");
+        certificateManager.generateCA("", CertificateStore.CAType.RSA_2048);
     }
 
     @AfterEach
@@ -117,14 +114,13 @@ public class CertificateManagerTest {
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
 
-        Topics configuration = Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null);
-        configuration.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
+        Topics configurationTopics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
+        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
                 .withValue(privateKeyUri.toString());
-        configuration.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
+        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue(certificateUri.toString());
 
-        CAConfiguration caConfiguration = CAConfiguration.from(configuration);
-        certificateManager.updateCAConfiguration(caConfiguration);
+        CDAConfiguration cdaConfiguration = CDAConfiguration.from(configurationTopics);
 
         // TODO: Write the actual certificate to the file system and avoid mocking the security service. Doing
         //  this is a bad given we are exposing implementation details on the test.
@@ -133,7 +129,7 @@ public class CertificateManagerTest {
                 .thenReturn(new X509Certificate[]{caCertificate});
 
         // When
-        certificateManager.configureCustomCA();
+        certificateManager.configureCustomCA(cdaConfiguration);
 
         // Then
         List<String> caPemStrings = certificateManager.getCACertificates();

@@ -29,8 +29,12 @@ public final class RuntimeConfiguration {
     private final Topics config;
 
 
-    public RuntimeConfiguration(Topics config) {
+    private RuntimeConfiguration(Topics config) {
         this.config = config;
+    }
+
+    public static RuntimeConfiguration from(Topics runtimeTopics) {
+       return new RuntimeConfiguration(runtimeTopics);
     }
 
     /**

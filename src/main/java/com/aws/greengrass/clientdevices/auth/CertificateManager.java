@@ -17,6 +17,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
@@ -61,7 +62,6 @@ public class CertificateManager {
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private final GreengrassServiceClientFactory clientFactory;
     private final SecurityService securityService;
-    private CAConfiguration caConfiguration;
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CAConfiguration.class);
 
@@ -98,18 +98,15 @@ public class CertificateManager {
         this.certificatesConfig = certificatesConfig;
     }
 
-    public void updateCAConfiguration(CAConfiguration caConfiguration) {
-        this.caConfiguration = caConfiguration;
-    }
-
     /**
      * Initialize the certificate manager.
      *
      * @param caPassphrase CA Passphrase
+     * @param caType certificate authority type
      * @throws KeyStoreException if unable to load the CA key store
      */
-    public void generateCA(String caPassphrase) throws KeyStoreException {
-        certificateStore.update(caPassphrase, caConfiguration.getCaType());
+    public void generateCA(String caPassphrase, CertificateStore.CAType caType) throws KeyStoreException {
+        certificateStore.update(caPassphrase, caType);
     }
 
     /**
@@ -262,18 +259,19 @@ public class CertificateManager {
     /**
      * Configures the KeyStore to use a certificates provided from the CA configuration.
      *
+     * @param configuration the component configuration
      * @throws InvalidConfigurationException if the CA configuration doesn't have both a privateKeyUri and
      *                                      certificateUri
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    public void configureCustomCA() throws InvalidConfigurationException {
-        if (!caConfiguration.isUsingCustomCA()) {
+    public void configureCustomCA(CDAConfiguration configuration) throws InvalidConfigurationException {
+        if (!configuration.isUsingCustomCA()) {
             throw new InvalidConfigurationException(
                     "Invalid configuration: certificateUri and privateKeyUri are required.");
         }
 
-        URI privateKeyUri = caConfiguration.getPrivateKeyUri().get();
-        URI certificateUri = caConfiguration.getCertificateUri().get();
+        URI privateKeyUri = configuration.getPrivateKeyUri().get();
+        URI certificateUri = configuration.getCertificateUri().get();
 
         RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
                 .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
