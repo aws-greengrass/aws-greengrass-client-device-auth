@@ -93,6 +93,4 @@ public class UseCasesTest {
         UseCaseWithParameters useCase = (UseCaseWithParameters) new UseCases(topics).get(UseCaseWithParameters.class);
         assertEquals(useCase.execute("hello"), "hello");
     }
-
-
 }
