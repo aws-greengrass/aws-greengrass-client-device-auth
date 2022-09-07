@@ -19,9 +19,13 @@ import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenera
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.security.SecurityService;
+import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
 import lombok.NonNull;
@@ -31,6 +35,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuth
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
 import java.io.IOException;
+import java.net.URI;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -55,6 +60,7 @@ public class CertificateManager {
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private final GreengrassServiceClientFactory clientFactory;
+    private final SecurityService securityService;
     private CAConfiguration caConfiguration;
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CAConfiguration.class);
@@ -69,6 +75,7 @@ public class CertificateManager {
      * @param cisShadowMonitor         CIS Shadow Monitor
      * @param clock                    clock
      * @param clientFactory            Greengrass cloud service client factory
+     * @param securityService          Security Service
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore,
@@ -76,13 +83,15 @@ public class CertificateManager {
                               CertificateExpiryMonitor certExpiryMonitor,
                               CISShadowMonitor cisShadowMonitor,
                               Clock clock,
-                              GreengrassServiceClientFactory clientFactory) {
+                              GreengrassServiceClientFactory clientFactory,
+                              SecurityService securityService) {
         this.certificateStore = certificateStore;
         this.connectivityInfoProvider = connectivityInfoProvider;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
         this.clock = clock;
         this.clientFactory = clientFactory;
+        this.securityService = securityService;
     }
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
@@ -98,11 +107,8 @@ public class CertificateManager {
      *
      * @param caPassphrase CA Passphrase
      * @throws KeyStoreException if unable to load the CA key store
-     * @throws CertificateEncodingException if unable to get certificate encoding
-     * @throws IOException if unable to write certificate
      */
-    public void update(String caPassphrase) throws KeyStoreException,
-            CertificateEncodingException, IOException {
+    public void generateCA(String caPassphrase) throws KeyStoreException {
         certificateStore.update(caPassphrase, caConfiguration.getCaType());
     }
 
@@ -253,39 +259,70 @@ public class CertificateManager {
         cisShadowMonitor.removeFromMonitor(gen);
     }
 
+    /**
+     * Configures the KeyStore to use a certificates provided from the CA configuration.
+     *
+     * @throws InvalidConfigurationException if the CA configuration doesn't have both a privateKeyUri and
+     *                                      certificateUri
+     */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    public void configureCustomCA() throws InvalidConfigurationException {
+        if (!caConfiguration.isUsingCustomCA()) {
+            throw new InvalidConfigurationException(
+                    "Invalid configuration: certificateUri and privateKeyUri are required.");
+        }
 
-    private RetryUtils.RetryConfig getRetryConfig() {
-        List<Class> retriableExceptions = Arrays.asList(
-                ThrottlingException.class,
-                InternalServerException.class,
-                AccessDeniedException.class);
+        URI privateKeyUri = caConfiguration.getPrivateKeyUri().get();
+        URI certificateUri = caConfiguration.getCertificateUri().get();
 
-        return RetryUtils.RetryConfig.builder()
-                .initialRetryInterval(Duration.ofSeconds(3))
-                .maxAttempt(Integer.MAX_VALUE)
-                .retryableExceptions(retriableExceptions)
-                .build();
+        RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
+                .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
+                .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
+
+
+        try {
+            KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
+                    () -> securityService.getKeyPair(privateKeyUri, certificateUri),
+                    "get-key-pair", logger);
+
+            X509Certificate[] certificateChain = RetryUtils.runWithRetry(retryConfig,
+                    () -> securityService.getCertificateChain(privateKeyUri, certificateUri),
+                    "get-certificate-chain", logger);
+
+            certificateStore.setCaCertificateChain(certificateChain);
+            certificateStore.setCaPrivateKey(keyPair.getPrivate());
+        } catch (Exception e) {
+            throw new InvalidCertificateAuthorityException(String.format("Failed to configure CA: There was an error "
+                    + "reading the provided private key %s or certificate chain %s", privateKeyUri, certificateUri), e);
+        }
     }
 
     /**
      * Uploads the stored certificates to the cloud.
      *
-     * @param thingName  Core device name
-     *
-     * @throws CertificateEncodingException  If unable to get certificate encoding
-     * @throws KeyStoreException if unable to retrieve the certificate
-     * @throws IOException If unable to read certificate
+     * @param thingName Core device name
+     * @throws CertificateEncodingException      If unable to get certificate encoding
+     * @throws KeyStoreException                if unable to retrieve the certificate
+     * @throws IOException                      If unable to read certificate
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void uploadCoreDeviceCAs(String thingName) throws CertificateEncodingException, KeyStoreException,
             IOException {
         List<String> certificatePemList = getCACertificates();
+        List<Class> retryAbleExceptions = Arrays.asList(ThrottlingException.class, InternalServerException.class,
+                AccessDeniedException.class);
+
+        RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
+                .initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(Integer.MAX_VALUE)
+                .retryableExceptions(retryAbleExceptions)
+                .build();
 
         PutCertificateAuthoritiesRequest request =
                 PutCertificateAuthoritiesRequest.builder().coreDeviceThingName(thingName)
                         .coreDeviceCertificates(certificatePemList).build();
+
         try {
-            RetryUtils.runWithRetry(getRetryConfig(),
+            RetryUtils.runWithRetry(retryConfig,
                     () -> clientFactory.getGreengrassV2DataClient().putCertificateAuthorities(request),
                     "put-core-ca-certificate", logger);
         } catch (InterruptedException e) {
@@ -297,4 +334,6 @@ public class CertificateManager {
                     + "core device's IoT policy grants the greengrass:PutCertificateAuthorities permission.", e);
         }
     }
+
+
 }

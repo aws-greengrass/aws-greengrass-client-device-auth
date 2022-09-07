@@ -15,6 +15,7 @@ import com.aws.greengrass.util.FileSystemPermission;
 import com.aws.greengrass.util.platforms.Platform;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.operator.OperatorCreationException;
 
@@ -69,6 +70,11 @@ public class CertificateStore {
     private final Path workPath;
     private final Platform platform = Platform.getInstance();
 
+    @Getter
+    @Setter
+    private Certificate[] caCertificateChain;
+    private PrivateKey caPrivateKey;
+
     public enum CAType {
         RSA_2048, ECDSA_P256
     }
@@ -105,20 +111,22 @@ public class CertificateStore {
             createAndStoreDefaultKeyStore(caType);
             logger.atDebug().log("successfully created new CA keystore");
         }
+
+        try {
+            setCaCertificateChain(keyStore.getCertificateChain(CA_KEY_ALIAS));
+            setCaPrivateKey(keyStore.getKey(CA_KEY_ALIAS, getPassphrase()));
+        } catch (NoSuchAlgorithmException | UnrecoverableKeyException e) {
+            throw new KeyStoreException("unable to retrieve CA private key", e);
+        }
     }
 
     /**
      * Get CA PrivateKey.
      *
      * @return                   CA PrivateKey object
-     * @throws KeyStoreException if unable to retrieve PrivateKey object
      */
-    public PrivateKey getCAPrivateKey() throws KeyStoreException {
-        try {
-            return (PrivateKey) keyStore.getKey(CA_KEY_ALIAS, getPassphrase());
-        } catch (NoSuchAlgorithmException | UnrecoverableKeyException e) {
-            throw new KeyStoreException("unable to retrieve CA private key", e);
-        }
+    public PrivateKey getCAPrivateKey() {
+        return caPrivateKey;
     }
 
     /**
@@ -128,8 +136,24 @@ public class CertificateStore {
      * @throws KeyStoreException if unable to retrieve the certificate
      */
     public X509Certificate getCACertificate() throws KeyStoreException {
-        return (X509Certificate) keyStore.getCertificate(CA_KEY_ALIAS);
+        return (X509Certificate) getCaCertificateChain()[0];
     }
+
+
+    /**
+     * Sets the CA private key.
+     *
+     * @param privateKey Key must be of type (Private Key)
+     * @throws KeyStoreException if privateKey is not instance of PrivateKey
+     */
+    public void setCaPrivateKey(Key privateKey) throws KeyStoreException {
+        if (!(privateKey instanceof PrivateKey)) {
+            throw new KeyStoreException("unable to retrieve CA private key");
+        }
+
+        caPrivateKey = (PrivateKey) privateKey;
+    }
+
 
     public String loadDeviceCertificate(String certificateId) throws IOException {
         return loadCertificatePem(certificateIdToPath(certificateId));
@@ -183,8 +207,8 @@ public class CertificateStore {
         }
         // generate new passphrase for new CA certificate
         passphrase = generateRandomPassphrase().toCharArray();
-        Certificate[] certificateChain = { caCertificate };
-        ks.setKeyEntry("CA", kp.getPrivate(), getPassphrase(), certificateChain);
+        caCertificateChain = new Certificate[]{ caCertificate };
+        ks.setKeyEntry(CA_KEY_ALIAS, kp.getPrivate(), getPassphrase(), caCertificateChain);
         keyStore = ks;
 
         try {

@@ -11,10 +11,14 @@ import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Coerce;
+import com.aws.greengrass.util.Utils;
 import lombok.Getter;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 
@@ -40,12 +44,12 @@ public final class CAConfiguration {
 
     private CertificateStore.CAType caType;
     private List<String> caTypeList;
-    private String privateKeyUri;
-    private String certificateUri;
+    private Optional<URI> privateKeyUri;
+    private Optional<URI> certificateUri;
 
 
     private CAConfiguration(List<String> caTypes, CertificateStore.CAType caType,
-                            String privateKeyUri, String certificateUri) {
+                            Optional<URI> privateKeyUri, Optional<URI> certificateUri) {
         this.caType = caType;
         this.caTypeList = caTypes;
         this.privateKeyUri = privateKeyUri;
@@ -56,8 +60,10 @@ public final class CAConfiguration {
      * Factory method for creating an immutable CAConfiguration from the service configuration.
      *
      * @param config the root service configuration
+     *
+     * @throws URISyntaxException if invalid certificateUri or privateKeyUri provided.
      */
-    public static CAConfiguration from(Topics config) {
+    public static CAConfiguration from(Topics config) throws URISyntaxException {
         Topics configurationTopic = config.lookupTopics(CONFIGURATION_CONFIG_KEY);
         Topics certAuthorityTopic = configurationTopic.lookupTopics(CERTIFICATE_AUTHORITY_TOPIC);
 
@@ -69,6 +75,13 @@ public final class CAConfiguration {
         );
     }
 
+    /**
+     * Checks if the bringing your own certificate configuration was provided. For it to be valid both the
+     * privateKeyUri and the certificateUri must be provided.
+     */
+    public boolean isUsingCustomCA() {
+       return privateKeyUri.isPresent() && certificateUri.isPresent();
+    }
 
     private static List<String> getCaTypeListFromConfiguration(Topics configurationTopic) {
         // NOTE: This should be a list of CertificateStore.CAType and not any random Strings
@@ -104,17 +117,25 @@ public final class CAConfiguration {
         return CertificateStore.CAType.valueOf(caType);
     }
 
-    private static String getCaPrivateKeyUriFromConfiguration(Topics certAuthorityTopic) {
-        // NOTE: Parse the key to ensure it is a valid URI
-        //  before returning it
-        Topic privateKeyUriTopic = certAuthorityTopic.find(CA_PRIVATE_KEY_URI);
-        return Coerce.toString(privateKeyUriTopic);
+    private static Optional<URI> getCaPrivateKeyUriFromConfiguration(Topics certAuthorityTopic) throws
+            URISyntaxException {
+        String maybePrivateKeyUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_PRIVATE_KEY_URI));
+
+        if (Utils.isEmpty(maybePrivateKeyUri)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new URI(maybePrivateKeyUri));
     }
 
-    private static String getCaCertificateUriFromConfiguration(Topics certAuthorityTopic) {
-        // NOTE: Parse the key to ensure it is a valid URI
-        //  before returning it
-        Topic privateKeyUriTopic = certAuthorityTopic.find(CA_CERTIFICATE_URI);
-        return Coerce.toString(privateKeyUriTopic);
+    private static Optional<URI> getCaCertificateUriFromConfiguration(Topics certAuthorityTopic) throws
+            URISyntaxException {
+        String maybePrivateKeyUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_CERTIFICATE_URI));
+
+        if (Utils.isEmpty(maybePrivateKeyUri)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new URI(maybePrivateKeyUri));
     }
 }
