@@ -34,9 +34,6 @@ public final class HostAddress {
         return HostAddress.of(connectivityInfo.hostAddress());
     }
 
-    // TODO: Need to implement equals method so de-dup works as intended when adding multiple
-    // connectivity information objects to a set
-
     /**
      * Checks if the connectivity information is a valid IPv4 or IPv6 address.
      *
@@ -70,6 +67,11 @@ public final class HostAddress {
     @Override
     public int hashCode() {
         return hostAddressString.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return hostAddressString;
     }
 
     private static boolean isValidIP(String host) {
