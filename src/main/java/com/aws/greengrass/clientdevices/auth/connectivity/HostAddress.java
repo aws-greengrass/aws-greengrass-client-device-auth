@@ -14,16 +14,9 @@ public final class HostAddress {
     private static final Pattern IPV4_PAT = Pattern.compile("^(\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)(?::(\\d+)){0,1}$");
     private static final Pattern IPV6_DOUBL_COL_PAT = Pattern.compile(
             "^\\[{0,1}([0-9a-f:]*)::([0-9a-f:]*)(?:\\]:(\\d+)){0,1}$");
-    private static String ipv6Pattern;
-    private static final Pattern IPV6_PAT = Pattern.compile(ipv6Pattern);
-
-    static {
-        ipv6Pattern = "^\\[{0,1}";
-        for (int i = 1; i <= 7; i++) {
-            ipv6Pattern += "([0-9a-f]+):";
-        }
-        ipv6Pattern += "([0-9a-f]+)(?:\\]:(\\d+)){0,1}$";
-    }
+    private static final Pattern IPV6_PAT = Pattern.compile(
+            "^\\[{0,1}([0-9a-f]+):([0-9a-f]+):([0-9a-f]+):([0-9a-f]+):([0-9a-f]+):"
+                    + "([0-9a-f]+):([0-9a-f]+):([0-9a-f]+)(?:\\]:(\\d+)){0,1}$");
 
     private final String hostAddressString;
 

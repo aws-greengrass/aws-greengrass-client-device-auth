@@ -30,7 +30,7 @@ public class UpdateConnectivityInformationUseCase implements UseCase {
     public Object execute(Object request) {
         // TODO: Update once UseCase is implemented
         UpdateConnectivityInformationRequest updateRequest = (UpdateConnectivityInformationRequest) request;
-        connectivityInformation.updateConnectivityInformation(
+        connectivityInformation.updateConnectivityInformationForSource(
                 updateRequest.getSource(), updateRequest.getConnectivityInformation());
         return new Object();
     }

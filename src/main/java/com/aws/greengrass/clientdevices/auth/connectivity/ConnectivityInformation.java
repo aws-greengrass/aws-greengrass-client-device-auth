@@ -94,7 +94,7 @@ public class ConnectivityInformation {
      *
      * @return set of connectivity information from all connectivity sources.
      */
-    public Set<HostAddress> getConnectivityInformationMap() {
+    public Set<HostAddress> getAggregatedConnectivityInformation() {
         return connectivityInformationMap.entrySet()
                 .stream()
                 .map(Map.Entry::getValue)
@@ -108,7 +108,7 @@ public class ConnectivityInformation {
      * @param source                 connectivity information source.
      * @param sourceConnectivityInfo connectivity information.
      */
-    public void updateConnectivityInformation(String source, Set<HostAddress> sourceConnectivityInfo) {
+    public void updateConnectivityInformationForSource(String source, Set<HostAddress> sourceConnectivityInfo) {
         LOGGER.atInfo()
                 .kv("source", source)
                 .kv("connectivityInformation", sourceConnectivityInfo)
