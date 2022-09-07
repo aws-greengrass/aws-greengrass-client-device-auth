@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.connectivity.usecases;
 
-import com.aws.greengrass.clientdevices.auth.UseCase;
+import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.connectivity.UpdateConnectivityInformationRequest;
 
@@ -18,7 +18,8 @@ import javax.inject.Inject;
  * connectivity providers and returns a diff (if any) since the
  * last update.
  */
-public class UpdateConnectivityInformationUseCase implements UseCase {
+public class UpdateConnectivityInformationUseCase implements
+        UseCases.UseCase<Void, UpdateConnectivityInformationRequest> {
     private final ConnectivityInformation connectivityInformation;
 
     @Inject
@@ -27,11 +28,9 @@ public class UpdateConnectivityInformationUseCase implements UseCase {
     }
 
     @Override
-    public Object execute(Object request) {
-        // TODO: Update once UseCase is implemented
-        UpdateConnectivityInformationRequest updateRequest = (UpdateConnectivityInformationRequest) request;
+    public Void execute(UpdateConnectivityInformationRequest updateRequest) {
         connectivityInformation.updateConnectivityInformationForSource(
                 updateRequest.getSource(), updateRequest.getConnectivityInformation());
-        return new Object();
+        return null;
     }
 }
