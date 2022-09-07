@@ -55,6 +55,22 @@ public final class HostAddress {
         return !isIPAddress();
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == this) {
+            return true;
+        }
+        if (!(o instanceof HostAddress)) {
+            return false;
+        }
+        HostAddress other = (HostAddress) o;
+        return other.hostAddressString.equals(hostAddressString);
+    }
+
+    @Override
+    public int hashCode() {
+        return hostAddressString.hashCode();
+    }
 
     private static boolean isValidIP(String host) {
         //  IPV4
