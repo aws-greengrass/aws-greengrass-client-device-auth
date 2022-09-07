@@ -23,15 +23,17 @@ import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInf
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.aws.greengrass.deployment.DeviceConfiguration.DEVICE_PARAM_THING_NAME;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
@@ -40,6 +42,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
+@SuppressWarnings("PMD.AvoidUsingHardCodedIP")
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class ConnectivityInformationTest {
 
@@ -64,7 +67,6 @@ public class ConnectivityInformationTest {
         connectivityInformation = new ConnectivityInformation(deviceConfiguration, clientFactory);
     }
 
-    @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     @Test
     void GIVEN_connectivity_info_WHEN_get_connectivity_info_THEN_connectivity_info_returned() {
         ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
@@ -104,7 +106,6 @@ public class ConnectivityInformationTest {
         assertThat(connectivityInformation.getConnectivityInfo(), is(empty()));
     }
 
-    @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     @Test
     void GIVEN_cached_connectivity_info_WHEN_get_cached_connectivity_info_THEN_connectivity_info_returned() {
         ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
@@ -123,17 +124,77 @@ public class ConnectivityInformationTest {
 
     @Test
     void GIVEN_missingConnectivityInfo_WHEN_getConnectivityInformation_THEN_returnEmptySet() {
-        Set<HostAddress> connectivityInfo = connectivityInformation.getConnectivityInformationMap();
+        Set<HostAddress> connectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
         assertThat(connectivityInfo, is(empty()));
     }
 
     @Test
-    void GIVEN_connectivityInfoFromSingleSource_WHEN_getConnectivityInformation_THEN_connectivityInfoReturned() {
-        // TODO
+    void GIVEN_connectivityInfoFromSingleSource_WHEN_hostAddressesAddedAndRemoved_THEN_correctConnectivityInfoReturned() {
+        Set<HostAddress> sourceConnectivityInfo = Stream.of("localhost", "127.0.0.1")
+                .map(HostAddress::of)
+                .collect(Collectors.toSet());
+        Set<HostAddress> connectivityInfoSuperset = Stream.of("localhost", "127.0.0.1", "127.0.0.2")
+                .map(HostAddress::of)
+                .collect(Collectors.toSet());
+
+        connectivityInformation.updateConnectivityInformationForSource("source", sourceConnectivityInfo);
+        Set<HostAddress> mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
+        assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
+        assertThat(mergedConnectivityInfo.size(), is(sourceConnectivityInfo.size()));
+
+        // Add HostAddress to existing source
+        connectivityInformation.updateConnectivityInformationForSource("source", connectivityInfoSuperset);
+        mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
+        assertTrue(mergedConnectivityInfo.containsAll(connectivityInfoSuperset));
+        assertThat(mergedConnectivityInfo.size(), is(connectivityInfoSuperset.size()));
+
+        // Remove HostAddress from existing source
+        connectivityInformation.updateConnectivityInformationForSource("source", sourceConnectivityInfo);
+        mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
+        assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
+        assertThat(mergedConnectivityInfo.size(), is(sourceConnectivityInfo.size()));
     }
 
     @Test
-    void GIVEN_connectivityInfoFromMultipleSources_WHEN_getConnectivityInformation_THEN_mergedConnectivityInfoReturned() {
-        // TODO
+    void GIVEN_disjointConnectivityInfoFromMultipleSources_WHEN_getConnectivityInformation_THEN_mergedConnectivityInfoReturned() {
+        Set<HostAddress> sourceConnectivityInfo = Stream.of("localhost", "127.0.0.1")
+                .map(HostAddress::of)
+                .collect(Collectors.toSet());
+        Set<HostAddress> disjointConnectivityInfoSet = Stream.of("192.168.1.1", "hostname")
+                .map(HostAddress::of)
+                .collect(Collectors.toSet());
+
+        connectivityInformation.updateConnectivityInformationForSource("source", sourceConnectivityInfo);
+        connectivityInformation.updateConnectivityInformationForSource("source2", disjointConnectivityInfoSet);
+
+        Set<HostAddress> mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
+        assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
+        assertTrue(mergedConnectivityInfo.containsAll(disjointConnectivityInfoSet));
+        assertThat(mergedConnectivityInfo.size(), is(sourceConnectivityInfo.size() + disjointConnectivityInfoSet.size()));
+    }
+
+    @Test
+    void GIVEN_overlappingConnectivityInfoFromMultipleSources_WHEN_getConnectivityInformation_THEN_mergedConnectivityInfoReturned() {
+        Set<HostAddress> sourceConnectivityInfo = Stream.of("localhost", "127.0.0.1")
+                .map(HostAddress::of)
+                .collect(Collectors.toSet());
+        Set<HostAddress> overlappingConnectivityInfo = Stream.of("localhost")
+                .map(HostAddress::of)
+                .collect(Collectors.toSet());
+
+        connectivityInformation.updateConnectivityInformationForSource("source", sourceConnectivityInfo);
+        connectivityInformation.updateConnectivityInformationForSource("source2", overlappingConnectivityInfo);
+
+        Set<HostAddress> mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
+        assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
+        assertTrue(mergedConnectivityInfo.containsAll(overlappingConnectivityInfo));
+        assertThat(mergedConnectivityInfo.size(), is(sourceConnectivityInfo.size()));
+
+        // Remove overlapping connectivity info - but it should still appear in merged set
+        connectivityInformation.updateConnectivityInformationForSource("source2", Collections.emptySet());
+        mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
+        assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
+        assertTrue(mergedConnectivityInfo.containsAll(overlappingConnectivityInfo));
+        assertThat(mergedConnectivityInfo.size(), is(sourceConnectivityInfo.size()));
     }
 }
