@@ -8,7 +8,6 @@ package com.aws.greengrass.clientdevices.auth;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
-import com.aws.greengrass.clientdevices.auth.certificate.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
@@ -17,11 +16,12 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
+import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoAggregator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
-import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.security.SecurityService;
@@ -54,7 +54,7 @@ import javax.inject.Inject;
 
 public class CertificateManager {
     private final CertificateStore certificateStore;
-    private final ConnectivityInfoProvider connectivityInfoProvider;
+    private final ConnectivityInfoAggregator connectivityInfoAggregator;
     private final CertificateExpiryMonitor certExpiryMonitor;
     private final CISShadowMonitor cisShadowMonitor;
     private final Clock clock;
@@ -70,7 +70,7 @@ public class CertificateManager {
      * Construct a new CertificateManager.
      *
      * @param certificateStore         Helper class for managing certificate authorities
-     * @param connectivityInfoProvider Connectivity Info Provider
+     * @param connectivityInfoAggregator Connectivity Info Provider
      * @param certExpiryMonitor        Certificate Expiry Monitor
      * @param cisShadowMonitor         CIS Shadow Monitor
      * @param clock                    clock
@@ -79,14 +79,14 @@ public class CertificateManager {
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore,
-                              ConnectivityInfoProvider connectivityInfoProvider,
+                              ConnectivityInfoAggregator connectivityInfoAggregator,
                               CertificateExpiryMonitor certExpiryMonitor,
                               CISShadowMonitor cisShadowMonitor,
                               Clock clock,
                               GreengrassServiceClientFactory clientFactory,
                               SecurityService securityService) {
         this.certificateStore = certificateStore;
-        this.connectivityInfoProvider = connectivityInfoProvider;
+        this.connectivityInfoAggregator = connectivityInfoAggregator;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
         this.clock = clock;
@@ -220,7 +220,7 @@ public class CertificateManager {
         certExpiryMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
-        certificateGenerator.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
+        certificateGenerator.generateCertificate(connectivityInfoAggregator::getCachedHostAddresses,
                 "initialization of server cert subscription");
 
         certSubscriptions.compute(certificateRequest, (k, v) -> {

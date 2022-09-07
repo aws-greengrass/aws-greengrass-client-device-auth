@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.iot;
 
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoAggregator;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.deployment.DeviceConfiguration;
@@ -40,9 +41,9 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
-public class ConnectivityInfoProviderTest {
+public class ConnectivityInfoAggregatorTest {
 
-    private ConnectivityInfoProvider connectivityInfoProvider;
+    private ConnectivityInfoAggregator connectivityInfoAggregator;
     @Mock
     private DeviceConfiguration deviceConfiguration;
 
@@ -60,7 +61,7 @@ public class ConnectivityInfoProviderTest {
         Topic thingNameTopic = Topic.of(context, DEVICE_PARAM_THING_NAME, "testThing");
         lenient().doReturn(thingNameTopic).when(deviceConfiguration).getThingName();
         lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(greengrassV2DataClient);
-        connectivityInfoProvider = new ConnectivityInfoProvider(deviceConfiguration, clientFactory);
+        connectivityInfoAggregator = new ConnectivityInfoAggregator(deviceConfiguration, clientFactory);
     }
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
@@ -75,7 +76,7 @@ public class ConnectivityInfoProviderTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        List<ConnectivityInfo> connectivityInfos = connectivityInfoProvider.getConnectivityInfo();
+        List<ConnectivityInfo> connectivityInfos = connectivityInfoAggregator.getConnectivityInfo();
         verify(greengrassV2DataClient, times(1))
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
         assertThat(connectivityInfos, containsInAnyOrder(connectivityInfo, connectivityInfo1));
@@ -87,7 +88,7 @@ public class ConnectivityInfoProviderTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        List<ConnectivityInfo> connectivityInfos = connectivityInfoProvider.getConnectivityInfo();
+        List<ConnectivityInfo> connectivityInfos = connectivityInfoAggregator.getConnectivityInfo();
         verify(greengrassV2DataClient, times(1))
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
         assertThat(connectivityInfos, is(empty()));
@@ -100,7 +101,7 @@ public class ConnectivityInfoProviderTest {
         when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class)))
                 .thenThrow(ValidationException.class);
 
-        assertThat(connectivityInfoProvider.getConnectivityInfo(), is(empty()));
+        assertThat(connectivityInfoAggregator.getConnectivityInfo(), is(empty()));
     }
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
@@ -115,8 +116,8 @@ public class ConnectivityInfoProviderTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        connectivityInfoProvider.getConnectivityInfo();
-        List<String> connectivityInfos = connectivityInfoProvider.getCachedHostAddresses();
+        connectivityInfoAggregator.getConnectivityInfo();
+        List<String> connectivityInfos = connectivityInfoAggregator.getCachedHostAddresses();
         assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
     }
 }

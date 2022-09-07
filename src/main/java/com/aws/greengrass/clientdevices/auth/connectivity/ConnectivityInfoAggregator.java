@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.iot;
+package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.logging.api.Logger;
@@ -19,19 +19,25 @@ import software.amazon.awssdk.services.greengrassv2data.model.ValidationExceptio
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 /**
  * Retrieving connectivity info from CIS - Connectivity Info Service.
  */
-public class ConnectivityInfoProvider {
-    private static final Logger LOGGER = LogManager.getLogger(ConnectivityInfoProvider.class);
+public class ConnectivityInfoAggregator {
+    private static final Logger LOGGER = LogManager.getLogger(ConnectivityInfoAggregator.class);
 
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassServiceClientFactory clientFactory;
 
+    // TODO: Legacy structure to be removed later
     protected volatile List<String> cachedHostAddresses = Collections.emptyList();
+
+    private Map<String, Set<ConnectivityInformation>> connectivityInformation;
+
 
     /**
      * Constructor.
@@ -40,8 +46,8 @@ public class ConnectivityInfoProvider {
      * @param clientFactory       factory to get data plane client
      */
     @Inject
-    public ConnectivityInfoProvider(DeviceConfiguration deviceConfiguration,
-                                    GreengrassServiceClientFactory clientFactory) {
+    public ConnectivityInfoAggregator(DeviceConfiguration deviceConfiguration,
+                                      GreengrassServiceClientFactory clientFactory) {
         this.deviceConfiguration = deviceConfiguration;
         this.clientFactory = clientFactory;
     }
@@ -80,5 +86,31 @@ public class ConnectivityInfoProvider {
         }
 
         return connectivityInfoList;
+    }
+
+    /**
+     * Get connectivity information.
+     *
+     * @return set of connectivity information from all connectivity sources.
+     */
+    public Set<ConnectivityInformation> getConnectivityInformation() {
+        return connectivityInformation.entrySet()
+                .stream()
+                .map(Map.Entry::getValue)
+                .flatMap(Set::stream)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Update connectivity information.
+     *
+     * @param updateRequest connectivity information from a connectivity source.
+     */
+    public void updateConnectivityInformation(UpdateConnectivityInformationRequest updateRequest) {
+        LOGGER.atInfo()
+                .kv("source", updateRequest.getSource())
+                .kv("connectivityInformation", updateRequest.getConnectivityInformation())
+                .log("Updating connectivity information");
+        connectivityInformation.put(updateRequest.getSource(), updateRequest.getConnectivityInformation());
     }
 }

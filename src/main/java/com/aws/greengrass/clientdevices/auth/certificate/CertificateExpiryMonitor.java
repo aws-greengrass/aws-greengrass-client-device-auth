@@ -5,8 +5,8 @@
 
 package com.aws.greengrass.clientdevices.auth.certificate;
 
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoAggregator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.AccessLevel;
@@ -33,7 +33,7 @@ public class CertificateExpiryMonitor {
 
     private final ScheduledExecutorService ses;
 
-    private final ConnectivityInfoProvider connectivityInfoProvider;
+    private final ConnectivityInfoAggregator connectivityInfoAggregator;
 
     private final Set<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArraySet<>();
 
@@ -43,15 +43,15 @@ public class CertificateExpiryMonitor {
      * Construct a new CertificateExpiryMonitor.
      *
      * @param ses                      ScheduledExecutorService to schedule cert expiry checks
-     * @param connectivityInfoProvider Connectivity Info Provider
+     * @param connectivityInfoAggregator Connectivity Info Provider
      * @param clock                    clock
      */
     @Inject
     public CertificateExpiryMonitor(ScheduledExecutorService ses,
-                                    ConnectivityInfoProvider connectivityInfoProvider,
+                                    ConnectivityInfoAggregator connectivityInfoAggregator,
                                     Clock clock) {
         this.ses = ses;
-        this.connectivityInfoProvider = connectivityInfoProvider;
+        this.connectivityInfoAggregator = connectivityInfoAggregator;
         this.clock = clock;
     }
 
@@ -76,7 +76,7 @@ public class CertificateExpiryMonitor {
                     .rotationReady()
                     .ifPresent(reason -> {
                         try {
-                            cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses, reason);
+                            cg.generateCertificate(connectivityInfoAggregator::getCachedHostAddresses, reason);
                         } catch (CertificateGenerationException e) {
                             LOGGER.atError().cause(e).log(
                                     "Error generating certificate. Will be retried after {} seconds",
