@@ -76,21 +76,21 @@ public class UseCasesTest {
         context.put(TestDependency.class, aTestDependency);
         Topics topics = Topics.of(context, CONFIGURATION_CONFIG_KEY, null);
 
-        UseCaseWithDependencies useCase = (UseCaseWithDependencies) new UseCases(topics).get(UseCaseWithDependencies.class);
+        UseCaseWithDependencies useCase = new UseCases(topics).get(UseCaseWithDependencies.class);
         assertEquals(useCase.execute(null), aTestDependency.name);
     }
 
     @Test
     void GIVEN_aUseCaseWithExceptions_WHEN_ran_THEN_itThrowsAnException() {
         Topics topics = Topics.of(context, CONFIGURATION_CONFIG_KEY, null);
-        UseCaseWithExceptions useCase = (UseCaseWithExceptions) new UseCases(topics).get(UseCaseWithExceptions.class);
+        UseCaseWithExceptions useCase = new UseCases(topics).get(UseCaseWithExceptions.class);
         assertThrows(InvalidConfigurationException.class, () -> { useCase.execute(null); });
     }
 
     @Test
     void GIVEN_aUseCaseWithParameters_WHEN_ran_itAcceptsTheParamsAndReturnsThem() {
         Topics topics = Topics.of(context, CONFIGURATION_CONFIG_KEY, null);
-        UseCaseWithParameters useCase = (UseCaseWithParameters) new UseCases(topics).get(UseCaseWithParameters.class);
+        UseCaseWithParameters useCase = new UseCases(topics).get(UseCaseWithParameters.class);
         assertEquals(useCase.execute("hello"), "hello");
     }
 }

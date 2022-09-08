@@ -24,7 +24,7 @@ public class UseCases {
         this.context = topics.getContext();
     }
 
-    public UseCase get(Class<? extends UseCase> clazz) {
+    public <C extends UseCase> C get(Class<C> clazz) {
         return context.get(clazz);
     }
 }

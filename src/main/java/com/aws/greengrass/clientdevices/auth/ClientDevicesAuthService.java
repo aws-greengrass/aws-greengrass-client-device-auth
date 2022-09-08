@@ -192,16 +192,14 @@ public class ClientDevicesAuthService extends PluginService {
         try {
             if (whatHappened == WhatHappened.initialized || node == null) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-                ((ConfigureCertificateAuthorityUseCase) useCases.get(ConfigureCertificateAuthorityUseCase.class))
-                        .execute(cdaConfiguration);
+                useCases.get(ConfigureCertificateAuthorityUseCase.class).execute(cdaConfiguration);
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
             } else if (
                     (node.childOf(CA_TYPE_KEY) || node.childOf(DEPRECATED_CA_TYPE_KEY))
                             && cdaConfiguration.isCaTypesProvided()
             ) {
-                ((ConfigureCertificateAuthorityUseCase) useCases.get(ConfigureCertificateAuthorityUseCase.class))
-                        .execute(cdaConfiguration);
+                useCases.get(ConfigureCertificateAuthorityUseCase.class).execute(cdaConfiguration);
             }
         } catch (KeyStoreException | IOException | CertificateEncodingException | InvalidCertificateAuthorityException
                  | InvalidConfigurationException e) {
