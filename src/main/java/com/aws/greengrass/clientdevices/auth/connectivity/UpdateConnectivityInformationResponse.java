@@ -10,12 +10,17 @@ import lombok.Getter;
 import java.util.Set;
 
 @Getter
-public class UpdateConnectivityInformationRequest {
-    private final String source;
-    private final Set<HostAddress> connectivityInformation;
+public class UpdateConnectivityInformationResponse {
+    private final Set<HostAddress> addedHostAddresses;
+    private final Set<HostAddress> removedHostAddresses;
 
-    public UpdateConnectivityInformationRequest(String source, Set<HostAddress> connectivityInformation) {
-        this.source = source;
-        this.connectivityInformation = connectivityInformation;
+    public UpdateConnectivityInformationResponse(Set<HostAddress> addedHostAddresses,
+                                                 Set<HostAddress> removedHostAddresses) {
+        this.addedHostAddresses = addedHostAddresses;
+        this.removedHostAddresses = removedHostAddresses;
+    }
+
+    public boolean didChange() {
+        return !(addedHostAddresses.isEmpty() && removedHostAddresses.isEmpty());
     }
 }
