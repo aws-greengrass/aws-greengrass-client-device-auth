@@ -8,8 +8,6 @@ package com.aws.greengrass.clientdevices.auth.api;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 
-import javax.inject.Inject;
-
 
 public class UseCases {
     private final Context context;
@@ -19,7 +17,6 @@ public class UseCases {
         R execute(D dto) throws Exception;
     }
 
-    @Inject
     public UseCases(Topics topics) {
         this.context = topics.getContext();
     }
