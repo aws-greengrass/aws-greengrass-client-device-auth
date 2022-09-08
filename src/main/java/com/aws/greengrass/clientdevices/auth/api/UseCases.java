@@ -7,15 +7,14 @@ package com.aws.greengrass.clientdevices.auth.api;
 
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
+import com.aws.greengrass.util.CrashableFunction;
 
 
 public class UseCases {
     private final Context context;
 
-    public interface UseCase<R, D> {
-        @SuppressWarnings("PMD.SignatureDeclareThrowsException")
-        R execute(D dto) throws Exception;
-    }
+    // Delegates to CrashableFunction but provides a domain rich alias
+    public interface UseCase<R, D, E extends Exception> extends CrashableFunction<D, R, E> {}
 
     public UseCases(Topics topics) {
         this.context = topics.getContext();

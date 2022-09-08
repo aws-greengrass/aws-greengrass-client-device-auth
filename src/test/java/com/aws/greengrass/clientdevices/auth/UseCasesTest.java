@@ -35,7 +35,7 @@ public class UseCasesTest {
         }
     }
 
-    static class UseCaseWithDependencies implements UseCases.UseCase<String, Void> {
+    static class UseCaseWithDependencies implements UseCases.UseCase<String, Void, Exception> {
         private final TestDependency dep;
 
         @Inject
@@ -44,23 +44,23 @@ public class UseCasesTest {
         }
 
         @Override
-        public String execute(Void dto) {
+        public String apply(Void dto) {
             return dep.name;
         }
     }
 
-    static class UseCaseWithExceptions implements UseCases.UseCase<Void, Void> {
+    static class UseCaseWithExceptions implements UseCases.UseCase<Void, Void, InvalidConfigurationException> {
 
         @Override
-        public Void execute(Void dto) throws InvalidConfigurationException {
+        public Void apply(Void dto) throws InvalidConfigurationException {
             throw new InvalidConfigurationException("Explode");
         }
     }
 
-    static class UseCaseWithParameters implements UseCases.UseCase<String, String> {
+    static class UseCaseWithParameters implements UseCases.UseCase<String, String, Exception> {
 
         @Override
-        public String execute(String dto) {
+        public String apply(String dto) {
             return dto;
         }
     }
@@ -77,20 +77,20 @@ public class UseCasesTest {
         Topics topics = Topics.of(context, CONFIGURATION_CONFIG_KEY, null);
 
         UseCaseWithDependencies useCase = new UseCases(topics).get(UseCaseWithDependencies.class);
-        assertEquals(useCase.execute(null), aTestDependency.name);
+        assertEquals(useCase.apply(null), aTestDependency.name);
     }
 
     @Test
     void GIVEN_aUseCaseWithExceptions_WHEN_ran_THEN_itThrowsAnException() {
         Topics topics = Topics.of(context, CONFIGURATION_CONFIG_KEY, null);
         UseCaseWithExceptions useCase = new UseCases(topics).get(UseCaseWithExceptions.class);
-        assertThrows(InvalidConfigurationException.class, () -> { useCase.execute(null); });
+        assertThrows(InvalidConfigurationException.class, () -> { useCase.apply(null); });
     }
 
     @Test
     void GIVEN_aUseCaseWithParameters_WHEN_ran_itAcceptsTheParamsAndReturnsThem() {
         Topics topics = Topics.of(context, CONFIGURATION_CONFIG_KEY, null);
         UseCaseWithParameters useCase = new UseCases(topics).get(UseCaseWithParameters.class);
-        assertEquals(useCase.execute("hello"), "hello");
+        assertEquals(useCase.apply("hello"), "hello");
     }
 }
