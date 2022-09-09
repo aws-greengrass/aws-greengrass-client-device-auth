@@ -23,7 +23,7 @@ import javax.inject.Inject;
  * last update.
  */
 public class UpdateConnectivityInformationUseCase implements
-        UseCases.UseCase<UpdateConnectivityInformationResponse, UpdateConnectivityInformationRequest> {
+        UseCases.UseCase<UpdateConnectivityInformationResponse, UpdateConnectivityInformationRequest, Exception> {
     private final ConnectivityInformation connectivityInformation;
 
     @Inject
@@ -32,7 +32,7 @@ public class UpdateConnectivityInformationUseCase implements
     }
 
     @Override
-    public UpdateConnectivityInformationResponse execute(UpdateConnectivityInformationRequest updateRequest) {
+    public UpdateConnectivityInformationResponse apply(UpdateConnectivityInformationRequest updateRequest) {
         Set<HostAddress> previousConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
 
         connectivityInformation.updateConnectivityInformationForSource(

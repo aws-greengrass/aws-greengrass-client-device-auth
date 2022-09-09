@@ -15,7 +15,7 @@ import javax.inject.Inject;
 /**
  * Get aggregated connectivity information.
  */
-public class GetConnectivityInformationUseCase implements UseCases.UseCase<Set<HostAddress>, Void> {
+public class GetConnectivityInformationUseCase implements UseCases.UseCase<Set<HostAddress>, Void, Exception> {
     private final ConnectivityInformation connectivityInformation;
 
     @Inject
@@ -24,7 +24,7 @@ public class GetConnectivityInformationUseCase implements UseCases.UseCase<Set<H
     }
 
     @Override
-    public Set<HostAddress> execute(Void dto) {
+    public Set<HostAddress> apply(Void unused) {
         return connectivityInformation.getAggregatedConnectivityInformation();
     }
 }
