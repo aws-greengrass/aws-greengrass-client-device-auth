@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
+import com.aws.greengrass.clientdevices.auth.api.usecases.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
@@ -128,6 +129,9 @@ public class ClientDevicesAuthService extends PluginService {
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(getConfig()));
+
+        // Start use cases, so they could be invoked anywhere on the app.
+        UseCases.init(getContext());
     }
 
 

@@ -5,7 +5,8 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
-import com.aws.greengrass.clientdevices.auth.api.UseCases;
+import com.aws.greengrass.clientdevices.auth.api.usecases.UseCase;
+import com.aws.greengrass.clientdevices.auth.api.usecases.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.config.Topics;
@@ -17,7 +18,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import javax.inject.Inject;
-import java.net.URISyntaxException;
 
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_URI;
@@ -29,8 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class UseCasesTest {
-
-    private Context context;
     private Topics topics;
 
     static class TestDependency {
@@ -41,7 +39,7 @@ public class UseCasesTest {
         }
     }
 
-    static class UseCaseWithDependencies implements UseCases.UseCase<String, Void, Exception> {
+    static class UseCaseWithDependencies implements UseCase<String, Void, Exception> {
         private final TestDependency dep;
 
         @Inject
@@ -55,7 +53,7 @@ public class UseCasesTest {
         }
     }
 
-    static class UseCaseWithExceptions implements UseCases.UseCase<Void, Void, InvalidConfigurationException> {
+    static class UseCaseWithExceptions implements UseCase<Void, Void, InvalidConfigurationException> {
 
         @Override
         public Void apply(Void dto) throws InvalidConfigurationException {
@@ -63,7 +61,7 @@ public class UseCasesTest {
         }
     }
 
-    static class UseCaseWithParameters implements UseCases.UseCase<String, String, Exception> {
+    static class UseCaseWithParameters implements UseCase<String, String, Exception> {
 
         @Override
         public String apply(String dto) {
@@ -71,7 +69,7 @@ public class UseCasesTest {
         }
     }
 
-    static class UseCaseUpdatingDependency implements UseCases.UseCase<String, Void, Exception> {
+    static class UseCaseUpdatingDependency implements UseCase<String, Void, Exception> {
         private final CAConfiguration configuration;
 
         @Inject
@@ -87,41 +85,40 @@ public class UseCasesTest {
 
     @BeforeEach
     void beforeEach() {
-        context = new Context();
-        topics = Topics.of(context, CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
-        UseCases.init(topics);
+        topics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
+        UseCases.init(topics.getContext());
     }
 
     @Test
-    void GIVEN_aUseCaseWithDependencies_WHEN_ran_THEN_itExecutesWithNoExceptions() {
+    void GIVEN_aUseCaseWithDependencies_WHEN_ran_THEN_itExecutesWithNoExceptions() throws Exception {
         TestDependency aTestDependency = new TestDependency("Something");
-        context.put(TestDependency.class, aTestDependency);
+        UseCases.provide(TestDependency.class, aTestDependency);
 
-        UseCaseWithDependencies useCase = UseCases.get(UseCaseWithDependencies.class);
+        UseCase<String, Void, Exception> useCase = UseCases.get(UseCaseWithDependencies.class);
         assertEquals(useCase.apply(null), aTestDependency.name);
     }
 
     @Test
     void GIVEN_aUseCaseWithExceptions_WHEN_ran_THEN_itThrowsAnException() {
-        UseCaseWithExceptions useCase = UseCases.get(UseCaseWithExceptions.class);
+        UseCase<Void, Void, InvalidConfigurationException> useCase = UseCases.get(UseCaseWithExceptions.class);
         assertThrows(InvalidConfigurationException.class, () -> { useCase.apply(null); });
     }
 
     @Test
-    void GIVEN_aUseCaseWithParameters_WHEN_ran_itAcceptsTheParamsAndReturnsThem() {
-        UseCaseWithParameters useCase = UseCases.get(UseCaseWithParameters.class);
+    void GIVEN_aUseCaseWithParameters_WHEN_ran_itAcceptsTheParamsAndReturnsThem() throws Exception {
+        UseCase<String, String, Exception> useCase = UseCases.get(UseCaseWithParameters.class);
         assertEquals(useCase.apply("hello"), "hello");
     }
 
     @Test
-    void Given_dependencyChanges_WHEN_ran_THEN_newInstanceIsProvided() throws URISyntaxException {
+    void Given_dependencyChanges_WHEN_ran_THEN_newInstanceIsProvided() throws Exception {
         // When
         topics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue("file:///cert-uri");
 
         // Then
         UseCases.provide(CAConfiguration.class, CAConfiguration.from(topics));
-        UseCaseUpdatingDependency useCase = UseCases.get(UseCaseUpdatingDependency.class);
+        UseCase<String, Void, Exception> useCase = UseCases.get(UseCaseUpdatingDependency.class);
         assertEquals(useCase.apply(null), "file:///cert-uri");
 
         // When
