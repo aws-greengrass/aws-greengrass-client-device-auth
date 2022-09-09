@@ -13,8 +13,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCerti
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
-import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
-import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
+import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -34,10 +33,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
 
-import java.io.IOException;
 import java.net.URISyntaxException;
-import java.security.KeyStoreException;
-import java.security.cert.CertificateEncodingException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -83,7 +79,6 @@ public class ClientDevicesAuthService extends PluginService {
     private final ThreadPoolExecutor cloudCallThreadPool;
     private int cloudCallQueueSize;
     private CDAConfiguration cdaConfiguration;
-    private UseCases useCases;
 
 
     /**
@@ -122,6 +117,9 @@ public class ClientDevicesAuthService extends PluginService {
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(getConfig()));
+
+        // Initialize the use cases, so we can use them anywhere in the app
+        UseCases.init(getContext());
     }
 
 
@@ -150,8 +148,6 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void onConfigurationChanged() {
-        useCases = new UseCases(getConfig());
-
         try {
             cdaConfiguration = CDAConfiguration.from(getConfig());
         } catch (URISyntaxException e) {
@@ -192,17 +188,16 @@ public class ClientDevicesAuthService extends PluginService {
         try {
             if (whatHappened == WhatHappened.initialized || node == null) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-                useCases.get(ConfigureCertificateAuthorityUseCase.class).execute(cdaConfiguration);
+                UseCases.get(ConfigureCertificateAuthorityUseCase.class).apply(cdaConfiguration);
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
             } else if (
                     (node.childOf(CA_TYPE_KEY) || node.childOf(DEPRECATED_CA_TYPE_KEY))
                             && cdaConfiguration.isCaTypesProvided()
             ) {
-                useCases.get(ConfigureCertificateAuthorityUseCase.class).execute(cdaConfiguration);
+                UseCases.get(ConfigureCertificateAuthorityUseCase.class).apply(cdaConfiguration);
             }
-        } catch (KeyStoreException | IOException | CertificateEncodingException | InvalidCertificateAuthorityException
-                 | InvalidConfigurationException e) {
+        } catch (UseCaseException e) {
             serviceErrored(e);
         }
     }

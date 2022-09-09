@@ -10,6 +10,7 @@ import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
+import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -20,7 +21,8 @@ import java.security.KeyStoreException;
 import java.security.cert.CertificateEncodingException;
 import javax.inject.Inject;
 
-public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Void, CDAConfiguration> {
+public class ConfigureCertificateAuthorityUseCase
+        implements UseCases.UseCase<Void, CDAConfiguration, UseCaseException> {
     private final CertificateManager certificateManager;
     private final DeviceConfiguration deviceConfiguration;
     private static final Logger logger = LogManager.getLogger(ConfigureCertificateAuthorityUseCase.class);
@@ -35,8 +37,7 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
     }
 
     @Override
-    public Void execute(CDAConfiguration configuration) throws InvalidConfigurationException,
-            CertificateEncodingException, IOException, KeyStoreException {
+    public Void apply(CDAConfiguration configuration) throws UseCaseException {
         // NOTE: This is not the final shape of this useCase we are just taking the logic out from
         //  the ClientDeviceAuthService first.
         String thingName = Coerce.toString(deviceConfiguration.getThingName());
@@ -56,7 +57,10 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
         } catch (CloudServiceInteractionException e) {
             logger.atError().cause(e).kv("coreThingName", thingName)
                     .log("Unable to upload core CA certificates to the cloud");
+        } catch (CertificateEncodingException | KeyStoreException | IOException | InvalidConfigurationException   e) {
+            throw new UseCaseException(e);
         }
+
         return null;
     }
 }
