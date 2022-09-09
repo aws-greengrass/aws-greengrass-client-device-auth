@@ -20,8 +20,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
-
 /**
  * Represents the certificateAuthority and ca_type part of the component configuration. Acts as an adapter
  * from the GG Topics to the domain.
@@ -59,17 +57,16 @@ public final class CAConfiguration {
     /**
      * Factory method for creating an immutable CAConfiguration from the service configuration.
      *
-     * @param config the root service configuration
+     * @param configurationTopics the configuration key of the service configuration
      *
      * @throws URISyntaxException if invalid certificateUri or privateKeyUri provided.
      */
-    public static CAConfiguration from(Topics config) throws URISyntaxException {
-        Topics configurationTopic = config.lookupTopics(CONFIGURATION_CONFIG_KEY);
-        Topics certAuthorityTopic = configurationTopic.lookupTopics(CERTIFICATE_AUTHORITY_TOPIC);
+    public static CAConfiguration from(Topics configurationTopics) throws URISyntaxException {
+        Topics certAuthorityTopic = configurationTopics.lookupTopics(CERTIFICATE_AUTHORITY_TOPIC);
 
         return new CAConfiguration(
-                getCaTypeListFromConfiguration(configurationTopic),
-                getCaTypeFromConfiguration(configurationTopic),
+                getCaTypeListFromConfiguration(configurationTopics),
+                getCaTypeFromConfiguration(configurationTopics),
                 getCaPrivateKeyUriFromConfiguration(certAuthorityTopic),
                 getCaCertificateUriFromConfiguration(certAuthorityTopic)
         );
@@ -80,7 +77,7 @@ public final class CAConfiguration {
      * privateKeyUri and the certificateUri must be provided.
      */
     public boolean isUsingCustomCA() {
-       return privateKeyUri.isPresent() && certificateUri.isPresent();
+        return privateKeyUri.isPresent() && certificateUri.isPresent();
     }
 
     private static List<String> getCaTypeListFromConfiguration(Topics configurationTopic) {

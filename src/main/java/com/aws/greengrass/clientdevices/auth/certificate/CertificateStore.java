@@ -106,7 +106,7 @@ public class CertificateStore {
             keyStore = loadDefaultKeyStore(caType);
             logger.atDebug().log("successfully loaded existing CA keystore");
         } catch (KeyStoreException | IOException | CertificateException | NoSuchAlgorithmException
-                | UnrecoverableKeyException e) {
+                 | UnrecoverableKeyException e) {
             logger.atDebug().cause(e).log("failed to load existing CA keystore");
             createAndStoreDefaultKeyStore(caType);
             logger.atDebug().log("successfully created new CA keystore");

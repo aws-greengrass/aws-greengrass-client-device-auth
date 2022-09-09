@@ -35,8 +35,9 @@ public class UseCases {
      *
      * @param clazz Class of the instance you want to inject1
      * @param ob Concrete instance of the class
+     * @param <T> instance type
      */
-    public static UseCases provide(Class clazz, Object ob) {
+    public static <T> UseCases provide(Class<T> clazz, T ob) {
         checkCanRun();
         instance.context.put(clazz, ob);
         return instance;

@@ -9,13 +9,11 @@ import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
-import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
+import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCertificateAuthorityUseCase;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
-import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
-import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
-import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
+import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -25,7 +23,6 @@ import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
 import com.aws.greengrass.dependency.ImplementsService;
-import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.ipc.AuthorizeClientDeviceActionOperationHandler;
 import com.aws.greengrass.ipc.GetClientDeviceAuthTokenOperationHandler;
 import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
@@ -36,10 +33,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
 
-import java.io.IOException;
 import java.net.URISyntaxException;
-import java.security.KeyStoreException;
-import java.security.cert.CertificateEncodingException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -75,7 +69,6 @@ public class ClientDevicesAuthService extends PluginService {
 
 
     private final ClientDevicesAuthServiceApi clientDevicesAuthServiceApi;
-    private final DeviceConfiguration deviceConfiguration;
     private final AuthorizationHandler authorizationHandler;
     private final GreengrassCoreIPCService greengrassCoreIPCService;
     // Limit the queue size before we start rejecting requests
@@ -85,9 +78,7 @@ public class ClientDevicesAuthService extends PluginService {
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private final ThreadPoolExecutor cloudCallThreadPool;
     private int cloudCallQueueSize;
-
-    private CAConfiguration caConfiguration;
-    private RuntimeConfiguration runtimeConfiguration;
+    private CDAConfiguration cdaConfiguration;
 
 
     /**
@@ -96,7 +87,6 @@ public class ClientDevicesAuthService extends PluginService {
      * @param topics                      Root Configuration topic for this service
      * @param groupManager                Group configuration management
      * @param certificateManager          Certificate management
-     * @param deviceConfiguration         core device configuration
      * @param authorizationHandler        authorization handler for IPC calls
      * @param greengrassCoreIPCService    core IPC service
      * @param mqttSessionFactory          session factory to handling mqtt credentials
@@ -107,7 +97,6 @@ public class ClientDevicesAuthService extends PluginService {
     @Inject
     public ClientDevicesAuthService(Topics topics, GroupManager groupManager,
                                     CertificateManager certificateManager,
-                                    DeviceConfiguration deviceConfiguration,
                                     AuthorizationHandler authorizationHandler,
                                     GreengrassCoreIPCService greengrassCoreIPCService,
                                     MqttSessionFactory mqttSessionFactory,
@@ -123,7 +112,6 @@ public class ClientDevicesAuthService extends PluginService {
         this.clientDevicesAuthServiceApi = clientDevicesAuthServiceApi;
         this.groupManager = groupManager;
         this.certificateManager = certificateManager;
-        this.deviceConfiguration = deviceConfiguration;
         this.authorizationHandler = authorizationHandler;
         this.greengrassCoreIPCService = greengrassCoreIPCService;
         SessionCreator.registerSessionFactory("mqtt", mqttSessionFactory);
@@ -133,7 +121,6 @@ public class ClientDevicesAuthService extends PluginService {
         // Initialize the use cases, so we can use them anywhere in the app
         UseCases.init(getContext());
     }
-
 
 
     private int getValidCloudCallQueueSize(Topics topics) {
@@ -148,27 +135,7 @@ public class ClientDevicesAuthService extends PluginService {
         return newSize;
     }
 
-    /**
-     * Certificate Manager Service uses the following topic structure:
-     * |---- configuration
-     * |    |---- performance:
-     * |         |---- cloudRequestQueueSize: "..."
-     * |         |---- maxConcurrentCloudRequests: "..."
-     * |         |---- maxActiveAuthTokens: "..."
-     * |    |---- deviceGroups:
-     * |         |---- definitions : {}
-     * |         |---- policies : {}
-     * |    |---- certificateAuthority:
-     * |         |---- privateKeyUri: "..."
-     * |         |---- certificateUri: "..."
-     * |         |---- caType: [...]
-     * |    |---- certificates: {}
-     * |---- runtime
-     * |    |---- ca_passphrase: "..."
-     * |    |---- certificates:
-     * |         |---- authorities: [...]
-     * |
-     */
+
     @Override
     protected void install() throws InterruptedException {
         super.install();
@@ -181,11 +148,8 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void onConfigurationChanged() {
-        runtimeConfiguration = new RuntimeConfiguration(getRuntimeConfig());
-
         try {
-            caConfiguration = CAConfiguration.from(getConfig());
-            certificateManager.updateCAConfiguration(caConfiguration);
+            cdaConfiguration = CDAConfiguration.from(getConfig());
         } catch (URISyntaxException e) {
             serviceErrored(e);
         }
@@ -221,16 +185,20 @@ public class ClientDevicesAuthService extends PluginService {
             }
         }
 
-        if (whatHappened == WhatHappened.initialized || node == null) {
-            updateDeviceGroups(whatHappened, deviceGroupTopics);
-            updateCertificateAuthority();
-        } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
-            updateDeviceGroups(whatHappened, deviceGroupTopics);
-        } else if (node.childOf(CA_TYPE_KEY) || node.childOf(DEPRECATED_CA_TYPE_KEY)) {
-            if (caConfiguration.getCaTypeList().isEmpty()) {
-                return;
+        try {
+            if (whatHappened == WhatHappened.initialized || node == null) {
+                updateDeviceGroups(whatHappened, deviceGroupTopics);
+                UseCases.get(ConfigureCertificateAuthorityUseCase.class).apply(cdaConfiguration);
+            } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
+                updateDeviceGroups(whatHappened, deviceGroupTopics);
+            } else if (
+                    (node.childOf(CA_TYPE_KEY) || node.childOf(DEPRECATED_CA_TYPE_KEY))
+                            && cdaConfiguration.isCaTypesProvided()
+            ) {
+                UseCases.get(ConfigureCertificateAuthorityUseCase.class).apply(cdaConfiguration);
             }
-            updateCertificateAuthority();
+        } catch (UseCaseException e) {
+            serviceErrored(e);
         }
     }
 
@@ -289,35 +257,9 @@ public class ClientDevicesAuthService extends PluginService {
         }
     }
 
-    private void updateCertificateAuthority() {
-        String thingName = Coerce.toString(deviceConfiguration.getThingName());
-
-        // NOTE: This entire method will be moved out of here and will become part of a workflow/usecase
-        try {
-            if (caConfiguration.isUsingCustomCA()) {
-                certificateManager.configureCustomCA();
-            } else {
-                certificateManager.generateCA(runtimeConfiguration.getCaPassphrase());
-                runtimeConfiguration.updateCAPassphrase(certificateManager.getCaPassPhrase());
-            }
-
-            // Upload the generated or provided CA certificates to the GG cloud and update config
-            // NOTE: uploadCoreDeviceCAs should not block execution.
-            certificateManager.uploadCoreDeviceCAs(thingName);
-            runtimeConfiguration.updateCACertificates(certificateManager.getCACertificates());
-        } catch (CloudServiceInteractionException e) {
-            logger.atError().cause(e).kv("coreThingName", thingName)
-                    .log("Unable to upload core CA certificates to the cloud");
-        } catch (KeyStoreException | IOException | CertificateEncodingException | InvalidCertificateAuthorityException
-                 | InvalidConfigurationException e) {
-            logger.atError().cause(e).log("Failed to get the CA certificates");
-            serviceErrored(e);
-        }
-    }
-
     void updateCACertificateConfig(List<String> caCerts) {
         // NOTE: This shouldn't exist - This is just being exposed for test shouldn't be public API
-        runtimeConfiguration.updateCACertificates(caCerts);
+        cdaConfiguration.updateCACertificates(caCerts);
     }
 
     @Override

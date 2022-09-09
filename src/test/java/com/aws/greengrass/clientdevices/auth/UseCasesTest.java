@@ -6,7 +6,7 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
-import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
@@ -70,10 +70,10 @@ public class UseCasesTest {
     }
 
     static class UseCaseUpdatingDependency implements UseCases.UseCase<String, Void, Exception> {
-        private final CAConfiguration configuration;
+        private final CDAConfiguration configuration;
 
         @Inject
-        public UseCaseUpdatingDependency(CAConfiguration configuration) {
+        public UseCaseUpdatingDependency(CDAConfiguration configuration) {
             this.configuration = configuration;
         }
 
@@ -117,7 +117,7 @@ public class UseCasesTest {
                 .withValue("file:///cert-uri");
 
         // Then
-        UseCases.provide(CAConfiguration.class, CAConfiguration.from(topics));
+        UseCases.provide(CDAConfiguration.class, CDAConfiguration.from(topics));
         UseCaseUpdatingDependency useCase = UseCases.get(UseCaseUpdatingDependency.class);
         assertEquals(useCase.apply(null), "file:///cert-uri");
 
@@ -126,7 +126,7 @@ public class UseCasesTest {
                 .withValue("file:///cert-changed-uri");
 
         // Then
-        UseCases.provide(CAConfiguration.class, CAConfiguration.from(topics));
+        UseCases.provide(CDAConfiguration.class, CDAConfiguration.from(topics));
         useCase = UseCases.get(UseCaseUpdatingDependency.class);
         assertEquals(useCase.apply(null), "file:///cert-changed-uri");
     }
