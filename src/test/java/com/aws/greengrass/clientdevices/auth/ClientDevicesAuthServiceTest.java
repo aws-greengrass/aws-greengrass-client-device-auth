@@ -18,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionEx
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.dependency.State;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
@@ -108,7 +109,7 @@ class ClientDevicesAuthServiceTest {
 
 
     @BeforeEach
-    void setup(ExtensionContext context) {
+    void setup(ExtensionContext context) throws DeviceConfigurationException {
         ignoreExceptionOfType(context, SpoolerStoreException.class);
 
         // Set this property for kernel to scan its own classpath to find plugins
@@ -118,7 +119,7 @@ class ClientDevicesAuthServiceTest {
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitor);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
-        lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
+        lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
     }
 
     @AfterEach

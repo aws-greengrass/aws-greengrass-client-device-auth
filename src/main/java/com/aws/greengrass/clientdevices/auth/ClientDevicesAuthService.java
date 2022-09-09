@@ -150,6 +150,7 @@ public class ClientDevicesAuthService extends PluginService {
     private void onConfigurationChanged() {
         try {
             cdaConfiguration = CDAConfiguration.from(getConfig());
+            UseCases.provide(CDAConfiguration.class, cdaConfiguration);
         } catch (URISyntaxException e) {
             serviceErrored(e);
         }
@@ -188,14 +189,14 @@ public class ClientDevicesAuthService extends PluginService {
         try {
             if (whatHappened == WhatHappened.initialized || node == null) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-                UseCases.get(ConfigureCertificateAuthorityUseCase.class).apply(cdaConfiguration);
+                UseCases.get(ConfigureCertificateAuthorityUseCase.class).apply(null);
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
             } else if (
                     (node.childOf(CA_TYPE_KEY) || node.childOf(DEPRECATED_CA_TYPE_KEY))
                             && cdaConfiguration.isCaTypesProvided()
             ) {
-                UseCases.get(ConfigureCertificateAuthorityUseCase.class).apply(cdaConfiguration);
+                UseCases.get(ConfigureCertificateAuthorityUseCase.class).apply(null);
             }
         } catch (UseCaseException e) {
             serviceErrored(e);

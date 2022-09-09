@@ -10,6 +10,7 @@ import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
@@ -85,7 +86,7 @@ class GetClientDeviceAuthTokenTest {
     }
 
     @BeforeEach
-    void beforeEach(ExtensionContext context) {
+    void beforeEach(ExtensionContext context) throws DeviceConfigurationException {
         ignoreExceptionOfType(context, SpoolerStoreException.class);
 
         // Set this property for kernel to scan its own classpath to find plugins
@@ -93,7 +94,7 @@ class GetClientDeviceAuthTokenTest {
         kernel = new Kernel();
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
-        when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
+        when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
 
     }
 

@@ -10,6 +10,7 @@ import com.aws.greengrass.clientdevices.auth.AuthorizationRequest;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidSessionException;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
@@ -80,7 +81,7 @@ class AuthorizeClientDeviceActionTest {
     }
 
     @BeforeEach
-    void beforeEach(ExtensionContext context) {
+    void beforeEach(ExtensionContext context) throws DeviceConfigurationException {
         ignoreExceptionOfType(context, SpoolerStoreException.class);
 
         // Set this property for kernel to scan its own classpath to find plugins
@@ -88,7 +89,7 @@ class AuthorizeClientDeviceActionTest {
         kernel = new Kernel();
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
-        when(clientFactory.getGreengrassV2DataClient()).thenReturn(v2DataClient);
+        when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(v2DataClient);
 
     }
 
