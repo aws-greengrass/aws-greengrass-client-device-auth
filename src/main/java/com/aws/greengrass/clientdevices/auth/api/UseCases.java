@@ -3,28 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.api.usecases;
+package com.aws.greengrass.clientdevices.auth.api;
 
+import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
+import com.aws.greengrass.util.CrashableFunction;
 
-import java.lang.reflect.Proxy;
 
-
-public final class UseCases {
-    private static UseCases instance;
+public class UseCases {
     private final Context context;
+    private static UseCases instance;
+
+    // Delegates to CrashableFunction but provides a domain rich alias
+    public interface UseCase<R, D, E extends Exception> extends CrashableFunction<D, R, E> {}
 
     private UseCases(Context context) {
         this.context = context;
     }
 
-    public static void init(Context context) {
-       instance = new UseCases(context);
-    }
-
-    private static <I, T extends I> I decorate(T t, Class<I> intrface) {
-        UseCaseDecorator useCaseDecorator = new UseCaseDecorator(t);
-        return (I) Proxy.newProxyInstance(intrface.getClassLoader(), new Class[]{intrface}, useCaseDecorator);
+    public static void init(Topics topics) {
+       instance = new UseCases(topics.getContext());
     }
 
     private static void checkCanRun() {
@@ -46,14 +44,14 @@ public final class UseCases {
     }
 
     /**
-     * Builds a brand-new instance of the use case, injecting the dependencies on the context. It returns a decorated
-     * use case that logs the execution time.
+     * Wrapper around context that will generate a new instance of a Use Case with
+     * the latest dependencies on the context.
      *
      * @param clazz Use Case class to be built
      * @param <C>   Use Case concrete class
      */
-    public static <C extends UseCase> UseCase get(Class<C> clazz) {
+    public static <C extends UseCase> C get(Class<C> clazz) {
         checkCanRun();
-        return decorate(instance.context.newInstance(clazz), UseCase.class);
+        return instance.context.newInstance(clazz);
     }
 }
