@@ -22,6 +22,7 @@ import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationExce
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.security.SecurityService;
@@ -298,13 +299,14 @@ public class CertificateManager {
      * Uploads the stored certificates to the cloud.
      *
      * @param thingName Core device name
-     * @throws CertificateEncodingException      If unable to get certificate encoding
-     * @throws KeyStoreException                if unable to retrieve the certificate
-     * @throws IOException                      If unable to read certificate
+     * @throws CertificateEncodingException   If unable to get certificate encoding
+     * @throws KeyStoreException              If unable to retrieve the certificate
+     * @throws IOException                    If unable to read certificate
+     * @throws DeviceConfigurationException   If unable to retrieve Greengrass V2 Data client
      */
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidRethrowingException"})
     public void uploadCoreDeviceCAs(String thingName) throws CertificateEncodingException, KeyStoreException,
-            IOException {
+            IOException, DeviceConfigurationException {
         List<String> certificatePemList = getCACertificates();
         List<Class> retryAbleExceptions = Arrays.asList(ThrottlingException.class, InternalServerException.class,
                 AccessDeniedException.class);
@@ -320,12 +322,16 @@ public class CertificateManager {
 
         try {
             RetryUtils.runWithRetry(retryConfig,
-                    () -> clientFactory.getGreengrassV2DataClient().putCertificateAuthorities(request),
+                    () -> clientFactory.fetchGreengrassV2DataClient().putCertificateAuthorities(request),
                     "put-core-ca-certificate", logger);
         } catch (InterruptedException e) {
             logger.atInfo().log("Put core CA certificates got interrupted");
             // interrupt the current thread so that higher-level interrupt handlers can take care of it
             Thread.currentThread().interrupt();
+        } catch (DeviceConfigurationException e) {
+            // Need to explicitly catch and re-throw so this doesn't get eaten
+            // by the next catch block
+            throw e;
         } catch (Exception e) {
             throw new CloudServiceInteractionException("Failed to put core CA certificates to cloud. Check that the "
                     + "core device's IoT policy grants the greengrass:PutCertificateAuthorities permission.", e);

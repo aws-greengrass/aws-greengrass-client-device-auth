@@ -9,6 +9,7 @@ import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
@@ -57,6 +58,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
@@ -82,7 +84,7 @@ class VerifyClientDeviceIdentityTest {
     }
 
     @BeforeEach
-    void beforeEach(ExtensionContext context) {
+    void beforeEach(ExtensionContext context) throws DeviceConfigurationException {
         ignoreExceptionOfType(context, SpoolerStoreException.class);
 
         // Set this property for kernel to scan its own classpath to find plugins
@@ -90,7 +92,9 @@ class VerifyClientDeviceIdentityTest {
         kernel = new Kernel();
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
-        when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
+        // TODO: getGreengrassV2DataClient mock can be removed once IotAuthClient migrates to new API
+        lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
+        when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
 
     }
 
@@ -195,7 +199,7 @@ class VerifyClientDeviceIdentityTest {
             ExtensionContext context)
             throws Exception {
         startNucleusWithConfig("cda.yaml");
-        when(clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(
+        when(clientFactory.fetchGreengrassV2DataClient().verifyClientDeviceIdentity(
                 any(software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest.class)))
                 .thenThrow(ValidationException.class);
         ignoreExceptionOfType(context, ValidationException.class);
