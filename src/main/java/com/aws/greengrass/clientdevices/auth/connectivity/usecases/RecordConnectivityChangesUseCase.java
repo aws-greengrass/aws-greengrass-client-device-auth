@@ -33,9 +33,11 @@ public class RecordConnectivityChangesUseCase implements
 
     @Override
     public UpdateConnectivityInformationResponse apply(UpdateConnectivityInformationRequest updateRequest) {
+        // TODO: Consider pushing some of this logic to compute diff into the domain. Being able to retrieve
+        // connectivity information for a single source may also be useful.
         Set<HostAddress> previousConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
 
-        connectivityInformation.updateConnectivityInformationForSource(
+        connectivityInformation.recordConnectivityInformationForSource(
                 updateRequest.getSource(), updateRequest.getConnectivityInformation());
 
         Set<HostAddress> newConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();

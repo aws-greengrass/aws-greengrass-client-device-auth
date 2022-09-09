@@ -137,19 +137,19 @@ public class ConnectivityInformationTest {
                 .map(HostAddress::of)
                 .collect(Collectors.toSet());
 
-        connectivityInformation.updateConnectivityInformationForSource("source", sourceConnectivityInfo);
+        connectivityInformation.recordConnectivityInformationForSource("source", sourceConnectivityInfo);
         Set<HostAddress> mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
         assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
         assertThat(mergedConnectivityInfo.size(), is(sourceConnectivityInfo.size()));
 
         // Add HostAddress to existing source
-        connectivityInformation.updateConnectivityInformationForSource("source", connectivityInfoSuperset);
+        connectivityInformation.recordConnectivityInformationForSource("source", connectivityInfoSuperset);
         mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
         assertTrue(mergedConnectivityInfo.containsAll(connectivityInfoSuperset));
         assertThat(mergedConnectivityInfo.size(), is(connectivityInfoSuperset.size()));
 
         // Remove HostAddress from existing source
-        connectivityInformation.updateConnectivityInformationForSource("source", sourceConnectivityInfo);
+        connectivityInformation.recordConnectivityInformationForSource("source", sourceConnectivityInfo);
         mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
         assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
         assertThat(mergedConnectivityInfo.size(), is(sourceConnectivityInfo.size()));
@@ -164,8 +164,8 @@ public class ConnectivityInformationTest {
                 .map(HostAddress::of)
                 .collect(Collectors.toSet());
 
-        connectivityInformation.updateConnectivityInformationForSource("source", sourceConnectivityInfo);
-        connectivityInformation.updateConnectivityInformationForSource("source2", disjointConnectivityInfoSet);
+        connectivityInformation.recordConnectivityInformationForSource("source", sourceConnectivityInfo);
+        connectivityInformation.recordConnectivityInformationForSource("source2", disjointConnectivityInfoSet);
 
         Set<HostAddress> mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
         assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
@@ -182,8 +182,8 @@ public class ConnectivityInformationTest {
                 .map(HostAddress::of)
                 .collect(Collectors.toSet());
 
-        connectivityInformation.updateConnectivityInformationForSource("source", sourceConnectivityInfo);
-        connectivityInformation.updateConnectivityInformationForSource("source2", overlappingConnectivityInfo);
+        connectivityInformation.recordConnectivityInformationForSource("source", sourceConnectivityInfo);
+        connectivityInformation.recordConnectivityInformationForSource("source2", overlappingConnectivityInfo);
 
         Set<HostAddress> mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
         assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
@@ -191,7 +191,7 @@ public class ConnectivityInformationTest {
         assertThat(mergedConnectivityInfo.size(), is(sourceConnectivityInfo.size()));
 
         // Remove overlapping connectivity info - but it should still appear in merged set
-        connectivityInformation.updateConnectivityInformationForSource("source2", Collections.emptySet());
+        connectivityInformation.recordConnectivityInformationForSource("source2", Collections.emptySet());
         mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
         assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
         assertTrue(mergedConnectivityInfo.containsAll(overlappingConnectivityInfo));

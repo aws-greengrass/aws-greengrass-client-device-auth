@@ -97,7 +97,7 @@ public class ConnectivityInformation {
         Set<HostAddress> hostAddresses = connectivityInfoList.stream()
                 .map(HostAddress::of)
                 .collect(Collectors.toSet());
-        updateConnectivityInformationForSource("connectivity-information-service", hostAddresses);
+        recordConnectivityInformationForSource("connectivity-information-service", hostAddresses);
 
         return connectivityInfoList;
     }
@@ -116,12 +116,12 @@ public class ConnectivityInformation {
     }
 
     /**
-     * Update connectivity information.
+     * Record connectivity information.
      *
      * @param source                 connectivity information source.
      * @param sourceConnectivityInfo connectivity information.
      */
-    public void updateConnectivityInformationForSource(String source, Set<HostAddress> sourceConnectivityInfo) {
+    public void recordConnectivityInformationForSource(String source, Set<HostAddress> sourceConnectivityInfo) {
         LOGGER.atInfo()
                 .kv("source", source)
                 .kv("connectivityInformation", sourceConnectivityInfo)
