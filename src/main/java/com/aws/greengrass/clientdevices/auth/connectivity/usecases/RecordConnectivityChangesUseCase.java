@@ -8,8 +8,8 @@ package com.aws.greengrass.clientdevices.auth.connectivity.usecases;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
-import com.aws.greengrass.clientdevices.auth.connectivity.UpdateConnectivityInformationRequest;
-import com.aws.greengrass.clientdevices.auth.connectivity.UpdateConnectivityInformationResponse;
+import com.aws.greengrass.clientdevices.auth.connectivity.RecordConnectivityChangesRequest;
+import com.aws.greengrass.clientdevices.auth.connectivity.RecordConnectivityChangesResponse;
 
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -23,7 +23,7 @@ import javax.inject.Inject;
  * last update.
  */
 public class RecordConnectivityChangesUseCase implements
-        UseCases.UseCase<UpdateConnectivityInformationResponse, UpdateConnectivityInformationRequest, Exception> {
+        UseCases.UseCase<RecordConnectivityChangesResponse, RecordConnectivityChangesRequest, Exception> {
     private final ConnectivityInformation connectivityInformation;
 
     @Inject
@@ -32,7 +32,7 @@ public class RecordConnectivityChangesUseCase implements
     }
 
     @Override
-    public UpdateConnectivityInformationResponse apply(UpdateConnectivityInformationRequest updateRequest) {
+    public RecordConnectivityChangesResponse apply(RecordConnectivityChangesRequest updateRequest) {
         // TODO: Consider pushing some of this logic to compute diff into the domain. Being able to retrieve
         // connectivity information for a single source may also be useful.
         Set<HostAddress> previousConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
@@ -48,6 +48,6 @@ public class RecordConnectivityChangesUseCase implements
                 .filter((item) -> !newConnectivityInfo.contains(item))
                 .collect(Collectors.toSet());
 
-        return new UpdateConnectivityInformationResponse(addedAddresses, removedAddresses);
+        return new RecordConnectivityChangesResponse(addedAddresses, removedAddresses);
     }
 }

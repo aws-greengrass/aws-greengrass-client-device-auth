@@ -10,12 +10,12 @@ import lombok.Getter;
 import java.util.Set;
 
 @Getter
-public class UpdateConnectivityInformationResponse {
+public class RecordConnectivityChangesResponse {
     private final Set<HostAddress> addedHostAddresses;
     private final Set<HostAddress> removedHostAddresses;
 
-    public UpdateConnectivityInformationResponse(Set<HostAddress> addedHostAddresses,
-                                                 Set<HostAddress> removedHostAddresses) {
+    public RecordConnectivityChangesResponse(Set<HostAddress> addedHostAddresses,
+                                             Set<HostAddress> removedHostAddresses) {
         this.addedHostAddresses = addedHostAddresses;
         this.removedHostAddresses = removedHostAddresses;
     }

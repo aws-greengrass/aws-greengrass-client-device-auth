@@ -10,11 +10,11 @@ import lombok.Getter;
 import java.util.Set;
 
 @Getter
-public class UpdateConnectivityInformationRequest {
+public class RecordConnectivityChangesRequest {
     private final String source;
     private final Set<HostAddress> connectivityInformation;
 
-    public UpdateConnectivityInformationRequest(String source, Set<HostAddress> connectivityInformation) {
+    public RecordConnectivityChangesRequest(String source, Set<HostAddress> connectivityInformation) {
         this.source = source;
         this.connectivityInformation = connectivityInformation;
     }
