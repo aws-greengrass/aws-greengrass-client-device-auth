@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.api;
 
-import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.util.CrashableFunction;
 
@@ -21,8 +20,8 @@ public class UseCases {
         this.context = context;
     }
 
-    public static void init(Topics topics) {
-       instance = new UseCases(topics.getContext());
+    public static void init(Context context) {
+       instance = new UseCases(context);
     }
 
     private static void checkCanRun() {

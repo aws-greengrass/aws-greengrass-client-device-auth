@@ -29,8 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class UseCasesTest {
-
-    private Context context;
     private Topics topics;
 
     static class TestDependency {
@@ -87,15 +85,14 @@ public class UseCasesTest {
 
     @BeforeEach
     void beforeEach() {
-        context = new Context();
-        topics = Topics.of(context, CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
-        UseCases.init(topics);
+        topics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
+        UseCases.init(topics.getContext());
     }
 
     @Test
     void GIVEN_aUseCaseWithDependencies_WHEN_ran_THEN_itExecutesWithNoExceptions() {
         TestDependency aTestDependency = new TestDependency("Something");
-        context.put(TestDependency.class, aTestDependency);
+        UseCases.provide(TestDependency.class, aTestDependency);
 
         UseCaseWithDependencies useCase = UseCases.get(UseCaseWithDependencies.class);
         assertEquals(useCase.apply(null), aTestDependency.name);
