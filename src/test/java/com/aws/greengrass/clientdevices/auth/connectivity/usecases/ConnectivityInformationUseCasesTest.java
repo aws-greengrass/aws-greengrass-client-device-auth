@@ -55,7 +55,7 @@ public class ConnectivityInformationUseCasesTest {
         context.put(GreengrassServiceClientFactory.class, Mockito.mock(GreengrassServiceClientFactory.class));
 
         Topics topics = Topics.of(context, CONFIGURATION_CONFIG_KEY, null);
-        UseCases.init(topics);
+        UseCases.init(topics.getContext());
     }
 
     @Test
