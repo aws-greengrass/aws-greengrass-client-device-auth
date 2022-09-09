@@ -66,7 +66,7 @@ public class ConnectivityInformationUseCasesTest {
     }
 
     @Test
-    void GIVEN_connectivityInfo_WHEN_updateUseCase_THEN_connectivityInfoIsAdded() {
+    void GIVEN_connectivityInfo_WHEN_recordChangesUseCase_THEN_connectivityInfoIsAdded() {
         GetConnectivityInformationUseCase getUseCase = UseCases.get(GetConnectivityInformationUseCase.class);
         RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
@@ -82,7 +82,7 @@ public class ConnectivityInformationUseCasesTest {
     }
 
     @Test
-    void GIVEN_duplicateConnectivityInfo_WHEN_updateUseCase_THEN_noChange() {
+    void GIVEN_duplicateConnectivityInfo_WHEN_recordChangesUseCase_THEN_noChange() {
         RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         RecordConnectivityChangesRequest request =
@@ -98,7 +98,7 @@ public class ConnectivityInformationUseCasesTest {
     }
 
     @Test
-    void GIVEN_connectivityInformationSuperset_WHEN_updateUseCase_THEN_onlyConnectivityDeltaChanges() {
+    void GIVEN_connectivityInformationSuperset_WHEN_recordChangesUseCase_THEN_onlyConnectivityDeltaChanges() {
         RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         RecordConnectivityChangesRequest request =
@@ -116,7 +116,7 @@ public class ConnectivityInformationUseCasesTest {
     }
 
     @Test
-    void GIVEN_connectivityInformationSubset_WHEN_updateUseCase_THEN_onlyConnectivityDeltaChanges() {
+    void GIVEN_connectivityInformationSubset_WHEN_recordChangesUseCase_THEN_onlyConnectivityDeltaChanges() {
         RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         RecordConnectivityChangesRequest request =
@@ -134,7 +134,7 @@ public class ConnectivityInformationUseCasesTest {
     }
 
     @Test
-    void GIVEN_secondSourceWithConnectivityInformationSubset_WHEN_updateUseCase_THEN_noChange() {
+    void GIVEN_secondSourceWithConnectivityInformationSubset_WHEN_recordChangesUseCase_THEN_noChange() {
         RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         RecordConnectivityChangesRequest request =
@@ -152,7 +152,7 @@ public class ConnectivityInformationUseCasesTest {
     }
 
     @Test
-    void GIVEN_emptySetAfterUpdatingConnectivityInformation_WHEN_updateUseCase_THEN_connectivityInfoRemoved() {
+    void GIVEN_emptySetAfterRecordingConnectivityChanges_WHEN_recordChangesUseCase_THEN_connectivityInfoRemoved() {
         RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         RecordConnectivityChangesRequest request =

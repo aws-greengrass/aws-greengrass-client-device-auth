@@ -16,11 +16,11 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 /**
- * Update Connectivity Information.
+ * Record Connectivity Changes.
  * </p>
  * This use case constructs current connectivity information from
  * connectivity providers and returns a diff (if any) since the
- * last update.
+ * last recorded change.
  */
 public class RecordConnectivityChangesUseCase implements
         UseCases.UseCase<RecordConnectivityChangesResponse, RecordConnectivityChangesRequest, Exception> {
@@ -32,13 +32,13 @@ public class RecordConnectivityChangesUseCase implements
     }
 
     @Override
-    public RecordConnectivityChangesResponse apply(RecordConnectivityChangesRequest updateRequest) {
+    public RecordConnectivityChangesResponse apply(RecordConnectivityChangesRequest recordChangesRequest) {
         // TODO: Consider pushing some of this logic to compute diff into the domain. Being able to retrieve
         // connectivity information for a single source may also be useful.
         Set<HostAddress> previousConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
 
         connectivityInformation.recordConnectivityInformationForSource(
-                updateRequest.getSource(), updateRequest.getConnectivityInformation());
+                recordChangesRequest.getSource(), recordChangesRequest.getConnectivityInformation());
 
         Set<HostAddress> newConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
         Set<HostAddress> addedAddresses = newConnectivityInfo.stream()
