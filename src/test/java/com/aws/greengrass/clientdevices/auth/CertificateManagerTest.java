@@ -8,14 +8,14 @@ package com.aws.greengrass.clientdevices.auth;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
-import com.aws.greengrass.clientdevices.auth.certificate.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
+import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.security.SecurityService;
@@ -67,7 +67,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateManagerTest {
     @Mock
-    ConnectivityInfoProvider mockConnectivityInfoProvider;
+    ConnectivityInformation mockConnectivityInformation;
 
     @Mock
     CertificateExpiryMonitor mockCertExpiryMonitor;
@@ -88,7 +88,7 @@ public class CertificateManagerTest {
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
-        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInfoProvider,
+        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInformation,
                 mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactoryMock, securityServiceMock);
 
         CertificatesConfig certificatesConfig = new CertificatesConfig(

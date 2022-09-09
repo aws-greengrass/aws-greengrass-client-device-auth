@@ -8,7 +8,6 @@ package com.aws.greengrass.clientdevices.auth;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
-import com.aws.greengrass.clientdevices.auth.certificate.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
@@ -16,13 +15,13 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
-import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
+import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
-import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.security.SecurityService;
@@ -55,7 +54,7 @@ import javax.inject.Inject;
 
 public class CertificateManager {
     private final CertificateStore certificateStore;
-    private final ConnectivityInfoProvider connectivityInfoProvider;
+    private final ConnectivityInformation connectivityInformation;
     private final CertificateExpiryMonitor certExpiryMonitor;
     private final CISShadowMonitor cisShadowMonitor;
     private final Clock clock;
@@ -63,30 +62,30 @@ public class CertificateManager {
     private final GreengrassServiceClientFactory clientFactory;
     private final SecurityService securityService;
     private CertificatesConfig certificatesConfig;
-    private static final Logger logger = LogManager.getLogger(CAConfiguration.class);
+    private static final Logger logger = LogManager.getLogger(CertificateManager.class);
 
 
     /**
      * Construct a new CertificateManager.
      *
-     * @param certificateStore         Helper class for managing certificate authorities
-     * @param connectivityInfoProvider Connectivity Info Provider
-     * @param certExpiryMonitor        Certificate Expiry Monitor
-     * @param cisShadowMonitor         CIS Shadow Monitor
-     * @param clock                    clock
-     * @param clientFactory            Greengrass cloud service client factory
+     * @param certificateStore        Helper class for managing certificate authorities
+     * @param connectivityInformation Connectivity Info Provider
+     * @param certExpiryMonitor       Certificate Expiry Monitor
+     * @param cisShadowMonitor        CIS Shadow Monitor
+     * @param clock                   clock
+     * @param clientFactory           Greengrass cloud service client factory
      * @param securityService          Security Service
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore,
-                              ConnectivityInfoProvider connectivityInfoProvider,
+                              ConnectivityInformation connectivityInformation,
                               CertificateExpiryMonitor certExpiryMonitor,
                               CISShadowMonitor cisShadowMonitor,
                               Clock clock,
                               GreengrassServiceClientFactory clientFactory,
                               SecurityService securityService) {
         this.certificateStore = certificateStore;
-        this.connectivityInfoProvider = connectivityInfoProvider;
+        this.connectivityInformation = connectivityInformation;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
         this.clock = clock;
@@ -217,7 +216,7 @@ public class CertificateManager {
         certExpiryMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
-        certificateGenerator.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
+        certificateGenerator.generateCertificate(connectivityInformation::getCachedHostAddresses,
                 "initialization of server cert subscription");
 
         certSubscriptions.compute(certificateRequest, (k, v) -> {
@@ -333,4 +332,3 @@ public class CertificateManager {
         }
     }
 }
-
