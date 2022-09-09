@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.certificate;
+package com.aws.greengrass.clientdevices.auth.connectivity;
 
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.clientdevices.auth.iot.ConnectivityInfoProvider;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -70,7 +70,7 @@ public class CISShadowMonitor {
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
     private final String shadowName;
-    private final ConnectivityInfoProvider connectivityInfoProvider;
+    private final ConnectivityInformation connectivityInformation;
 
     @Getter(AccessLevel.PACKAGE) // for unit tests
     private final MqttClientConnectionEvents callbacks = new MqttClientConnectionEvents() {
@@ -93,27 +93,27 @@ public class CISShadowMonitor {
      * @param mqttClient               IoT MQTT client
      * @param executorService          Executor service
      * @param deviceConfiguration      Device configuration
-     * @param connectivityInfoProvider Connectivity Info Provider
+     * @param connectivityInformation Connectivity Info Provider
      */
     @Inject
     public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
                             DeviceConfiguration deviceConfiguration,
-                            ConnectivityInfoProvider connectivityInfoProvider) {
+                            ConnectivityInformation connectivityInformation) {
         this(mqttClient, null, null, executorService,
-                Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX, connectivityInfoProvider);
+                Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX, connectivityInformation);
         this.connection = new WrapperMqttClientConnection(mqttClient);
         this.iotShadowClient = new IotShadowClient(this.connection);
     }
 
     CISShadowMonitor(MqttClient mqttClient, MqttClientConnection connection, IotShadowClient iotShadowClient,
                      ExecutorService executorService, String shadowName,
-                     ConnectivityInfoProvider connectivityInfoProvider) {
+                     ConnectivityInformation connectivityInformation) {
         mqttClient.addToCallbackEvents(callbacks);
         this.connection = connection;
         this.iotShadowClient = iotShadowClient;
         this.executorService = executorService;
         this.shadowName = shadowName;
-        this.connectivityInfoProvider = connectivityInfoProvider;
+        this.connectivityInformation = connectivityInformation;
     }
 
     /**
@@ -239,7 +239,7 @@ public class CISShadowMonitor {
         // to avoid blocking other MQTT subscribers in the Nucleus
         CompletableFuture.runAsync(() -> {
             try {
-                RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInfoProvider::getConnectivityInfo,
+                RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInformation::getConnectivityInfo,
                         "get-connectivity", LOGGER);
             } catch (InterruptedException e) {
                 LOGGER.atDebug().kv(VERSION, version).cause(e)
@@ -256,7 +256,7 @@ public class CISShadowMonitor {
 
             try {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
-                    cg.generateCertificate(connectivityInfoProvider::getCachedHostAddresses,
+                    cg.generateCertificate(connectivityInformation::getCachedHostAddresses,
                             "connectivity info was updated");
                 }
             } catch (CertificateGenerationException e) {
