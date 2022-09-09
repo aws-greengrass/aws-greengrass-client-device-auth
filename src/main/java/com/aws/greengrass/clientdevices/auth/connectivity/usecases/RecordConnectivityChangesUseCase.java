@@ -22,12 +22,12 @@ import javax.inject.Inject;
  * connectivity providers and returns a diff (if any) since the
  * last update.
  */
-public class UpdateConnectivityInformationUseCase implements
+public class RecordConnectivityChangesUseCase implements
         UseCases.UseCase<UpdateConnectivityInformationResponse, UpdateConnectivityInformationRequest, Exception> {
     private final ConnectivityInformation connectivityInformation;
 
     @Inject
-    public UpdateConnectivityInformationUseCase(ConnectivityInformation connectivityInformation) {
+    public RecordConnectivityChangesUseCase(ConnectivityInformation connectivityInformation) {
         this.connectivityInformation = connectivityInformation;
     }
 

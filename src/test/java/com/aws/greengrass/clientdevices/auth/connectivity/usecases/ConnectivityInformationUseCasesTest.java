@@ -68,14 +68,14 @@ public class ConnectivityInformationUseCasesTest {
     @Test
     void GIVEN_connectivityInfo_WHEN_updateUseCase_THEN_connectivityInfoIsAdded() {
         GetConnectivityInformationUseCase getUseCase = UseCases.get(GetConnectivityInformationUseCase.class);
-        UpdateConnectivityInformationUseCase updateUseCase = UseCases.get(UpdateConnectivityInformationUseCase.class);
+        RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         UpdateConnectivityInformationRequest request =
                 new UpdateConnectivityInformationRequest(defaultSource, sourceConnectivityInfo);
-        UpdateConnectivityInformationResponse updateResponse = updateUseCase.apply(request);
-        assertTrue(updateResponse.didChange());
-        assertEquals(updateResponse.getAddedHostAddresses(), sourceConnectivityInfo);
-        assertTrue(updateResponse.getRemovedHostAddresses().isEmpty());
+        UpdateConnectivityInformationResponse recordChangeResponse = recordChangeUseCase.apply(request);
+        assertTrue(recordChangeResponse.didChange());
+        assertEquals(recordChangeResponse.getAddedHostAddresses(), sourceConnectivityInfo);
+        assertTrue(recordChangeResponse.getRemovedHostAddresses().isEmpty());
 
         Set<HostAddress> retrievedConnectivityInfo = getUseCase.apply(null);
         assertEquals(retrievedConnectivityInfo, sourceConnectivityInfo);
@@ -83,89 +83,89 @@ public class ConnectivityInformationUseCasesTest {
 
     @Test
     void GIVEN_duplicateConnectivityInfo_WHEN_updateUseCase_THEN_noChange() {
-        UpdateConnectivityInformationUseCase updateUseCase = UseCases.get(UpdateConnectivityInformationUseCase.class);
+        RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         UpdateConnectivityInformationRequest request =
                 new UpdateConnectivityInformationRequest(defaultSource, sourceConnectivityInfo);
 
-        UpdateConnectivityInformationResponse updateResponse = updateUseCase.apply(request);
-        assertTrue(updateResponse.didChange()); // Do something with initial response to prevent PMD violation
+        UpdateConnectivityInformationResponse recordChangeResponse = recordChangeUseCase.apply(request);
+        assertTrue(recordChangeResponse.didChange()); // Do something with initial response to prevent PMD violation
 
-        updateResponse = updateUseCase.apply(request);
-        assertFalse(updateResponse.didChange());
-        assertTrue(updateResponse.getAddedHostAddresses().isEmpty());
-        assertTrue(updateResponse.getRemovedHostAddresses().isEmpty());
+        recordChangeResponse = recordChangeUseCase.apply(request);
+        assertFalse(recordChangeResponse.didChange());
+        assertTrue(recordChangeResponse.getAddedHostAddresses().isEmpty());
+        assertTrue(recordChangeResponse.getRemovedHostAddresses().isEmpty());
     }
 
     @Test
     void GIVEN_connectivityInformationSuperset_WHEN_updateUseCase_THEN_onlyConnectivityDeltaChanges() {
-        UpdateConnectivityInformationUseCase updateUseCase = UseCases.get(UpdateConnectivityInformationUseCase.class);
+        RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         UpdateConnectivityInformationRequest request =
                 new UpdateConnectivityInformationRequest(defaultSource, sourceConnectivityInfo);
 
-        UpdateConnectivityInformationResponse updateResponse = updateUseCase.apply(request);
-        assertTrue(updateResponse.didChange()); // Do something with initial response to prevent PMD violation
+        UpdateConnectivityInformationResponse recordChangeResponse = recordChangeUseCase.apply(request);
+        assertTrue(recordChangeResponse.didChange()); // Do something with initial response to prevent PMD violation
 
         request = new UpdateConnectivityInformationRequest(defaultSource, connectivityInfoSuperset);
 
-        updateResponse = updateUseCase.apply(request);
-        assertTrue(updateResponse.didChange());
-        assertEquals(updateResponse.getAddedHostAddresses(), new HashSet<>(Collections.singleton(supersetHost)));
-        assertEquals(updateResponse.getRemovedHostAddresses(), Collections.emptySet());
+        recordChangeResponse = recordChangeUseCase.apply(request);
+        assertTrue(recordChangeResponse.didChange());
+        assertEquals(recordChangeResponse.getAddedHostAddresses(), new HashSet<>(Collections.singleton(supersetHost)));
+        assertEquals(recordChangeResponse.getRemovedHostAddresses(), Collections.emptySet());
     }
 
     @Test
     void GIVEN_connectivityInformationSubset_WHEN_updateUseCase_THEN_onlyConnectivityDeltaChanges() {
-        UpdateConnectivityInformationUseCase updateUseCase = UseCases.get(UpdateConnectivityInformationUseCase.class);
+        RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         UpdateConnectivityInformationRequest request =
                 new UpdateConnectivityInformationRequest(defaultSource, connectivityInfoSuperset);
 
-        UpdateConnectivityInformationResponse updateResponse = updateUseCase.apply(request);
-        assertTrue(updateResponse.didChange()); // Do something with initial response to prevent PMD violation
+        UpdateConnectivityInformationResponse recordChangeResponse = recordChangeUseCase.apply(request);
+        assertTrue(recordChangeResponse.didChange()); // Do something with initial response to prevent PMD violation
 
         request = new UpdateConnectivityInformationRequest(defaultSource, sourceConnectivityInfo);
 
-        updateResponse = updateUseCase.apply(request);
-        assertTrue(updateResponse.didChange());
-        assertEquals(updateResponse.getAddedHostAddresses(), Collections.emptySet());
-        assertEquals(updateResponse.getRemovedHostAddresses(), new HashSet<>(Collections.singleton(supersetHost)));
+        recordChangeResponse = recordChangeUseCase.apply(request);
+        assertTrue(recordChangeResponse.didChange());
+        assertEquals(recordChangeResponse.getAddedHostAddresses(), Collections.emptySet());
+        assertEquals(recordChangeResponse.getRemovedHostAddresses(), Collections.singleton(supersetHost));
     }
 
     @Test
     void GIVEN_secondSourceWithConnectivityInformationSubset_WHEN_updateUseCase_THEN_noChange() {
-        UpdateConnectivityInformationUseCase updateUseCase = UseCases.get(UpdateConnectivityInformationUseCase.class);
+        RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         UpdateConnectivityInformationRequest request =
                 new UpdateConnectivityInformationRequest(defaultSource, connectivityInfoSuperset);
 
-        UpdateConnectivityInformationResponse updateResponse = updateUseCase.apply(request);
-        assertTrue(updateResponse.didChange()); // Do something with initial response to prevent PMD violation
+        UpdateConnectivityInformationResponse recordChangeResponse = recordChangeUseCase.apply(request);
+        assertTrue(recordChangeResponse.didChange()); // Do something with initial response to prevent PMD violation
 
         request = new UpdateConnectivityInformationRequest("source2", sourceConnectivityInfo);
 
-        updateResponse = updateUseCase.apply(request);
-        assertFalse(updateResponse.didChange());
-        assertEquals(updateResponse.getAddedHostAddresses(), Collections.emptySet());
-        assertEquals(updateResponse.getRemovedHostAddresses(), Collections.emptySet());
+        recordChangeResponse = recordChangeUseCase.apply(request);
+        assertFalse(recordChangeResponse.didChange());
+        assertEquals(recordChangeResponse.getAddedHostAddresses(), Collections.emptySet());
+        assertEquals(recordChangeResponse.getRemovedHostAddresses(), Collections.emptySet());
     }
 
     @Test
     void GIVEN_emptySetAfterUpdatingConnectivityInformation_WHEN_updateUseCase_THEN_connectivityInfoRemoved() {
-        UpdateConnectivityInformationUseCase updateUseCase = UseCases.get(UpdateConnectivityInformationUseCase.class);
+        RecordConnectivityChangesUseCase recordChangeUseCase = UseCases.get(RecordConnectivityChangesUseCase.class);
 
         UpdateConnectivityInformationRequest request =
                 new UpdateConnectivityInformationRequest(defaultSource, sourceConnectivityInfo);
 
-        UpdateConnectivityInformationResponse updateResponse = updateUseCase.apply(request);
-        assertTrue(updateResponse.didChange()); // Do something with initial response to prevent PMD violation
+        UpdateConnectivityInformationResponse recordChangeResponse = recordChangeUseCase.apply(request);
+        assertTrue(recordChangeResponse.didChange()); // Do something with initial response to prevent PMD violation
 
         request = new UpdateConnectivityInformationRequest(defaultSource, Collections.emptySet());
 
-        updateResponse = updateUseCase.apply(request);
-        assertTrue(updateResponse.didChange());
-        assertEquals(updateResponse.getAddedHostAddresses(), Collections.emptySet());
-        assertEquals(updateResponse.getRemovedHostAddresses(), sourceConnectivityInfo);
+        recordChangeResponse = recordChangeUseCase.apply(request);
+        assertTrue(recordChangeResponse.didChange());
+        assertEquals(recordChangeResponse.getAddedHostAddresses(), Collections.emptySet());
+        assertEquals(recordChangeResponse.getRemovedHostAddresses(), sourceConnectivityInfo);
     }
 }
