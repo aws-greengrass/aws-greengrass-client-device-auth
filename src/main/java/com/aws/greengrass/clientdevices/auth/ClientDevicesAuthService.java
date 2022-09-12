@@ -86,7 +86,7 @@ public class ClientDevicesAuthService extends PluginService {
      *
      * @param topics                      Root Configuration topic for this service
      * @param groupManager                Group configuration management
-     * @param certificateManager           Certificate management
+     * @param certificateManager          Certificate management
      * @param authorizationHandler        authorization handler for IPC calls
      * @param greengrassCoreIPCService    core IPC service
      * @param mqttSessionFactory          session factory to handling mqtt credentials

@@ -48,10 +48,9 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
         //  the ClientDeviceAuthService first.
         try {
             if (cdaConfiguration.isUsingCustomCA()) {
-                logger.info("Configuration custom certificate authority");
+                logger.info("Configuring custom certificate authority");
                 certificateManager.configureCustomCA(cdaConfiguration);
             } else {
-                logger.info("Creating a Certificate Authority");
                 certificateManager.generateCA(cdaConfiguration.getCaPassphrase(), cdaConfiguration.getCaType());
                 cdaConfiguration.updateCAPassphrase(certificateManager.getCaPassPhrase());
             }
