@@ -106,7 +106,7 @@ public final class CDAConfiguration {
      *
      * @param config  CDAConfiguration
      */
-    public boolean certificateAuthorityChanged(CDAConfiguration config) {
+    public boolean hasCAConfigurationChanged(CDAConfiguration config) {
         if (config == null) {
             return true;
         }

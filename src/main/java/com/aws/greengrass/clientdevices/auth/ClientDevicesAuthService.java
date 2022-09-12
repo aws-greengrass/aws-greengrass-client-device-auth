@@ -199,7 +199,7 @@ public class ClientDevicesAuthService extends PluginService {
                 useCases.get(ConfigureCertificateAuthorityUseCase.class).apply(null);
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-            } else if (cdaConfiguration.certificateAuthorityChanged(prevCdaConfiguration)) {
+            } else if (cdaConfiguration.hasCAConfigurationChanged(prevCdaConfiguration)) {
                 useCases.get(ConfigureCertificateAuthorityUseCase.class).apply(null);
             }
         } catch (UseCaseException e) {
