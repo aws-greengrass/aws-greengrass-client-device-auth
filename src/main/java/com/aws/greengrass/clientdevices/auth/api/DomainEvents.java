@@ -25,7 +25,7 @@ public class DomainEvents {
      * @param clazz    Type of domain event
      * @param <T>      Type of domain event
      */
-    public <T> void registerListener(DomainEventListener<T> listener, Class<T> clazz) {
+    public <T extends DomainEvent> void registerListener(DomainEventListener<T> listener, Class<T> clazz) {
         CopyOnWriteArrayList<DomainEventListener> listeners =
                 eventListeners.computeIfAbsent(clazz, (k) -> new CopyOnWriteArrayList<>());
         listeners.addIfAbsent(listener);
@@ -36,7 +36,7 @@ public class DomainEvents {
      * @param domainEvent Domain event
      * @param <T>         Type of domain event
      */
-    public <T> void emit(T domainEvent) {
+    public <T extends DomainEvent> void emit(T domainEvent) {
         List<DomainEventListener> listeners = eventListeners.get(domainEvent.getClass());
         if (listeners != null) {
             for (DomainEventListener<T> listener : listeners) {

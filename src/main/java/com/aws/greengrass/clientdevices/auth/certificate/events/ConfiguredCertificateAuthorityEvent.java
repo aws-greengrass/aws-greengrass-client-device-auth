@@ -17,9 +17,4 @@ public class ConfiguredCertificateAuthorityEvent implements DomainEvent {
     public ConfiguredCertificateAuthorityEvent(Certificate... caCertificates) {
         this.caCertificates = caCertificates;
     }
-
-    @Override
-    public String getName() {
-        return this.getClass().getSimpleName();
-    }
 }

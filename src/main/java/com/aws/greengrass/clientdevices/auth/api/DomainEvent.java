@@ -6,5 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.api;
 
 public interface DomainEvent {
-    String getName();
+    default String getName() {
+        return this.getClass().getSimpleName();
+    }
 }

@@ -21,8 +21,8 @@ import static org.hamcrest.Matchers.is;
 public class DomainEventsTest {
     private DomainEvents domainEvents;
 
-    static class TestEvent {}
-    static class TestEvent2 {}
+    static class TestEvent implements DomainEvent {}
+    static class TestEvent2 implements DomainEvent {}
 
     @BeforeEach
     void beforeEach() {
