@@ -10,6 +10,8 @@ import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 
 import java.io.IOException;
 import java.security.KeyStoreException;
@@ -20,6 +22,8 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
     private final CertificateManager certificateManager;
     private final CDAConfiguration cdaConfiguration;
     private final UseCases useCases;
+    private static final Logger logger = LogManager.getLogger(ConfigureCertificateAuthorityUseCase.class);
+
 
 
     /**
@@ -44,10 +48,10 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
         //  the ClientDeviceAuthService first.
         try {
             if (cdaConfiguration.isUsingCustomCA()) {
-                UseCases.logger.info("Configuration custom certificate authority");
+                logger.info("Configuration custom certificate authority");
                 certificateManager.configureCustomCA(cdaConfiguration);
             } else {
-                UseCases.logger.info("Creating a Certificate Authority");
+                logger.info("Creating a Certificate Authority");
                 certificateManager.generateCA(cdaConfiguration.getCaPassphrase(), cdaConfiguration.getCaType());
                 cdaConfiguration.updateCAPassphrase(certificateManager.getCaPassPhrase());
             }

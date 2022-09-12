@@ -11,6 +11,7 @@ import com.aws.greengrass.config.Topics;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
@@ -110,8 +111,8 @@ public final class CDAConfiguration {
             return true;
         }
 
-        return !config.getCertificateUri().equals(getCertificateUri())
-                || !config.getPrivateKeyUri().equals(getPrivateKeyUri())
-                || !config.getCaType().equals(getCaType());
+        return !Objects.equals(config.getCertificateUri(), getCertificateUri())
+                || !Objects.equals(config.getPrivateKeyUri(), getPrivateKeyUri())
+                || !Objects.equals(config.getCaType(), getCaType());
     }
 }

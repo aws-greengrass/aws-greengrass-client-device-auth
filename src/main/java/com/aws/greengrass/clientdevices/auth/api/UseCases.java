@@ -6,14 +6,11 @@
 package com.aws.greengrass.clientdevices.auth.api;
 
 import com.aws.greengrass.dependency.Context;
-import com.aws.greengrass.logging.api.Logger;
-import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.CrashableFunction;
 
 
 public class UseCases {
     private Context context;
-    public static final Logger logger = LogManager.getLogger(UseCases.class);
 
     // Delegates to CrashableFunction but provides a domain rich alias
     public interface UseCase<R, D, E extends Exception> extends CrashableFunction<D, R, E> {}
@@ -21,8 +18,6 @@ public class UseCases {
     public void init(Context context) {
         this.context = context;
     }
-
-
 
     private void checkCanRun() {
         if (context == null) {
