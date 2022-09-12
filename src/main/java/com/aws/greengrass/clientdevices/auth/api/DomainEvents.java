@@ -12,7 +12,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 
 public class DomainEvents {
-    private final Map<Class, CopyOnWriteArrayList<DomainEventListener>> eventMap = new ConcurrentHashMap<>();
+    private final Map<Class, CopyOnWriteArrayList<DomainEventListener>> eventListeners = new ConcurrentHashMap<>();
 
     @FunctionalInterface
     public interface DomainEventListener<T> {
@@ -26,9 +26,9 @@ public class DomainEvents {
      * @param <T>      Type of domain event
      */
     public <T> void registerListener(DomainEventListener<T> listener, Class<T> clazz) {
-        CopyOnWriteArrayList<DomainEventListener> listenerList =
-                eventMap.computeIfAbsent(clazz, (k) -> new CopyOnWriteArrayList<>());
-        listenerList.addIfAbsent(listener);
+        CopyOnWriteArrayList<DomainEventListener> listeners =
+                eventListeners.computeIfAbsent(clazz, (k) -> new CopyOnWriteArrayList<>());
+        listeners.addIfAbsent(listener);
     }
 
     /**
@@ -37,9 +37,9 @@ public class DomainEvents {
      * @param <T>         Type of domain event
      */
     public <T> void emit(T domainEvent) {
-        List<DomainEventListener> listenerList = eventMap.get(domainEvent.getClass());
-        if (listenerList != null) {
-            for (DomainEventListener<T> listener : listenerList) {
+        List<DomainEventListener> listeners = eventListeners.get(domainEvent.getClass());
+        if (listeners != null) {
+            for (DomainEventListener<T> listener : listeners) {
                 listener.handle(domainEvent);
             }
         }
