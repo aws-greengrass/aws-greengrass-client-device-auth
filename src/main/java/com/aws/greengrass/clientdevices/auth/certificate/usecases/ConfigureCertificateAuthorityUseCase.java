@@ -19,19 +19,23 @@ import javax.inject.Inject;
 public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Void, Void, UseCaseException> {
     private final CertificateManager certificateManager;
     private final CDAConfiguration cdaConfiguration;
+    private final UseCases useCases;
 
 
     /**
      * Configure core certificate authority.
      * @param certificateManager  Certificate manager.
      * @param cdaConfiguration    Client device auth configuration wrapper.
+     * @param useCases           UseCases service
      */
     @Inject
     public ConfigureCertificateAuthorityUseCase(
             CertificateManager certificateManager,
-            CDAConfiguration cdaConfiguration) {
+            CDAConfiguration cdaConfiguration,
+            UseCases useCases) {
         this.certificateManager = certificateManager;
         this.cdaConfiguration = cdaConfiguration;
+        this.useCases = useCases;
     }
 
     @Override
@@ -40,8 +44,10 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
         //  the ClientDeviceAuthService first.
         try {
             if (cdaConfiguration.isUsingCustomCA()) {
+                UseCases.logger.info("Configuration custom certificate authority");
                 certificateManager.configureCustomCA(cdaConfiguration);
             } else {
+                UseCases.logger.info("Creating a Certificate Authority");
                 certificateManager.generateCA(cdaConfiguration.getCaPassphrase(), cdaConfiguration.getCaType());
                 cdaConfiguration.updateCAPassphrase(certificateManager.getCaPassPhrase());
             }
@@ -52,7 +58,7 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
         }
 
         // Register new certificate authority
-        UseCases.get(RegisterCertificateAuthorityUseCase.class).apply(null);
+        useCases.get(RegisterCertificateAuthorityUseCase.class).apply(null);
 
         return null;
     }

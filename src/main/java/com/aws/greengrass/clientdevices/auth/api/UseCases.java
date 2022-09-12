@@ -6,26 +6,26 @@
 package com.aws.greengrass.clientdevices.auth.api;
 
 import com.aws.greengrass.dependency.Context;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.CrashableFunction;
 
 
 public class UseCases {
-    private final Context context;
-    private static UseCases instance;
+    private Context context;
+    public static final Logger logger = LogManager.getLogger(UseCases.class);
 
     // Delegates to CrashableFunction but provides a domain rich alias
     public interface UseCase<R, D, E extends Exception> extends CrashableFunction<D, R, E> {}
 
-    private UseCases(Context context) {
+    public void init(Context context) {
         this.context = context;
     }
 
-    public static void init(Context context) {
-       instance = new UseCases(context);
-    }
 
-    private static void checkCanRun() {
-        if (instance == null) {
+
+    private void checkCanRun() {
+        if (context == null) {
             throw new RuntimeException("No UseCases instance found, make sure you initialize them first");
         }
     }
@@ -37,10 +37,10 @@ public class UseCases {
      * @param ob Concrete instance of the class
      * @param <T> instance type
      */
-    public static <T> UseCases provide(Class<T> clazz, T ob) {
+    public <T> UseCases provide(Class<T> clazz, T ob) {
         checkCanRun();
-        instance.context.put(clazz, ob);
-        return instance;
+        context.put(clazz, ob);
+        return this;
     }
 
     /**
@@ -50,8 +50,8 @@ public class UseCases {
      * @param clazz Use Case class to be built
      * @param <C>   Use Case concrete class
      */
-    public static <C extends UseCase> C get(Class<C> clazz) {
+    public <C extends UseCase> C get(Class<C> clazz) {
         checkCanRun();
-        return instance.context.newInstance(clazz);
+        return context.newInstance(clazz);
     }
 }

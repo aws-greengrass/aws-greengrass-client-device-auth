@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class UseCasesTest {
     private Topics topics;
+    private UseCases useCases;
 
     static class TestDependency {
         private final String name;
@@ -86,27 +87,28 @@ public class UseCasesTest {
     @BeforeEach
     void beforeEach() {
         topics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
-        UseCases.init(topics.getContext());
+        this.useCases = new UseCases();
+        this.useCases.init(topics.getContext());
     }
 
     @Test
     void GIVEN_aUseCaseWithDependencies_WHEN_ran_THEN_itExecutesWithNoExceptions() {
         TestDependency aTestDependency = new TestDependency("Something");
-        UseCases.provide(TestDependency.class, aTestDependency);
+        useCases.provide(TestDependency.class, aTestDependency);
 
-        UseCaseWithDependencies useCase = UseCases.get(UseCaseWithDependencies.class);
+        UseCaseWithDependencies useCase = useCases.get(UseCaseWithDependencies.class);
         assertEquals(useCase.apply(null), aTestDependency.name);
     }
 
     @Test
     void GIVEN_aUseCaseWithExceptions_WHEN_ran_THEN_itThrowsAnException() {
-        UseCaseWithExceptions useCase = UseCases.get(UseCaseWithExceptions.class);
+        UseCaseWithExceptions useCase = useCases.get(UseCaseWithExceptions.class);
         assertThrows(InvalidConfigurationException.class, () -> { useCase.apply(null); });
     }
 
     @Test
     void GIVEN_aUseCaseWithParameters_WHEN_ran_itAcceptsTheParamsAndReturnsThem() {
-        UseCaseWithParameters useCase = UseCases.get(UseCaseWithParameters.class);
+        UseCaseWithParameters useCase = useCases.get(UseCaseWithParameters.class);
         assertEquals(useCase.apply("hello"), "hello");
     }
 
@@ -117,8 +119,8 @@ public class UseCasesTest {
                 .withValue("file:///cert-uri");
 
         // Then
-        UseCases.provide(CDAConfiguration.class, CDAConfiguration.from(topics));
-        UseCaseUpdatingDependency useCase = UseCases.get(UseCaseUpdatingDependency.class);
+        useCases.provide(CDAConfiguration.class, CDAConfiguration.from(topics));
+        UseCaseUpdatingDependency useCase = useCases.get(UseCaseUpdatingDependency.class);
         assertEquals(useCase.apply(null), "file:///cert-uri");
 
         // When
@@ -126,8 +128,8 @@ public class UseCasesTest {
                 .withValue("file:///cert-changed-uri");
 
         // Then
-        UseCases.provide(CDAConfiguration.class, CDAConfiguration.from(topics));
-        useCase = UseCases.get(UseCaseUpdatingDependency.class);
+        useCases.provide(CDAConfiguration.class, CDAConfiguration.from(topics));
+        useCase = useCases.get(UseCaseUpdatingDependency.class);
         assertEquals(useCase.apply(null), "file:///cert-changed-uri");
     }
 }

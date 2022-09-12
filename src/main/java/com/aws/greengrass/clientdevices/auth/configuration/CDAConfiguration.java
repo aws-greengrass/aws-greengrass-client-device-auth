@@ -98,4 +98,20 @@ public final class CDAConfiguration {
     public Optional<URI> getCertificateUri() {
         return ca.getCertificateUri();
     }
+
+    /**
+     * Verifies if the configuration for the certificateAuthority has changed, given a previous
+     * configuration.
+     *
+     * @param config  CDAConfiguration
+     */
+    public boolean certificateAuthorityChanged(CDAConfiguration config) {
+        if (config == null) {
+            return true;
+        }
+
+        return !config.getCertificateUri().equals(getCertificateUri())
+                || !config.getPrivateKeyUri().equals(getPrivateKeyUri())
+                || !config.getCaType().equals(getCaType());
+    }
 }

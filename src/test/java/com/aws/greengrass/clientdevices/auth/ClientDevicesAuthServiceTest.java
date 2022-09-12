@@ -5,8 +5,10 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
+import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
+import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCertificateAuthorityUseCase;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
@@ -15,8 +17,10 @@ import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
+import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.Kernel;
@@ -63,6 +67,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.MAX_ACTIVE_AUTH_TOKENS_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.PERFORMANCE_TOPIC;
 import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -75,6 +81,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -343,12 +350,48 @@ class ClientDevicesAuthServiceTest {
         assertThat(initialCA, not(thirdCA));
         assertThat(getCaPassphrase(), not(initialCaPassPhrase));
 
-        verify(client, times(3)).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
+        verify(client, times(2)).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
         List<List<String>> certificatesInRequests =
                 putCARequestArgumentCaptor.getAllValues().stream().map(
                         PutCertificateAuthoritiesRequest::coreDeviceCertificates).collect(
                         Collectors.toList());
-        assertThat(certificatesInRequests, contains(initialCACerts, secondCACerts, thirdCACerts));
+        assertThat(certificatesInRequests, contains(initialCACerts, thirdCACerts));
+    }
+
+    @Test
+    void GIVEN_certificateAuthorityConfiguration_WHEN_itChanges_THEN_CAisConfigured() throws InterruptedException,
+            ServiceLoadException, UseCaseException {
+        UseCases useCasesMock = mock(UseCases.class);
+        ConfigureCertificateAuthorityUseCase useCaseMock = mock(ConfigureCertificateAuthorityUseCase.class);
+        when(useCasesMock.get(ConfigureCertificateAuthorityUseCase.class)).thenReturn(useCaseMock);
+        kernel.getContext().put(UseCases.class, useCasesMock);
+
+        startNucleusWithConfig("config.yaml");
+        Topics topics = kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig();
+
+        // Block until subscriber has finished updating
+        kernel.getContext().waitForPublishQueueToClear();
+        verify(useCaseMock, times(1)).apply(null);
+
+        topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
+                CAConfiguration.CA_PRIVATE_KEY_URI).withValue("file:///intermediateCA.key");
+        topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
+                CAConfiguration.CA_CERTIFICATE_URI).withValue("file:///intermediateCA.pem");
+
+        kernel.getContext().waitForPublishQueueToClear();
+        verify(useCaseMock, times(2)).apply(null);
+
+        topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.DEPRECATED_CA_TYPE_KEY)
+                .withValue(Collections.singletonList("ECDSA_P256"));
+
+        kernel.getContext().waitForPublishQueueToClear();
+        verify(useCaseMock, times(3)).apply(null);
+
+        topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
+                .withValue(2);
+
+        kernel.getContext().waitForPublishQueueToClear();
+        verify(useCaseMock, times(3)).apply(null);
     }
 
     @Test
