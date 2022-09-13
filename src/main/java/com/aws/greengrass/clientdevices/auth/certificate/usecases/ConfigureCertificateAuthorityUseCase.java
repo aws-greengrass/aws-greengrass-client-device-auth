@@ -29,16 +29,13 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
      * Configure core certificate authority.
      * @param certificateManager  Certificate manager.
      * @param cdaConfiguration    Client device auth configuration wrapper.
-     * @param useCases           UseCases service
      */
     @Inject
     public ConfigureCertificateAuthorityUseCase(
             CertificateManager certificateManager,
-            CDAConfiguration cdaConfiguration,
-            UseCases useCases) {
+            CDAConfiguration cdaConfiguration) {
         this.certificateManager = certificateManager;
         this.cdaConfiguration = cdaConfiguration;
-        this.useCases = useCases;
     }
 
     @Override
