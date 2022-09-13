@@ -9,6 +9,7 @@ import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
+import com.aws.greengrass.clientdevices.auth.certificate.listeners.CACertificateChainChangedListener;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCertificateAuthorityUseCase;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
@@ -142,6 +143,7 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void install() throws InterruptedException {
         super.install();
+        registerEventListeners();
         subscribeToConfigChanges();
     }
 
@@ -205,6 +207,10 @@ public class ClientDevicesAuthService extends PluginService {
         } catch (UseCaseException e) {
             serviceErrored(e);
         }
+    }
+
+    private void registerEventListeners() {
+        context.get(CACertificateChainChangedListener.class).listen();
     }
 
     @Override

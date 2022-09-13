@@ -277,7 +277,6 @@ public class CertificateManager {
                 .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
                 .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
 
-
         try {
             KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
                     () -> securityService.getKeyPair(privateKeyUri, certificateUri),

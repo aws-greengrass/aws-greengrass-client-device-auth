@@ -6,6 +6,8 @@
 package com.aws.greengrass.clientdevices.auth.certificate;
 
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.certificate.events.CACertificateChainChanged;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -69,6 +71,7 @@ public class CertificateStore {
     private char[] passphrase;
     private final Path workPath;
     private final Platform platform = Platform.getInstance();
+    private final DomainEvents eventEmitter;
 
     @Getter
     @Setter
@@ -80,13 +83,15 @@ public class CertificateStore {
     }
 
     @Inject
-    public CertificateStore(Kernel kernel) throws IOException {
-        this.workPath = kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
+    public CertificateStore(Kernel kernel, DomainEvents eventEmitter) throws IOException {
+        this(kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME),
+                eventEmitter);
     }
 
     // For unit tests
-    public CertificateStore(Path workPath) {
+    public CertificateStore(Path workPath, DomainEvents eventEmitter) {
         this.workPath = workPath;
+        this.eventEmitter = eventEmitter;
     }
 
     public String getCaPassphrase() {
@@ -140,6 +145,15 @@ public class CertificateStore {
         return (X509Certificate) getCaCertificateChain()[0];
     }
 
+    /**
+     * Sets the CA certificate chain.
+     *
+     * @param caCertificateChain Array of CA certificates
+     */
+    public void setCaCertificateChain(Certificate... caCertificateChain) {
+        this.caCertificateChain = caCertificateChain;
+        eventEmitter.emit(new CACertificateChainChanged(caCertificateChain));
+    }
 
     /**
      * Sets the CA private key.
