@@ -15,15 +15,18 @@ import javax.inject.Inject;
 
 public class CACertificateChainChangedListener
         implements DomainEvents.DomainEventListener<CACertificateChainChanged> {
+    private final UseCases useCases;
     private final DomainEvents domainEvents;
 
 
     /**
      * Register core certificate authority with Greengrass cloud.
+     * @param useCases     Use cases.
      * @param domainEvents Domain event router.
      */
     @Inject
-    public CACertificateChainChangedListener(DomainEvents domainEvents) {
+    public CACertificateChainChangedListener(UseCases useCases, DomainEvents domainEvents) {
+        this.useCases = useCases;
         this.domainEvents = domainEvents;
     }
 
@@ -41,7 +44,7 @@ public class CACertificateChainChangedListener
      */
     @Override
     public void handle(CACertificateChainChanged event) {
-        RegisterCertificateAuthorityUseCase useCase = UseCases.get(RegisterCertificateAuthorityUseCase.class);
+        RegisterCertificateAuthorityUseCase useCase = useCases.get(RegisterCertificateAuthorityUseCase.class);
         try {
             useCase.apply(null);
         } catch (UseCaseException e) {
