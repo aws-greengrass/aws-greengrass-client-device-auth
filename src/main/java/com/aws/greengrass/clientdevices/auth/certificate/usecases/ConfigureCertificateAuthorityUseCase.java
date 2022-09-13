@@ -60,9 +60,6 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
             throw new UseCaseException(e);
         }
 
-        // Register new certificate authority
-        useCases.get(RegisterCertificateAuthorityUseCase.class).apply(null);
-
         return null;
     }
 }

@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.certificate;
 
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
@@ -59,7 +60,7 @@ public class ServerCertificateGeneratorTest {
     void setup() throws KeyStoreException, NoSuchAlgorithmException {
         X500Name subject = new X500Name(SUBJECT_PRINCIPAL);
         publicKey = CertificateStore.newRSAKeyPair().getPublic();
-        CertificateStore certificateStore = new CertificateStore(tmpPath);
+        CertificateStore certificateStore = new CertificateStore(tmpPath, new DomainEvents());
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
         configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         CertificatesConfig certificatesConfig = new CertificatesConfig(configurationTopics);

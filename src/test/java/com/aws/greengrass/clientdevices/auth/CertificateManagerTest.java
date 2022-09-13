@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
@@ -88,8 +89,9 @@ public class CertificateManagerTest {
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
-        certificateManager = new CertificateManager(new CertificateStore(tmpPath), mockConnectivityInformation,
-                mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactoryMock, securityServiceMock);
+        certificateManager = new CertificateManager(new CertificateStore(tmpPath, new DomainEvents()),
+                mockConnectivityInformation, mockCertExpiryMonitor, mockShadowMonitor,
+                Clock.systemUTC(), clientFactoryMock, securityServiceMock);
 
         CertificatesConfig certificatesConfig = new CertificatesConfig(
                 Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
