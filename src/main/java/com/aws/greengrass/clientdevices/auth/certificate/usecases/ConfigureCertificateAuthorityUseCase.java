@@ -21,25 +21,20 @@ import javax.inject.Inject;
 public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Void, Void, UseCaseException> {
     private final CertificateManager certificateManager;
     private final CDAConfiguration cdaConfiguration;
-    private final UseCases useCases;
     private static final Logger logger = LogManager.getLogger(ConfigureCertificateAuthorityUseCase.class);
-
 
 
     /**
      * Configure core certificate authority.
      * @param certificateManager  Certificate manager.
      * @param cdaConfiguration    Client device auth configuration wrapper.
-     * @param useCases           UseCases service
      */
     @Inject
     public ConfigureCertificateAuthorityUseCase(
             CertificateManager certificateManager,
-            CDAConfiguration cdaConfiguration,
-            UseCases useCases) {
+            CDAConfiguration cdaConfiguration) {
         this.certificateManager = certificateManager;
         this.cdaConfiguration = cdaConfiguration;
-        this.useCases = useCases;
     }
 
     @Override
