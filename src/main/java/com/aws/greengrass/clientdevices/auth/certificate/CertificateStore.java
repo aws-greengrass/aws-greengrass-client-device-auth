@@ -141,10 +141,17 @@ public class CertificateStore {
      * @throws KeyStoreException if unable to retrieve the certificate
      */
     public X509Certificate getCACertificate() throws KeyStoreException {
-        return getCaCertificateChain()[0];
+        X509Certificate[] certChain = getCaCertificateChain();
+        if (certChain == null) {
+            throw new KeyStoreException("No CA certificate configured");
+        }
+        return certChain[0];
     }
 
     private void setCaCertificateChain(Certificate... caCertificateChain) throws KeyStoreException {
+        if (caCertificateChain == null) {
+            throw new KeyStoreException("No certificate chain provided");
+        }
         for (Certificate cert : caCertificateChain) {
             if (!(cert instanceof X509Certificate)) {
                 throw new KeyStoreException("Unsupported certificate type");
@@ -157,8 +164,12 @@ public class CertificateStore {
      * Sets the CA certificate chain.
      *
      * @param caCertificateChain Array of CA certificates
+     * @throws KeyStoreException if unable to retrieve the certificate chain
      */
-    public void setCaCertificateChain(X509Certificate... caCertificateChain) {
+    public void setCaCertificateChain(X509Certificate... caCertificateChain) throws KeyStoreException {
+        if (caCertificateChain == null) {
+            throw new KeyStoreException("No certificate chain provided");
+        }
         this.caCertificateChain = caCertificateChain;
         eventEmitter.emit(new CACertificateChainChanged(caCertificateChain));
     }
