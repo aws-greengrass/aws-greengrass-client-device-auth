@@ -10,6 +10,8 @@ import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 
 import java.io.IOException;
 import java.security.KeyStoreException;
@@ -19,19 +21,25 @@ import javax.inject.Inject;
 public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Void, Void, UseCaseException> {
     private final CertificateManager certificateManager;
     private final CDAConfiguration cdaConfiguration;
+    private final UseCases useCases;
+    private static final Logger logger = LogManager.getLogger(ConfigureCertificateAuthorityUseCase.class);
+
 
 
     /**
      * Configure core certificate authority.
      * @param certificateManager  Certificate manager.
      * @param cdaConfiguration    Client device auth configuration wrapper.
+     * @param useCases           UseCases service
      */
     @Inject
     public ConfigureCertificateAuthorityUseCase(
             CertificateManager certificateManager,
-            CDAConfiguration cdaConfiguration) {
+            CDAConfiguration cdaConfiguration,
+            UseCases useCases) {
         this.certificateManager = certificateManager;
         this.cdaConfiguration = cdaConfiguration;
+        this.useCases = useCases;
     }
 
     @Override
@@ -40,6 +48,7 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
         //  the ClientDeviceAuthService first.
         try {
             if (cdaConfiguration.isUsingCustomCA()) {
+                logger.info("Configuring custom certificate authority");
                 certificateManager.configureCustomCA(cdaConfiguration);
             } else {
                 certificateManager.generateCA(cdaConfiguration.getCaPassphrase(), cdaConfiguration.getCaType());
@@ -52,7 +61,7 @@ public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Vo
         }
 
         // Register new certificate authority
-        UseCases.get(RegisterCertificateAuthorityUseCase.class).apply(null);
+        useCases.get(RegisterCertificateAuthorityUseCase.class).apply(null);
 
         return null;
     }

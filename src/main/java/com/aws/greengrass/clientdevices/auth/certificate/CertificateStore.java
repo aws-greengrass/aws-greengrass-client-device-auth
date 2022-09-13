@@ -103,11 +103,12 @@ public class CertificateStore {
     public void update(String passphrase, CAType caType) throws KeyStoreException {
         this.passphrase = passphrase.toCharArray();
         try {
+            logger.info("Loading Greengrass managed certificate authority");
             keyStore = loadDefaultKeyStore(caType);
             logger.atDebug().log("successfully loaded existing CA keystore");
         } catch (KeyStoreException | IOException | CertificateException | NoSuchAlgorithmException
                  | UnrecoverableKeyException e) {
-            logger.atDebug().cause(e).log("failed to load existing CA keystore");
+            logger.atDebug().cause(e).log("Failed to load existing CA keystore, creating Greengrass managed CA");
             createAndStoreDefaultKeyStore(caType);
             logger.atDebug().log("successfully created new CA keystore");
         }

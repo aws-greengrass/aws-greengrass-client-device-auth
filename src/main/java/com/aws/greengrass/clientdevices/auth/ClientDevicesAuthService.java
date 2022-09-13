@@ -43,8 +43,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
-import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_TYPE_KEY;
-import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.DEPRECATED_CA_TYPE_KEY;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.AUTHORIZE_CLIENT_DEVICE_ACTION;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.GET_CLIENT_DEVICE_AUTH_TOKEN;
@@ -77,7 +75,9 @@ public class ClientDevicesAuthService extends PluginService {
     public static final int DEFAULT_MAX_ACTIVE_AUTH_TOKENS = 2500;
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private final ThreadPoolExecutor cloudCallThreadPool;
+    private final UseCases useCases;
     private int cloudCallQueueSize;
+    private CDAConfiguration prevCdaConfiguration;
     private CDAConfiguration cdaConfiguration;
 
 
@@ -92,6 +92,7 @@ public class ClientDevicesAuthService extends PluginService {
      * @param mqttSessionFactory          session factory to handling mqtt credentials
      * @param sessionManager              session manager
      * @param clientDevicesAuthServiceApi client devices service api handle
+     * @param useCases                    UseCases service
      */
     @SuppressWarnings("PMD.ExcessiveParameterList")
     @Inject
@@ -101,7 +102,8 @@ public class ClientDevicesAuthService extends PluginService {
                                     GreengrassCoreIPCService greengrassCoreIPCService,
                                     MqttSessionFactory mqttSessionFactory,
                                     SessionManager sessionManager,
-                                    ClientDevicesAuthServiceApi clientDevicesAuthServiceApi) {
+                                    ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
+                                    UseCases useCases) {
         super(topics);
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
         cloudCallQueueSize = getValidCloudCallQueueSize(topics);
@@ -119,7 +121,8 @@ public class ClientDevicesAuthService extends PluginService {
         sessionManager.setSessionConfig(new SessionConfig(getConfig()));
 
         // Initialize the use cases, so we can use them anywhere in the app
-        UseCases.init(getContext());
+        this.useCases = useCases;
+        this.useCases.init(getContext());
     }
 
 
@@ -148,9 +151,13 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void onConfigurationChanged() {
+        if (cdaConfiguration != null) {
+            prevCdaConfiguration = cdaConfiguration;
+        }
+
         try {
             cdaConfiguration = CDAConfiguration.from(getConfig());
-            UseCases.provide(CDAConfiguration.class, cdaConfiguration);
+            useCases.provide(CDAConfiguration.class, cdaConfiguration);
         } catch (URISyntaxException e) {
             serviceErrored(e);
         }
@@ -189,14 +196,11 @@ public class ClientDevicesAuthService extends PluginService {
         try {
             if (whatHappened == WhatHappened.initialized || node == null) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-                UseCases.get(ConfigureCertificateAuthorityUseCase.class).apply(null);
+                useCases.get(ConfigureCertificateAuthorityUseCase.class).apply(null);
             } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
                 updateDeviceGroups(whatHappened, deviceGroupTopics);
-            } else if (
-                    (node.childOf(CA_TYPE_KEY) || node.childOf(DEPRECATED_CA_TYPE_KEY))
-                            && cdaConfiguration.isCaTypesProvided()
-            ) {
-                UseCases.get(ConfigureCertificateAuthorityUseCase.class).apply(null);
+            } else if (cdaConfiguration.hasCAConfigurationChanged(prevCdaConfiguration)) {
+                useCases.get(ConfigureCertificateAuthorityUseCase.class).apply(null);
             }
         } catch (UseCaseException e) {
             serviceErrored(e);

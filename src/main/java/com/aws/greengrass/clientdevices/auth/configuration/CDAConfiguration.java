@@ -11,6 +11,7 @@ import com.aws.greengrass.config.Topics;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
@@ -97,5 +98,21 @@ public final class CDAConfiguration {
 
     public Optional<URI> getCertificateUri() {
         return ca.getCertificateUri();
+    }
+
+    /**
+     * Verifies if the configuration for the certificateAuthority has changed, given a previous
+     * configuration.
+     *
+     * @param config  CDAConfiguration
+     */
+    public boolean hasCAConfigurationChanged(CDAConfiguration config) {
+        if (config == null) {
+            return true;
+        }
+
+        return !Objects.equals(config.getCertificateUri(), getCertificateUri())
+                || !Objects.equals(config.getPrivateKeyUri(), getPrivateKeyUri())
+                || !Objects.equals(config.getCaType(), getCaType());
     }
 }
