@@ -7,7 +7,7 @@ package com.aws.greengrass.clientdevices.auth.certificate;
 
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.certificate.events.ConfiguredCertificateAuthorityEvent;
+import com.aws.greengrass.clientdevices.auth.certificate.events.CACertificateChainChanged;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -152,7 +152,7 @@ public class CertificateStore {
      */
     public void setCaCertificateChain(Certificate... caCertificateChain) {
         this.caCertificateChain = caCertificateChain;
-        eventEmitter.emit(new ConfiguredCertificateAuthorityEvent(caCertificateChain));
+        eventEmitter.emit(new CACertificateChainChanged(caCertificateChain));
     }
 
     /**

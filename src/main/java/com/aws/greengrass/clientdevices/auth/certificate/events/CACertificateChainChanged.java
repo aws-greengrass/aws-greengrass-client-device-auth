@@ -10,11 +10,11 @@ import lombok.Getter;
 
 import java.security.cert.Certificate;
 
-public class ConfiguredCertificateAuthorityEvent implements DomainEvent {
+public class CACertificateChainChanged implements DomainEvent {
     @Getter
     private Certificate[] caCertificates;
 
-    public ConfiguredCertificateAuthorityEvent(Certificate... caCertificates) {
+    public CACertificateChainChanged(Certificate... caCertificates) {
         this.caCertificates = caCertificates;
     }
 }

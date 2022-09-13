@@ -7,14 +7,14 @@ package com.aws.greengrass.clientdevices.auth.certificate.listeners;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
-import com.aws.greengrass.clientdevices.auth.certificate.events.ConfiguredCertificateAuthorityEvent;
+import com.aws.greengrass.clientdevices.auth.certificate.events.CACertificateChainChanged;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.RegisterCertificateAuthorityUseCase;
 import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 
 import javax.inject.Inject;
 
-public class ConfiguredCertificateAuthorityEventListener
-        implements DomainEvents.DomainEventListener<ConfiguredCertificateAuthorityEvent> {
+public class CACertificateChainChangedListener
+        implements DomainEvents.DomainEventListener<CACertificateChainChanged> {
     private final DomainEvents domainEvents;
 
 
@@ -23,7 +23,7 @@ public class ConfiguredCertificateAuthorityEventListener
      * @param domainEvents Domain event router.
      */
     @Inject
-    public ConfiguredCertificateAuthorityEventListener(DomainEvents domainEvents) {
+    public CACertificateChainChangedListener(DomainEvents domainEvents) {
         this.domainEvents = domainEvents;
     }
 
@@ -31,7 +31,7 @@ public class ConfiguredCertificateAuthorityEventListener
      * Listen for certificate authority change events.
      */
     public void listen() {
-        domainEvents.registerListener(this, ConfiguredCertificateAuthorityEvent.class);
+        domainEvents.registerListener(this, CACertificateChainChanged.class);
     }
 
     /**
@@ -40,7 +40,7 @@ public class ConfiguredCertificateAuthorityEventListener
      * @param event Certificate authority change event
      */
     @Override
-    public void handle(ConfiguredCertificateAuthorityEvent event) {
+    public void handle(CACertificateChainChanged event) {
         RegisterCertificateAuthorityUseCase useCase = UseCases.get(RegisterCertificateAuthorityUseCase.class);
         try {
             useCase.apply(null);

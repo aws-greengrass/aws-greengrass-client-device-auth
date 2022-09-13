@@ -16,7 +16,7 @@ public class DomainEvents {
     private final Map<Class, CopyOnWriteArrayList<DomainEventListener>> eventListeners = new ConcurrentHashMap<>();
 
     @FunctionalInterface
-    public interface DomainEventListener<T> {
+    public interface DomainEventListener<T extends DomainEvent> {
         void handle(T event);
     }
 
