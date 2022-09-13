@@ -208,11 +208,24 @@ public final class CertificateHelper {
      * @throws CertificateEncodingException If unable to get certificate encoding
      */
     public static String toPem(X509Certificate certificate) throws IOException, CertificateEncodingException {
-        PemObject pemObject = new PemObject(PEM_BOUNDARY_CERTIFICATE, certificate.getEncoded());
+        return toPem(new X509Certificate[]{certificate});
+    }
 
-        try (StringWriter str = new StringWriter();
-             JcaPEMWriter pemWriter = new JcaPEMWriter(str)) {
-            pemWriter.writeObject(pemObject);
+    /**
+     * Convert an X509Certificate chain into a PEM encoded string.
+     *
+     * @param certificates Certificates to encode
+     * @return PEM encoded X509 certificate
+     * @throws IOException If unable to read certificate
+     * @throws CertificateEncodingException If unable to get certificate encoding
+     */
+    public static String toPem(X509Certificate... certificates) throws IOException, CertificateEncodingException {
+        try (StringWriter str = new StringWriter(); JcaPEMWriter pemWriter = new JcaPEMWriter(str)) {
+
+            for (X509Certificate certificate: certificates) {
+                PemObject pemObject = new PemObject(PEM_BOUNDARY_CERTIFICATE, certificate.getEncoded());
+                pemWriter.writeObject(pemObject);
+            }
             pemWriter.close(); // Need to explicitly close this since JcaPEMWriter is a buffered writer
             return str.toString();
         }

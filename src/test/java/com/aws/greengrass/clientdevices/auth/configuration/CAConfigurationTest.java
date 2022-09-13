@@ -30,6 +30,7 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CAConfigurationTest {
@@ -81,6 +82,14 @@ public class CAConfigurationTest {
                 .withValue("file:///key-uri");
         caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(caConfiguration.getPrivateKeyUri().get(), is(new URI("file:///key-uri")));
+    }
+
+    @Test
+    public void GIVEN_pathInsteadOfUri_WHEN_configurationLoaded_THEN_itRaisesAnException() throws URISyntaxException {
+        configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
+                .withValue("/root/tls/intermediate/certs/intermediate.cacert.pem");
+
+        assertThrows(URISyntaxException.class, () -> { CAConfiguration.from(configurationTopics); });
     }
 
     @Test

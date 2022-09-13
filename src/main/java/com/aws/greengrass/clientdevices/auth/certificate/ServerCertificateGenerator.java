@@ -12,7 +12,6 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
 
 import java.io.IOException;
-import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.CertificateException;
@@ -78,8 +77,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                     connectivityInfo,
                     Date.from(now),
                     Date.from(now.plusSeconds(certificatesConfig.getServerCertValiditySeconds())));
-        } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException
-                | KeyStoreException e) {
+        } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException e) {
             logger.atError().cause(e).log("Failed to generate new server certificate");
             throw new CertificateGenerationException(e);
         }
