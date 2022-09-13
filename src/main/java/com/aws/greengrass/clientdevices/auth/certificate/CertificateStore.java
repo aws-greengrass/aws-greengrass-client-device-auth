@@ -17,7 +17,6 @@ import com.aws.greengrass.util.FileSystemPermission;
 import com.aws.greengrass.util.platforms.Platform;
 import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.Setter;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.operator.OperatorCreationException;
 
@@ -43,6 +42,7 @@ import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Date;
 import javax.inject.Inject;
 
@@ -74,8 +74,7 @@ public class CertificateStore {
     private final DomainEvents eventEmitter;
 
     @Getter
-    @Setter
-    private Certificate[] caCertificateChain;
+    private X509Certificate[] caCertificateChain;
     private PrivateKey caPrivateKey;
 
     public enum CAType {
@@ -142,7 +141,16 @@ public class CertificateStore {
      * @throws KeyStoreException if unable to retrieve the certificate
      */
     public X509Certificate getCACertificate() throws KeyStoreException {
-        return (X509Certificate) getCaCertificateChain()[0];
+        return getCaCertificateChain()[0];
+    }
+
+    private void setCaCertificateChain(Certificate... caCertificateChain) throws KeyStoreException {
+        for (Certificate cert : caCertificateChain) {
+            if (!(cert instanceof X509Certificate)) {
+                throw new KeyStoreException("Unsupported certificate type");
+            }
+        }
+        setCaCertificateChain(Arrays.stream(caCertificateChain).toArray(X509Certificate[]::new));
     }
 
     /**
@@ -150,7 +158,7 @@ public class CertificateStore {
      *
      * @param caCertificateChain Array of CA certificates
      */
-    public void setCaCertificateChain(Certificate... caCertificateChain) {
+    public void setCaCertificateChain(X509Certificate... caCertificateChain) {
         this.caCertificateChain = caCertificateChain;
         eventEmitter.emit(new CACertificateChainChanged(caCertificateChain));
     }
@@ -222,7 +230,7 @@ public class CertificateStore {
         }
         // generate new passphrase for new CA certificate
         passphrase = generateRandomPassphrase().toCharArray();
-        caCertificateChain = new Certificate[]{ caCertificate };
+        caCertificateChain = new X509Certificate[]{ caCertificate };
         ks.setKeyEntry(CA_KEY_ALIAS, kp.getPrivate(), getPassphrase(), caCertificateChain);
         keyStore = ks;
 
@@ -316,8 +324,7 @@ public class CertificateStore {
 
         platform.setPermissions(OWNER_RW_ONLY, caPath);
 
-        // TODO: Clean this up
-        // Temporarily store public CA since CA information is not yet available in cloud
+        // Write CA to filesystem in PEM format as well for customers not using cloud discovery
         X509Certificate caCert = getCACertificate();
         saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME),
                 EncryptionUtils.encodeToPem(CertificateHelper.PEM_BOUNDARY_CERTIFICATE,caCert.getEncoded()));

@@ -138,7 +138,7 @@ public class CertificateManager {
     }
 
     private X509Certificate[] getX509CACertificates() throws KeyStoreException {
-        return new X509Certificate[]{certificateStore.getCACertificate()};
+        return certificateStore.getCaCertificateChain();
     }
 
     public String getCaPassPhrase() {
