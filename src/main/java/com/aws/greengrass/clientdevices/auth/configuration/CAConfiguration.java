@@ -114,25 +114,35 @@ public final class CAConfiguration {
         return CertificateStore.CAType.valueOf(caType);
     }
 
+    private static URI getUri(String rawUri) throws URISyntaxException {
+        URI uri = new URI(rawUri);
+
+        if (uri.getScheme() == null) {
+            throw new URISyntaxException(rawUri, "Uri is missing the scheme");
+        }
+
+        return uri;
+    }
+
     private static Optional<URI> getCaPrivateKeyUriFromConfiguration(Topics certAuthorityTopic) throws
             URISyntaxException {
-        String maybePrivateKeyUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_PRIVATE_KEY_URI));
+        String privateKeyUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_PRIVATE_KEY_URI));
 
-        if (Utils.isEmpty(maybePrivateKeyUri)) {
+        if (Utils.isEmpty(privateKeyUri)) {
             return Optional.empty();
         }
 
-        return Optional.of(new URI(maybePrivateKeyUri));
+        return Optional.of(getUri(privateKeyUri));
     }
 
     private static Optional<URI> getCaCertificateUriFromConfiguration(Topics certAuthorityTopic) throws
             URISyntaxException {
-        String maybePrivateKeyUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_CERTIFICATE_URI));
+        String certificateUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_CERTIFICATE_URI));
 
-        if (Utils.isEmpty(maybePrivateKeyUri)) {
+        if (Utils.isEmpty(certificateUri)) {
             return Optional.empty();
         }
 
-        return Optional.of(new URI(maybePrivateKeyUri));
+        return Optional.of(getUri(certificateUri));
     }
 }

@@ -29,7 +29,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.PKIXParameters;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -68,24 +68,26 @@ public class DeviceAuthClient {
         try {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             try (InputStream is = new StringInputStream(certificatePem)) {
-                List<X509Certificate> certificateList = new ArrayList<>();
-                while (is.available() > 0) {
+                List<X509Certificate> leafCertificate;
+
+                // Note: We are just reading the leaf certificate (the one that CDA signed and provided to the
+                // client/server component) and checking that one against out leaf level core CA certificate.
+                if (is.available() > 0) {
                     try {
-                        certificateList.add((X509Certificate) cf.generateCertificate(is));
+                        leafCertificate = Arrays.asList((X509Certificate) cf.generateCertificate(is));
+                        CertPath leafCertPath = cf.generateCertPath(leafCertificate);
+                        return isGreengrassComponent(leafCertPath);
                     } catch (CertificateException e) {
                         // This doesn't necessarily mean there's a bad certificate.
                         // It could be that the string just has some extra newlines
                         // characters. Log warning and continue. If this is a meaningful
                         // failure, then let chain validation catch it.
                         logger.atWarn().log("Unable to parse entire certificate chain");
-                        break;
                     }
                 }
-                return isGreengrassComponent(cf.generateCertPath(certificateList));
             }
         } catch (CertificateException | IOException e) {
-            logger.atError().cause(e).kv("pem", certificatePem)
-                    .log("Unable to parse certificate");
+            logger.atError().cause(e).kv("pem", certificatePem).log("Unable to parse certificate");
         }
         return false;
     }

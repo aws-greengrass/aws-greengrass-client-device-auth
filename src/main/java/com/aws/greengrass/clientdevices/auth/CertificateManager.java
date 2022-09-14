@@ -166,22 +166,19 @@ public class CertificateManager {
                     getCertificateRequest.getCertificateRequestOptions().getCertificateType();
             // TODO: Should be configurable
             KeyPair keyPair = CertificateStore.newRSAKeyPair(4096);
+            X509Certificate[] caCertificates = getX509CACertificates();
 
             if (certificateType.equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
-                KeyPair finalKeyPair = keyPair;
-                X509Certificate[] caCertificates = getX509CACertificates();
                 Consumer<X509Certificate> consumer = (t) -> {
                     CertificateUpdateEvent certificateUpdateEvent =
-                            new CertificateUpdateEvent(finalKeyPair, t, caCertificates);
+                            new CertificateUpdateEvent(keyPair, t, caCertificates);
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
-                KeyPair finalKeyPair = keyPair;
-                X509Certificate[] caCertificates = getX509CACertificates();
                 Consumer<X509Certificate[]> consumer = (t) -> {
                     CertificateUpdateEvent certificateUpdateEvent =
-                            new CertificateUpdateEvent(finalKeyPair, t[0], caCertificates);
+                            new CertificateUpdateEvent(keyPair, t[0], caCertificates);
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
@@ -276,6 +273,9 @@ public class CertificateManager {
         RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
                 .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
                 .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
+
+        logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", certificateUri)
+                .log("Configuring custom core CA");
 
         try {
             KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
