@@ -12,6 +12,7 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.operator.OperatorCreationException;
 
 import java.io.IOException;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.CertificateException;
@@ -79,7 +80,8 @@ public class ClientCertificateGenerator extends CertificateGenerator {
             X509Certificate caCertificate = certificateStore.getCACertificate();
             X509Certificate[] chain = {certificate, caCertificate};
             callback.accept(chain);
-        } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException e) {
+        } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException
+                 | KeyStoreException e) {
             throw new CertificateGenerationException(e);
         }
     }

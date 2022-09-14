@@ -19,6 +19,7 @@ import software.amazon.awssdk.utils.StringInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertPath;
 import java.security.cert.CertPathValidator;
@@ -70,7 +71,7 @@ public class DeviceAuthClient {
                 List<X509Certificate> leafCertificate;
 
                 // Note: We are just reading the leaf certificate (the one that CDA signed and provided to the
-                // client/server component) and checking that one against out leaf level CA certificate.
+                // client/server component) and checking that one against out leaf level core CA certificate.
                 if (is.available() > 0) {
                     try {
                         leafCertificate = Arrays.asList((X509Certificate) cf.generateCertificate(is));
@@ -107,6 +108,8 @@ public class DeviceAuthClient {
             logger.atError().cause(e).log("Unable to load certificate validator");
         } catch (CertPathValidatorException e) {
             logger.atDebug().log("Certificate was not issued by local CA");
+        } catch (KeyStoreException e) {
+            logger.atError().cause(e).log("Unable to load CA keystore");
         }
 
         return false;

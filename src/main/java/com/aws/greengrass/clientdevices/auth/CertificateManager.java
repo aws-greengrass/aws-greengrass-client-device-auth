@@ -274,7 +274,8 @@ public class CertificateManager {
                 .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
                 .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
 
-        logger.info("Using private key at {} and certificate at {}", privateKeyUri, certificateUri);
+        logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", certificateUri)
+                .log("Configuring custom core CA");
 
         try {
             KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,

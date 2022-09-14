@@ -200,18 +200,6 @@ public final class CertificateHelper {
     }
 
     /**
-     * Convert an X509Certificate into a PEM encoded string.
-     *
-     * @param certificate Certificate to encode
-     * @return PEM encoded X509 certificate
-     * @throws IOException If unable to read certificate
-     * @throws CertificateEncodingException If unable to get certificate encoding
-     */
-    public static String toPem(X509Certificate certificate) throws IOException, CertificateEncodingException {
-        return toPem(new X509Certificate[]{certificate});
-    }
-
-    /**
      * Convert an X509Certificate chain into a PEM encoded string.
      *
      * @param certificates Certificates to encode
