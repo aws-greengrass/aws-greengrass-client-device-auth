@@ -11,7 +11,6 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCustomCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureManagedCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
-import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
@@ -376,8 +375,7 @@ class ClientDevicesAuthServiceTest {
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();
 
-        ArgumentCaptor<CDAConfiguration> myCaptor = ArgumentCaptor.forClass(CDAConfiguration.class);
-        verify(managedCAUseCase,times(1)).apply(myCaptor.capture());
+        verify(managedCAUseCase,times(1)).apply(null);
 
         topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
                 CAConfiguration.CA_PRIVATE_KEY_URI).withValue("file:///intermediateCA.key");
@@ -385,22 +383,23 @@ class ClientDevicesAuthServiceTest {
                 CAConfiguration.CA_CERTIFICATE_URI).withValue("file:///intermediateCA.pem");
 
         kernel.getContext().waitForPublishQueueToClear();
-        verify(managedCAUseCase, times(1)).apply(myCaptor.capture());
-        verify(customCAUseCase, times(1)).apply(myCaptor.capture());
+        verify(managedCAUseCase, times(1)).apply(null);
+        verify(customCAUseCase, times(1)).apply(null);
 
         topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.DEPRECATED_CA_TYPE_KEY)
                 .withValue(Collections.singletonList("ECDSA_P256"));
 
         kernel.getContext().waitForPublishQueueToClear();
-        verify(managedCAUseCase, times(1)).apply(myCaptor.capture());
-        verify(customCAUseCase, times(2)).apply(myCaptor.capture());
+        verify(managedCAUseCase, times(1)).apply(null);
+        verify(customCAUseCase, times(2)).apply(null);
 
         topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
                 .withValue(2);
 
         kernel.getContext().waitForPublishQueueToClear();
-        verify(managedCAUseCase, times(1)).apply(myCaptor.capture());
-        verify(customCAUseCase, times(2)).apply(myCaptor.capture());    }
+        verify(managedCAUseCase, times(1)).apply(null);
+        verify(customCAUseCase, times(2)).apply(null);
+    }
 
     @Test
     void GIVEN_GG_with_cda_WHEN_ca_type_provided_in_config_THEN_valid_ca_created()

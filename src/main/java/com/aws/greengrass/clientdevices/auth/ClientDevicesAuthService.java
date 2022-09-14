@@ -153,7 +153,6 @@ public class ClientDevicesAuthService extends PluginService {
     private void onConfigurationChanged() {
         try {
             cdaConfiguration = CDAConfiguration.from(cdaConfiguration, getConfig());
-            useCases.provide(CDAConfiguration.class, cdaConfiguration);
         } catch (URISyntaxException e) {
             serviceErrored(e);
         }

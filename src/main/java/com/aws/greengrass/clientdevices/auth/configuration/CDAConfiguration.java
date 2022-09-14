@@ -57,7 +57,8 @@ public final class CDAConfiguration {
     }
 
     /**
-     * Creates the CDA (Client Device Auth) Service configuration.
+     * Creates the CDA (Client Device Auth) Service configuration. And allows it to be available in the context
+     * with the updated values
      *
      * @param existingConfig  an existing version of the CDAConfiguration
      * @param topics configuration topics from GG
@@ -75,6 +76,7 @@ public final class CDAConfiguration {
             CAConfiguration.from(serviceConfiguration)
         );
 
+        topics.getContext().put(CDAConfiguration.class, newConfig);
         newConfig.triggerChanges(existingConfig);
 
         return newConfig;
@@ -92,7 +94,7 @@ public final class CDAConfiguration {
 
     private void triggerChanges(CDAConfiguration prev) {
         if (hasCAConfigurationChanged(prev)) {
-            domainEvents.emit(new CAConfigurationChanged(this));
+            domainEvents.emit(new CAConfigurationChanged(ca));
         }
     }
 
