@@ -214,7 +214,7 @@ public final class CertificateHelper {
                 PemObject pemObject = new PemObject(PEM_BOUNDARY_CERTIFICATE, certificate.getEncoded());
                 pemWriter.writeObject(pemObject);
             }
-            pemWriter.close(); // Need to explicitly close this since JcaPEMWriter is a buffered writer
+            pemWriter.flush();
             return str.toString();
         }
     }
