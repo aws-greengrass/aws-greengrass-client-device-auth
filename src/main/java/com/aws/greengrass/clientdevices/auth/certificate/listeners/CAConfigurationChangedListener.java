@@ -54,8 +54,8 @@ public class CAConfigurationChangedListener implements DomainEvents.DomainEventL
                 useCases.get(ConfigureManagedCertificateAuthority.class).apply(null);
             }
         } catch (UseCaseException e) {
-            // Failed to configure CA <--- Should service error (Maybe return a type that should represent
-            // is the service should be errored)
+            // TODO: Failed to configure CA <--- Should service error (Maybe return a type that should represent
+            //  is the service should be errored)
         }
     }
 }
