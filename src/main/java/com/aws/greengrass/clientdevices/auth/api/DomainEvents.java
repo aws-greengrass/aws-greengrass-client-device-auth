@@ -5,6 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth.api;
 
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,6 +17,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @SuppressWarnings({"rawtypes","unchecked"})
 public class DomainEvents {
     private final Map<Class, CopyOnWriteArrayList<DomainEventListener>> eventListeners = new ConcurrentHashMap<>();
+    private static final Logger logger = LogManager.getLogger(DomainEvents.class);
 
     @FunctionalInterface
     public interface DomainEventListener<T extends DomainEvent> {
@@ -39,6 +43,7 @@ public class DomainEvents {
      */
     public <T extends DomainEvent> void emit(T domainEvent) {
         List<DomainEventListener> listeners = eventListeners.get(domainEvent.getClass());
+        logger.info("Emitted {}", domainEvent.getName());
         if (listeners != null) {
             for (DomainEventListener<T> listener : listeners) {
                 listener.handle(domainEvent);
