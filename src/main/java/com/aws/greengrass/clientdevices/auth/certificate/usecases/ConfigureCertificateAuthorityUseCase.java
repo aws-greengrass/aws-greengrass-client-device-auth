@@ -21,7 +21,6 @@ import javax.inject.Inject;
 public class ConfigureCertificateAuthorityUseCase implements UseCases.UseCase<Void, Void, UseCaseException> {
     private final CertificateManager certificateManager;
     private final CDAConfiguration cdaConfiguration;
-    private final UseCases useCases;
     private static final Logger logger = LogManager.getLogger(ConfigureCertificateAuthorityUseCase.class);
 
 
