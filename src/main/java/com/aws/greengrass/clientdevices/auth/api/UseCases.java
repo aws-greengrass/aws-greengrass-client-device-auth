@@ -5,15 +5,16 @@
 
 package com.aws.greengrass.clientdevices.auth.api;
 
+import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.dependency.Context;
-import com.aws.greengrass.util.CrashableFunction;
 
 
 public class UseCases {
     private Context context;
 
-    // Delegates to CrashableFunction but provides a domain rich alias
-    public interface UseCase<R, D, E extends Exception> extends CrashableFunction<D, R, E> {}
+    public interface UseCase<R, D>  {
+        R apply(D var1) throws UseCaseException;
+    }
 
     public void init(Context context) {
         this.context = context;

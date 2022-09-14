@@ -8,8 +8,10 @@ package com.aws.greengrass.clientdevices.auth;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
-import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCertificateAuthorityUseCase;
+import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCustomCertificateAuthority;
+import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureManagedCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
@@ -362,8 +364,10 @@ class ClientDevicesAuthServiceTest {
     void GIVEN_certificateAuthorityConfiguration_WHEN_itChanges_THEN_CAisConfigured() throws InterruptedException,
             ServiceLoadException, UseCaseException {
         UseCases useCasesMock = mock(UseCases.class);
-        ConfigureCertificateAuthorityUseCase useCaseMock = mock(ConfigureCertificateAuthorityUseCase.class);
-        when(useCasesMock.get(ConfigureCertificateAuthorityUseCase.class)).thenReturn(useCaseMock);
+        ConfigureCustomCertificateAuthority customCAUseCase = mock(ConfigureCustomCertificateAuthority.class);
+        ConfigureManagedCertificateAuthority managedCAUseCase = mock(ConfigureManagedCertificateAuthority.class);
+        when(useCasesMock.get(ConfigureCustomCertificateAuthority.class)).thenReturn(customCAUseCase);
+        when(useCasesMock.get(ConfigureManagedCertificateAuthority.class)).thenReturn(managedCAUseCase);
         kernel.getContext().put(UseCases.class, useCasesMock);
 
         startNucleusWithConfig("config.yaml");
@@ -371,7 +375,9 @@ class ClientDevicesAuthServiceTest {
 
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();
-        verify(useCaseMock, times(1)).apply(null);
+
+        ArgumentCaptor<CDAConfiguration> myCaptor = ArgumentCaptor.forClass(CDAConfiguration.class);
+        verify(managedCAUseCase,times(1)).apply(myCaptor.capture());
 
         topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
                 CAConfiguration.CA_PRIVATE_KEY_URI).withValue("file:///intermediateCA.key");
@@ -379,20 +385,22 @@ class ClientDevicesAuthServiceTest {
                 CAConfiguration.CA_CERTIFICATE_URI).withValue("file:///intermediateCA.pem");
 
         kernel.getContext().waitForPublishQueueToClear();
-        verify(useCaseMock, times(2)).apply(null);
+        verify(managedCAUseCase, times(1)).apply(myCaptor.capture());
+        verify(customCAUseCase, times(1)).apply(myCaptor.capture());
 
         topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.DEPRECATED_CA_TYPE_KEY)
                 .withValue(Collections.singletonList("ECDSA_P256"));
 
         kernel.getContext().waitForPublishQueueToClear();
-        verify(useCaseMock, times(3)).apply(null);
+        verify(managedCAUseCase, times(1)).apply(myCaptor.capture());
+        verify(customCAUseCase, times(2)).apply(myCaptor.capture());
 
         topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
                 .withValue(2);
 
         kernel.getContext().waitForPublishQueueToClear();
-        verify(useCaseMock, times(3)).apply(null);
-    }
+        verify(managedCAUseCase, times(1)).apply(myCaptor.capture());
+        verify(customCAUseCase, times(2)).apply(myCaptor.capture());    }
 
     @Test
     void GIVEN_GG_with_cda_WHEN_ca_type_provided_in_config_THEN_valid_ca_created()

@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.api;
 
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
+import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -39,7 +40,7 @@ public class UseCasesTest {
         }
     }
 
-    static class UseCaseWithDependencies implements UseCases.UseCase<String, Void, Exception> {
+    static class UseCaseWithDependencies implements UseCases.UseCase<String, Void> {
         private final TestDependency dep;
 
         @Inject
@@ -53,15 +54,15 @@ public class UseCasesTest {
         }
     }
 
-    static class UseCaseWithExceptions implements UseCases.UseCase<Void, Void, InvalidConfigurationException> {
+    static class UseCaseWithExceptions implements UseCases.UseCase<Void, Void> {
 
         @Override
-        public Void apply(Void dto) throws InvalidConfigurationException {
-            throw new InvalidConfigurationException("Explode");
+        public Void apply(Void dto) throws UseCaseException {
+            throw new UseCaseException(new InvalidConfigurationException("Explode"));
         }
     }
 
-    static class UseCaseWithParameters implements UseCases.UseCase<String, String, Exception> {
+    static class UseCaseWithParameters implements UseCases.UseCase<String, String> {
 
         @Override
         public String apply(String dto) {
@@ -69,7 +70,7 @@ public class UseCasesTest {
         }
     }
 
-    static class UseCaseUpdatingDependency implements UseCases.UseCase<String, Void, Exception> {
+    static class UseCaseUpdatingDependency implements UseCases.UseCase<String, Void> {
         private final CDAConfiguration configuration;
 
         @Inject
@@ -102,7 +103,7 @@ public class UseCasesTest {
     @Test
     void GIVEN_aUseCaseWithExceptions_WHEN_ran_THEN_itThrowsAnException() {
         UseCaseWithExceptions useCase = useCases.get(UseCaseWithExceptions.class);
-        assertThrows(InvalidConfigurationException.class, () -> { useCase.apply(null); });
+        assertThrows(UseCaseException.class, () -> { useCase.apply(null); });
     }
 
     @Test

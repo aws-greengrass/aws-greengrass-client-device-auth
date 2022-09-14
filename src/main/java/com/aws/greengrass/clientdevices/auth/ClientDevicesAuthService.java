@@ -10,11 +10,10 @@ import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.listeners.CACertificateChainChangedListener;
-import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCertificateAuthorityUseCase;
+import com.aws.greengrass.clientdevices.auth.certificate.listeners.CAConfigurationChangedLister;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
-import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -78,7 +77,6 @@ public class ClientDevicesAuthService extends PluginService {
     private final ThreadPoolExecutor cloudCallThreadPool;
     private final UseCases useCases;
     private int cloudCallQueueSize;
-    private CDAConfiguration prevCdaConfiguration;
     private CDAConfiguration cdaConfiguration;
 
 
@@ -153,12 +151,8 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void onConfigurationChanged() {
-        if (cdaConfiguration != null) {
-            prevCdaConfiguration = cdaConfiguration;
-        }
-
         try {
-            cdaConfiguration = CDAConfiguration.from(getConfig());
+            cdaConfiguration = CDAConfiguration.from(cdaConfiguration, getConfig());
             useCases.provide(CDAConfiguration.class, cdaConfiguration);
         } catch (URISyntaxException e) {
             serviceErrored(e);
@@ -170,7 +164,6 @@ public class ClientDevicesAuthService extends PluginService {
             return;
         }
         logger.atDebug().kv("why", whatHappened).kv("node", node).log();
-        onConfigurationChanged();
         // NOTE: This should not live here. The service doesn't have to have knowledge about where/how
         // keys are stored
         Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
@@ -195,22 +188,18 @@ public class ClientDevicesAuthService extends PluginService {
             }
         }
 
-        try {
-            if (whatHappened == WhatHappened.initialized || node == null) {
-                updateDeviceGroups(whatHappened, deviceGroupTopics);
-                useCases.get(ConfigureCertificateAuthorityUseCase.class).apply(null);
-            } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
-                updateDeviceGroups(whatHappened, deviceGroupTopics);
-            } else if (cdaConfiguration.hasCAConfigurationChanged(prevCdaConfiguration)) {
-                useCases.get(ConfigureCertificateAuthorityUseCase.class).apply(null);
-            }
-        } catch (UseCaseException e) {
-            serviceErrored(e);
+        if (whatHappened == WhatHappened.initialized || node == null) {
+            updateDeviceGroups(whatHappened, deviceGroupTopics);
+        } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
+            updateDeviceGroups(whatHappened, deviceGroupTopics);
         }
+
+        onConfigurationChanged();
     }
 
     private void registerEventListeners() {
         context.get(CACertificateChainChangedListener.class).listen();
+        context.get(CAConfigurationChangedLister.class).listen();
     }
 
     @Override

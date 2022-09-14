@@ -23,7 +23,7 @@ import javax.inject.Inject;
  * last recorded change.
  */
 public class RecordConnectivityChangesUseCase implements
-        UseCases.UseCase<RecordConnectivityChangesResponse, RecordConnectivityChangesRequest, Exception> {
+        UseCases.UseCase<RecordConnectivityChangesResponse, RecordConnectivityChangesRequest> {
     private final ConnectivityInformation connectivityInformation;
 
     @Inject
