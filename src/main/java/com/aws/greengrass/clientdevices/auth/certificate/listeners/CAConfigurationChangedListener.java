@@ -15,7 +15,7 @@ import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 
 import javax.inject.Inject;
 
-public class CAConfigurationChangedLister implements DomainEvents.DomainEventListener<CAConfigurationChanged> {
+public class CAConfigurationChangedListener implements DomainEvents.DomainEventListener<CAConfigurationChanged> {
     private final UseCases useCases;
     private final DomainEvents domainEvents;
 
@@ -26,7 +26,7 @@ public class CAConfigurationChangedLister implements DomainEvents.DomainEventLis
      * @param domainEvents Domain event router.
      */
     @Inject
-    public CAConfigurationChangedLister(UseCases useCases, DomainEvents domainEvents) {
+    public CAConfigurationChangedListener(UseCases useCases, DomainEvents domainEvents) {
         this.useCases = useCases;
         this.domainEvents = domainEvents;
     }
