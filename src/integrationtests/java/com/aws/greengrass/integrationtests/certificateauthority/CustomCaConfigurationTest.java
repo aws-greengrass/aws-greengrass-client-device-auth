@@ -8,6 +8,7 @@ package com.aws.greengrass.integrationtests.certificateauthority;
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
@@ -98,7 +99,8 @@ public class CustomCaConfigurationTest {
 
     @BeforeEach
     void beforeEach() {
-        certificateStore = new CertificateStore(tmpPath);
+        DomainEvents events = new DomainEvents();
+        certificateStore = new CertificateStore(tmpPath, events);
 
         certificateManager = new CertificateManager(
                 certificateStore, mockConnectivityInformation,
