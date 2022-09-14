@@ -8,6 +8,7 @@ package com.aws.greengrass.integrationtests.certificateauthority;
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
+import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
@@ -22,6 +23,7 @@ import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformatio
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
+import com.aws.greengrass.clientdevices.auth.iot.registry.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
@@ -76,6 +78,7 @@ public class CustomCaConfigurationTest {
     @Mock
     private GroupManager groupManagerMock;
 
+    @Mock private CertificateRegistry certificateRegistryMock;
 
     @Mock
     ConnectivityInformation mockConnectivityInformation;
@@ -116,11 +119,11 @@ public class CustomCaConfigurationTest {
             ServiceUnavailableException, CertificateChainLoadingException, InvalidConfigurationException {
         // Generate custom certificates
         KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
-        X509Certificate rootCA = CertificateTestHelpers.arrangeCertificate(
+        X509Certificate rootCA = CertificateTestHelpers.issueCertificate(
                 new X500Name("CN=root"), new X500Name("CN=root"), rootKeyPair, rootKeyPair, true);
 
         KeyPair intermediateKeyPair = CertificateStore.newRSAKeyPair(2048);
-        X509Certificate intermediateCA = CertificateTestHelpers.arrangeCertificate(
+        X509Certificate intermediateCA = CertificateTestHelpers.issueCertificate(
                 new X500Name("CN=root"), new X500Name("CN=intermediate"), intermediateKeyPair, rootKeyPair, true);
 
         // Service Configuration
@@ -194,7 +197,9 @@ public class CustomCaConfigurationTest {
         X509Certificate[] clientCertificateChain = arrangeClientComponentCertificateChain();
 
         DeviceAuthClient deviceAuth = new DeviceAuthClient(sessionManagerMock, groupManagerMock, certificateStore);
-        assertTrue(deviceAuth.isGreengrassComponent(CertificateHelper.toPem(clientCertificateChain)));
+        ClientDevicesAuthServiceApi api = new ClientDevicesAuthServiceApi(
+                certificateRegistryMock, sessionManagerMock, deviceAuth, certificateManager);
+        assertTrue(api.verifyClientDeviceIdentity(CertificateHelper.toPem(clientCertificateChain)));
     }
 
 

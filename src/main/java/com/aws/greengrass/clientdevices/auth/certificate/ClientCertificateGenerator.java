@@ -81,7 +81,7 @@ public class ClientCertificateGenerator extends CertificateGenerator {
             X509Certificate[] chain = {certificate, caCertificate};
             callback.accept(chain);
         } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException
-                 | KeyStoreException e) {
+                | KeyStoreException e) {
             throw new CertificateGenerationException(e);
         }
     }

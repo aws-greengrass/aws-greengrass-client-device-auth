@@ -67,8 +67,8 @@ public final class CertificateTestHelpers {
      * @param isCA               Whether the cert can be used as a CA to sign more certificates
      *
      */
-    public static X509Certificate arrangeCertificate(X500Name issuer, X500Name subject, KeyPair certificateKeyPair,
-                                                      KeyPair issuerKeyPair, Boolean isCA)
+    public static X509Certificate issueCertificate(X500Name issuer, X500Name subject, KeyPair certificateKeyPair,
+                                                   KeyPair issuerKeyPair, Boolean isCA)
             throws CertificateException, OperatorCreationException, CertIOException {
         String signingAlgorithm = CERTIFICATE_SIGNING_ALGORITHM.get(certificateKeyPair.getPrivate().getAlgorithm());
         Instant now = Instant.now();
