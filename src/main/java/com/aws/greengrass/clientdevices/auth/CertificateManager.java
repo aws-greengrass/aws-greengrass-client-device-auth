@@ -256,7 +256,7 @@ public class CertificateManager {
     /**
      * Configures the KeyStore to use a certificates provided from the CA configuration.
      *
-     * @param configuration the component configuration
+     * @param configuration                the certificateAuthority configuration
      * @throws InvalidConfigurationException if the CA configuration doesn't have both a privateKeyUri and
      *                                      certificateUri
      */

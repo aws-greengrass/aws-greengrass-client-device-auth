@@ -77,7 +77,7 @@ public final class CDAConfiguration {
         );
 
         topics.getContext().put(CDAConfiguration.class, newConfig);
-        newConfig.triggerChanges(existingConfig);
+        newConfig.triggerChanges(newConfig, existingConfig);
 
         return newConfig;
     }
@@ -92,9 +92,9 @@ public final class CDAConfiguration {
         return from(null, topics);
     }
 
-    private void triggerChanges(CDAConfiguration prev) {
+    private void triggerChanges(CDAConfiguration current, CDAConfiguration prev) {
         if (hasCAConfigurationChanged(prev)) {
-            domainEvents.emit(new CAConfigurationChanged(ca));
+            domainEvents.emit(new CAConfigurationChanged(current));
         }
     }
 

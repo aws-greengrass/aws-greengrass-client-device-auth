@@ -21,25 +21,24 @@ import javax.inject.Inject;
  * Creates or loads a  self-signed CA that will be used to issue certificates to other plugins and to verify client
  * devices.
  */
-public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Void, Void> {
+public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Void, CDAConfiguration> {
     private final CertificateManager certificateManager;
     private static final Logger logger = LogManager.getLogger(ConfigureManagedCertificateAuthority.class);
-    private final CDAConfiguration configuration;
 
 
     /**
      * Configure core certificate authority.
      * @param certificateManager  Certificate manager.
-     * @param configuration       CDA Service configuration
      */
     @Inject
-    public ConfigureManagedCertificateAuthority(CertificateManager certificateManager, CDAConfiguration configuration) {
+    public ConfigureManagedCertificateAuthority(CertificateManager certificateManager) {
         this.certificateManager = certificateManager;
-        this.configuration = configuration;
     }
 
     @Override
-    public Void apply(Void unused) throws UseCaseException {
+    public Void apply(CDAConfiguration configuration) throws UseCaseException {
+        // NOTE: We should not be passing the entire configuration just what changed. We are just doing it for
+        // its convenience but eventually syncing the runtime config can be its own use case triggered by events.
         logger.info("Configuring Greengrass managed certificate authority.");
 
         try {
@@ -48,7 +47,7 @@ public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Vo
             certificateManager.generateCA(configuration.getCaPassphrase(), configuration.getCaType());
             configuration.updateCAPassphrase(certificateManager.getCaPassPhrase());
             configuration.updateCACertificates(certificateManager.getCACertificates());
-        } catch (KeyStoreException | CertificateEncodingException | IOException e) {
+        } catch (IOException | CertificateEncodingException | KeyStoreException e) {
             throw new UseCaseException(e);
         }
 

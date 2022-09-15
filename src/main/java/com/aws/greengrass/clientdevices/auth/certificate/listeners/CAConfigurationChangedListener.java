@@ -10,7 +10,7 @@ import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCustomCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureManagedCertificateAuthority;
-import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 
 import javax.inject.Inject;
@@ -45,13 +45,13 @@ public class CAConfigurationChangedListener implements DomainEvents.DomainEventL
      */
     @Override
     public void handle(CAConfigurationChanged event)  {
-        CAConfiguration caConfiguration = event.getConfiguration();
+        CDAConfiguration configuration = event.getConfiguration();
 
         try {
-            if (caConfiguration.isUsingCustomCA()) {
-                useCases.get(ConfigureCustomCertificateAuthority.class).apply(null);
+            if (configuration.isUsingCustomCA()) {
+                useCases.get(ConfigureCustomCertificateAuthority.class).apply(configuration);
             } else {
-                useCases.get(ConfigureManagedCertificateAuthority.class).apply(null);
+                useCases.get(ConfigureManagedCertificateAuthority.class).apply(configuration);
             }
         } catch (UseCaseException e) {
             // TODO: Failed to configure CA <--- Should service error (Maybe return a type that should represent
