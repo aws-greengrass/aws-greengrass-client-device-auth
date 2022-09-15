@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
+import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
@@ -19,7 +20,6 @@ import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
@@ -52,7 +52,6 @@ import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundEx
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.KeyStoreException;
@@ -363,16 +362,18 @@ class ClientDevicesAuthServiceTest {
 
     @Test
     void GIVEN_certificateAuthorityConfiguration_WHEN_itChanges_THEN_CAisConfigured() throws InterruptedException,
-            ServiceLoadException, UseCaseException, URISyntaxException {
+            ServiceLoadException {
+        ArgumentCaptor<CDAConfiguration> configurationCaptor = ArgumentCaptor.forClass(CDAConfiguration.class);
         UseCases useCasesMock = mock(UseCases.class);
         ConfigureCustomCertificateAuthority customCAUseCase = mock(ConfigureCustomCertificateAuthority.class);
+        when(customCAUseCase.apply(configurationCaptor.capture())).thenReturn(Result.ok());
         ConfigureManagedCertificateAuthority managedCAUseCase = mock(ConfigureManagedCertificateAuthority.class);
+        when(managedCAUseCase.apply(configurationCaptor.capture())).thenReturn(Result.ok());
         when(useCasesMock.get(ConfigureCustomCertificateAuthority.class)).thenReturn(customCAUseCase);
         when(useCasesMock.get(ConfigureManagedCertificateAuthority.class)).thenReturn(managedCAUseCase);
         kernel.getContext().put(UseCases.class, useCasesMock);
 
         startNucleusWithConfig("config.yaml");
-        ArgumentCaptor<CDAConfiguration> configurationCaptor = ArgumentCaptor.forClass(CDAConfiguration.class);
         Topics topics = kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig();
 
         // Block until subscriber has finished updating

@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.certificate.usecases;
 
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
+import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
@@ -36,7 +37,7 @@ public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Vo
     }
 
     @Override
-    public Void apply(CDAConfiguration configuration) throws UseCaseException {
+    public Result apply(CDAConfiguration configuration) {
         // TODO: We should not be passing the entire configuration just what changed. We are just doing it for
         //  its convenience but eventually syncing the runtime config can be its own use case triggered by events.
 
@@ -53,9 +54,9 @@ public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Vo
             configuration.updateCAPassphrase(certificateManager.getCaPassPhrase());
             configuration.updateCACertificates(certificateManager.getCACertificates());
         } catch (IOException | CertificateEncodingException | KeyStoreException e) {
-            throw new UseCaseException(e);
+            return Result.error(new UseCaseException(e));
         }
 
-        return null;
+        return Result.ok();
     }
 }

@@ -137,7 +137,6 @@ public class ClientDevicesAuthService extends PluginService {
         return newSize;
     }
 
-
     @Override
     protected void install() throws InterruptedException {
         super.install();

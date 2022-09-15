@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.connectivity.usecases;
 
+import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
@@ -24,7 +25,7 @@ public class GetConnectivityInformationUseCase implements UseCases.UseCase<Set<H
     }
 
     @Override
-    public Set<HostAddress> apply(Void unused) {
-        return connectivityInformation.getAggregatedConnectivityInformation();
+    public Result<Set<HostAddress>> apply(Void unused) {
+        return Result.ok(connectivityInformation.getAggregatedConnectivityInformation());
     }
 }

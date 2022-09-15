@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.api;
 
-import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.dependency.Context;
 
 
@@ -13,7 +12,7 @@ public class UseCases {
     private Context context;
 
     public interface UseCase<R, D>  {
-        R apply(D var1) throws UseCaseException;
+        Result<R> apply(D var1);
     }
 
     public void init(Context context) {

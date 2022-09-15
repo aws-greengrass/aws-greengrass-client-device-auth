@@ -6,11 +6,12 @@
 package com.aws.greengrass.clientdevices.auth.certificate.usecases;
 
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
+import com.aws.greengrass.clientdevices.auth.api.Result;
+import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
-import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
@@ -39,7 +40,7 @@ public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Voi
     }
 
     @Override
-    public Void apply(CDAConfiguration configuration) throws UseCaseException {
+    public Result apply(CDAConfiguration configuration) {
         // TODO: We should not be passing the entire configuration just what changed. We are just doing it for
         //  its convenience but eventually syncing the runtime config can be its own use case triggered by events.
 
@@ -53,10 +54,10 @@ public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Voi
             certificateManager.configureCustomCA(configuration);
             configuration.updateCACertificates(certificateManager.getCACertificates());
         } catch (InvalidConfigurationException | InvalidCertificateAuthorityException | CertificateEncodingException
-                | IOException | KeyStoreException e) {
-            throw new UseCaseException(e);
+                 | KeyStoreException | IOException e) {
+            return Result.error(e);
         }
 
-        return null;
+        return Result.ok();
     }
 }
