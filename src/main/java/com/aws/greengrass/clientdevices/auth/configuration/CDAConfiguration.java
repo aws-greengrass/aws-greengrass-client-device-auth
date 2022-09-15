@@ -76,7 +76,6 @@ public final class CDAConfiguration {
             CAConfiguration.from(serviceConfiguration)
         );
 
-        topics.getContext().put(CDAConfiguration.class, newConfig);
         newConfig.triggerChanges(newConfig, existingConfig);
 
         return newConfig;

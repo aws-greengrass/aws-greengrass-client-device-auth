@@ -27,27 +27,13 @@ public class UseCases {
     }
 
     /**
-     * Allows to provide a specific dependency we want to be injected on the use case being tested.
-     *
-     * @param clazz Class of the instance you want to inject1
-     * @param ob Concrete instance of the class
-     * @param <T> instance type
-     */
-    public <T> UseCases provide(Class<T> clazz, T ob) {
-        checkCanRun();
-        context.put(clazz, ob);
-        return this;
-    }
-
-    /**
-     * Wrapper around context that will generate a new instance of a Use Case with
-     * the latest dependencies on the context.
+     * Wrapper around context.
      *
      * @param clazz Use Case class to be built
      * @param <C>   Use Case concrete class
      */
     public <C extends UseCase> C get(Class<C> clazz) {
         checkCanRun();
-        return context.newInstance(clazz);
+        return context.get(clazz);
     }
 }

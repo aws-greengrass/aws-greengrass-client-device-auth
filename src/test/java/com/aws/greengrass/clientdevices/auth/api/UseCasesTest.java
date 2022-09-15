@@ -17,12 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import javax.inject.Inject;
-import java.net.URISyntaxException;
 
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME;
-import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_URI;
-import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC;
-import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -94,7 +90,7 @@ public class UseCasesTest {
     @Test
     void GIVEN_aUseCaseWithDependencies_WHEN_ran_THEN_itExecutesWithNoExceptions() {
         TestDependency aTestDependency = new TestDependency("Something");
-        useCases.provide(TestDependency.class, aTestDependency);
+        topics.getContext().put(TestDependency.class, aTestDependency);
 
         UseCaseWithDependencies useCase = useCases.get(UseCaseWithDependencies.class);
         assertEquals(useCase.apply(null), aTestDependency.name);
@@ -110,26 +106,5 @@ public class UseCasesTest {
     void GIVEN_aUseCaseWithParameters_WHEN_ran_itAcceptsTheParamsAndReturnsThem() {
         UseCaseWithParameters useCase = useCases.get(UseCaseWithParameters.class);
         assertEquals(useCase.apply("hello"), "hello");
-    }
-
-    @Test
-    void Given_dependencyChanges_WHEN_ran_THEN_newInstanceIsProvided() throws URISyntaxException {
-        // When
-        topics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
-                .withValue("file:///cert-uri");
-
-        // Then
-        useCases.provide(CDAConfiguration.class, CDAConfiguration.from(topics));
-        UseCaseUpdatingDependency useCase = useCases.get(UseCaseUpdatingDependency.class);
-        assertEquals(useCase.apply(null), "file:///cert-uri");
-
-        // When
-        topics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
-                .withValue("file:///cert-changed-uri");
-
-        // Then
-        useCases.provide(CDAConfiguration.class, CDAConfiguration.from(topics));
-        useCase = useCases.get(UseCaseUpdatingDependency.class);
-        assertEquals(useCase.apply(null), "file:///cert-changed-uri");
     }
 }
