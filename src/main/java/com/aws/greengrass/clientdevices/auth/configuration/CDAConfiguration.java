@@ -5,7 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
+import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
 import com.aws.greengrass.config.Topics;
 
 import java.net.URI;
@@ -46,10 +48,37 @@ public final class CDAConfiguration {
 
     private final RuntimeConfiguration runtime;
     private final CAConfiguration ca;
+    private final DomainEvents domainEvents;
 
-    private CDAConfiguration(RuntimeConfiguration runtime, CAConfiguration ca) {
-       this.runtime = runtime;
-       this.ca = ca;
+    private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca) {
+        this.domainEvents = domainEvents;
+        this.runtime = runtime;
+        this.ca = ca;
+    }
+
+    /**
+     * Creates the CDA (Client Device Auth) Service configuration. And allows it to be available in the context
+     * with the updated values
+     *
+     * @param existingConfig  an existing version of the CDAConfiguration
+     * @param topics configuration topics from GG
+     * @throws URISyntaxException if invalid URI inside the configuration
+     */
+    public static CDAConfiguration from(CDAConfiguration existingConfig, Topics topics) throws URISyntaxException {
+        Topics runtimeTopics = topics.lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC);
+        Topics serviceConfiguration = topics.lookupTopics(CONFIGURATION_CONFIG_KEY);
+
+        DomainEvents domainEvents = topics.getContext().get(DomainEvents.class);
+
+        CDAConfiguration newConfig = new CDAConfiguration(
+            domainEvents,
+            RuntimeConfiguration.from(runtimeTopics),
+            CAConfiguration.from(serviceConfiguration)
+        );
+
+        newConfig.triggerChanges(newConfig, existingConfig);
+
+        return newConfig;
     }
 
     /**
@@ -59,21 +88,17 @@ public final class CDAConfiguration {
      * @throws URISyntaxException if invalid URI inside the configuration
      */
     public static CDAConfiguration from(Topics topics) throws URISyntaxException {
-        Topics runtimeTopics = topics.lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC);
-        Topics serviceConfiguration = topics.lookupTopics(CONFIGURATION_CONFIG_KEY);
+        return from(null, topics);
+    }
 
-        return new CDAConfiguration(
-            RuntimeConfiguration.from(runtimeTopics),
-            CAConfiguration.from(serviceConfiguration)
-        );
+    private void triggerChanges(CDAConfiguration current, CDAConfiguration prev) {
+        if (hasCAConfigurationChanged(prev)) {
+            domainEvents.emit(new CAConfigurationChanged(current));
+        }
     }
 
     public boolean isUsingCustomCA() {
         return ca.isUsingCustomCA();
-    }
-
-    public boolean isCaTypesProvided() {
-        return ca.getCaTypeList().size() > 0;
     }
 
     public String getCaPassphrase() {
@@ -106,7 +131,7 @@ public final class CDAConfiguration {
      *
      * @param config  CDAConfiguration
      */
-    public boolean hasCAConfigurationChanged(CDAConfiguration config) {
+    private boolean hasCAConfigurationChanged(CDAConfiguration config) {
         if (config == null) {
             return true;
         }

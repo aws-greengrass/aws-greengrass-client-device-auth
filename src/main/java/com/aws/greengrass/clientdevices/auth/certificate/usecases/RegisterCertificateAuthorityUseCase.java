@@ -21,7 +21,7 @@ import java.security.cert.CertificateEncodingException;
 import javax.inject.Inject;
 
 public class RegisterCertificateAuthorityUseCase
-        implements UseCases.UseCase<Void, Void, UseCaseException> {
+        implements UseCases.UseCase<Void, Void> {
     private static final Logger logger = LogManager.getLogger(RegisterCertificateAuthorityUseCase.class);
 
     private final CertificateManager certificateManager;
