@@ -187,9 +187,7 @@ public class ClientDevicesAuthService extends PluginService {
             }
         }
 
-        if (whatHappened == WhatHappened.initialized || node == null) {
-            updateDeviceGroups(whatHappened, deviceGroupTopics);
-        } else if (node.childOf(DEVICE_GROUPS_TOPICS)) {
+        if (whatHappened == WhatHappened.initialized || node == null || node.childOf(DEVICE_GROUPS_TOPICS)) {
             updateDeviceGroups(whatHappened, deviceGroupTopics);
         }
 
