@@ -145,9 +145,9 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void install() throws InterruptedException {
         super.install();
-        registerSubscribers();
         registerEventListeners();
         onConfigurationChanged();
+        registerSubscribers();
     }
 
     private void registerSubscribers() {
