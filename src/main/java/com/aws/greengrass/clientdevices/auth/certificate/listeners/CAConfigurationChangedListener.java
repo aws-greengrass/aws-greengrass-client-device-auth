@@ -6,7 +6,6 @@
 package com.aws.greengrass.clientdevices.auth.certificate.listeners;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCustomCertificateAuthority;
@@ -44,14 +43,15 @@ public class CAConfigurationChangedListener implements DomainEvents.DomainEventL
      * @param event Certificate authority configuration change event
      */
     @Override
-    public Result<?> handle(CAConfigurationChanged event)  {
+    public void handle(CAConfigurationChanged event)  {
         CDAConfiguration configuration = event.getConfiguration();
 
         if (configuration.isUsingCustomCA()) {
-            return useCases.get(ConfigureCustomCertificateAuthority.class).apply(configuration);
+            useCases.get(ConfigureCustomCertificateAuthority.class).apply(configuration);
+        } else {
+            useCases.get(ConfigureManagedCertificateAuthority.class).apply(configuration);
         }
 
-        return useCases.get(ConfigureManagedCertificateAuthority.class).apply(configuration);
     }
 }
 

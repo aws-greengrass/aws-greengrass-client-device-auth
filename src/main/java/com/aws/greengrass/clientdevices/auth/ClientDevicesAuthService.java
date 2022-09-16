@@ -7,8 +7,6 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
-import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.listeners.CACertificateChainChangedListener;
@@ -78,7 +76,6 @@ public class ClientDevicesAuthService extends PluginService {
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private final ThreadPoolExecutor cloudCallThreadPool;
     private final UseCases useCases;
-    private final DomainEvents eventEmitter;
     private int cloudCallQueueSize;
     private CDAConfiguration cdaConfiguration;
 
@@ -94,7 +91,6 @@ public class ClientDevicesAuthService extends PluginService {
      * @param mqttSessionFactory          session factory to handling mqtt credentials
      * @param sessionManager              session manager
      * @param clientDevicesAuthServiceApi client devices service api handle
-     * @param eventsEmitter               Domain Events service
      * @param useCases                    UseCases service
      */
     @SuppressWarnings("PMD.ExcessiveParameterList")
@@ -106,7 +102,6 @@ public class ClientDevicesAuthService extends PluginService {
                                     MqttSessionFactory mqttSessionFactory,
                                     SessionManager sessionManager,
                                     ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
-                                    DomainEvents eventsEmitter,
                                     UseCases useCases) {
         super(topics);
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
@@ -124,8 +119,8 @@ public class ClientDevicesAuthService extends PluginService {
         certificateManager.updateCertificatesConfiguration(new CertificatesConfig(getConfig()));
         sessionManager.setSessionConfig(new SessionConfig(getConfig()));
 
+        // Initialize the use cases, so we can use them anywhere in the app
         this.useCases = useCases;
-        this.eventEmitter = eventsEmitter;
         this.useCases.init(getContext());
     }
 
@@ -142,34 +137,25 @@ public class ClientDevicesAuthService extends PluginService {
         return newSize;
     }
 
+
     @Override
     protected void install() throws InterruptedException {
         super.install();
         registerEventListeners();
+        subscribeToConfigChanges();
+    }
+
+    private void subscribeToConfigChanges() {
         onConfigurationChanged();
-        registerSubscribers();
-    }
-
-    private void registerSubscribers() {
         config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(this::configChangeHandler);
-        eventEmitter.onError(this::errorHandler);
-    }
-
-    private void registerEventListeners() {
-        context.get(CACertificateChainChangedListener.class).listen();
-        context.get(CAConfigurationChangedListener.class).listen();
     }
 
     private void onConfigurationChanged() {
         try {
             cdaConfiguration = CDAConfiguration.from(cdaConfiguration, getConfig());
         } catch (URISyntaxException e) {
-            errorHandler(Result.error(e));
+            serviceErrored(e);
         }
-    }
-
-    private <E extends Exception> void errorHandler(Result<E> errorResult) {
-        serviceErrored(errorResult.get());
     }
 
     private void configChangeHandler(WhatHappened whatHappened, Node node) {
@@ -206,6 +192,11 @@ public class ClientDevicesAuthService extends PluginService {
         }
 
         onConfigurationChanged();
+    }
+
+    private void registerEventListeners() {
+        context.get(CACertificateChainChangedListener.class).listen();
+        context.get(CAConfigurationChangedListener.class).listen();
     }
 
     @Override
