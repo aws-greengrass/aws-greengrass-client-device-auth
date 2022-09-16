@@ -5,18 +5,29 @@
 
 package com.aws.greengrass.clientdevices.auth.certificate.usecases;
 
-import com.aws.greengrass.clientdevices.auth.CertificateManager;
 import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.security.SecurityService;
+import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
+import com.aws.greengrass.util.RetryUtils;
+import oshi.util.tuples.Pair;
 
 import java.io.IOException;
+import java.net.URI;
+import java.security.KeyPair;
 import java.security.KeyStoreException;
+import java.security.PrivateKey;
 import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
+import java.time.Duration;
+import java.util.Collections;
 import javax.inject.Inject;
 
 /**
@@ -25,18 +36,44 @@ import javax.inject.Inject;
  */
 public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Void, CDAConfiguration> {
     private static final Logger logger = LogManager.getLogger(ConfigureCustomCertificateAuthority.class);
-    private final CertificateManager certificateManager;
+    private final SecurityService securityService;
+    private final CertificateStore certificateStore;
 
 
     /**
      * Configure core certificate authority.
      *
-     * @param certificateManager Instance of CertificateManager
+     * @param securityService      Security Service
+     * @param certificateStore      Helper class for managing certificate
      */
     @Inject
-    public ConfigureCustomCertificateAuthority(CertificateManager certificateManager) {
-        this.certificateManager = certificateManager;
+    public ConfigureCustomCertificateAuthority(SecurityService securityService, CertificateStore certificateStore) {
+        this.securityService =  securityService;
+        this.certificateStore = certificateStore;
     }
+
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private Pair<PrivateKey, X509Certificate[]> getCertificateChain(URI privateKeyUri, URI certChainUri) {
+        // TODO: Move retry logic out of useCases
+        RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
+                .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
+                .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
+
+        try {
+            KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
+                    () -> securityService.getKeyPair(privateKeyUri, certChainUri),
+                    "get-key-pair", logger);
+
+            X509Certificate[] chain = RetryUtils.runWithRetry(retryConfig,
+                    () -> securityService.getCertificateChain(privateKeyUri, certChainUri),
+                    "get-certificate-chain", logger);
+
+            return new Pair<>(keyPair.getPrivate(), chain);
+        } catch (Exception e) {
+            throw new InvalidCertificateAuthorityException(e);
+        }
+    }
+
 
     @Override
     public Result apply(CDAConfiguration configuration) {
@@ -46,15 +83,26 @@ public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Voi
         // TODO: We need to synchronize the changes that configuration has on the state of the service. There is
         //  a possibility that 2 threads run different use cases and change the certificate authority concurrently
         //  causing potential race conditions
+        if (!configuration.isUsingCustomCA()) {
+            String errorMsg = "Invalid configuration: certificateUri and privateKeyUri are required.";
+            return Result.warning(new InvalidConfigurationException(errorMsg));
+        }
+
+        URI privateKeyUri = configuration.getPrivateKeyUri().get();
+        URI certificateUri = configuration.getCertificateUri().get();
+
+        logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", certificateUri)
+                .log("Configuring custom core CA");
 
         try {
-            logger.info("Configuring custom certificate authority.");
-            // NOTE: We will pull the configureCustomCA out of the certificate Manager to here
-            certificateManager.configureCustomCA(configuration);
-            configuration.updateCACertificates(certificateManager.getCACertificates());
-        } catch (InvalidConfigurationException | InvalidCertificateAuthorityException | CertificateEncodingException
-                 | KeyStoreException | IOException e) {
-            logger.atError().cause(e).log("Failed to configure custom CA");
+            Pair<PrivateKey, X509Certificate[]> result = getCertificateChain(privateKeyUri, certificateUri);
+            certificateStore.setCaPrivateKey(result.getA());
+            certificateStore.setCaCertificateChain(result.getB());
+            configuration.updateCACertificates(
+                    Collections.singletonList(CertificateHelper.toPem(certificateStore.getCaCertificateChain())));
+        } catch (CertificateEncodingException | KeyStoreException | IOException  e) {
+            logger.atError().kv("privateKeyUri", privateKeyUri).kv("certificateUri",certificateUri)
+                    .cause(e).log("Failed to configure CA");
             return Result.error(e);
         }
 

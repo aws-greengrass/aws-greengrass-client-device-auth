@@ -12,10 +12,12 @@ import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
+import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
+import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCustomCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
@@ -107,7 +109,7 @@ public class CustomCaConfigurationTest {
 
         certificateManager = new CertificateManager(
                 certificateStore, mockConnectivityInformation,
-                mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactoryMock, securityServiceMock);
+                mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactoryMock);
 
     }
 
@@ -130,21 +132,25 @@ public class CustomCaConfigurationTest {
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
 
-        Topics configurationTopics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
-        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
+        Topics topics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
+        topics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
                 .withValue(privateKeyUri.toString());
-        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
+        topics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue(certificateUri.toString());
 
-        CDAConfiguration cdaConfiguration = CDAConfiguration.from(configurationTopics);
-        CertificatesConfig certsConfig = new CertificatesConfig(configurationTopics);
+        UseCases useCases = new UseCases();
+        useCases.init(topics.getContext());
+        ConfigureCustomCertificateAuthority useCase = useCases.get(ConfigureCustomCertificateAuthority.class);
+
+        CDAConfiguration cdaConfiguration = CDAConfiguration.from(topics);
+        CertificatesConfig certsConfig = new CertificatesConfig(topics);
         certificateManager.updateCertificatesConfiguration(certsConfig);
 
         // Configure Custom CA
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
         when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri))
                 .thenReturn(new X509Certificate[]{intermediateCA, rootCA});
-        certificateManager.configureCustomCA(cdaConfiguration);
+        useCase.apply(cdaConfiguration);
 
         return new X509Certificate[]{intermediateCA, rootCA};
     }
