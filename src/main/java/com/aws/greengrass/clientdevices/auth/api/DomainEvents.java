@@ -47,8 +47,11 @@ public class DomainEvents {
                 domainEvent.getClass(), new CopyOnWriteArrayList<>());
 
         for (DomainEventListener<T> listener : listeners) {
-            String listenerName = listener.getClass().getSimpleName();
-            logger.info("Running listener {}", listenerName);
+            logger.atDebug()
+                    .kv("listener", listener.getClass().getSimpleName())
+                    .kv("event", domainEvent.getClass().getSimpleName())
+                    .log("Running listener handler");
+
             listener.handle(domainEvent);
         }
     }
