@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.certificate.listeners;
+package com.aws.greengrass.clientdevices.auth.certificate.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.api.Handler;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCustomCertificateAuthority;
@@ -14,7 +15,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 
 import javax.inject.Inject;
 
-public class CAConfigurationChangedListener implements DomainEvents.DomainEventListener<CAConfigurationChanged> {
+public class CAConfigurationChangedHandler implements Handler<CAConfigurationChanged> {
     private final UseCases useCases;
     private final DomainEvents domainEvents;
 
@@ -25,7 +26,7 @@ public class CAConfigurationChangedListener implements DomainEvents.DomainEventL
      * @param domainEvents Domain event router.
      */
     @Inject
-    public CAConfigurationChangedListener(UseCases useCases, DomainEvents domainEvents) {
+    public CAConfigurationChangedHandler(UseCases useCases, DomainEvents domainEvents) {
         this.useCases = useCases;
         this.domainEvents = domainEvents;
     }

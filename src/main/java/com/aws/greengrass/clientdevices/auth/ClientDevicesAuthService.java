@@ -9,8 +9,8 @@ import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
-import com.aws.greengrass.clientdevices.auth.certificate.listeners.CACertificateChainChangedListener;
-import com.aws.greengrass.clientdevices.auth.certificate.listeners.CAConfigurationChangedListener;
+import com.aws.greengrass.clientdevices.auth.certificate.handlers.CACertificateChainChangedHandler;
+import com.aws.greengrass.clientdevices.auth.certificate.handlers.CAConfigurationChangedHandler;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
@@ -141,8 +141,14 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void install() throws InterruptedException {
         super.install();
-        registerEventListeners();
+        initializeHandlers();
         subscribeToConfigChanges();
+    }
+
+    private void initializeHandlers() {
+        // Register domain event handlers
+        context.get(CACertificateChainChangedHandler.class).listen();
+        context.get(CAConfigurationChangedHandler.class).listen();
     }
 
     private void subscribeToConfigChanges() {
@@ -192,11 +198,6 @@ public class ClientDevicesAuthService extends PluginService {
         }
 
         onConfigurationChanged();
-    }
-
-    private void registerEventListeners() {
-        context.get(CACertificateChainChangedListener.class).listen();
-        context.get(CAConfigurationChangedListener.class).listen();
     }
 
     @Override
