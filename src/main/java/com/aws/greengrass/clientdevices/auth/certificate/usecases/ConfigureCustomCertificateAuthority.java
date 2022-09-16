@@ -16,8 +16,8 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
+import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.RetryUtils;
-import oshi.util.tuples.Pair;
 
 import java.io.IOException;
 import java.net.URI;
@@ -100,7 +100,8 @@ public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Voi
             certificateStore.setCaCertificateChain(result.getB());
             configuration.updateCACertificates(
                     Collections.singletonList(CertificateHelper.toPem(certificateStore.getCaCertificateChain())));
-        } catch (CertificateEncodingException | KeyStoreException | IOException  e) {
+        } catch (CertificateEncodingException | InvalidCertificateAuthorityException | KeyStoreException
+                | IOException  e) {
             logger.atError().kv("privateKeyUri", privateKeyUri).kv("certificateUri",certificateUri)
                     .cause(e).log("Failed to configure CA");
             return Result.error(e);
