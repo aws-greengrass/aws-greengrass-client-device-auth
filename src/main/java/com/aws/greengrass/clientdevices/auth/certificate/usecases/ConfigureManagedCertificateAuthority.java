@@ -9,7 +9,6 @@ import com.aws.greengrass.clientdevices.auth.CertificateManager;
 import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
-import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
@@ -55,7 +54,7 @@ public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Vo
             configuration.updateCACertificates(certificateManager.getCACertificates());
         } catch (IOException | CertificateEncodingException | KeyStoreException e) {
             logger.atError().cause(e).log("Failed to configure managed CA");
-            return Result.error(new UseCaseException(e));
+            return Result.error(e);
         }
 
         return Result.ok();
