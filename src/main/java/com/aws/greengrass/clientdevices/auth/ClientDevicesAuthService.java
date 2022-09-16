@@ -14,6 +14,8 @@ import com.aws.greengrass.clientdevices.auth.certificate.handlers.CAConfiguratio
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
+import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -149,6 +151,10 @@ public class ClientDevicesAuthService extends PluginService {
         // Register domain event handlers
         context.get(CACertificateChainChangedHandler.class).listen();
         context.get(CAConfigurationChangedHandler.class).listen();
+
+        // Initialize infrastructure
+        NetworkState networkState = context.get(NetworkState.class);
+        networkState.registerHandler(context.get(CISShadowMonitor.class));
     }
 
     private void subscribeToConfigChanges() {

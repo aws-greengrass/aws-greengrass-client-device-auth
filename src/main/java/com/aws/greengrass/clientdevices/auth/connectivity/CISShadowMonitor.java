@@ -5,8 +5,10 @@
 
 package com.aws.greengrass.clientdevices.auth.connectivity;
 
+import com.aws.greengrass.clientdevices.auth.api.Handler;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -14,10 +16,7 @@ import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.mqttclient.WrapperMqttClientConnection;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.RetryUtils;
-import lombok.AccessLevel;
-import lombok.Getter;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
-import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 import software.amazon.awssdk.crt.mqtt.MqttException;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import software.amazon.awssdk.iot.iotshadow.IotShadowClient;
@@ -48,7 +47,7 @@ import java.util.concurrent.TimeoutException;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
-public class CISShadowMonitor {
+public class CISShadowMonitor implements Handler<NetworkState.NetworkConnectivityState> {
     private static final Logger LOGGER = LogManager.getLogger(CISShadowMonitor.class);
     private static final String CIS_SHADOW_SUFFIX = "-gci";
     private static final String VERSION = "version";
@@ -72,43 +71,28 @@ public class CISShadowMonitor {
     private final String shadowName;
     private final ConnectivityInformation connectivityInformation;
 
-    @Getter(AccessLevel.PACKAGE) // for unit tests
-    private final MqttClientConnectionEvents callbacks = new MqttClientConnectionEvents() {
-        @Override
-        public void onConnectionInterrupted(int errorCode) {
-        }
-
-        @Override
-        public void onConnectionResumed(boolean sessionPresent) {
-            executorService.execute(() -> {
-                // Get the shadow state when connection is re-established by publishing to get topic
-                publishToGetCISShadowTopic();
-            });
-        }
-    };
-
     /**
      * Constructor.
      *
-     * @param mqttClient               IoT MQTT client
-     * @param executorService          Executor service
-     * @param deviceConfiguration      Device configuration
+     * @param mqttClient              IoT MQTT client
+     * @param executorService         Executor service
+     * @param deviceConfiguration     Device configuration
      * @param connectivityInformation Connectivity Info Provider
      */
     @Inject
     public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
                             DeviceConfiguration deviceConfiguration,
                             ConnectivityInformation connectivityInformation) {
-        this(mqttClient, null, null, executorService,
-                Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX, connectivityInformation);
+        this(null, null, executorService,
+                Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX,
+                connectivityInformation);
         this.connection = new WrapperMqttClientConnection(mqttClient);
         this.iotShadowClient = new IotShadowClient(this.connection);
     }
 
-    CISShadowMonitor(MqttClient mqttClient, MqttClientConnection connection, IotShadowClient iotShadowClient,
+    CISShadowMonitor(MqttClientConnection connection, IotShadowClient iotShadowClient,
                      ExecutorService executorService, String shadowName,
                      ConnectivityInformation connectivityInformation) {
-        mqttClient.addToCallbackEvents(callbacks);
         this.connection = connection;
         this.iotShadowClient = iotShadowClient;
         this.executorService = executorService;
@@ -294,7 +278,7 @@ public class CISShadowMonitor {
     }
 
     private void publishToGetCISShadowTopic() {
-        LOGGER.info("Publishing to get shadow topic");
+        LOGGER.atDebug().log("Publishing to get shadow topic");
         GetShadowRequest getShadowRequest = new GetShadowRequest();
         getShadowRequest.thingName = shadowName;
         iotShadowClient.PublishGetShadow(getShadowRequest, QualityOfService.AT_LEAST_ONCE)
@@ -312,6 +296,17 @@ public class CISShadowMonitor {
 
             topic = String.format(SHADOW_GET_ACCEPTED_TOPIC, shadowName);
             connection.unsubscribe(topic);
+        }
+    }
+
+    /**
+     * Handle network state changes.
+     * @param state Current network state
+     */
+    @Override
+    public void handle(NetworkState.NetworkConnectivityState state) {
+        if (state == NetworkState.NETWORK_UP) {
+            publishToGetCISShadowTopic();
         }
     }
 }
