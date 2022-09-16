@@ -54,6 +54,7 @@ public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Vo
             configuration.updateCAPassphrase(certificateManager.getCaPassPhrase());
             configuration.updateCACertificates(certificateManager.getCACertificates());
         } catch (IOException | CertificateEncodingException | KeyStoreException e) {
+            logger.atError().cause(e).log("Failed to configure managed CA");
             return Result.error(new UseCaseException(e));
         }
 

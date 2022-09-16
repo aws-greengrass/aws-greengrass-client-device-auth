@@ -54,6 +54,7 @@ public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Voi
             configuration.updateCACertificates(certificateManager.getCACertificates());
         } catch (InvalidConfigurationException | InvalidCertificateAuthorityException | CertificateEncodingException
                  | KeyStoreException | IOException e) {
+            logger.atError().cause(e).log("Failed to configure custom CA");
             return Result.error(e);
         }
 
