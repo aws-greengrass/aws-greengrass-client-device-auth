@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth.certificate.usecases;
 
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
 import com.aws.greengrass.clientdevices.auth.api.Result;
-import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;

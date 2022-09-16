@@ -6,7 +6,6 @@
 package com.aws.greengrass.clientdevices.auth.certificate.events;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvent;
-import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
