@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth.api;
 
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
-import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -20,7 +19,7 @@ import javax.inject.Inject;
 
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -45,24 +44,24 @@ public class UseCasesTest {
         }
 
         @Override
-        public String apply(Void dto) {
-            return dep.name;
+        public Result<String> apply(Void dto) {
+            return Result.ok(dep.name);
         }
     }
 
-    static class UseCaseWithExceptions implements UseCases.UseCase<Void, Void> {
+    static class UseCaseWithExceptions implements UseCases.UseCase<InvalidConfigurationException, Void> {
 
         @Override
-        public Void apply(Void dto) throws UseCaseException {
-            throw new UseCaseException(new InvalidConfigurationException("Explode"));
+        public Result<InvalidConfigurationException> apply(Void dto) {
+            return Result.error(new InvalidConfigurationException("Explode"));
         }
     }
 
     static class UseCaseWithParameters implements UseCases.UseCase<String, String> {
 
         @Override
-        public String apply(String dto) {
-            return dto;
+        public Result<String> apply(String dto) {
+            return Result.ok(dto);
         }
     }
 
@@ -75,8 +74,8 @@ public class UseCasesTest {
         }
 
         @Override
-        public String apply(Void dto) {
-            return configuration.getCertificateUri().get().toString();
+        public Result<String> apply(Void dto) {
+            return Result.ok(configuration.getCertificateUri().get().toString());
         }
     }
 
@@ -93,18 +92,18 @@ public class UseCasesTest {
         topics.getContext().put(TestDependency.class, aTestDependency);
 
         UseCaseWithDependencies useCase = useCases.get(UseCaseWithDependencies.class);
-        assertEquals(useCase.apply(null), aTestDependency.name);
+        assertEquals(useCase.apply(null).get(), aTestDependency.name);
     }
 
     @Test
     void GIVEN_aUseCaseWithExceptions_WHEN_ran_THEN_itThrowsAnException() {
         UseCaseWithExceptions useCase = useCases.get(UseCaseWithExceptions.class);
-        assertThrows(UseCaseException.class, () -> { useCase.apply(null); });
+        assertTrue(useCase.apply(null).get() instanceof InvalidConfigurationException);
     }
 
     @Test
     void GIVEN_aUseCaseWithParameters_WHEN_ran_itAcceptsTheParamsAndReturnsThem() {
         UseCaseWithParameters useCase = useCases.get(UseCaseWithParameters.class);
-        assertEquals(useCase.apply("hello"), "hello");
+        assertEquals(useCase.apply("hello").get(), "hello");
     }
 }

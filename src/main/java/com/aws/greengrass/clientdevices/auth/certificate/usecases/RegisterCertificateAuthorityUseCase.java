@@ -6,9 +6,9 @@
 package com.aws.greengrass.clientdevices.auth.certificate.usecases;
 
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
+import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
@@ -21,7 +21,7 @@ import java.security.cert.CertificateEncodingException;
 import javax.inject.Inject;
 
 public class RegisterCertificateAuthorityUseCase
-        implements UseCases.UseCase<Void, Void> {
+        implements UseCases.UseCase<Exception, Void> {
     private static final Logger logger = LogManager.getLogger(RegisterCertificateAuthorityUseCase.class);
 
     private final CertificateManager certificateManager;
@@ -42,7 +42,7 @@ public class RegisterCertificateAuthorityUseCase
     }
 
     @Override
-    public Void apply(Void unused) throws UseCaseException {
+    public Result apply(Void unused)  {
         // NOTE: This is not the final shape of this useCase we are just taking the logic out from
         //  the ClientDeviceAuthService first.
         String thingName = Coerce.toString(deviceConfiguration.getThingName());
@@ -51,9 +51,11 @@ public class RegisterCertificateAuthorityUseCase
             // Upload the generated or provided CA certificates to the GG cloud and update config
             // NOTE: uploadCoreDeviceCAs should not block execution.
             certificateManager.uploadCoreDeviceCAs(thingName);
+            return Result.ok();
         } catch (CloudServiceInteractionException e) {
             logger.atError().cause(e).kv("coreThingName", thingName)
                     .log("Unable to upload core CA certificates to the cloud");
+            return Result.warning(e);
         } catch (DeviceConfigurationException e) {
             // TODO: This should be retried, but the customer likely needs to make configuration changes first
             // For now, we will log and give up. But eventually this can be added to a DLQ and retried when
@@ -63,11 +65,9 @@ public class RegisterCertificateAuthorityUseCase
                             + "Please correct configuration problem and restart Greengrass. "
                             + "Failure to upload core CA may result in client devices being unable to "
                             + "authenticate Greengrass.");
-            throw new UseCaseException(e);
+            return Result.warning(e);
         } catch (CertificateEncodingException | KeyStoreException | IOException e) {
-            throw new UseCaseException(e);
+            return Result.warning(e);
         }
-
-        return null;
     }
 }
