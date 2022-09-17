@@ -47,7 +47,7 @@ import java.util.function.Consumer;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
-public class CISShadowMonitor implements Consumer<NetworkState.NetworkConnectivityState> {
+public class CISShadowMonitor implements Consumer<NetworkState.ConnectionState> {
     private static final Logger LOGGER = LogManager.getLogger(CISShadowMonitor.class);
     private static final String CIS_SHADOW_SUFFIX = "-gci";
     private static final String VERSION = "version";
@@ -300,8 +300,8 @@ public class CISShadowMonitor implements Consumer<NetworkState.NetworkConnectivi
     }
 
     @Override
-    public void accept(NetworkState.NetworkConnectivityState state) {
-        if (state == NetworkState.NETWORK_UP) {
+    public void accept(NetworkState.ConnectionState state) {
+        if (state == NetworkState.ConnectionState.NETWORK_UP) {
             publishToGetCISShadowTopic();
         }
     }

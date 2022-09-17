@@ -15,16 +15,13 @@ import java.util.function.Consumer;
 import javax.inject.Inject;
 
 public final class NetworkState {
-    public static final NetworkConnectivityState NETWORK_UP = NetworkConnectivityState.NETWORK_UP;
-    public static final NetworkConnectivityState NETWORK_DOWN = NetworkConnectivityState.NETWORK_DOWN;
-
-    public enum NetworkConnectivityState {
+    public enum ConnectionState {
         NETWORK_UP,
         NETWORK_DOWN,
     }
 
     private final MqttClient mqttClient;
-    private final List<Consumer<NetworkConnectivityState>> handlers = new ArrayList<>();
+    private final List<Consumer<ConnectionState>> handlers = new ArrayList<>();
 
     private final CallbackEventManager.OnConnectCallback onConnect = curSessionPresent -> {
         emitNetworkUp();
@@ -52,41 +49,49 @@ public final class NetworkState {
         mqttClient.addToCallbackEvents(onConnect, callbacks);
     }
 
-    public void registerHandler(Consumer<NetworkConnectivityState> networkChangeHandler) {
+    public void registerHandler(Consumer<ConnectionState> networkChangeHandler) {
         handlers.add(networkChangeHandler);
     }
 
     /**
-     * Get connectivity state of the Greengrass MQTT connection. <b>This may not be
-     * a reliable indicator for whether Greengrass has HTTP network connectivity.</b>
-     * Similarly, MQTT connectivity may not indicate HTTP connectivity.
-     * This may be useful in latency sensitive situations to decide if a network
-     * call should be attempted. However, use it with caution. Assume the information
-     * provided by this method could be wrong, and give yourself a way to recover in
-     * case it's always wrong.
+     * Returns the believed Greengrass connection state using the MQTT
+     * connection as a proxy indicator.
+     * </p>
+     * NETWORK_UP and NETWORK_DOWN are really euphemisms for whether there is
+     * a network route to IoT Core. With that out of the way, understand that
+     * the information returned by this method is squishy, at best. The only
+     * way to know for sure if a network call will succeed is to try it.
+     * </p>
+     * You can consider using this method in latency sensitive situations to
+     * decide if an HTTP call should be attempted now or queued as a background
+     * task, but you shouldn't require a NETWORK_UP response before at least
+     * trying. Assume the response could be wrong, and give yourself a way
+     * to recover in case this never returns NETWORK_UP.
+     * </p>
+     * In other words, this is a footgun. Treat it as such.
      *
-     * @return True if Greengrass has MQTT connectivity, else false
+     * @return Connection state enum
      */
-    public NetworkConnectivityState getMqttConnectivityState() {
+    public ConnectionState getConnectionStateFromMqtt() {
         if (mqttClient.connected()) {
-            return NETWORK_UP;
+            return ConnectionState.NETWORK_UP;
         } else {
-            return NETWORK_DOWN;
+            return ConnectionState.NETWORK_DOWN;
         }
     }
 
     private void emitNetworkUp() {
         if (isRunning()) {
-            for (Consumer<NetworkConnectivityState> handler : handlers) {
-                handler.accept(NETWORK_UP);
+            for (Consumer<ConnectionState> handler : handlers) {
+                handler.accept(ConnectionState.NETWORK_UP);
             }
         }
     }
 
     private void emitNetworkDown() {
         if (isRunning()) {
-            for (Consumer<NetworkConnectivityState> handler : handlers) {
-                handler.accept(NETWORK_DOWN);
+            for (Consumer<ConnectionState> handler : handlers) {
+                handler.accept(ConnectionState.NETWORK_DOWN);
             }
         }
     }
