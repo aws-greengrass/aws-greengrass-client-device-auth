@@ -3,17 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.certificate.listeners;
+package com.aws.greengrass.clientdevices.auth.certificate.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CACertificateChainChanged;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.RegisterCertificateAuthorityUseCase;
 
+import java.util.function.Consumer;
 import javax.inject.Inject;
 
-public class CACertificateChainChangedListener
-        implements DomainEvents.DomainEventListener<CACertificateChainChanged> {
+public class CACertificateChainChangedHandler implements Consumer<CACertificateChainChanged> {
     private final UseCases useCases;
     private final DomainEvents domainEvents;
 
@@ -24,7 +24,7 @@ public class CACertificateChainChangedListener
      * @param domainEvents Domain event router.
      */
     @Inject
-    public CACertificateChainChangedListener(UseCases useCases, DomainEvents domainEvents) {
+    public CACertificateChainChangedHandler(UseCases useCases, DomainEvents domainEvents) {
         this.useCases = useCases;
         this.domainEvents = domainEvents;
     }
@@ -42,7 +42,7 @@ public class CACertificateChainChangedListener
      * @param event Certificate authority change event
      */
     @Override
-    public void handle(CACertificateChainChanged event) {
+    public void accept(CACertificateChainChanged event) {
         // TODO: Move retry logic from the domain to here, based on the result returned from the useCase
         useCases.get(RegisterCertificateAuthorityUseCase.class).apply(null);
     }

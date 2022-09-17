@@ -7,7 +7,7 @@ package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.mqttclient.MqttClient;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.Utils;
@@ -86,14 +86,10 @@ public class CISShadowMonitorTest {
     private static final String GET_SHADOW_TOPIC = String.format("$aws/things/%s/shadow/get", SHADOW_NAME);
     private static final String UPDATE_SHADOW_TOPIC = String.format("$aws/things/%s/shadow/update", SHADOW_NAME);
 
-
-    FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
-    MqttClientConnection shadowClientConnection = shadowClient.getConnection();
-    ExecutorService executor = TestUtils.synchronousExecutorService();
-    FakeConnectivityInformation connectivityInfoProvider = new FakeConnectivityInformation();
-
-    @Mock
-    MqttClient mqttClient;
+    private final FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
+    private final MqttClientConnection shadowClientConnection = shadowClient.getConnection();
+    private final ExecutorService executor = TestUtils.synchronousExecutorService();
+    private final FakeConnectivityInformation connectivityInfoProvider = new FakeConnectivityInformation();
 
     @Mock
     CertificateGenerator certificateGenerator;
@@ -103,7 +99,6 @@ public class CISShadowMonitorTest {
     @BeforeEach
     void setup() {
         cisShadowMonitor = new CISShadowMonitor(
-                mqttClient,
                 shadowClientConnection,
                 shadowClient,
                 executor,
@@ -165,7 +160,7 @@ public class CISShadowMonitorTest {
         assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
 
         // simulate a reconnect
-        cisShadowMonitor.getCallbacks().onConnectionResumed(false);
+        cisShadowMonitor.accept(NetworkState.ConnectionState.NETWORK_UP);
 
         verifyCertsRotatedWhenConnectivityChanges();
     }
