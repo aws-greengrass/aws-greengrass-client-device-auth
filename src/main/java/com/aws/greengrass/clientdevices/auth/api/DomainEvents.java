@@ -12,11 +12,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 
 @SuppressWarnings({"rawtypes","unchecked"})
 public class DomainEvents {
-    private final Map<Class, CopyOnWriteArrayList<Handler>> eventHandlers = new ConcurrentHashMap<>();
+    private final Map<Class, CopyOnWriteArrayList<Consumer>> eventHandlers = new ConcurrentHashMap<>();
     private final Logger logger = LogManager.getLogger(DomainEvents.class);
 
     /**
@@ -25,8 +26,8 @@ public class DomainEvents {
      * @param clazz    Type of domain event
      * @param <T>      Type of domain event
      */
-    public <T extends DomainEvent> void registerListener(Handler<T> listener, Class<T> clazz) {
-        CopyOnWriteArrayList<Handler> listeners =
+    public <T extends DomainEvent> void registerListener(Consumer<T> listener, Class<T> clazz) {
+        CopyOnWriteArrayList<Consumer> listeners =
                 eventHandlers.computeIfAbsent(clazz, (k) -> new CopyOnWriteArrayList<>());
         listeners.addIfAbsent(listener);
     }
@@ -37,16 +38,16 @@ public class DomainEvents {
      * @param <T>         Type of domain event
      */
     public <T extends DomainEvent> void emit(T domainEvent) {
-        List<Handler> handlers = eventHandlers.getOrDefault(
+        List<Consumer> handlers = eventHandlers.getOrDefault(
                 domainEvent.getClass(), new CopyOnWriteArrayList<>());
 
-        for (Handler<T> handler : handlers) {
+        for (Consumer<T> handler : handlers) {
             logger.atDebug()
                     .kv("listener", handler.getClass().getSimpleName())
                     .kv("event", domainEvent.getClass().getSimpleName())
                     .log("Running listener handler");
 
-            handler.handle(domainEvent);
+            handler.accept(domainEvent);
         }
     }
 }

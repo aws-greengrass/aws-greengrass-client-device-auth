@@ -6,14 +6,14 @@
 package com.aws.greengrass.clientdevices.auth.certificate.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.api.Handler;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CACertificateChainChanged;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.RegisterCertificateAuthorityUseCase;
 
+import java.util.function.Consumer;
 import javax.inject.Inject;
 
-public class CACertificateChainChangedHandler implements Handler<CACertificateChainChanged> {
+public class CACertificateChainChangedHandler implements Consumer<CACertificateChainChanged> {
     private final UseCases useCases;
     private final DomainEvents domainEvents;
 
@@ -42,7 +42,7 @@ public class CACertificateChainChangedHandler implements Handler<CACertificateCh
      * @param event Certificate authority change event
      */
     @Override
-    public void handle(CACertificateChainChanged event) {
+    public void accept(CACertificateChainChanged event) {
         // TODO: Move retry logic from the domain to here, based on the result returned from the useCase
         useCases.get(RegisterCertificateAuthorityUseCase.class).apply(null);
     }

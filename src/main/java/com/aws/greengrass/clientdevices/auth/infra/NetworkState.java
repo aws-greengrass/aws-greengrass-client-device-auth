@@ -5,13 +5,13 @@
 
 package com.aws.greengrass.clientdevices.auth.infra;
 
-import com.aws.greengrass.clientdevices.auth.api.Handler;
 import com.aws.greengrass.mqttclient.CallbackEventManager;
 import com.aws.greengrass.mqttclient.MqttClient;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import javax.inject.Inject;
 
 public final class NetworkState {
@@ -24,7 +24,7 @@ public final class NetworkState {
     }
 
     private final MqttClient mqttClient;
-    private final List<Handler<NetworkConnectivityState>> handlers = new ArrayList<>();
+    private final List<Consumer<NetworkConnectivityState>> handlers = new ArrayList<>();
 
     private final CallbackEventManager.OnConnectCallback onConnect = curSessionPresent -> {
         emitNetworkUp();
@@ -52,7 +52,7 @@ public final class NetworkState {
         mqttClient.addToCallbackEvents(onConnect, callbacks);
     }
 
-    public void registerHandler(Handler networkChangeHandler) {
+    public void registerHandler(Consumer<NetworkConnectivityState> networkChangeHandler) {
         handlers.add(networkChangeHandler);
     }
 
@@ -77,16 +77,16 @@ public final class NetworkState {
 
     private void emitNetworkUp() {
         if (isRunning()) {
-            for (Handler handler : handlers) {
-                handler.handle(NETWORK_UP);
+            for (Consumer<NetworkConnectivityState> handler : handlers) {
+                handler.accept(NETWORK_UP);
             }
         }
     }
 
     private void emitNetworkDown() {
         if (isRunning()) {
-            for (Handler handler : handlers) {
-                handler.handle(NETWORK_DOWN);
+            for (Consumer<NetworkConnectivityState> handler : handlers) {
+                handler.accept(NETWORK_DOWN);
             }
         }
     }

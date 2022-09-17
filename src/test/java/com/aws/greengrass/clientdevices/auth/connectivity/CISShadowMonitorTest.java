@@ -160,7 +160,7 @@ public class CISShadowMonitorTest {
         assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
 
         // simulate a reconnect
-        cisShadowMonitor.handle(NetworkState.NETWORK_UP);
+        cisShadowMonitor.accept(NetworkState.NETWORK_UP);
 
         verifyCertsRotatedWhenConnectivityChanges();
     }

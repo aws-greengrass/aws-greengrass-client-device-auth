@@ -6,16 +6,16 @@
 package com.aws.greengrass.clientdevices.auth.certificate.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.api.Handler;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCustomCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureManagedCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 
+import java.util.function.Consumer;
 import javax.inject.Inject;
 
-public class CAConfigurationChangedHandler implements Handler<CAConfigurationChanged> {
+public class CAConfigurationChangedHandler implements Consumer<CAConfigurationChanged> {
     private final UseCases useCases;
     private final DomainEvents domainEvents;
 
@@ -44,7 +44,7 @@ public class CAConfigurationChangedHandler implements Handler<CAConfigurationCha
      * @param event Certificate authority configuration change event
      */
     @Override
-    public void handle(CAConfigurationChanged event)  {
+    public void accept(CAConfigurationChanged event)  {
         CDAConfiguration configuration = event.getConfiguration();
 
         if (configuration.isUsingCustomCA()) {

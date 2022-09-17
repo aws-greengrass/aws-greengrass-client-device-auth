@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.connectivity;
 
-import com.aws.greengrass.clientdevices.auth.api.Handler;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
@@ -44,10 +43,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
-public class CISShadowMonitor implements Handler<NetworkState.NetworkConnectivityState> {
+public class CISShadowMonitor implements Consumer<NetworkState.NetworkConnectivityState> {
     private static final Logger LOGGER = LogManager.getLogger(CISShadowMonitor.class);
     private static final String CIS_SHADOW_SUFFIX = "-gci";
     private static final String VERSION = "version";
@@ -304,7 +304,7 @@ public class CISShadowMonitor implements Handler<NetworkState.NetworkConnectivit
      * @param state Current network state
      */
     @Override
-    public void handle(NetworkState.NetworkConnectivityState state) {
+    public void accept(NetworkState.NetworkConnectivityState state) {
         if (state == NetworkState.NETWORK_UP) {
             publishToGetCISShadowTopic();
         }
