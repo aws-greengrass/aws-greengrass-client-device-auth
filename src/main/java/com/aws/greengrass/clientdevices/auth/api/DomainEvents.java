@@ -43,9 +43,9 @@ public class DomainEvents {
 
         for (Consumer<T> handler : handlers) {
             logger.atDebug()
-                    .kv("listener", handler.getClass().getSimpleName())
+                    .kv("eventHandler", handler.getClass().getSimpleName())
                     .kv("event", domainEvent.getClass().getSimpleName())
-                    .log("Running listener handler");
+                    .log("Invoking event handler");
 
             handler.accept(domainEvent);
         }

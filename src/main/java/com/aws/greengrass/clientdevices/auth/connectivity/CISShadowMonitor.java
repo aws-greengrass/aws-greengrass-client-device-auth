@@ -299,10 +299,6 @@ public class CISShadowMonitor implements Consumer<NetworkState.NetworkConnectivi
         }
     }
 
-    /**
-     * Handle network state changes.
-     * @param state Current network state
-     */
     @Override
     public void accept(NetworkState.NetworkConnectivityState state) {
         if (state == NetworkState.NETWORK_UP) {
