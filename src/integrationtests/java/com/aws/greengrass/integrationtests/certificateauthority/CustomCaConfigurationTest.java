@@ -100,6 +100,7 @@ public class CustomCaConfigurationTest {
 
     private CertificateManager certificateManager;
     private CertificateStore certificateStore;
+    private Topics topics;
 
 
     @BeforeEach
@@ -111,12 +112,15 @@ public class CustomCaConfigurationTest {
                 certificateStore, mockConnectivityInformation,
                 mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactoryMock);
 
+        topics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
+        topics.getContext().put(SecurityService.class, securityServiceMock);
+        topics.getContext().put(CertificateStore.class, certificateStore);
     }
 
     /**
      * Simulates an external party configuring their custom CA.
      */
-    private X509Certificate[] arrangeCustomCertificateAuthority() throws NoSuchAlgorithmException, CertificateException,
+    private X509Certificate[] setupCustomCertificateAuthority() throws NoSuchAlgorithmException, CertificateException,
             OperatorCreationException, CertIOException, URISyntaxException, KeyLoadingException,
             ServiceUnavailableException, CertificateChainLoadingException, InvalidConfigurationException {
         // Generate custom certificates
@@ -132,7 +136,6 @@ public class CustomCaConfigurationTest {
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
 
-        Topics topics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
         topics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
                 .withValue(privateKeyUri.toString());
         topics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
@@ -187,7 +190,7 @@ public class CustomCaConfigurationTest {
             URISyntaxException, ServiceUnavailableException, OperatorCreationException, CertIOException,
             InvalidConfigurationException, CertificateGenerationException, ExecutionException, InterruptedException,
             TimeoutException {
-        X509Certificate[] caCertificates = arrangeCustomCertificateAuthority();
+        X509Certificate[] caCertificates = setupCustomCertificateAuthority();
         X509Certificate[] clientCertificateChain = arrangeClientComponentCertificateChain();
 
         assertTrue(CertificateTestHelpers.wasCertificateIssuedBy(caCertificates[0], clientCertificateChain[0]));
@@ -199,7 +202,7 @@ public class CustomCaConfigurationTest {
             URISyntaxException, InvalidConfigurationException, KeyLoadingException, ServiceUnavailableException,
             CertificateChainLoadingException, CertificateGenerationException, ExecutionException, InterruptedException,
             TimeoutException {
-        this.arrangeCustomCertificateAuthority();
+        this.setupCustomCertificateAuthority();
         X509Certificate[] clientCertificateChain = arrangeClientComponentCertificateChain();
 
         DeviceAuthClient deviceAuth = new DeviceAuthClient(sessionManagerMock, groupManagerMock, certificateStore);

@@ -96,8 +96,8 @@ public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Voi
 
         try {
             Pair<PrivateKey, X509Certificate[]> result = getCertificateChain(privateKeyUri, certificateUri);
-            certificateStore.setCaPrivateKey(result.getA());
-            certificateStore.setCaCertificateChain(result.getB());
+            certificateStore.setCaPrivateKey(result.getLeft());
+            certificateStore.setCaCertificateChain(result.getRight());
             configuration.updateCACertificates(
                     Collections.singletonList(CertificateHelper.toPem(certificateStore.getCaCertificateChain())));
         } catch (CertificateEncodingException | InvalidCertificateAuthorityException | KeyStoreException
