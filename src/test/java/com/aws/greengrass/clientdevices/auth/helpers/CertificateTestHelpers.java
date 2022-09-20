@@ -129,7 +129,8 @@ public final class CertificateTestHelpers {
         if (type == CertificateTypes.ROOT_CA) {
             builder
                     .addExtension(Extension.authorityKeyIdentifier, false,
-                            extUtils.createAuthorityKeyIdentifier(publicKey));
+                            extUtils.createAuthorityKeyIdentifier(publicKey))
+                    .addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
         }
 
         if (type == CertificateTypes.INTERMEDIATE_CA) {
