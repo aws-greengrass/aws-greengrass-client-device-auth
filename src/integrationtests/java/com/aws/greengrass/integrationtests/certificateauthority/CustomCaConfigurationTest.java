@@ -50,7 +50,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -118,12 +117,10 @@ public class CustomCaConfigurationTest {
     }
 
     // TODO: Consolidate this test helpers with ClientDevicesAuthServiceTest
-    private void startNucleus() throws InterruptedException {
+    private void givenNucleusRunningWithConfig(String configFileName) throws InterruptedException {
         CountDownLatch authServiceRunning = new CountDownLatch(1);
-        Path resourceDirectory = Paths.get(
-                "src", "test", "resources", "com", "aws", "greengrass", "clientdevices", "auth", "config.yaml");
-        Path testPath = rootDir.toAbsolutePath();
-        kernel.parseArgs("-r", testPath.toString(), "-i", resourceDirectory.toFile().getAbsolutePath());
+        kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
+                getClass().getResource(configFileName).toString());
         kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
             if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName()) && service.getState()
                     .equals(State.RUNNING)) {
@@ -134,7 +131,7 @@ public class CustomCaConfigurationTest {
         assertThat(authServiceRunning.await(30L, TimeUnit.SECONDS), is(true));
     }
 
-    private static Pair<X509Certificate[], KeyPair[]> arrangeCredentials() throws NoSuchAlgorithmException,
+    private static Pair<X509Certificate[], KeyPair[]> givenRootAndIntermediateCA() throws NoSuchAlgorithmException,
             CertificateException,
             OperatorCreationException, CertIOException {
         KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
@@ -153,7 +150,7 @@ public class CustomCaConfigurationTest {
     /**
      * Simulates an external party configuring their custom CA.
      */
-    private void arrangeCDAWithCustomCertificateAuthority(URI privateKeyUri, URI certificateUri) throws
+    private void givenCDAWithCustomCertificateAuthority(URI privateKeyUri, URI certificateUri) throws
             ServiceLoadException {
         // Service Configuration
         Topics topics = kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig();
@@ -198,7 +195,7 @@ public class CustomCaConfigurationTest {
             InterruptedException, TimeoutException, ServiceLoadException, NoSuchAlgorithmException,
             OperatorCreationException, CertIOException, KeyLoadingException, ServiceUnavailableException,
             CertificateChainLoadingException {
-        Pair<X509Certificate[], KeyPair[]> credentials = arrangeCredentials();
+        Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         KeyPair[] certificateKeys = credentials.getRight();
         KeyPair intermediateKeyPair = certificateKeys[0];
@@ -208,8 +205,8 @@ public class CustomCaConfigurationTest {
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
         when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri)).thenReturn(chain);
 
-        startNucleus();
-        arrangeCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        givenNucleusRunningWithConfig("config.yaml");
+        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
         X509Certificate[] clientCertificateChain = arrangeClientComponentCertificateChain();
         assertTrue(CertificateTestHelpers.wasCertificateIssuedBy(chain[0], clientCertificateChain[0]));
@@ -221,7 +218,7 @@ public class CustomCaConfigurationTest {
             URISyntaxException, KeyLoadingException, ServiceUnavailableException,
             CertificateChainLoadingException, CertificateGenerationException, ExecutionException, InterruptedException,
             TimeoutException, ServiceLoadException {
-        Pair<X509Certificate[], KeyPair[]> credentials = arrangeCredentials();
+        Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         KeyPair[] certificateKeys = credentials.getRight();
         KeyPair intermediateKeyPair = certificateKeys[0];
@@ -231,8 +228,8 @@ public class CustomCaConfigurationTest {
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
         when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri)).thenReturn(chain);
 
-        startNucleus();
-        arrangeCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        givenNucleusRunningWithConfig("config.yaml");
+        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
         X509Certificate[] clientCertChain = arrangeClientComponentCertificateChain();
         ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
@@ -244,7 +241,7 @@ public class CustomCaConfigurationTest {
             CertificateChainLoadingException, KeyLoadingException, CertificateException, NoSuchAlgorithmException,
             URISyntaxException, ServiceUnavailableException, OperatorCreationException, IOException,
             ServiceLoadException, InterruptedException, DeviceConfigurationException, KeyStoreException {
-        Pair<X509Certificate[], KeyPair[]> credentials = arrangeCredentials();
+        Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         KeyPair[] certificateKeys = credentials.getRight();
         KeyPair intermediateKeyPair = certificateKeys[0];
@@ -254,8 +251,8 @@ public class CustomCaConfigurationTest {
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
         when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri)).thenReturn(chain);
 
-        startNucleus();
-        arrangeCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        givenNucleusRunningWithConfig("config.yaml");
+        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
         ArgumentCaptor<PutCertificateAuthoritiesRequest> requestCaptor =
                 ArgumentCaptor.forClass(PutCertificateAuthoritiesRequest.class);

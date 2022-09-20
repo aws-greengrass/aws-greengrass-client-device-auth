@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.certificate.usecases;
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
 import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
@@ -19,8 +20,6 @@ import java.io.IOException;
 import java.security.KeyStoreException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
-import java.util.Collections;
-import java.util.List;
 import javax.inject.Inject;
 
 public class RegisterCertificateAuthorityUseCase
@@ -29,19 +28,34 @@ public class RegisterCertificateAuthorityUseCase
 
     private final CertificateManager certificateManager;
     private final DeviceConfiguration deviceConfiguration;
+    private final CertificateStore certificateStore;
 
 
     /**
      * Register core certificate authority with Greengrass cloud.
      * @param certificateManager  Certificate manager.
+     * @param certificateStore    Certificate store.
      * @param deviceConfiguration Greengrass device configuration.
      */
     @Inject
     public RegisterCertificateAuthorityUseCase(
             CertificateManager certificateManager,
+            CertificateStore certificateStore,
             DeviceConfiguration deviceConfiguration) {
         this.certificateManager = certificateManager;
         this.deviceConfiguration = deviceConfiguration;
+        this.certificateStore = certificateStore;
+    }
+
+    private Result<X509Certificate> getCAToUpload() throws KeyStoreException {
+        X509Certificate[] caChain = certificateStore.getCaCertificateChain();
+
+        if (caChain == null || caChain.length < 1) {
+           return Result.warning();
+        }
+
+        X509Certificate highestTrustCA = caChain[caChain.length - 1];
+        return Result.ok(highestTrustCA);
     }
 
     @Override
@@ -51,13 +65,16 @@ public class RegisterCertificateAuthorityUseCase
         String thingName = Coerce.toString(deviceConfiguration.getThingName());
 
         try {
-            X509Certificate[] caChain = certificateManager.getX509CACertificates();
-            X509Certificate highestTrustCA = caChain[caChain.length - 1];
-            List<X509Certificate> toUpload = Collections.singletonList(highestTrustCA);
+            Result<X509Certificate> certificateR = getCAToUpload();
+
+            if (!certificateR.isOk()) {
+                logger.warn("Didn't find any CA to upload");
+                return certificateR;
+            }
 
             // Upload the generated or provided CA certificates to the GG cloud and update config
             // NOTE: uploadCoreDeviceCAs should not block execution.
-            certificateManager.uploadCoreDeviceCAs(thingName, toUpload);
+            certificateManager.uploadCoreDeviceCAs(thingName, certificateR.get());
             return Result.ok();
         } catch (CloudServiceInteractionException e) {
             logger.atError().cause(e).kv("coreThingName", thingName)

@@ -45,7 +45,6 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -143,8 +142,10 @@ public class CertificateManager {
      * Returns the full CA chain.
      *
      * @throws KeyStoreException when failing to read certificates from key store.
+     *
+     * @deprecated start using the certificateStore.getCaPassphrase directly
      */
-    public X509Certificate[] getX509CACertificates() throws KeyStoreException {
+    private X509Certificate[] getX509CACertificates() throws KeyStoreException {
         return certificateStore.getCaCertificateChain();
     }
 
@@ -305,7 +306,7 @@ public class CertificateManager {
      * Uploads the stored certificates to the cloud.
      *
      * @param thingName Core device name
-     * @param certificates a list of X509Certificate to be uploaded to IoTCore
+     * @param certificate the CA to upload to IoT core. Which will be provided by cloud discovery
      *
      * @throws CertificateEncodingException   If unable to get certificate encoding
      * @throws KeyStoreException              If unable to retrieve the certificate
@@ -313,13 +314,10 @@ public class CertificateManager {
      * @throws DeviceConfigurationException   If unable to retrieve Greengrass V2 Data client
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidRethrowingException"})
-    public void uploadCoreDeviceCAs(String thingName, List<X509Certificate> certificates)
+    public void uploadCoreDeviceCAs(String thingName, X509Certificate certificate)
             throws CertificateEncodingException, KeyStoreException,
             IOException, DeviceConfigurationException {
-        List<String> certificatePemList = new ArrayList<>();
-        for (X509Certificate cert: certificates) {
-            certificatePemList.add(CertificateHelper.toPem(cert));
-        }
+        String certificatePem = CertificateHelper.toPem(certificate);
 
         List<Class> retryAbleExceptions = Arrays.asList(ThrottlingException.class, InternalServerException.class,
                 AccessDeniedException.class);
@@ -331,7 +329,7 @@ public class CertificateManager {
 
         PutCertificateAuthoritiesRequest request =
                 PutCertificateAuthoritiesRequest.builder().coreDeviceThingName(thingName)
-                        .coreDeviceCertificates(certificatePemList).build();
+                        .coreDeviceCertificates(Collections.singletonList(certificatePem)).build();
 
         try {
             RetryUtils.runWithRetry(retryConfig,
