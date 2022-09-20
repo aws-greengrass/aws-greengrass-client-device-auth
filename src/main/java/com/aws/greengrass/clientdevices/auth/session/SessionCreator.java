@@ -15,16 +15,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SessionCreator {
     private static final Logger logger = LogManager.getLogger(SessionCreator.class);
 
-    @SuppressWarnings("PMD.UnusedPrivateField")
     private final Map<String, SessionFactory> factoryMap;
 
-    private SessionCreator() {
+    public SessionCreator() {
         factoryMap = new ConcurrentHashMap<>();
-    }
-
-    private static class SessionFactorySingleton {
-        @SuppressWarnings("PMD.AccessorClassGeneration")
-        private static final SessionCreator INSTANCE = new SessionCreator();
     }
 
     /**
@@ -35,9 +29,9 @@ public class SessionCreator {
      * @return new session if the client can be authenticated
      * @throws AuthenticationException if the client fails to be authenticated
      */
-    public static Session createSession(String credentialType, Map<String, String> credentialMap)
+    public Session createSession(String credentialType, Map<String, String> credentialMap)
             throws AuthenticationException {
-        SessionFactory sessionFactory = SessionFactorySingleton.INSTANCE.factoryMap.get(credentialType);
+        SessionFactory sessionFactory = factoryMap.get(credentialType);
         if (sessionFactory == null) {
             logger.atWarn().kv("credentialType", credentialType)
                 .log("no registered handler to process device credentials");
@@ -46,11 +40,7 @@ public class SessionCreator {
         return sessionFactory.createSession(credentialMap);
     }
 
-    public static void registerSessionFactory(String credentialType, SessionFactory sessionFactory) {
-        SessionFactorySingleton.INSTANCE.factoryMap.put(credentialType, sessionFactory);
-    }
-
-    public static void unregisterSessionFactory(String credentialType) {
-        SessionFactorySingleton.INSTANCE.factoryMap.remove(credentialType);
+    public void registerSessionFactory(String credentialType, SessionFactory sessionFactory) {
+        factoryMap.put(credentialType, sessionFactory);
     }
 }

@@ -7,8 +7,8 @@ package com.aws.greengrass.clientdevices.auth.session;
 
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -27,18 +27,20 @@ public class SessionCreatorTest {
     private static final String mqttCredentialType = "mqtt";
     private static final String unknownCredentialType = "unknown";
 
+    private SessionCreator sessionCreator;
+
     @Mock
     private MqttSessionFactory mqttSessionFactory;
 
-    @AfterEach
-    void afterEach() {
-        SessionCreator.unregisterSessionFactory(mqttCredentialType);
+    @BeforeEach
+    void beforeEach() {
+        sessionCreator = new SessionCreator();
     }
 
     @Test
     void GIVEN_noRegisteredFactories_WHEN_createSession_THEN_throwsException() {
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> SessionCreator.createSession(mqttCredentialType, new HashMap<>()));
+                () -> sessionCreator.createSession(mqttCredentialType, new HashMap<>()));
     }
 
     @Test
@@ -47,14 +49,14 @@ public class SessionCreatorTest {
         Session mockSession = mock(SessionImpl.class);
         when(mqttSessionFactory.createSession(any())).thenReturn(mockSession);
 
-        SessionCreator.registerSessionFactory(mqttCredentialType, mqttSessionFactory);
-        assertThat(SessionCreator.createSession(mqttCredentialType, new HashMap<>()), is(mockSession));
+        sessionCreator.registerSessionFactory(mqttCredentialType, mqttSessionFactory);
+        assertThat(sessionCreator.createSession(mqttCredentialType, new HashMap<>()), is(mockSession));
     }
 
     @Test
     void GIVEN_registeredMqttSessionFactory_WHEN_createSession_WithNonMqttCredentials_THEN_throwsException() {
-        SessionCreator.registerSessionFactory(mqttCredentialType, mqttSessionFactory);
+        sessionCreator.registerSessionFactory(mqttCredentialType, mqttSessionFactory);
         Assertions.assertThrows(IllegalArgumentException.class,
-                () -> SessionCreator.createSession(unknownCredentialType, new HashMap<>()));
+                () -> sessionCreator.createSession(unknownCredentialType, new HashMap<>()));
     }
 }
