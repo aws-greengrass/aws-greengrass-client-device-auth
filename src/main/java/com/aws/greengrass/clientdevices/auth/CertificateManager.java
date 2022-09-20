@@ -15,18 +15,13 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
-import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
-import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import com.aws.greengrass.security.SecurityService;
-import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
 import lombok.NonNull;
@@ -36,7 +31,6 @@ import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuth
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
 import java.io.IOException;
-import java.net.URI;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -61,7 +55,6 @@ public class CertificateManager {
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private final GreengrassServiceClientFactory clientFactory;
-    private final SecurityService securityService;
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CertificateManager.class);
 
@@ -75,7 +68,6 @@ public class CertificateManager {
      * @param cisShadowMonitor        CIS Shadow Monitor
      * @param clock                   clock
      * @param clientFactory           Greengrass cloud service client factory
-     * @param securityService          Security Service
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore,
@@ -83,15 +75,13 @@ public class CertificateManager {
                               CertificateExpiryMonitor certExpiryMonitor,
                               CISShadowMonitor cisShadowMonitor,
                               Clock clock,
-                              GreengrassServiceClientFactory clientFactory,
-                              SecurityService securityService) {
+                              GreengrassServiceClientFactory clientFactory) {
         this.certificateStore = certificateStore;
         this.connectivityInformation = connectivityInformation;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
         this.clock = clock;
         this.clientFactory = clientFactory;
-        this.securityService = securityService;
     }
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
@@ -251,47 +241,6 @@ public class CertificateManager {
     private void removeCGFromMonitors(CertificateGenerator gen) {
         certExpiryMonitor.removeFromMonitor(gen);
         cisShadowMonitor.removeFromMonitor(gen);
-    }
-
-    /**
-     * Configures the KeyStore to use a certificates provided from the CA configuration.
-     *
-     * @param configuration                the certificateAuthority configuration
-     * @throws InvalidConfigurationException if the CA configuration doesn't have both a privateKeyUri and
-     *                                      certificateUri
-     */
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    public void configureCustomCA(CDAConfiguration configuration) throws InvalidConfigurationException {
-        if (!configuration.isUsingCustomCA()) {
-            throw new InvalidConfigurationException(
-                    "Invalid configuration: certificateUri and privateKeyUri are required.");
-        }
-
-        URI privateKeyUri = configuration.getPrivateKeyUri().get();
-        URI certificateUri = configuration.getCertificateUri().get();
-
-        RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
-                .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
-                .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
-
-        logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", certificateUri)
-                .log("Configuring custom core CA");
-
-        try {
-            KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
-                    () -> securityService.getKeyPair(privateKeyUri, certificateUri),
-                    "get-key-pair", logger);
-
-            X509Certificate[] certificateChain = RetryUtils.runWithRetry(retryConfig,
-                    () -> securityService.getCertificateChain(privateKeyUri, certificateUri),
-                    "get-certificate-chain", logger);
-
-            certificateStore.setCaCertificateChain(certificateChain);
-            certificateStore.setCaPrivateKey(keyPair.getPrivate());
-        } catch (Exception e) {
-            throw new InvalidCertificateAuthorityException(String.format("Failed to configure CA: There was an error "
-                    + "reading the provided private key %s or certificate chain %s", privateKeyUri, certificateUri), e);
-        }
     }
 
     /**
