@@ -126,17 +126,25 @@ public class CertificateManager {
     }
 
     /**
-     * Return a list of CA certificates used to issue client certs.
+     * Returns a singleton list with the PEM encoded CA at position 0 of the CA chain.
      *
-     * @return a list of CA certificates for issuing client certs
      * @throws KeyStoreException            if unable to retrieve the certificate
      * @throws IOException                  if unable to write certificate
      * @throws CertificateEncodingException if unable to get certificate encoding
+     *
+     * @deprecated use getX509CACertificates
      */
     public List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
         return Collections.singletonList(CertificateHelper.toPem(certificateStore.getCACertificate()));
     }
 
+    /**
+     * Returns the full CA chain.
+     *
+     * @throws KeyStoreException when failing to read certificates from key store.
+     *
+     * @deprecated start using the certificateStore.getCaPassphrase directly
+     */
     private X509Certificate[] getX509CACertificates() throws KeyStoreException {
         return certificateStore.getCaCertificateChain();
     }
@@ -298,15 +306,19 @@ public class CertificateManager {
      * Uploads the stored certificates to the cloud.
      *
      * @param thingName Core device name
+     * @param certificate the CA to upload to IoT core. Which will be provided by cloud discovery
+     *
      * @throws CertificateEncodingException   If unable to get certificate encoding
      * @throws KeyStoreException              If unable to retrieve the certificate
      * @throws IOException                    If unable to read certificate
      * @throws DeviceConfigurationException   If unable to retrieve Greengrass V2 Data client
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidRethrowingException"})
-    public void uploadCoreDeviceCAs(String thingName) throws CertificateEncodingException, KeyStoreException,
+    public void uploadCoreDeviceCAs(String thingName, X509Certificate certificate)
+            throws CertificateEncodingException, KeyStoreException,
             IOException, DeviceConfigurationException {
-        List<String> certificatePemList = getCACertificates();
+        String certificatePem = CertificateHelper.toPem(certificate);
+
         List<Class> retryAbleExceptions = Arrays.asList(ThrottlingException.class, InternalServerException.class,
                 AccessDeniedException.class);
 
@@ -317,7 +329,7 @@ public class CertificateManager {
 
         PutCertificateAuthoritiesRequest request =
                 PutCertificateAuthoritiesRequest.builder().coreDeviceThingName(thingName)
-                        .coreDeviceCertificates(certificatePemList).build();
+                        .coreDeviceCertificates(Collections.singletonList(certificatePem)).build();
 
         try {
             RetryUtils.runWithRetry(retryConfig,

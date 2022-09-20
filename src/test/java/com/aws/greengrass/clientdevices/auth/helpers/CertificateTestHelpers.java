@@ -5,28 +5,40 @@
 
 package com.aws.greengrass.clientdevices.auth.helpers;
 
+import com.aws.greengrass.util.Pair;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x500.X500NameBuilder;
+import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.jce.X509KeyUsage;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import software.amazon.awssdk.utils.ImmutableMap;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.security.cert.CertPath;
 import java.security.cert.CertPathValidator;
 import java.security.cert.CertPathValidatorException;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.PKIXParameters;
@@ -39,9 +51,15 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 
-import static com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper.CERTIFICATE_SIGNING_ALGORITHM;
 
 public final class CertificateTestHelpers {
+    private static final int DEFAULT_TEST_CA_DURATION_SECONDS = 10;
+    public static final String KEY_TYPE_RSA = "RSA";
+    public static final String RSA_SIGNING_ALGORITHM = "SHA256withRSA";
+    public static final String KEY_TYPE_EC = "EC";
+    public static final String ECDSA_SIGNING_ALGORITHM = "SHA256withECDSA";
+    public static final ImmutableMap<String, String> CERTIFICATE_SIGNING_ALGORITHM =
+            ImmutableMap.of(KEY_TYPE_RSA, RSA_SIGNING_ALGORITHM, KEY_TYPE_EC, ECDSA_SIGNING_ALGORITHM);
 
     private CertificateTestHelpers() {
     }
@@ -51,45 +69,112 @@ public final class CertificateTestHelpers {
         Security.addProvider(new BouncyCastleProvider());
     }
 
+    private enum CertificateTypes {
+        ROOT_CA, INTERMEDIATE_CA, SERVER_CERTIFICATE
+    }
 
+    public static X509Certificate createRootCertificateAuthority(String commonName, KeyPair kp)
+            throws CertificateException, OperatorCreationException, CertIOException, NoSuchAlgorithmException {
+        return createCertificate(null, commonName, kp.getPublic(), kp.getPrivate(), CertificateTypes.ROOT_CA);
+    }
 
-    /**
-     * Generates X509 certificates that could be CAs or leaf certs. This is intended to be used for testing in scenarios
-     * where we want to create intermediate CAs
-     *
-     * @param issuer             Issuer of the  certificate
-     * @param subject            Subject for the certificate
-     * @param certificateKeyPair Pair of keys for the certificates. The public key of this pair will get added to the
-     *                           certificate
-     * @param issuerKeyPair      Keypair of the issuer (or who signs) the certificate. The private key from this pair
-     *                           will be
-     *                           used to sign the certificate.
-     * @param isCA               Whether the cert can be used as a CA to sign more certificates
-     *
-     */
-    public static X509Certificate issueCertificate(X500Name issuer, X500Name subject, KeyPair certificateKeyPair,
-                                                   KeyPair issuerKeyPair, Boolean isCA)
-            throws CertificateException, OperatorCreationException, CertIOException {
-        String signingAlgorithm = CERTIFICATE_SIGNING_ALGORITHM.get(certificateKeyPair.getPrivate().getAlgorithm());
-        Instant now = Instant.now();
+    public static X509Certificate createIntermediateCertificateAuthority(
+            X509Certificate caCert, String commonName, PublicKey publicKey, PrivateKey caPrivateKey) throws
+            NoSuchAlgorithmException,
+            CertificateException, CertIOException, OperatorCreationException {
+        return createCertificate(caCert, commonName, publicKey, caPrivateKey, CertificateTypes.INTERMEDIATE_CA);
+    }
 
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                issuer,
-                new BigInteger(160, new SecureRandom()),
-                Date.from(now),
-                Date.from(now.plusSeconds(10)),
-                subject,
-                certificateKeyPair.getPublic()
-        );
+    static X509Certificate createServerCertificate(X509Certificate caCert, String commonName, PublicKey publicKey,
+                                                  PrivateKey caPrivateKey)
+            throws NoSuchAlgorithmException, CertificateException, IOException, OperatorCreationException {
+        return createCertificate(caCert, commonName, publicKey, caPrivateKey, CertificateTypes.SERVER_CERTIFICATE);
+    }
 
-        if (isCA) {
-            builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
+    private static X509Certificate createCertificate(X509Certificate caCert, String commonName, PublicKey publicKey,
+                                              PrivateKey caPrivateKey, CertificateTypes type) throws NoSuchAlgorithmException,
+            CertIOException, CertificateException, OperatorCreationException {
+        Pair<Date, Date> dateRange = getValidityDateRange();
+        X500Name subject = getX500Name(commonName);
+
+        X509v3CertificateBuilder builder;
+        if (type == CertificateTypes.ROOT_CA) {
+            builder = new JcaX509v3CertificateBuilder(
+                    subject, getSerialNumber(), dateRange.getLeft(), dateRange.getRight(), subject, publicKey);
+        } else {
+            builder = new JcaX509v3CertificateBuilder(
+                    caCert, getSerialNumber(), dateRange.getLeft(), dateRange.getRight(), subject, publicKey);
         }
 
-        ContentSigner signer = new JcaContentSignerBuilder(signingAlgorithm).build(issuerKeyPair.getPrivate());
-        X509CertificateHolder holder = builder.build(signer);
-        return new JcaX509CertificateConverter().getCertificate(holder);
+        buildCertificateExtensions(builder, caCert, publicKey, type);
+        X509CertificateHolder certHolder = signCertificate(builder, caPrivateKey);
+        return new JcaX509CertificateConverter().setProvider("BC").getCertificate(certHolder);
     }
+
+    private static X509CertificateHolder signCertificate(X509v3CertificateBuilder certBuilder, PrivateKey privateKey)
+            throws OperatorCreationException {
+        String signingAlgorithm = CERTIFICATE_SIGNING_ALGORITHM.get(privateKey.getAlgorithm());
+        final ContentSigner contentSigner = new JcaContentSignerBuilder(
+                signingAlgorithm).setProvider("BC").build(privateKey);
+
+        return certBuilder.build(contentSigner);
+    }
+
+    private static void buildCertificateExtensions(
+            X509v3CertificateBuilder builder, X509Certificate caCert, PublicKey publicKey, CertificateTypes type) throws
+            NoSuchAlgorithmException, CertificateEncodingException, CertIOException {
+        JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
+        builder.addExtension(Extension.subjectKeyIdentifier, false, extUtils.createSubjectKeyIdentifier(publicKey));
+
+        if (type == CertificateTypes.ROOT_CA) {
+            builder
+                    .addExtension(Extension.authorityKeyIdentifier, false,
+                            extUtils.createAuthorityKeyIdentifier(publicKey))
+                    .addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
+        }
+
+        if (type == CertificateTypes.INTERMEDIATE_CA) {
+            builder
+                    .addExtension(Extension.authorityKeyIdentifier, false,
+                            extUtils.createAuthorityKeyIdentifier(caCert))
+                    .addExtension(Extension.basicConstraints, true, new BasicConstraints(true))
+                    .addExtension(Extension.keyUsage, true, new X509KeyUsage(
+                            X509KeyUsage.digitalSignature | X509KeyUsage.keyCertSign | X509KeyUsage.cRLSign));
+        }
+
+        if (type == CertificateTypes.SERVER_CERTIFICATE) {
+            builder
+                    .addExtension(Extension.authorityKeyIdentifier, false,
+                            extUtils.createAuthorityKeyIdentifier(caCert))
+                    .addExtension(Extension.basicConstraints, true, new BasicConstraints(false))
+                    .addExtension(Extension.extendedKeyUsage, true,
+                            new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+        }
+    }
+
+    private static BigInteger getSerialNumber() {
+        return  new BigInteger(160, new SecureRandom());
+    }
+
+    private static Pair<Date, Date> getValidityDateRange() {
+        Instant now = Instant.now();
+        Date notBefore = Date.from(now);
+        Date notAfter = Date.from(now.plusSeconds(DEFAULT_TEST_CA_DURATION_SECONDS));
+        return new Pair(notBefore, notAfter);
+    }
+
+    private static X500Name getX500Name(String commonName) {
+        X500NameBuilder nameBuilder = new X500NameBuilder(X500Name.getDefaultStyle());
+        nameBuilder.addRDN(BCStyle.C, "US");
+        nameBuilder.addRDN(BCStyle.O, "Internet Widgits Pty Ltd");
+        nameBuilder.addRDN(BCStyle.OU, "Amazon Web Services");
+        nameBuilder.addRDN(BCStyle.ST, "Washington");
+        nameBuilder.addRDN(BCStyle.L, "Seattle");
+        nameBuilder.addRDN(BCStyle.CN, commonName);
+
+        return nameBuilder.build();
+    }
+
 
     /**
      * Verifies if one certificate was signed by another.

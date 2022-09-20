@@ -35,11 +35,20 @@ public final class Result<T> {
         return new Result<>(Status.WARNING, value);
     }
 
+    public static <V> Result<V> warning() {
+        return new Result<>(Status.WARNING, null);
+    }
+
+
     public T get() {
         return value;
     }
 
     public boolean isError() {
         return status == Status.ERROR;
+    }
+
+    public boolean isOk() {
+        return status == Status.OK;
     }
 }
