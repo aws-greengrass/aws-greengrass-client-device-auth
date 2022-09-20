@@ -45,6 +45,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -126,18 +127,24 @@ public class CertificateManager {
     }
 
     /**
-     * Return a list of CA certificates used to issue client certs.
+     * Returns a singleton list with the PEM encoded CA at position 0 of the CA chain.
      *
-     * @return a list of CA certificates for issuing client certs
      * @throws KeyStoreException            if unable to retrieve the certificate
      * @throws IOException                  if unable to write certificate
      * @throws CertificateEncodingException if unable to get certificate encoding
+     *
+     * @deprecated use getX509CACertificates
      */
     public List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
         return Collections.singletonList(CertificateHelper.toPem(certificateStore.getCACertificate()));
     }
 
-    private X509Certificate[] getX509CACertificates() throws KeyStoreException {
+    /**
+     * Returns the full CA chain.
+     *
+     * @throws KeyStoreException when failing to read certificates from key store.
+     */
+    public X509Certificate[] getX509CACertificates() throws KeyStoreException {
         return certificateStore.getCaCertificateChain();
     }
 
@@ -298,15 +305,22 @@ public class CertificateManager {
      * Uploads the stored certificates to the cloud.
      *
      * @param thingName Core device name
+     * @param certificates a list of X509Certificate to be uploaded to IoTCore
+     *
      * @throws CertificateEncodingException   If unable to get certificate encoding
      * @throws KeyStoreException              If unable to retrieve the certificate
      * @throws IOException                    If unable to read certificate
      * @throws DeviceConfigurationException   If unable to retrieve Greengrass V2 Data client
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidRethrowingException"})
-    public void uploadCoreDeviceCAs(String thingName) throws CertificateEncodingException, KeyStoreException,
+    public void uploadCoreDeviceCAs(String thingName, List<X509Certificate> certificates)
+            throws CertificateEncodingException, KeyStoreException,
             IOException, DeviceConfigurationException {
-        List<String> certificatePemList = getCACertificates();
+        List<String> certificatePemList = new ArrayList<>();
+        for (X509Certificate cert: certificates) {
+            certificatePemList.add(CertificateHelper.toPem(cert));
+        }
+
         List<Class> retryAbleExceptions = Arrays.asList(ThrottlingException.class, InternalServerException.class,
                 AccessDeniedException.class);
 

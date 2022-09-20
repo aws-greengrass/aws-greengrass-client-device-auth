@@ -18,6 +18,9 @@ import com.aws.greengrass.util.Coerce;
 import java.io.IOException;
 import java.security.KeyStoreException;
 import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
+import java.util.Collections;
+import java.util.List;
 import javax.inject.Inject;
 
 public class RegisterCertificateAuthorityUseCase
@@ -48,9 +51,13 @@ public class RegisterCertificateAuthorityUseCase
         String thingName = Coerce.toString(deviceConfiguration.getThingName());
 
         try {
+            X509Certificate[] caChain = certificateManager.getX509CACertificates();
+            X509Certificate highestTrustCA = caChain[caChain.length - 1];
+            List<X509Certificate> toUpload = Collections.singletonList(highestTrustCA);
+
             // Upload the generated or provided CA certificates to the GG cloud and update config
             // NOTE: uploadCoreDeviceCAs should not block execution.
-            certificateManager.uploadCoreDeviceCAs(thingName);
+            certificateManager.uploadCoreDeviceCAs(thingName, toUpload);
             return Result.ok();
         } catch (CloudServiceInteractionException e) {
             logger.atError().cause(e).kv("coreThingName", thingName)
