@@ -29,7 +29,7 @@ import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.util.Collections;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -44,8 +44,7 @@ public class ClientCertificateGeneratorTest {
             = "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
 
     @Mock
-    private Consumer<X509Certificate[]> mockCallback;
-
+    private BiConsumer<X509Certificate[], X509Certificate[]> mockCallback;
     private PublicKey publicKey;
     private Topics configurationTopics;
     private CertificateGenerator certificateGenerator;
@@ -80,8 +79,10 @@ public class ClientCertificateGeneratorTest {
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
         assertThat(new KeyPurposeId(generatedCert.getExtendedKeyUsage().get(0)), is(KeyPurposeId.id_kp_clientAuth));
         assertThat(generatedCert.getPublicKey(), is(publicKey));
-        verify(mockCallback, times(1))
-                .accept(new X509Certificate[]{generatedCert, certificateStore.getCACertificate()});
+        verify(mockCallback, times(1)).accept(
+                new X509Certificate[]{generatedCert, certificateStore.getCACertificate()},
+                certificateStore.getCaCertificateChain()
+        );
 
         certificateGenerator.generateCertificate(Collections::emptyList, "test");
         X509Certificate secondGeneratedCert = certificateGenerator.getCertificate();
@@ -100,6 +101,8 @@ public class ClientCertificateGeneratorTest {
 
         // only the initial cert is generated, no rotation occurs
         verify(mockCallback, times(1)).accept(new X509Certificate[]{
-                certificateGenerator.getCertificate(), certificateStore.getCACertificate()});
+                certificateGenerator.getCertificate(), certificateStore.getCACertificate()},
+                certificateStore.getCaCertificateChain()
+        );
     }
 }

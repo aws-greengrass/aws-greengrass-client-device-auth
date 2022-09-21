@@ -21,13 +21,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 public class ClientCertificateGenerator extends CertificateGenerator {
     private static final Logger logger = LogManager.getLogger(ClientCertificateGenerator.class);
 
-    private final Consumer<X509Certificate[]> callback;
+    private final BiConsumer<X509Certificate[], X509Certificate[]> callback;
 
     /**
      * Constructor.
@@ -41,7 +41,7 @@ public class ClientCertificateGenerator extends CertificateGenerator {
      */
     public ClientCertificateGenerator(X500Name subject,
                                       PublicKey publicKey,
-                                      Consumer<X509Certificate[]> callback,
+                                      BiConsumer<X509Certificate[], X509Certificate[]> callback,
                                       CertificateStore certificateStore,
                                       CertificatesConfig certificatesConfig,
                                       Clock clock) {
@@ -79,7 +79,8 @@ public class ClientCertificateGenerator extends CertificateGenerator {
 
             X509Certificate caCertificate = certificateStore.getCACertificate();
             X509Certificate[] chain = {certificate, caCertificate};
-            callback.accept(chain);
+            X509Certificate[] caChain = certificateStore.getCaCertificateChain();
+            callback.accept(chain, caChain);
         } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException
                 | KeyStoreException e) {
             throw new CertificateGenerationException(e);

@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.certificate;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.CertificateGeneratorRegistry;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
@@ -61,7 +62,11 @@ public class CertificateExpiryMonitorTest {
         certificateStore = new CertificateStore(tmpPath, new DomainEvents());
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
 
-        certExpiryMonitor = new CertificateExpiryMonitor(mock(ScheduledExecutorService.class), mock(ConnectivityInformation.class), Clock.systemUTC());
+        CertificateGeneratorRegistry certificateGeneratorRegistry = new CertificateGeneratorRegistry();
+
+        certExpiryMonitor = new CertificateExpiryMonitor(
+                mock(ScheduledExecutorService.class), mock(ConnectivityInformation.class), Clock.systemUTC(),
+                certificateGeneratorRegistry);
     }
 
     @AfterEach
@@ -183,7 +188,7 @@ public class CertificateExpiryMonitorTest {
     private CertificateGenerator monitorNewServerCert(Clock clock)
             throws NoSuchAlgorithmException, CertificateGenerationException {
         return monitorNewCert(key -> new ServerCertificateGenerator(
-                SUBJECT, key, cert -> {
+                SUBJECT, key, (cert, caChain) -> {
         }, certificateStore, certificatesConfig, clock));
     }
 
@@ -199,7 +204,7 @@ public class CertificateExpiryMonitorTest {
     private CertificateGenerator monitorNewClientCert(Clock clock)
             throws NoSuchAlgorithmException, CertificateGenerationException {
         return monitorNewCert(key -> new ClientCertificateGenerator(
-                SUBJECT, key, cert -> {
+                SUBJECT, key, (cert, caChain) -> {
         }, certificateStore, certificatesConfig, clock));
     }
 

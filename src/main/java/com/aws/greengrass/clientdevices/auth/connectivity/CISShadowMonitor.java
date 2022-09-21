@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.CertificateGeneratorRegistry;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.deployment.DeviceConfiguration;
@@ -32,12 +33,11 @@ import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingExceptio
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -61,12 +61,12 @@ public class CISShadowMonitor implements Consumer<NetworkState.ConnectionState> 
             .initialRetryInterval(Duration.ofMinutes(1L)).maxRetryInterval(Duration.ofMinutes(30L))
             .maxAttempt(Integer.MAX_VALUE).retryableExceptions(Arrays.asList(ThrottlingException.class,
                     InternalServerException.class)).build();
+    private final CertificateGeneratorRegistry certificateGeneratorRegistry;
 
     private MqttClientConnection connection;
     private IotShadowClient iotShadowClient;
     private String lastVersion;
     private Future<?> subscribeTaskFuture;
-    private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
     private final String shadowName;
     private final ConnectivityInformation connectivityInformation;
@@ -78,26 +78,30 @@ public class CISShadowMonitor implements Consumer<NetworkState.ConnectionState> 
      * @param executorService         Executor service
      * @param deviceConfiguration     Device configuration
      * @param connectivityInformation Connectivity Info Provider
+     * @param certificateGeneratorRegistry  a store of CertificateGenerators
      */
     @Inject
     public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
                             DeviceConfiguration deviceConfiguration,
-                            ConnectivityInformation connectivityInformation) {
+                            ConnectivityInformation connectivityInformation,
+                            CertificateGeneratorRegistry certificateGeneratorRegistry) {
         this(null, null, executorService,
                 Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX,
-                connectivityInformation);
+                connectivityInformation, certificateGeneratorRegistry);
         this.connection = new WrapperMqttClientConnection(mqttClient);
         this.iotShadowClient = new IotShadowClient(this.connection);
     }
 
     CISShadowMonitor(MqttClientConnection connection, IotShadowClient iotShadowClient,
                      ExecutorService executorService, String shadowName,
-                     ConnectivityInformation connectivityInformation) {
+                     ConnectivityInformation connectivityInformation,
+                     CertificateGeneratorRegistry certificateGeneratorRegistry) {
         this.connection = connection;
         this.iotShadowClient = iotShadowClient;
         this.executorService = executorService;
         this.shadowName = shadowName;
         this.connectivityInformation = connectivityInformation;
+        this.certificateGeneratorRegistry = certificateGeneratorRegistry;
     }
 
     /**
@@ -134,7 +138,7 @@ public class CISShadowMonitor implements Consumer<NetworkState.ConnectionState> 
      * @param certificateGenerator CertificateGenerator instance for the certificate
      */
     public void addToMonitor(CertificateGenerator certificateGenerator) {
-        monitoredCertificateGenerators.add(certificateGenerator);
+        certificateGeneratorRegistry.registerGenerator(certificateGenerator);
     }
 
     /**
@@ -143,7 +147,7 @@ public class CISShadowMonitor implements Consumer<NetworkState.ConnectionState> 
      * @param certificateGenerator CertificateGenerator instance for the certificate
      */
     public void removeFromMonitor(CertificateGenerator certificateGenerator) {
-        monitoredCertificateGenerators.remove(certificateGenerator);
+        certificateGeneratorRegistry.removeGenerator(certificateGenerator);
     }
 
     private void subscribeToShadowTopics() throws InterruptedException {
@@ -239,8 +243,9 @@ public class CISShadowMonitor implements Consumer<NetworkState.ConnectionState> 
             }
 
             try {
-                for (CertificateGenerator cg : monitoredCertificateGenerators) {
-                    cg.generateCertificate(connectivityInformation::getCachedHostAddresses,
+                Set<CertificateGenerator> generators = certificateGeneratorRegistry.getCertificateGenerators();
+                for (CertificateGenerator generator : generators) {
+                    generator.generateCertificate(connectivityInformation::getCachedHostAddresses,
                             "connectivity info was updated");
                 }
             } catch (CertificateGenerationException e) {

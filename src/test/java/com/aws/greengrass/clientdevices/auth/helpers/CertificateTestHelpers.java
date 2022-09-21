@@ -182,20 +182,19 @@ public final class CertificateTestHelpers {
      * @param issuerCA  X509Certificate issuer cert
      * @param certificate X509Certificate signed cert
      */
-    public static boolean wasCertificateIssuedBy(X509Certificate issuerCA, X509Certificate certificate) throws
-            CertificateException {
-        CertificateFactory cf = CertificateFactory.getInstance("X.509");
-        List<X509Certificate> leafCertificate = Arrays.asList(certificate);
-        CertPath leafCertPath = cf.generateCertPath(leafCertificate);
-
+    public static boolean wasCertificateIssuedBy(X509Certificate issuerCA, X509Certificate certificate) {
         try {
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            List<X509Certificate> leafCertificate = Arrays.asList(certificate);
+            CertPath leafCertPath = cf.generateCertPath(leafCertificate);
             CertPathValidator cpv = CertPathValidator.getInstance("PKIX");
             TrustAnchor trustAnchor = new TrustAnchor(issuerCA, null);
             PKIXParameters validationParams = new PKIXParameters(new HashSet<>(Collections.singletonList(trustAnchor)));
             validationParams.setRevocationEnabled(false);
             cpv.validate(leafCertPath, validationParams);
             return true;
-        } catch (CertPathValidatorException | InvalidAlgorithmParameterException | NoSuchAlgorithmException  e) {
+        } catch (CertPathValidatorException | InvalidAlgorithmParameterException | NoSuchAlgorithmException
+                 | CertificateException  e) {
             return false;
         }
     }

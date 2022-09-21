@@ -15,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.CertificateGeneratorRegistry;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
@@ -50,7 +51,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import javax.inject.Inject;
 
 public class CertificateManager {
@@ -62,6 +63,7 @@ public class CertificateManager {
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private final GreengrassServiceClientFactory clientFactory;
     private final SecurityService securityService;
+    private final CertificateGeneratorRegistry certificateGeneratorRegistry;
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CertificateManager.class);
 
@@ -76,6 +78,7 @@ public class CertificateManager {
      * @param clock                   clock
      * @param clientFactory           Greengrass cloud service client factory
      * @param securityService          Security Service
+     * @param certificateGeneratorRegistry  a store of CertificateGenerators
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore,
@@ -84,7 +87,8 @@ public class CertificateManager {
                               CISShadowMonitor cisShadowMonitor,
                               Clock clock,
                               GreengrassServiceClientFactory clientFactory,
-                              SecurityService securityService) {
+                              SecurityService securityService,
+                              CertificateGeneratorRegistry certificateGeneratorRegistry) {
         this.certificateStore = certificateStore;
         this.connectivityInformation = connectivityInformation;
         this.certExpiryMonitor = certExpiryMonitor;
@@ -92,6 +96,8 @@ public class CertificateManager {
         this.clock = clock;
         this.clientFactory = clientFactory;
         this.securityService = securityService;
+        // TODO: This won't be here eventually
+        this.certificateGeneratorRegistry = certificateGeneratorRegistry;
     }
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
@@ -138,17 +144,6 @@ public class CertificateManager {
         return Collections.singletonList(CertificateHelper.toPem(certificateStore.getCACertificate()));
     }
 
-    /**
-     * Returns the full CA chain.
-     *
-     * @throws KeyStoreException when failing to read certificates from key store.
-     *
-     * @deprecated start using the certificateStore.getCaPassphrase directly
-     */
-    private X509Certificate[] getX509CACertificates() throws KeyStoreException {
-        return certificateStore.getCaCertificateChain();
-    }
-
     public String getCaPassPhrase() {
         return certificateStore.getCaPassphrase();
     }
@@ -174,24 +169,23 @@ public class CertificateManager {
                     getCertificateRequest.getCertificateRequestOptions().getCertificateType();
             // TODO: Should be configurable
             KeyPair keyPair = CertificateStore.newRSAKeyPair(4096);
-            X509Certificate[] caCertificates = getX509CACertificates();
 
             if (certificateType.equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
-                Consumer<X509Certificate> consumer = (t) -> {
+                BiConsumer<X509Certificate, X509Certificate[]> consumer = (t, caCertificates) -> {
                     CertificateUpdateEvent certificateUpdateEvent =
                             new CertificateUpdateEvent(keyPair, t, caCertificates);
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
-                Consumer<X509Certificate[]> consumer = (t) -> {
+                BiConsumer<X509Certificate[], X509Certificate[]> consumer = (t, caCertificates) -> {
                     CertificateUpdateEvent certificateUpdateEvent =
                             new CertificateUpdateEvent(keyPair, t[0], caCertificates);
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
-        } catch (NoSuchAlgorithmException | KeyStoreException e) {
+        } catch (NoSuchAlgorithmException e) {
             throw new CertificateGenerationException(e);
         }
     }
@@ -210,7 +204,7 @@ public class CertificateManager {
 
     private void subscribeToServerCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
                                                           @NonNull PublicKey publicKey,
-                                                          @NonNull Consumer<X509Certificate> cb)
+                                                          @NonNull BiConsumer<X509Certificate, X509Certificate[]> cb)
             throws CertificateGenerationException {
         CertificateGenerator certificateGenerator =
                 new ServerCertificateGenerator(
@@ -219,6 +213,7 @@ public class CertificateManager {
 
         // Add certificate generator to monitors first in order to avoid missing events
         // that happen while the initial certificate is being generated.
+        certificateGeneratorRegistry.registerGenerator(certificateGenerator);
         certExpiryMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
@@ -236,7 +231,7 @@ public class CertificateManager {
 
     private void subscribeToClientCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
                                                           @NonNull PublicKey publicKey,
-                                                          @NonNull Consumer<X509Certificate[]> cb)
+                                                          @NonNull BiConsumer<X509Certificate[], X509Certificate[]> cb)
             throws CertificateGenerationException {
         CertificateGenerator certificateGenerator =
                 new ClientCertificateGenerator(
@@ -244,6 +239,7 @@ public class CertificateManager {
                         publicKey, cb, certificateStore, certificatesConfig, clock);
 
         certExpiryMonitor.addToMonitor(certificateGenerator);
+        certificateGeneratorRegistry.registerGenerator(certificateGenerator);
         certificateGenerator.generateCertificate(Collections::emptyList,
                 "initialization of client cert subscription");
 
@@ -294,8 +290,8 @@ public class CertificateManager {
                     () -> securityService.getCertificateChain(privateKeyUri, certificateUri),
                     "get-certificate-chain", logger);
 
-            certificateStore.setCaCertificateChain(certificateChain);
             certificateStore.setCaPrivateKey(keyPair.getPrivate());
+            certificateStore.setCaCertificateChain(certificateChain);
         } catch (Exception e) {
             throw new InvalidCertificateAuthorityException(String.format("Failed to configure CA: There was an error "
                     + "reading the provided private key %s or certificate chain %s", privateKeyUri, certificateUri), e);

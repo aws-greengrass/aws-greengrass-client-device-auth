@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.CertificateGeneratorRegistry;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -98,12 +99,14 @@ public class CISShadowMonitorTest {
 
     @BeforeEach
     void setup() {
+        CertificateGeneratorRegistry certificateGeneratorRegistry = new CertificateGeneratorRegistry();
         cisShadowMonitor = new CISShadowMonitor(
                 shadowClientConnection,
                 shadowClient,
                 executor,
                 SHADOW_NAME,
-                connectivityInfoProvider
+                connectivityInfoProvider,
+                certificateGeneratorRegistry
         );
     }
 

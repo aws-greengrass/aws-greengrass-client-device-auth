@@ -11,6 +11,7 @@ import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CACertificateChainChangedHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CAConfigurationChangedHandler;
+import com.aws.greengrass.clientdevices.auth.certificate.handlers.RotateCertificatesHandler;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
@@ -122,6 +123,7 @@ public class ClientDevicesAuthService extends PluginService {
         // Register domain event handlers
         context.get(CACertificateChainChangedHandler.class).listen();
         context.get(CAConfigurationChangedHandler.class).listen();
+        context.get(RotateCertificatesHandler.class).listen();
 
         // Initialize infrastructure
         NetworkState networkState = context.get(NetworkState.class);

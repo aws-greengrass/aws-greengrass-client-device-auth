@@ -31,7 +31,7 @@ import java.time.Clock;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -47,11 +47,12 @@ public class ServerCertificateGeneratorTest {
             = "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
 
     @Mock
-    private Consumer<X509Certificate> mockCallback;
+    private BiConsumer<X509Certificate, X509Certificate[]> mockCallback;
 
     private PublicKey publicKey;
     private Topics configurationTopics;
     private CertificateGenerator certificateGenerator;
+    private CertificateStore certificateStore;
 
     @TempDir
     Path tmpPath;
@@ -60,7 +61,7 @@ public class ServerCertificateGeneratorTest {
     void setup() throws KeyStoreException, NoSuchAlgorithmException {
         X500Name subject = new X500Name(SUBJECT_PRINCIPAL);
         publicKey = CertificateStore.newRSAKeyPair().getPublic();
-        CertificateStore certificateStore = new CertificateStore(tmpPath, new DomainEvents());
+        certificateStore = new CertificateStore(tmpPath, new DomainEvents());
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
         configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         CertificatesConfig certificatesConfig = new CertificatesConfig(configurationTopics);
@@ -82,7 +83,8 @@ public class ServerCertificateGeneratorTest {
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
         assertThat(generatedCert.getExtendedKeyUsage().get(0), is(KeyPurposeId.id_kp_serverAuth.getId()));
         assertThat(generatedCert.getPublicKey(), is(publicKey));
-        verify(mockCallback, times(1)).accept(generatedCert);
+        verify(mockCallback, times(1)).accept(
+                generatedCert, certificateStore.getCaCertificateChain());
 
         certificateGenerator.generateCertificate(Collections::emptyList, "test");
         X509Certificate secondGeneratedCert = certificateGenerator.getCertificate();
@@ -115,6 +117,7 @@ public class ServerCertificateGeneratorTest {
         certificateGenerator.generateCertificate(Collections::emptyList, "test");
 
         // only the initial cert is generated, no rotation occurs
-        verify(mockCallback, times(1)).accept(certificateGenerator.getCertificate());
+        verify(mockCallback, times(1)).accept(
+                certificateGenerator.getCertificate(), certificateStore.getCaCertificateChain());
     }
 }

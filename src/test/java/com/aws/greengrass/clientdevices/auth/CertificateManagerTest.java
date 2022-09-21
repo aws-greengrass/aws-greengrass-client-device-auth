@@ -13,6 +13,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonito
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.CertificateGeneratorRegistry;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
@@ -89,9 +90,11 @@ public class CertificateManagerTest {
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
+        CertificateGeneratorRegistry certificateGeneratorRegistry = new CertificateGeneratorRegistry();
+
         certificateManager = new CertificateManager(new CertificateStore(tmpPath, new DomainEvents()),
                 mockConnectivityInformation, mockCertExpiryMonitor, mockShadowMonitor,
-                Clock.systemUTC(), clientFactoryMock, securityServiceMock);
+                Clock.systemUTC(), clientFactoryMock, securityServiceMock, certificateGeneratorRegistry);
 
         CertificatesConfig certificatesConfig = new CertificatesConfig(
                 Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
