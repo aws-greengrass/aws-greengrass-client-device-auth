@@ -10,6 +10,7 @@ import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -47,6 +49,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -66,6 +69,7 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -262,6 +266,7 @@ public class CertificateManagerTest {
         KeyPair caBKeys = CertificateStore.newRSAKeyPair(2048);
         X509Certificate caB = CertificateTestHelpers.createRootCertificateAuthority("Root B", caBKeys);
 
+
         certificateStore.setCaPrivateKey(caAKeys.getPrivate());
         certificateStore.setCaCertificateChain(caA);
         certificateManager.subscribeToCertificateUpdates(request);
@@ -269,10 +274,14 @@ public class CertificateManagerTest {
         assertEquals(1, eventRef.get().getCaCertificates().length);
         assertEquals(CertificateHelper.toPem(caA), CertificateHelper.toPem( eventRef.get().getCaCertificates()[0]));
 
+        ArgumentCaptor<CertificateGenerator> generator = ArgumentCaptor.forClass(CertificateGenerator.class);
+        verify(mockCertExpiryMonitor).addToMonitor(generator.capture());
+
         certificateStore.setCaPrivateKey(caBKeys.getPrivate());
         certificateStore.setCaCertificateChain(caB);
-        certificateManager.subscribeToCertificateUpdates(request);
 
+        // This part below just simulates the expiry monitor triggering expired certificates after the ca had changed
+        generator.getValue().generateCertificate(ArrayList::new, "testing");
         assertEquals(1, eventRef.get().getCaCertificates().length);
         assertEquals(CertificateHelper.toPem(caB), CertificateHelper.toPem(eventRef.get().getCaCertificates()[0]));
     }
