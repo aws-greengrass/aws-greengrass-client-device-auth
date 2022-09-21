@@ -183,7 +183,7 @@ public class CertificateExpiryMonitorTest {
     private CertificateGenerator monitorNewServerCert(Clock clock)
             throws NoSuchAlgorithmException, CertificateGenerationException {
         return monitorNewCert(key -> new ServerCertificateGenerator(
-                SUBJECT, key, cert -> {
+                SUBJECT, key, (cert, caChain) -> {
         }, certificateStore, certificatesConfig, clock));
     }
 
@@ -199,7 +199,7 @@ public class CertificateExpiryMonitorTest {
     private CertificateGenerator monitorNewClientCert(Clock clock)
             throws NoSuchAlgorithmException, CertificateGenerationException {
         return monitorNewCert(key -> new ClientCertificateGenerator(
-                SUBJECT, key, cert -> {
+                SUBJECT, key, (cert, caChain) -> {
         }, certificateStore, certificatesConfig, clock));
     }
 

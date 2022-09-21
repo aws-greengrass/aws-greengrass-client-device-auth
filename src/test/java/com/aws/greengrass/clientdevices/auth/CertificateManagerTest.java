@@ -17,6 +17,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.security.SecurityService;
@@ -24,6 +25,7 @@ import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Pair;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,6 +54,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -86,10 +89,13 @@ public class CertificateManagerTest {
     Path tmpPath;
 
     private CertificateManager certificateManager;
+    private CertificateStore certificateStore;
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
-        certificateManager = new CertificateManager(new CertificateStore(tmpPath, new DomainEvents()),
+        certificateStore = new CertificateStore(tmpPath, new DomainEvents());
+
+        certificateManager = new CertificateManager(certificateStore,
                 mockConnectivityInformation, mockCertExpiryMonitor, mockShadowMonitor,
                 Clock.systemUTC(), clientFactoryMock, securityServiceMock);
 
@@ -235,6 +241,40 @@ public class CertificateManagerTest {
                 new GetCertificateRequest("testService", requestOptions, cb);
 
         certificateManager.subscribeToCertificateUpdates(certificateRequest);
+    }
+
+    @Test
+    void GIVEN_caChain_WHEN_caChainChanges_THEN_subscribersGetLatestValues() throws NoSuchAlgorithmException,
+            CertificateException, OperatorCreationException, IOException, CertificateGenerationException,
+            KeyStoreException {
+        AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
+
+        Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
+                TestUtils.asyncAssertOnConsumer(eventRef::set, 1);
+        GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
+        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CLIENT);
+        GetCertificateRequest request =
+                new GetCertificateRequest("com.aws.clients.Plugin", requestOptions, asyncCall.getRight());
+
+        KeyPair caAKeys = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate caA = CertificateTestHelpers.createRootCertificateAuthority("Root A", caAKeys);
+
+        KeyPair caBKeys = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate caB = CertificateTestHelpers.createRootCertificateAuthority("Root B", caBKeys);
+
+        certificateStore.setCaPrivateKey(caAKeys.getPrivate());
+        certificateStore.setCaCertificateChain(caA);
+        certificateManager.subscribeToCertificateUpdates(request);
+
+        assertEquals(1, eventRef.get().getCaCertificates().length);
+        assertEquals(CertificateHelper.toPem(caA), CertificateHelper.toPem( eventRef.get().getCaCertificates()[0]));
+
+        certificateStore.setCaPrivateKey(caBKeys.getPrivate());
+        certificateStore.setCaCertificateChain(caB);
+        certificateManager.subscribeToCertificateUpdates(request);
+
+        assertEquals(1, eventRef.get().getCaCertificates().length);
+        assertEquals(CertificateHelper.toPem(caB), CertificateHelper.toPem(eventRef.get().getCaCertificates()[0]));
     }
 
     @Test

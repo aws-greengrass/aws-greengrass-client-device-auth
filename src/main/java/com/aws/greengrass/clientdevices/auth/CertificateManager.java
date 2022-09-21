@@ -50,7 +50,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import javax.inject.Inject;
 
 public class CertificateManager {
@@ -138,17 +138,6 @@ public class CertificateManager {
         return Collections.singletonList(CertificateHelper.toPem(certificateStore.getCACertificate()));
     }
 
-    /**
-     * Returns the full CA chain.
-     *
-     * @throws KeyStoreException when failing to read certificates from key store.
-     *
-     * @deprecated start using the certificateStore.getCaPassphrase directly
-     */
-    private X509Certificate[] getX509CACertificates() throws KeyStoreException {
-        return certificateStore.getCaCertificateChain();
-    }
-
     public String getCaPassPhrase() {
         return certificateStore.getCaPassphrase();
     }
@@ -174,24 +163,23 @@ public class CertificateManager {
                     getCertificateRequest.getCertificateRequestOptions().getCertificateType();
             // TODO: Should be configurable
             KeyPair keyPair = CertificateStore.newRSAKeyPair(4096);
-            X509Certificate[] caCertificates = getX509CACertificates();
 
             if (certificateType.equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
-                Consumer<X509Certificate> consumer = (t) -> {
+                BiConsumer<X509Certificate, X509Certificate[]> consumer = (serverCert, caCertificates) -> {
                     CertificateUpdateEvent certificateUpdateEvent =
-                            new CertificateUpdateEvent(keyPair, t, caCertificates);
+                            new CertificateUpdateEvent(keyPair, serverCert, caCertificates);
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
-                Consumer<X509Certificate[]> consumer = (t) -> {
+                BiConsumer<X509Certificate, X509Certificate[]> consumer = (clientCert, caCertificates) -> {
                     CertificateUpdateEvent certificateUpdateEvent =
-                            new CertificateUpdateEvent(keyPair, t[0], caCertificates);
+                            new CertificateUpdateEvent(keyPair, clientCert, caCertificates);
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
-        } catch (NoSuchAlgorithmException | KeyStoreException e) {
+        } catch (NoSuchAlgorithmException e) {
             throw new CertificateGenerationException(e);
         }
     }
@@ -210,7 +198,7 @@ public class CertificateManager {
 
     private void subscribeToServerCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
                                                           @NonNull PublicKey publicKey,
-                                                          @NonNull Consumer<X509Certificate> cb)
+                                                          @NonNull BiConsumer<X509Certificate, X509Certificate[]> cb)
             throws CertificateGenerationException {
         CertificateGenerator certificateGenerator =
                 new ServerCertificateGenerator(
@@ -236,7 +224,7 @@ public class CertificateManager {
 
     private void subscribeToClientCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
                                                           @NonNull PublicKey publicKey,
-                                                          @NonNull Consumer<X509Certificate[]> cb)
+                                                          @NonNull BiConsumer<X509Certificate, X509Certificate[]> cb)
             throws CertificateGenerationException {
         CertificateGenerator certificateGenerator =
                 new ClientCertificateGenerator(
