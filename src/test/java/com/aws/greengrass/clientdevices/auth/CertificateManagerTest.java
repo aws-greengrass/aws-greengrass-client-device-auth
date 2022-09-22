@@ -270,8 +270,7 @@ public class CertificateManagerTest {
         X509Certificate caB = CertificateTestHelpers.createRootCertificateAuthority("Root B", caBKeys);
 
 
-        certificateStore.setCaPrivateKey(caAKeys.getPrivate());
-        certificateStore.setCaCertificateChain(caA);
+        certificateStore.setCaKeyAndCertificateChain(caAKeys.getPrivate(), caA);
         certificateManager.subscribeToCertificateUpdates(request);
 
         assertEquals(1, eventRef.get().getCaCertificates().length);
@@ -280,8 +279,7 @@ public class CertificateManagerTest {
         ArgumentCaptor<CertificateGenerator> generator = ArgumentCaptor.forClass(CertificateGenerator.class);
         verify(mockCertExpiryMonitor).addToMonitor(generator.capture());
 
-        certificateStore.setCaPrivateKey(caBKeys.getPrivate());
-        certificateStore.setCaCertificateChain(caB);
+        certificateStore.setCaKeyAndCertificateChain(caBKeys.getPrivate(), caB);
 
         // This part below just simulates the expiry monitor triggering expired certificates after the ca had changed
         generator.getValue().generateCertificate(ArrayList::new, "testing");
