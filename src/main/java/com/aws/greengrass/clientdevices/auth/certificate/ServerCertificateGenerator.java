@@ -22,12 +22,12 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 public class ServerCertificateGenerator extends CertificateGenerator {
     private static final Logger logger = LogManager.getLogger(ServerCertificateGenerator.class);
-    private final Consumer<X509Certificate> callback;
+    private final BiConsumer<X509Certificate, X509Certificate[]> callback;
 
     /**
      * Constructor.
@@ -41,7 +41,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
      */
     public ServerCertificateGenerator(X500Name subject,
                                       PublicKey publicKey,
-                                      Consumer<X509Certificate> callback,
+                                      BiConsumer<X509Certificate, X509Certificate[]> callback,
                                       CertificateStore certificateStore,
                                       CertificatesConfig certificatesConfig,
                                       Clock clock) {
@@ -91,6 +91,6 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                 .kv("certExpiry", getExpiryTime())
                 .log("New server certificate generated");
 
-        callback.accept(certificate);
+        callback.accept(certificate, certificateStore.getCaCertificateChain());
     }
 }

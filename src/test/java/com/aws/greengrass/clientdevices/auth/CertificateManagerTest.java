@@ -10,6 +10,7 @@ import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
@@ -17,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.security.SecurityService;
@@ -24,12 +26,14 @@ import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Pair;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -45,6 +49,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -52,6 +57,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -63,6 +69,7 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -86,10 +93,13 @@ public class CertificateManagerTest {
     Path tmpPath;
 
     private CertificateManager certificateManager;
+    private CertificateStore certificateStore;
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
-        certificateManager = new CertificateManager(new CertificateStore(tmpPath, new DomainEvents()),
+        certificateStore = new CertificateStore(tmpPath, new DomainEvents());
+
+        certificateManager = new CertificateManager(certificateStore,
                 mockConnectivityInformation, mockCertExpiryMonitor, mockShadowMonitor,
                 Clock.systemUTC(), clientFactoryMock, securityServiceMock);
 
@@ -235,6 +245,45 @@ public class CertificateManagerTest {
                 new GetCertificateRequest("testService", requestOptions, cb);
 
         certificateManager.subscribeToCertificateUpdates(certificateRequest);
+    }
+
+    @Test
+    void GIVEN_caChain_WHEN_caChainChanges_THEN_subscribersGetLatestValues() throws NoSuchAlgorithmException,
+            CertificateException, OperatorCreationException, IOException, CertificateGenerationException,
+            KeyStoreException {
+        AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
+
+        Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
+                TestUtils.asyncAssertOnConsumer(eventRef::set, 1);
+        GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
+        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CLIENT);
+        GetCertificateRequest request =
+                new GetCertificateRequest("com.aws.clients.Plugin", requestOptions, asyncCall.getRight());
+
+        KeyPair caAKeys = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate caA = CertificateTestHelpers.createRootCertificateAuthority("Root A", caAKeys);
+
+        KeyPair caBKeys = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate caB = CertificateTestHelpers.createRootCertificateAuthority("Root B", caBKeys);
+
+
+        certificateStore.setCaPrivateKey(caAKeys.getPrivate());
+        certificateStore.setCaCertificateChain(caA);
+        certificateManager.subscribeToCertificateUpdates(request);
+
+        assertEquals(1, eventRef.get().getCaCertificates().length);
+        assertEquals(CertificateHelper.toPem(caA), CertificateHelper.toPem( eventRef.get().getCaCertificates()[0]));
+
+        ArgumentCaptor<CertificateGenerator> generator = ArgumentCaptor.forClass(CertificateGenerator.class);
+        verify(mockCertExpiryMonitor).addToMonitor(generator.capture());
+
+        certificateStore.setCaPrivateKey(caBKeys.getPrivate());
+        certificateStore.setCaCertificateChain(caB);
+
+        // This part below just simulates the expiry monitor triggering expired certificates after the ca had changed
+        generator.getValue().generateCertificate(ArrayList::new, "testing");
+        assertEquals(1, eventRef.get().getCaCertificates().length);
+        assertEquals(CertificateHelper.toPem(caB), CertificateHelper.toPem(eventRef.get().getCaCertificates()[0]));
     }
 
     @Test
