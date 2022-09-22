@@ -10,6 +10,7 @@ import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
@@ -45,6 +46,8 @@ public class ClientCertificateGeneratorTest {
 
     @Mock
     private BiConsumer<X509Certificate, X509Certificate[]> mockCallback;
+    @Mock
+    private SecurityService securityServiceMock;
 
     private PublicKey publicKey;
     private Topics configurationTopics;
@@ -58,7 +61,7 @@ public class ClientCertificateGeneratorTest {
     void setup() throws KeyStoreException, NoSuchAlgorithmException {
         X500Name subject = new X500Name(SUBJECT_PRINCIPAL);
         publicKey = CertificateStore.newRSAKeyPair().getPublic();
-        certificateStore = new CertificateStore(tmpPath, new DomainEvents());
+        certificateStore = new CertificateStore(tmpPath, new DomainEvents(), securityServiceMock);
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
         configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         CertificatesConfig certificatesConfig = new CertificatesConfig(configurationTopics);

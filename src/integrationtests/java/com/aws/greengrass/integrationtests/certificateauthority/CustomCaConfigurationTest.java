@@ -8,6 +8,7 @@ package com.aws.greengrass.integrationtests.certificateauthority;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
@@ -22,6 +23,7 @@ import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
+import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.security.exceptions.CertificateChainLoadingException;
 import com.aws.greengrass.security.exceptions.KeyLoadingException;
 import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
@@ -49,7 +51,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
@@ -76,12 +77,16 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CustomCaConfigurationTest {
+    @Mock
+    SecurityService securityServiceMock;
     @Mock
     private GreengrassServiceClientFactory clientFactory;
     @Mock
@@ -91,8 +96,9 @@ public class CustomCaConfigurationTest {
     @Mock
     private GreengrassV2DataClient client;
     @TempDir
-    Path tmpPath;
+    Path rootDir;
     private Kernel kernel;
+    private CertificateStore certificateStoreSpy;
 
 
     @BeforeEach
@@ -103,8 +109,15 @@ public class CustomCaConfigurationTest {
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
         kernel.getContext().put(GroupManager.class, groupManager);
+        kernel.getContext().put(SecurityService.class, securityServiceMock);
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitor);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
+
+        DomainEvents domainEvents =  new DomainEvents();
+        certificateStoreSpy = spy(new CertificateStore(rootDir, domainEvents , securityServiceMock));
+
+        kernel.getContext().put(DomainEvents.class, domainEvents);
+        kernel.getContext().put(CertificateStore.class, certificateStoreSpy);
 
         lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
     }
@@ -117,7 +130,7 @@ public class CustomCaConfigurationTest {
     // TODO: Consolidate this test helpers with ClientDevicesAuthServiceTest
     private void givenNucleusRunningWithConfig(String configFileName) throws InterruptedException {
         CountDownLatch authServiceRunning = new CountDownLatch(1);
-        kernel.parseArgs("-r", tmpPath.toAbsolutePath().toString(), "-i",
+        kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
             if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName()) && service.getState()
@@ -190,8 +203,8 @@ public class CustomCaConfigurationTest {
 
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
-        when(CertificateHelper.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        when(CertificateHelper.getCertificateChain(privateKeyUri, certificateUri)).thenReturn(chain);
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
@@ -220,8 +233,8 @@ public class CustomCaConfigurationTest {
 
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
-        when(CertificateHelper.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        when(CertificateHelper.getCertificateChain(privateKeyUri, certificateUri)).thenReturn(chain);
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
@@ -245,17 +258,18 @@ public class CustomCaConfigurationTest {
 
     @Test
     void GIVEN_customCAConfigurationWithACAChain_WHEN_registeringCAWithIotCore_THEN_highestTrustCAUploaded() throws
-            CertificateException, NoSuchAlgorithmException, URISyntaxException, OperatorCreationException, IOException,
+            CertificateChainLoadingException, KeyLoadingException, CertificateException, NoSuchAlgorithmException,
+            URISyntaxException, ServiceUnavailableException, OperatorCreationException, IOException,
             ServiceLoadException, InterruptedException {
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         KeyPair[] certificateKeys = credentials.getRight();
         KeyPair intermediateKeyPair = certificateKeys[0];
 
-        URI privateKeyUri = new URI(String.format("file://%s/private.key", tmpPath.toAbsolutePath()));
-        URI certificateUri = new URI(String.format("file://%s/certificate.pem", tmpPath.toAbsolutePath()));
-        CertificateTestHelpers.writePrivateKeyToPath(Paths.get(privateKeyUri), intermediateKeyPair.getPrivate());
-        CertificateTestHelpers.writeToCertificatesToPath(Paths.get(certificateUri), chain);
+        URI privateKeyUri = new URI("file:///private.key");
+        URI certificateUri = new URI("file:///certificate.pem");
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         givenNucleusRunningWithConfig("config.yaml");
         givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
@@ -273,7 +287,8 @@ public class CustomCaConfigurationTest {
     @Test
     void GIVEN_managedCAConfiguration_WHEN_updatedToCustomCAConfiguration_THEN_serverCertificatesAreRotated() throws
             InterruptedException, CertificateGenerationException, CertificateException, NoSuchAlgorithmException,
-            OperatorCreationException, IOException, URISyntaxException, ServiceLoadException, ExecutionException,
+            OperatorCreationException, IOException, URISyntaxException, KeyLoadingException,
+            ServiceUnavailableException, CertificateChainLoadingException, ServiceLoadException, ExecutionException,
             TimeoutException {
         // TODO: This test is failing on windows build due to a race condition. Events seem in occasions to get emitted
         //  twice causing the assertion in line 307 to fail due to it being called 3 times. We are ignoring this test
@@ -284,10 +299,8 @@ public class CustomCaConfigurationTest {
         KeyPair[] certificateKeys = credentials.getRight();
         KeyPair intermediateKeyPair = certificateKeys[0];
 
-        URI privateKeyUri = new URI(String.format("file://%s/private.key", tmpPath.toAbsolutePath()));
-        URI certificateUri = new URI(String.format("file://%s/certificate.pem", tmpPath.toAbsolutePath()));
-        CertificateTestHelpers.writePrivateKeyToPath(Paths.get(privateKeyUri), intermediateKeyPair.getPrivate());
-        CertificateTestHelpers.writeToCertificatesToPath(Paths.get(certificateUri), chain);
+        URI privateKeyUri = new URI("file:///private.key");
+        URI certificateUri = new URI("file:///certificate.pem");
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
@@ -296,6 +309,9 @@ public class CustomCaConfigurationTest {
                 GetCertificateRequestOptions.CertificateType.SERVER, asyncCall.getRight());
 
         givenNucleusRunningWithConfig("config.yaml");
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
+
         subscribeToCertificateUpdates(request);
         givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 

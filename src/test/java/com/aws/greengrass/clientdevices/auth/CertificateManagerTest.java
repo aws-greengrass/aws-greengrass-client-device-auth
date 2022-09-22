@@ -22,11 +22,13 @@ import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationExce
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
+import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Pair;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +41,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -68,7 +69,11 @@ import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguratio
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateManagerTest {
@@ -85,6 +90,8 @@ public class CertificateManagerTest {
 
     @Mock
     GreengrassServiceClientFactory clientFactoryMock;
+    @Mock
+    SecurityService securityServiceMock;
 
 
     @TempDir
@@ -95,17 +102,22 @@ public class CertificateManagerTest {
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
-        certificateStore = new CertificateStore(tmpPath, new DomainEvents());
+        certificateStore = spy(new CertificateStore(tmpPath, new DomainEvents(), securityServiceMock));
 
         certificateManager = new CertificateManager(certificateStore,
                 mockConnectivityInformation, mockCertExpiryMonitor, mockShadowMonitor,
-                Clock.systemUTC(), clientFactoryMock, mockCaConfigurationMonitor);
+                Clock.systemUTC(), clientFactoryMock, securityServiceMock, mockCaConfigurationMonitor);
 
         CertificatesConfig certificatesConfig = new CertificatesConfig(
                 Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
 
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
         certificateManager.generateCA("", CertificateStore.CAType.RSA_2048);
+    }
+
+    @AfterEach
+    void afterEach() {
+        reset(securityServiceMock);
     }
 
     @Test
@@ -116,10 +128,8 @@ public class CertificateManagerTest {
         X509Certificate caCertificate = CertificateHelper.createCACertificate(
                 keyPair, Date.from(now), Date.from(now.plusSeconds(10)), "Custom Core CA");
 
-        URI privateKeyUri = new URI(String.format("file://%s/private.key", tmpPath.toAbsolutePath()));
-        URI certificateUri = new URI(String.format("file://%s/certificate.pem", tmpPath.toAbsolutePath()));
-        CertificateTestHelpers.writePrivateKeyToPath(Paths.get(privateKeyUri), keyPair.getPrivate());
-        CertificateTestHelpers.writeToCertificatesToPath(Paths.get(certificateUri), caCertificate);
+        URI privateKeyUri = new URI("file:///private.key");
+        URI certificateUri = new URI("file:///certificate.pem");
 
         Topics configurationTopics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
@@ -128,6 +138,12 @@ public class CertificateManagerTest {
                 .withValue(certificateUri.toString());
 
         CDAConfiguration cdaConfiguration = CDAConfiguration.from(configurationTopics);
+
+        // TODO: Write the actual certificate to the file system and avoid mocking the security service. Doing
+        //  this is a bad given we are exposing implementation details on the test.
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(keyPair);
+        doReturn(new X509Certificate[]{caCertificate}).when(certificateStore)
+                .loadCaCertificateChain(privateKeyUri, certificateUri);
 
         // When
         certificateManager.configureCustomCA(cdaConfiguration);
@@ -146,13 +162,16 @@ public class CertificateManagerTest {
         X509Certificate caCertificate = CertificateHelper.createCACertificate(
                 keyPair, Date.from(now), Date.from(now.plusSeconds(10)), "Custom Core CA");
 
-        URI privateKeyUri = new URI(String.format("file://%s/private.key", tmpPath.toAbsolutePath()));
-        URI certificateUri = new URI(String.format("file://%s/certificate.pem", tmpPath.toAbsolutePath()));
-        CertificateTestHelpers.writePrivateKeyToPath(Paths.get(privateKeyUri), keyPair.getPrivate());
-        CertificateTestHelpers.writeToCertificatesToPath(Paths.get(certificateUri), caCertificate);
+        URI privateKeyUri = new URI("file:///private.key");
+        URI certificateUri = new URI("file:///certificate.pem");
+
+        // TODO: Write the actual certificate to the file system and avoid mocking the security service. Doing
+        //  this is a bad given we are exposing implementation details on the test.
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(keyPair);
 
         // Then
-        String caPem = certificateManager.getCACertificates().get(0);
+        List<String> caPemStrings = certificateManager.getCACertificates();
+        String caPem = caPemStrings.get(0);
         assertNotEquals(caPem, CertificateHelper.toPem(caCertificate));
     }
 

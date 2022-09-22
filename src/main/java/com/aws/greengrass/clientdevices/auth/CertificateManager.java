@@ -26,6 +26,8 @@ import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationExcep
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.security.SecurityService;
+import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
 import lombok.NonNull;
@@ -61,6 +63,7 @@ public class CertificateManager {
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private final GreengrassServiceClientFactory clientFactory;
+    private final SecurityService securityService;
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CertificateManager.class);
 
@@ -74,6 +77,7 @@ public class CertificateManager {
      * @param cisShadowMonitor        CIS Shadow Monitor
      * @param clock                   clock
      * @param clientFactory           Greengrass cloud service client factory
+     * @param securityService          Security Service
      * @param caConfigurationMonitor   CA Configuration Monitor
      */
     @Inject
@@ -83,6 +87,7 @@ public class CertificateManager {
                               CISShadowMonitor cisShadowMonitor,
                               Clock clock,
                               GreengrassServiceClientFactory clientFactory,
+                              SecurityService securityService,
                               CAConfigurationMonitor caConfigurationMonitor) {
         this.certificateStore = certificateStore;
         this.connectivityInformation = connectivityInformation;
@@ -91,6 +96,7 @@ public class CertificateManager {
         this.caConfigurationMonitor = caConfigurationMonitor;
         this.clock = clock;
         this.clientFactory = clientFactory;
+        this.securityService = securityService;
     }
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
@@ -269,12 +275,22 @@ public class CertificateManager {
         URI privateKeyUri = configuration.getPrivateKeyUri().get();
         URI certificateUri = configuration.getCertificateUri().get();
 
+        RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
+                .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
+                .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
+
         logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", certificateUri)
                 .log("Configuring custom core CA");
 
         try {
-            KeyPair keyPair = CertificateHelper.getKeyPair(privateKeyUri, certificateUri);
-            X509Certificate[] certificateChain = CertificateHelper.getCertificateChain(privateKeyUri, certificateUri);
+            KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
+                    () -> securityService.getKeyPair(privateKeyUri, certificateUri),
+                    "get-key-pair", logger);
+
+            X509Certificate[] certificateChain = RetryUtils.runWithRetry(retryConfig,
+                    () -> certificateStore.loadCaCertificateChain(privateKeyUri, certificateUri),
+                    "get-certificate-chain", logger);
+
             certificateStore.setCaKeyAndCertificateChain(keyPair.getPrivate(), certificateChain);
         } catch (Exception e) {
             throw new InvalidCertificateAuthorityException(String.format("Failed to configure CA: There was an error "

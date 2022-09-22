@@ -5,8 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.helpers;
 
-import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
-import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.Pair;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
@@ -28,12 +26,8 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import software.amazon.awssdk.utils.ImmutableMap;
 
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
@@ -56,8 +50,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-
-import static com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper.PEM_BOUNDARY_PRIVATE_KEY;
 
 
 public final class CertificateTestHelpers {
@@ -94,13 +86,13 @@ public final class CertificateTestHelpers {
     }
 
     static X509Certificate createServerCertificate(X509Certificate caCert, String commonName, PublicKey publicKey,
-                                                  PrivateKey caPrivateKey)
+                                                   PrivateKey caPrivateKey)
             throws NoSuchAlgorithmException, CertificateException, IOException, OperatorCreationException {
         return createCertificate(caCert, commonName, publicKey, caPrivateKey, CertificateTypes.SERVER_CERTIFICATE);
     }
 
     private static X509Certificate createCertificate(X509Certificate caCert, String commonName, PublicKey publicKey,
-                                              PrivateKey caPrivateKey, CertificateTypes type) throws NoSuchAlgorithmException,
+                                                     PrivateKey caPrivateKey, CertificateTypes type) throws NoSuchAlgorithmException,
             CertIOException, CertificateException, OperatorCreationException {
         Pair<Date, Date> dateRange = getValidityDateRange();
         X500Name subject = getX500Name(commonName);
@@ -207,39 +199,4 @@ public final class CertificateTestHelpers {
             return false;
         }
     }
-
-    public static void writeToCertificatesToPath(Path filePath, X509Certificate... certificates)
-            throws IOException, CertificateEncodingException {
-        String pem = CertificateHelper.toPem(certificates);
-        writePemToFile(filePath, pem);
-    }
-
-    public static void writePrivateKeyToPath(Path filePath, PrivateKey privateKey)
-            throws IOException {
-        String pem = EncryptionUtils.encodeToPem(PEM_BOUNDARY_PRIVATE_KEY, privateKey.getEncoded());
-        writePemToFile(filePath, pem);
-    }
-
-    @SuppressWarnings("PMD.AvoidFileStream")
-    private static void writePemToFile(Path filePath, String pem) throws IOException {
-        File file = filePath.toFile();
-
-        if (!Files.exists(filePath)) {
-            file = createFile(filePath);
-        }
-
-        try (FileWriter fw = new FileWriter(file, true)) {
-            fw.write(pem);
-        }
-    }
-
-    private static File createFile(Path filePath) throws IOException {
-        File file = filePath.toFile();
-        file.getParentFile().mkdirs();
-        file.delete();
-        file.createNewFile();
-        return file;
-    }
-
-
 }
