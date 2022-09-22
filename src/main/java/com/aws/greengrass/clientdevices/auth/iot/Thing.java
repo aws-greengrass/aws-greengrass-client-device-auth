@@ -11,26 +11,45 @@ import com.aws.greengrass.clientdevices.auth.session.attribute.WildcardSuffixAtt
 import lombok.Value;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+/**
+ * This is a value object representing an IoT Thing at specific point in time.
+ * It is **NOT** updated when the local Thing Registry is updated, or when
+ * changes to this Thing are made in IoT Core.
+ */
 @Value
 public class Thing implements AttributeProvider {
     public static final String NAMESPACE = "Thing";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
 
     String thingName;
+    List<String> attachedCertificateIds;
 
     /**
-     * Constructor.
+     * Create a Thing object with no attached certificates.
+     *
      * @param thingName AWS IoT ThingName
-     * @throws IllegalArgumentException If the given ThingName contains illegal characters
      */
     public Thing(String thingName) {
+        this(thingName, null);
+    }
+
+    /**
+     * Create a Thing object with the provided attached certificate IDs.
+     *
+     * @param thingName      AWS IoT ThingName
+     * @param certificateIds AWS IoT Certificate IDs
+     * @throws IllegalArgumentException If the given ThingName contains illegal characters
+     */
+    public Thing(String thingName, List<String> certificateIds) {
         if (!Pattern.matches(thingNamePattern, thingName)) {
             throw new IllegalArgumentException("Invalid thing name. The thing name must match \"[a-zA-Z0-9\\-_:]+\".");
         }
         this.thingName = thingName;
+        this.attachedCertificateIds = certificateIds;
     }
 
     @Override
