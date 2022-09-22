@@ -6,6 +6,9 @@
 package com.aws.greengrass.clientdevices.auth.certificate;
 
 import com.aws.greengrass.clientdevices.auth.util.ParseIPAddress;
+import com.aws.greengrass.security.exceptions.CertificateChainLoadingException;
+import com.aws.greengrass.security.exceptions.KeyLoadingException;
+import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.Utils;
 import lombok.NonNull;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -33,12 +36,17 @@ import software.amazon.awssdk.utils.ImmutableMap;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.math.BigInteger;
+import java.net.URI;
+import java.nio.file.Paths;
+import java.security.GeneralSecurityException;
 import java.security.KeyPair;
+import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -46,7 +54,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.X509KeyManager;
 
 
 public final class CertificateHelper {
@@ -65,6 +77,10 @@ public final class CertificateHelper {
     public static final String PEM_BOUNDARY_CERTIFICATE = "CERTIFICATE";
     public static final String PEM_BOUNDARY_PUBLIC_KEY = "PUBLIC KEY";
     public static final String PEM_BOUNDARY_PRIVATE_KEY = "PRIVATE KEY";
+
+    private static final String KEY_ALIAS = "private-key";
+    private static final String SUPPORT_KEY_TYPE = "file";
+
 
     private CertificateHelper() {
     }
@@ -252,5 +268,98 @@ public final class CertificateHelper {
         nameBuilder.addRDN(BCStyle.CN, commonName);
 
         return nameBuilder.build();
+    }
+
+
+    /**
+     * Retrieves the public and private key pair from the certificate chain provided in the certificate uri.
+     *
+     * @param privateKeyUri   uri of the private key on the file system .i.e. file///test.pem.
+     * @param certificateUri   uri of the certificate chain on the file system .i.e. file:///cert.pem
+     *
+     * @throws KeyLoadingException         if it fails to load key
+     */
+    public static KeyPair getKeyPair(URI privateKeyUri, URI certificateUri)
+            throws KeyLoadingException {
+        if (!Objects.equals(certificateUri.getScheme(), SUPPORT_KEY_TYPE)) {
+            throw new KeyLoadingException(String.format("Only support %s type private key", SUPPORT_KEY_TYPE));
+        }
+
+        try {
+            return EncryptionUtils.loadPrivateKeyPair(Paths.get(privateKeyUri));
+        } catch (IOException | GeneralSecurityException e) {
+            throw new KeyLoadingException("Failed to get keypair", e);
+        }
+    }
+
+    /**
+     * Get JSSE KeyManagers, used to securely retrieve the certificates and private keys from
+     * the file system.
+     *
+     * @param privateKeyUri  private key URI
+     * @param certificateUri certificate URI
+     *
+     * @throws KeyLoadingException         if it fails to load key
+     */
+    @SuppressWarnings("PMD.PrematureDeclaration")
+    public static KeyManager[] getKeyManagers(URI privateKeyUri, URI certificateUri)
+            throws KeyLoadingException {
+        KeyPair keyPair = getKeyPair(privateKeyUri, certificateUri);
+
+        if (!Objects.equals(certificateUri.getScheme(), SUPPORT_KEY_TYPE)) {
+            throw new KeyLoadingException(String.format("Only support %s type certificate", SUPPORT_KEY_TYPE));
+        }
+
+        try {
+            PrivateKey privateKey = keyPair.getPrivate();
+            List<X509Certificate> certificateChain =
+                    EncryptionUtils.loadX509Certificates(Paths.get(certificateUri));
+
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            keyStore.load(null);
+            keyStore.setKeyEntry(KEY_ALIAS, privateKey, null, certificateChain.toArray(new Certificate[0]));
+
+            KeyManagerFactory keyManagerFactory =
+                    KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            keyManagerFactory.init(keyStore, null);
+            return keyManagerFactory.getKeyManagers();
+        } catch (GeneralSecurityException | IOException e) {
+            throw new KeyLoadingException("Failed to get key manager", e);
+        }
+    }
+
+    /**
+     * Get certificate chain using private and certificate URIs.
+     *
+     * @param privateKeyUri  private key URI
+     * @param certificateUri certificate URI
+     * @return X509Certificate list that corresponds to the given private key and certificate URIs
+     * @throws KeyLoadingException              if it fails to load key
+     * @throws CertificateChainLoadingException if no certificate chain is found
+     */
+    public static X509Certificate[] getCertificateChain(URI privateKeyUri, URI certificateUri)
+            throws CertificateChainLoadingException, KeyLoadingException {
+        KeyManager[] km = getKeyManagers(privateKeyUri, certificateUri);
+
+        if (km.length != 1 || !(km[0] instanceof X509KeyManager)) {
+            throw new CertificateChainLoadingException("Unable to find the X509 key manager instance to get the "
+                    + "certificate chain using the private key and certificate URIs");
+        }
+
+        X509KeyManager x509KeyManager = (X509KeyManager) km[0];
+        KeyPair keyPair = getKeyPair(privateKeyUri, certificateUri);
+        String[] aliases = x509KeyManager.getClientAliases(keyPair.getPublic().getAlgorithm(), null);
+        if (aliases == null) {
+            throw new CertificateChainLoadingException("Unable to find aliases in the key manager with the given "
+                    + "private key and certificate URIs");
+        }
+        for (String alias : aliases) {
+            if (x509KeyManager.getPrivateKey(alias).equals(keyPair.getPrivate())) {
+                return x509KeyManager.getCertificateChain(alias);
+            }
+        }
+
+        throw new CertificateChainLoadingException("Unable to get the certificate chain using the private key and "
+                + "certificate URIs");
     }
 }
