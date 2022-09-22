@@ -149,17 +149,16 @@ public class CertificateStore {
     }
 
 
-    /**
-     * Sets the CA chain and private key that are used to generate certificates. It combines setting both values
-     * at the same time to avoid invalid states where the caChain can be updated without updating the value of
-     * the private key required to sign generated certificates.
-     *
-     * @param privateKey  leaf CA private key
-     * @param caCertificateChain a CA chain
-     *
-     * @throws KeyStoreException  if privateKey is not instance of PrivateKey or no ca chain provided
-     */
-     @SuppressWarnings("PMD.CommentsIndentation")
+     /**
+      * Sets the CA chain and private key that are used to generate certificates. It combines setting both values
+      * at the same time to avoid invalid states where the caChain can be updated without updating the value of
+      * the private key required to sign generated certificates.
+      *
+      * @param privateKey  leaf CA private key
+      * @param caCertificateChain a CA chain
+      *
+      * @throws KeyStoreException  if privateKey is not instance of PrivateKey or no ca chain provided
+      */
      public synchronized void setCaKeyAndCertificateChain(Key privateKey, X509Certificate... caCertificateChain)
             throws KeyStoreException {
         if (caCertificateChain == null) {
