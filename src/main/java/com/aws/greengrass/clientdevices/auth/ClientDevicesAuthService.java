@@ -63,11 +63,6 @@ public class ClientDevicesAuthService extends PluginService {
 
     // TODO: Move configuration related constants to appropriate configuration class
     public static final String DEVICE_GROUPS_TOPICS = "deviceGroups";
-    public static final String PERFORMANCE_TOPIC = "performance";
-    public static final String MAX_ACTIVE_AUTH_TOKENS_TOPIC = "maxActiveAuthTokens";
-    public static final String CLOUD_REQUEST_QUEUE_SIZE_TOPIC = "cloudRequestQueueSize";
-    public static final String MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC = "maxConcurrentCloudRequests";
-    public static final int DEFAULT_MAX_ACTIVE_AUTH_TOKENS = 2500;
 
 
     /**

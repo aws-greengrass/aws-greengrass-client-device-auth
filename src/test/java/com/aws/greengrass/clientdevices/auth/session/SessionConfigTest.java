@@ -17,9 +17,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.io.IOException;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.DEFAULT_MAX_ACTIVE_AUTH_TOKENS;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.MAX_ACTIVE_AUTH_TOKENS_TOPIC;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.PERFORMANCE_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.session.SessionConfig.DEFAULT_SESSION_CAPACITY;
+import static com.aws.greengrass.clientdevices.auth.session.SessionConfig.PERFORMANCE_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.session.SessionConfig.MAX_ACTIVE_AUTH_TOKENS_TOPIC;
 import static com.aws.greengrass.clientdevices.auth.session.SessionConfig.MAX_SESSION_CAPACITY;
 import static com.aws.greengrass.clientdevices.auth.session.SessionConfig.MIN_SESSION_CAPACITY;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -44,12 +44,12 @@ class SessionConfigTest {
 
     @Test
     public void GIVEN_no_configured_capacity_WHEN_getSessionCapacity_THEN_returns_default_capacity() {
-        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(DEFAULT_MAX_ACTIVE_AUTH_TOKENS)));
+        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(DEFAULT_SESSION_CAPACITY)));
     }
 
     @Test
     public void GIVEN_default_session_capacity_WHEN_update_configuration_THEN_returns_updated_capacity() {
-        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(DEFAULT_MAX_ACTIVE_AUTH_TOKENS)));
+        assertThat(sessionConfig.getSessionCapacity(), is(equalTo(DEFAULT_SESSION_CAPACITY)));
         int newCapacity = 1;
         configurationTopics.lookup(PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
                 .withValue(newCapacity);
