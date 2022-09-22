@@ -156,10 +156,14 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void initializeInfrastructure() {
-        BlockingQueue<Runnable> queue = new ResizableLinkedBlockingQueue<>(DEFAULT_WORK_QUEUE_DEPTH);
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(DEFAULT_THREAD_POOL_SIZE,
-                DEFAULT_THREAD_POOL_SIZE, 60, TimeUnit.SECONDS, queue);
-        context.put(CDAExecutor.class, new CDAExecutor(executor));
+        // Don't re-inject this if it is already present
+        CDAExecutor cdaExecutor = context.getIfExists(CDAExecutor.class, null);
+        if (cdaExecutor == null) {
+            BlockingQueue<Runnable> queue = new ResizableLinkedBlockingQueue<>(DEFAULT_WORK_QUEUE_DEPTH);
+            ThreadPoolExecutor executor = new ThreadPoolExecutor(DEFAULT_THREAD_POOL_SIZE,
+                    DEFAULT_THREAD_POOL_SIZE, 60, TimeUnit.SECONDS, queue);
+            context.put(CDAExecutor.class, new CDAExecutor(executor));
+        }
     }
 
     private void initializeIPC() {
