@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
+import com.aws.greengrass.clientdevices.auth.certificate.CAConfigurationMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
@@ -58,6 +59,7 @@ public class CertificateManager {
     private final ConnectivityInformation connectivityInformation;
     private final CertificateExpiryMonitor certExpiryMonitor;
     private final CISShadowMonitor cisShadowMonitor;
+    private final CAConfigurationMonitor caConfigurationMonitor;
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private final GreengrassServiceClientFactory clientFactory;
@@ -76,6 +78,7 @@ public class CertificateManager {
      * @param clock                   clock
      * @param clientFactory           Greengrass cloud service client factory
      * @param securityService          Security Service
+     * @param caConfigurationMonitor   CA Configuration Monitor
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore,
@@ -84,11 +87,13 @@ public class CertificateManager {
                               CISShadowMonitor cisShadowMonitor,
                               Clock clock,
                               GreengrassServiceClientFactory clientFactory,
-                              SecurityService securityService) {
+                              SecurityService securityService,
+                              CAConfigurationMonitor caConfigurationMonitor) {
         this.certificateStore = certificateStore;
         this.connectivityInformation = connectivityInformation;
         this.certExpiryMonitor = certExpiryMonitor;
         this.cisShadowMonitor = cisShadowMonitor;
+        this.caConfigurationMonitor = caConfigurationMonitor;
         this.clock = clock;
         this.clientFactory = clientFactory;
         this.securityService = securityService;
@@ -115,6 +120,7 @@ public class CertificateManager {
     public void startMonitors() {
         certExpiryMonitor.startMonitor();
         cisShadowMonitor.startMonitor();
+        caConfigurationMonitor.startMonitor();
     }
 
     /**
@@ -209,6 +215,7 @@ public class CertificateManager {
         // that happen while the initial certificate is being generated.
         certExpiryMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        caConfigurationMonitor.addToMonitor(certificateGenerator);
 
         certificateGenerator.generateCertificate(connectivityInformation::getCachedHostAddresses,
                 "initialization of server cert subscription");
@@ -231,6 +238,7 @@ public class CertificateManager {
                         CertificateHelper.getX500Name(certificateRequest.getServiceName()),
                         publicKey, cb, certificateStore, certificatesConfig, clock);
 
+        caConfigurationMonitor.addToMonitor(certificateGenerator);
         certExpiryMonitor.addToMonitor(certificateGenerator);
         certificateGenerator.generateCertificate(Collections::emptyList,
                 "initialization of client cert subscription");
@@ -247,6 +255,7 @@ public class CertificateManager {
     private void removeCGFromMonitors(CertificateGenerator gen) {
         certExpiryMonitor.removeFromMonitor(gen);
         cisShadowMonitor.removeFromMonitor(gen);
+        caConfigurationMonitor.removeFromMonitor(gen);
     }
 
     /**
