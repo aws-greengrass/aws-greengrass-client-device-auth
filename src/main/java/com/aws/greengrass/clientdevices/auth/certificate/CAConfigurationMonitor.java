@@ -65,7 +65,7 @@ public class CAConfigurationMonitor {
                         connectivityInformation::getCachedHostAddresses,
                         "Certificate Configuration Changed");
             } catch (CertificateGenerationException e) {
-                result = Result.warning(e);
+                result = Result.error(e);
             }
         }
 

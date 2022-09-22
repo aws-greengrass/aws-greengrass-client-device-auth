@@ -118,8 +118,8 @@ public class CertificateStore {
         }
 
         try {
-            setCaCertificateChain(keyStore.getCertificateChain(CA_KEY_ALIAS));
-            setCaPrivateKey(keyStore.getKey(CA_KEY_ALIAS, getPassphrase()));
+            setCaCertificateChain(keyStore.getKey(CA_KEY_ALIAS, getPassphrase()),
+                    keyStore.getCertificateChain(CA_KEY_ALIAS));
         } catch (NoSuchAlgorithmException | UnrecoverableKeyException e) {
             throw new KeyStoreException("unable to retrieve CA private key", e);
         }
@@ -148,44 +148,46 @@ public class CertificateStore {
         return certChain[0];
     }
 
-    private void setCaCertificateChain(Certificate... caCertificateChain) throws KeyStoreException {
+
+    /**
+     * Sets the CA chain and private key that are used to generate certificates. It combines setting both values
+     * at the same time to avoid invalid states where the caChain can be updated without updating the value of
+     * the private key required to sign generated certificates.
+     *
+     * @param privateKey  leaf CA private key
+     * @param caCertificateChain a CA chain
+     *
+     * @throws KeyStoreException  if privateKey is not instance of PrivateKey or no ca chain provided
+     */
+    public void setCaCertificateChain(Key privateKey, X509Certificate... caCertificateChain) throws KeyStoreException {
         if (caCertificateChain == null) {
             throw new KeyStoreException("No certificate chain provided");
         }
+
+        if (!(privateKey instanceof PrivateKey)) {
+            throw new KeyStoreException("unable to retrieve CA private key");
+        }
+
+        this.caCertificateChain = caCertificateChain;
+        caPrivateKey = (PrivateKey) privateKey;
+
+        eventEmitter.emit(new CACertificateChainChanged(caCertificateChain));
+    }
+
+
+    private void setCaCertificateChain(Key privateKey, Certificate... caCertificateChain) throws KeyStoreException {
+        if (caCertificateChain == null) {
+            throw new KeyStoreException("No certificate chain provided");
+        }
+
         for (Certificate cert : caCertificateChain) {
             if (!(cert instanceof X509Certificate)) {
                 throw new KeyStoreException("Unsupported certificate type");
             }
         }
-        setCaCertificateChain(Arrays.stream(caCertificateChain).toArray(X509Certificate[]::new));
-    }
 
-    /**
-     * Sets the CA certificate chain.
-     *
-     * @param caCertificateChain Array of CA certificates
-     * @throws KeyStoreException if unable to retrieve the certificate chain
-     */
-    public void setCaCertificateChain(X509Certificate... caCertificateChain) throws KeyStoreException {
-        if (caCertificateChain == null) {
-            throw new KeyStoreException("No certificate chain provided");
-        }
-        this.caCertificateChain = caCertificateChain;
-        eventEmitter.emit(new CACertificateChainChanged(caCertificateChain));
-    }
-
-    /**
-     * Sets the CA private key.
-     *
-     * @param privateKey Key must be of type (Private Key)
-     * @throws KeyStoreException if privateKey is not instance of PrivateKey
-     */
-    public void setCaPrivateKey(Key privateKey) throws KeyStoreException {
-        if (!(privateKey instanceof PrivateKey)) {
-            throw new KeyStoreException("unable to retrieve CA private key");
-        }
-
-        caPrivateKey = (PrivateKey) privateKey;
+        X509Certificate[] certificates = Arrays.stream(caCertificateChain).toArray(X509Certificate[]::new);
+        setCaCertificateChain(privateKey, certificates);
     }
 
 

@@ -291,8 +291,7 @@ public class CertificateManager {
                     () -> securityService.getCertificateChain(privateKeyUri, certificateUri),
                     "get-certificate-chain", logger);
 
-            certificateStore.setCaCertificateChain(certificateChain);
-            certificateStore.setCaPrivateKey(keyPair.getPrivate());
+            certificateStore.setCaCertificateChain(keyPair.getPrivate(), certificateChain);
         } catch (Exception e) {
             throw new InvalidCertificateAuthorityException(String.format("Failed to configure CA: There was an error "
                     + "reading the provided private key %s or certificate chain %s", privateKeyUri, certificateUri), e);
