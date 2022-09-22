@@ -29,7 +29,7 @@ import software.amazon.awssdk.eventstreamrpc.model.EventStreamJsonMessage;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
 import static com.aws.greengrass.ipc.common.ExceptionUtil.translateExceptions;
@@ -46,7 +46,7 @@ public class GetClientDeviceAuthTokenOperationHandler
     private final AuthorizationHandler authorizationHandler;
     private final ClientDevicesAuthServiceApi clientDevicesAuthServiceApi;
     private final Map<String, String> credentialMap = new HashMap<>();
-    private final ExecutorService cloudCallThreadPool;
+    private final Executor cloudCallThreadPool;
 
     /**
      * Constructor.
@@ -60,7 +60,7 @@ public class GetClientDeviceAuthTokenOperationHandler
             OperationContinuationHandlerContext context,
             ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
             AuthorizationHandler authorizationHandler,
-            ExecutorService cloudCallThreadPool
+            Executor cloudCallThreadPool
     ) {
 
         super(context);

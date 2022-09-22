@@ -305,10 +305,8 @@ class ClientDevicesAuthServiceTest {
     }
 
     private List<String> getCaCertificates()
-            throws ServiceLoadException, CertificateEncodingException, KeyStoreException, IOException {
-        ClientDevicesAuthService clientDevicesAuthService =
-                (ClientDevicesAuthService) kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
-        return clientDevicesAuthService.getCertificateManager().getCACertificates();
+            throws CertificateEncodingException, KeyStoreException, IOException {
+        return kernel.getContext().get(CertificateManager.class).getCACertificates();
     }
 
 

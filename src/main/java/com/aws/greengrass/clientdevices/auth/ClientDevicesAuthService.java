@@ -14,7 +14,9 @@ import com.aws.greengrass.clientdevices.auth.certificate.handlers.CAConfiguratio
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
+import com.aws.greengrass.clientdevices.auth.configuration.InfrastructureConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
+import com.aws.greengrass.clientdevices.auth.infra.CDAExecutor;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
@@ -30,7 +32,6 @@ import com.aws.greengrass.ipc.GetClientDeviceAuthTokenOperationHandler;
 import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
 import com.aws.greengrass.ipc.VerifyClientDeviceIdentityOperationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
-import com.aws.greengrass.util.Coerce;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
@@ -45,6 +46,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
+import static com.aws.greengrass.clientdevices.auth.configuration.InfrastructureConfiguration.DEFAULT_THREAD_POOL_SIZE;
+import static com.aws.greengrass.clientdevices.auth.configuration.InfrastructureConfiguration.DEFAULT_WORK_QUEUE_DEPTH;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.AUTHORIZE_CLIENT_DEVICE_ACTION;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.GET_CLIENT_DEVICE_AUTH_TOKEN;
@@ -55,21 +58,16 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VER
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
 
+    private CDAConfiguration cdaConfiguration;
+    private InfrastructureConfiguration infrastructureConfig;
+
     // TODO: Move configuration related constants to appropriate configuration class
     public static final String DEVICE_GROUPS_TOPICS = "deviceGroups";
     public static final String PERFORMANCE_TOPIC = "performance";
     public static final String MAX_ACTIVE_AUTH_TOKENS_TOPIC = "maxActiveAuthTokens";
     public static final String CLOUD_REQUEST_QUEUE_SIZE_TOPIC = "cloudRequestQueueSize";
     public static final String MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC = "maxConcurrentCloudRequests";
-    // Limit the queue size before we start rejecting requests
-    private static final int DEFAULT_CLOUD_CALL_QUEUE_SIZE = 100;
-    private static final int DEFAULT_THREAD_POOL_SIZE = 1;
     public static final int DEFAULT_MAX_ACTIVE_AUTH_TOKENS = 2500;
-
-    // Create a threadpool for calling the cloud. Single thread will be used by default.
-    private ThreadPoolExecutor cloudCallThreadPool;
-    private int cloudCallQueueSize;
-    private CDAConfiguration cdaConfiguration;
 
 
     /**
@@ -88,30 +86,8 @@ public class ClientDevicesAuthService extends PluginService {
 
         context.get(UseCases.class).init(context);
         context.get(CertificateManager.class).updateCertificatesConfiguration(new CertificatesConfig(getConfig()));
-        initializeInfrastructure();
         initializeHandlers();
         subscribeToConfigChanges();
-    }
-
-    private int getValidCloudCallQueueSize(Topics topics) {
-        int newSize = Coerce.toInt(
-                topics.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE,
-                        CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, CLOUD_REQUEST_QUEUE_SIZE_TOPIC));
-        if (newSize <= 0) {
-            logger.atWarn().log("{} illegal size, will not change the queue size from {}",
-                    CLOUD_REQUEST_QUEUE_SIZE_TOPIC, cloudCallQueueSize);
-            return cloudCallQueueSize; // existing size
-        }
-        return newSize;
-    }
-
-    private void initializeInfrastructure() {
-        cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
-        cloudCallQueueSize = getValidCloudCallQueueSize(config);
-        cloudCallThreadPool = new ThreadPoolExecutor(1,
-                DEFAULT_THREAD_POOL_SIZE, 60, TimeUnit.SECONDS,
-                new ResizableLinkedBlockingQueue<>(cloudCallQueueSize));
-        cloudCallThreadPool.allowCoreThreadTimeOut(true); // act as a cached threadpool
     }
 
     private void initializeHandlers() {
@@ -146,32 +122,18 @@ public class ClientDevicesAuthService extends PluginService {
             return;
         }
         logger.atDebug().kv("why", whatHappened).kv("node", node).log();
+
         // NOTE: This should not live here. The service doesn't have to have knowledge about where/how
         // keys are stored
-        Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
-
-        try {
-            // NOTE: Extract this to a method these are infrastructure concerns.
-            int threadPoolSize = Coerce.toInt(this.config.findOrDefault(DEFAULT_THREAD_POOL_SIZE,
-                    CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC));
-            if (threadPoolSize >= cloudCallThreadPool.getCorePoolSize()) {
-                cloudCallThreadPool.setMaximumPoolSize(threadPoolSize);
-            }
-        } catch (IllegalArgumentException e) {
-            logger.atWarn().log("Unable to update CDA threadpool size due to {}", e.getMessage());
-        }
-
-        if (whatHappened != WhatHappened.initialized && node != null && node.childOf(CLOUD_REQUEST_QUEUE_SIZE_TOPIC)) {
-            // NOTE: Extract this to a method these are infrastructure concerns.
-            BlockingQueue<Runnable> q = cloudCallThreadPool.getQueue();
-            if (q instanceof ResizableLinkedBlockingQueue) {
-                cloudCallQueueSize = getValidCloudCallQueueSize(this.config);
-                ((ResizableLinkedBlockingQueue) q).resize(cloudCallQueueSize);
-            }
-        }
-
         if (whatHappened == WhatHappened.initialized || node == null || node.childOf(DEVICE_GROUPS_TOPICS)) {
+            Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
             updateDeviceGroups(whatHappened, deviceGroupTopics);
+        }
+
+        InfrastructureConfiguration newInfraConfig = InfrastructureConfiguration.from(getConfig());
+        if (infrastructureConfig == null || !newInfraConfig.equals(infrastructureConfig)) {
+            updateInfrastructure(newInfraConfig);
+            infrastructureConfig = newInfraConfig;
         }
 
         onConfigurationChanged();
@@ -189,10 +151,20 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CertificateManager.class).stopMonitors();
     }
 
-    @Override
-    public void postInject() {
-        super.postInject();
+    private void updateInfrastructure(InfrastructureConfiguration infraConfig) {
+        context.get(CDAExecutor.class).accept(infraConfig);
+    }
+
+    private void initializeInfrastructure() {
+        BlockingQueue<Runnable> queue = new ResizableLinkedBlockingQueue<>(DEFAULT_WORK_QUEUE_DEPTH);
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(DEFAULT_THREAD_POOL_SIZE,
+                DEFAULT_THREAD_POOL_SIZE, 60, TimeUnit.SECONDS, queue);
+        context.put(CDAExecutor.class, new CDAExecutor(executor));
+    }
+
+    private void initializeIPC() {
         AuthorizationHandler authorizationHandler = context.get(AuthorizationHandler.class);
+
         try {
             authorizationHandler.registerComponent(this.getName(),
                     new HashSet<>(Arrays.asList(SUBSCRIBE_TO_CERTIFICATE_UPDATES,
@@ -212,17 +184,20 @@ public class ClientDevicesAuthService extends PluginService {
                 new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
         greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
                 new VerifyClientDeviceIdentityOperationHandler(context, serviceApi,
-                        authorizationHandler, cloudCallThreadPool));
+                        authorizationHandler, this.context.get(CDAExecutor.class)));
         greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
                 new GetClientDeviceAuthTokenOperationHandler(context, serviceApi, authorizationHandler,
-                        cloudCallThreadPool));
+                        this.context.get(CDAExecutor.class)));
         greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
                 new AuthorizeClientDeviceActionOperationHandler(context, serviceApi,
                         authorizationHandler));
     }
 
-    public CertificateManager getCertificateManager() {
-        return context.get(CertificateManager.class);
+    @Override
+    public void postInject() {
+        super.postInject();
+        initializeInfrastructure();
+        initializeIPC();
     }
 
     private void updateDeviceGroups(WhatHappened whatHappened, Topics deviceGroupsTopics) {
@@ -250,7 +225,7 @@ public class ClientDevicesAuthService extends PluginService {
     protected CompletableFuture<Void> close(boolean waitForDependers) {
         // shutdown the threadpool in close, not in shutdown() because it is created
         // and injected in the constructor and we won't be able to restart it after it stops.
-        cloudCallThreadPool.shutdown();
+        context.get(CDAExecutor.class).shutdown();
         return super.close(waitForDependers);
     }
 }

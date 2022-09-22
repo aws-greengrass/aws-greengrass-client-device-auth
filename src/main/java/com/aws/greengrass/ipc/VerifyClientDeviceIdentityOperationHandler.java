@@ -25,7 +25,7 @@ import software.amazon.awssdk.eventstreamrpc.OperationContinuationHandlerContext
 import software.amazon.awssdk.eventstreamrpc.model.EventStreamJsonMessage;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
 import static com.aws.greengrass.ipc.common.ExceptionUtil.translateExceptions;
@@ -41,7 +41,7 @@ public class VerifyClientDeviceIdentityOperationHandler
     private final ClientDevicesAuthServiceApi clientDevicesAuthServiceApi;
     private final String serviceName;
     private final AuthorizationHandler authorizationHandler;
-    private final ExecutorService cloudCallThreadPool;
+    private final Executor cloudCallThreadPool;
 
     /**
      * Constructor.
@@ -53,7 +53,7 @@ public class VerifyClientDeviceIdentityOperationHandler
      */
     public VerifyClientDeviceIdentityOperationHandler(
             OperationContinuationHandlerContext context, ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
-            AuthorizationHandler authorizationHandler, ExecutorService cloudCallThreadPool) {
+            AuthorizationHandler authorizationHandler, Executor cloudCallThreadPool) {
 
         super(context);
         this.clientDevicesAuthServiceApi = clientDevicesAuthServiceApi;
