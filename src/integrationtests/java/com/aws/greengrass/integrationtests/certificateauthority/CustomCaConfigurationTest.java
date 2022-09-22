@@ -73,8 +73,6 @@ import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
@@ -278,7 +276,8 @@ public class CustomCaConfigurationTest {
     void GIVEN_managedCAConfiguration_WHEN_updatedToCustomCAConfiguration_THEN_serverCertificatesAreRotated() throws
             InterruptedException, CertificateGenerationException, CertificateException, NoSuchAlgorithmException,
             OperatorCreationException, IOException, URISyntaxException, KeyLoadingException,
-            ServiceUnavailableException, CertificateChainLoadingException, ServiceLoadException {
+            ServiceUnavailableException, CertificateChainLoadingException, ServiceLoadException, ExecutionException,
+            TimeoutException {
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         X509Certificate intermediateCA =  chain[0];
@@ -291,19 +290,18 @@ public class CustomCaConfigurationTest {
         when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri)).thenReturn(chain);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
+        Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
+                TestUtils.asyncAssertOnConsumer(eventRef::set, 2);
         GetCertificateRequest request = buildCertificateUpdateRequest(
-                GetCertificateRequestOptions.CertificateType.SERVER, eventRef::set);
+                GetCertificateRequestOptions.CertificateType.SERVER, asyncCall.getRight());
 
         givenNucleusRunningWithConfig("config.yaml");
-
-        // Begin with managed CA
         subscribeToCertificateUpdates(request);
-        assertNotEquals(CertificateHelper.toPem(chain), CertificateHelper.toPem(eventRef.get().getCaCertificates()));
-        assertFalse(CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, eventRef.get().getCertificate()));
-
-        // Change to custom CA
         givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
-        assertEquals(CertificateHelper.toPem(chain), CertificateHelper.toPem(eventRef.get().getCaCertificates()));
-        assertTrue(CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, eventRef.get().getCertificate()));
+
+        // Called 2 times. 1 for initial manages CA and then after the config is changes to use custom CA
+        asyncCall.getLeft().get(2, TimeUnit.SECONDS);
+        CertificateUpdateEvent event = eventRef.get();
+        assertTrue(CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, event.getCertificate()));
     }
 }

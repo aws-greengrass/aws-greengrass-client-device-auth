@@ -118,7 +118,7 @@ public class CertificateStore {
         }
 
         try {
-            setCaCertificateChain(keyStore.getKey(CA_KEY_ALIAS, getPassphrase()),
+            setCaKeyAndCertificateChain(keyStore.getKey(CA_KEY_ALIAS, getPassphrase()),
                     keyStore.getCertificateChain(CA_KEY_ALIAS));
         } catch (NoSuchAlgorithmException | UnrecoverableKeyException e) {
             throw new KeyStoreException("unable to retrieve CA private key", e);
@@ -159,7 +159,9 @@ public class CertificateStore {
      *
      * @throws KeyStoreException  if privateKey is not instance of PrivateKey or no ca chain provided
      */
-    public void setCaCertificateChain(Key privateKey, X509Certificate... caCertificateChain) throws KeyStoreException {
+     @SuppressWarnings("PMD.CommentsIndentation")
+     public synchronized void setCaKeyAndCertificateChain(Key privateKey, X509Certificate... caCertificateChain)
+            throws KeyStoreException {
         if (caCertificateChain == null) {
             throw new KeyStoreException("No certificate chain provided");
         }
@@ -175,7 +177,8 @@ public class CertificateStore {
     }
 
 
-    private void setCaCertificateChain(Key privateKey, Certificate... caCertificateChain) throws KeyStoreException {
+    private void setCaKeyAndCertificateChain(Key privateKey, Certificate... caCertificateChain)
+            throws KeyStoreException {
         if (caCertificateChain == null) {
             throw new KeyStoreException("No certificate chain provided");
         }
@@ -187,7 +190,7 @@ public class CertificateStore {
         }
 
         X509Certificate[] certificates = Arrays.stream(caCertificateChain).toArray(X509Certificate[]::new);
-        setCaCertificateChain(privateKey, certificates);
+        setCaKeyAndCertificateChain(privateKey, certificates);
     }
 
 
