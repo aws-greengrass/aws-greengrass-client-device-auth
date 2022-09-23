@@ -69,7 +69,7 @@ public class ClientDevicesAuthService extends PluginService {
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private ThreadPoolExecutor cloudCallThreadPool;
     private int cloudCallQueueSize;
-    private CDAConfiguration cdaConfiguration;
+    private volatile CDAConfiguration cdaConfiguration;
 
 
     /**
