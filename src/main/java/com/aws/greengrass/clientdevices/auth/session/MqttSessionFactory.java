@@ -59,7 +59,7 @@ public class MqttSessionFactory implements SessionFactory {
             if (!certificateId.isPresent()) {
                 throw new AuthenticationException("Certificate isn't active");
             }
-            Thing thing = new Thing(mqttCredential.clientId);
+            Thing thing = Thing.of(mqttCredential.clientId);
             Certificate cert = new Certificate(certificateId.get());
             if (!thingRegistry.isThingAttachedToCertificate(thing, cert)) {
                 throw new AuthenticationException("unable to authenticate device");

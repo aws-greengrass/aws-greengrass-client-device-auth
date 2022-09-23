@@ -12,7 +12,6 @@ import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,8 +21,8 @@ import javax.inject.Inject;
 public class ThingRegistry {
     // holds mapping of thingName to IoT Certificate IDs;
     // size-bound by default cache size, evicts oldest written entry if the max size is reached
-    private final Map<String, List<String>> registry = Collections.synchronizedMap(
-            new LinkedHashMap<String, List<String>>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
+    private final Map<String, Thing> registry = Collections.synchronizedMap(
+            new LinkedHashMap<String, Thing>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry eldest) {
                     return size() > RegistryConfig.REGISTRY_CACHE_SIZE;
@@ -40,62 +39,60 @@ public class ThingRegistry {
     }
 
     /**
+     * Create a Thing.
+     * @param thingName ThingName
+     * @return Thing object
+     */
+    public Thing createThing(String thingName) {
+        return updateThing(Thing.of(thingName));
+    }
+
+    /**
      * Retrieve a Thing based on ThingName.
      *
      * @param thingName ThingName
-     * @return Thing domain object
+     * @return Thing domain object, if it exists
      */
     public Thing getThing(String thingName) {
-        List<String> certificateIds = registry.get(thingName);
-        if (certificateIds != null) {
-            return new Thing(thingName, certificateIds);
-        }
-        return null;
+        return Thing.of(getThingInternal(thingName));
     }
 
     /**
-     * Attach a certificate to Thing.
-     * </p>
-     * If the provided Thing does not exist, it will be created.
-     * @param thingName     ThingName.
-     * @param certificateId Certificate ID to attach.
+     * Update a Thing.
+     * @param thing Thing which is being updated
+     * @return      New Thing version
      */
-    public synchronized void attachCertificateToThing(String thingName, String certificateId) {
-        List<String> certificateIds = registry.get(thingName);
+    public Thing updateThing(Thing thing) {
+        // TODO - need to throw exception if provided Thing is not the most recent version
+        Thing oldThing = getThingInternal(thing.getThingName());
 
-        if (certificateIds != null && certificateIds.contains(certificateId)) {
-            // Nothing to do
-            return;
+        if (oldThing == null) {
+            storeThing(thing);
+            return thing;
         }
 
-        // Thing doesn't exist - create it
-        if (certificateIds == null) {
-            certificateIds = new ArrayList<>(Collections.singletonList(certificateId));
-            registry.put(thingName, certificateIds);
-        } else {
-            certificateIds.add(certificateId);
+        if (thing.getVersion() != oldThing.getVersion()) {
+            // TODO: throw exception since caller is trying to update an old version
+            return null;
         }
 
-        domainEvents.emit(
-                new ThingUpdated(thingName, new ArrayList<>(certificateIds)));
+        if (!thing.isModified()) {
+            // Nothing to modify - return old object
+            return thing;
+        }
+
+        Thing newThing = Thing.of(thing.getVersion() + 1, thing.getThingName(), thing.getAttachedCertificateIds());
+        return storeThing(newThing);
     }
 
-    /**
-     * Detach a certificate from Thing.
-     * @param thingName     ThingName.
-     * @param certificateId Certificate ID to detach.
-     */
-    public synchronized void detachCertificateFromThing(String thingName, String certificateId) {
-        List<String> certificateIds = registry.get(thingName);
+    private Thing getThingInternal(String thingName) {
+        return registry.get(thingName);
+    }
 
-        if (certificateIds == null || !certificateIds.contains(certificateId)) {
-            // Nothing to do
-            return;
-        }
-
-        certificateIds.remove(certificateId);
-        domainEvents.emit(
-                new ThingUpdated(thingName, new ArrayList<>(certificateIds)));
+    private Thing storeThing(Thing thing) {
+        registry.put(thing.getThingName(), thing);
+        domainEvents.emit(new ThingUpdated(thing.getThingName(), thing.getVersion()));
+        return thing;
     }
 
     /**
@@ -111,31 +108,20 @@ public class ThingRegistry {
     public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
         try {
             if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
-                registerCertificateForThing(thing, certificate);
+                thing.attachCertificate(certificate.getIotCertificateId());
+                updateThing(thing);
                 return true;
             } else {
-                clearRegistryForThing(thing);
+                thing.detachCertificate(certificate.getIotCertificateId());
+                updateThing(thing);
             }
         } catch (CloudServiceInteractionException e) {
-            if (isCertificateRegisteredForThing(thing.getThingName(), certificate.getIotCertificateId())) {
+            List<String> certIds = thing.getAttachedCertificateIds();
+            if (certIds.contains(certificate.getIotCertificateId())) {
                 return true;
             }
             throw e;
         }
         return false;
-    }
-
-    private void registerCertificateForThing(Thing thing, Certificate certificate) {
-        registry.put(thing.getThingName(),
-                new ArrayList<>(Collections.singletonList(certificate.getIotCertificateId())));
-    }
-
-    private void clearRegistryForThing(Thing thing) {
-        registry.remove(thing.getThingName());
-    }
-
-    private boolean isCertificateRegisteredForThing(String thingName, String certificateId) {
-        Thing newThing = getThing(thingName);
-        return newThing != null && newThing.getAttachedCertificateIds().contains(certificateId);
     }
 }

@@ -9,12 +9,10 @@ import com.aws.greengrass.clientdevices.auth.api.DomainEvent;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.util.List;
-
 @AllArgsConstructor
 public class ThingUpdated implements DomainEvent {
     @Getter
     private String thingName;
     @Getter
-    private List<String> attachedCertificateIds;
+    private int thingVersion;
 }
