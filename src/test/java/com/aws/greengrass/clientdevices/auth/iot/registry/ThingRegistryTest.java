@@ -11,7 +11,7 @@ import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionEx
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
-import com.aws.greengrass.clientdevices.auth.iot.events.ThingEvent;
+import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -102,16 +102,15 @@ class ThingRegistryTest {
 
     @Test
     void GIVEN_emptyRegistry_WHEN_attachCertificateToThing_THEN_thingEventEmitted() {
-        AtomicReference<ThingEvent> thingEvent = new AtomicReference();
-        Consumer<ThingEvent> eventListener = (event) -> thingEvent.set(event);
-        domainEvents.registerListener(eventListener, ThingEvent.class);
+        AtomicReference<ThingUpdated> thingEvent = new AtomicReference();
+        Consumer<ThingUpdated> eventListener = (event) -> thingEvent.set(event);
+        domainEvents.registerListener(eventListener, ThingUpdated.class);
 
         registry.attachCertificateToThing(mockThing.getThingName(), mockCertificate.getIotCertificateId());
 
         // ensure event contains the correct information
-        ThingEvent event = thingEvent.get();
+        ThingUpdated event = thingEvent.get();
         assertThat(event, is(notNullValue()));
-        assertThat(event.getEventType(), is(ThingEvent.ThingEventType.THING_UPDATED));
         assertThat(event.getThingName(), is(mockThing.getThingName()));
         assertThat(event.getAttachedCertificateIds(), is(notNullValue()));
         assertThat(event.getAttachedCertificateIds(), contains(mockCertificate.getIotCertificateId()));
@@ -119,18 +118,17 @@ class ThingRegistryTest {
 
     @Test
     void GIVEN_thingPresentInRegistry_WHEN_attachCertificateToThing_THEN_thingEventEmitted() {
-        AtomicReference<ThingEvent> thingEvent = new AtomicReference();
-        Consumer<ThingEvent> eventListener = (event) -> thingEvent.set(event);
-        domainEvents.registerListener(eventListener, ThingEvent.class);
+        AtomicReference<ThingUpdated> thingEvent = new AtomicReference();
+        Consumer<ThingUpdated> eventListener = (event) -> thingEvent.set(event);
+        domainEvents.registerListener(eventListener, ThingUpdated.class);
 
         // Initialize registry with Thing + Cert1 and then update
         registry.attachCertificateToThing(mockThing.getThingName(), mockCertificate.getIotCertificateId());
         registry.attachCertificateToThing(mockThing.getThingName(), mockCertificate2.getIotCertificateId());
 
         // ensure event contains the correct information
-        ThingEvent event = thingEvent.get();
+        ThingUpdated event = thingEvent.get();
         assertThat(event, is(notNullValue()));
-        assertThat(event.getEventType(), is(ThingEvent.ThingEventType.THING_UPDATED));
         assertThat(event.getThingName(), is(mockThing.getThingName()));
         assertThat(event.getAttachedCertificateIds(), is(notNullValue()));
         assertThat(event.getAttachedCertificateIds(),
@@ -140,9 +138,9 @@ class ThingRegistryTest {
 
     @Test
     void GIVEN_thingWithMultipleCertificates_WHEN_certificateDetached_THEN_thingEventEmitted() {
-        AtomicReference<ThingEvent> thingEvent = new AtomicReference();
-        Consumer<ThingEvent> eventListener = (event) -> thingEvent.set(event);
-        domainEvents.registerListener(eventListener, ThingEvent.class);
+        AtomicReference<ThingUpdated> thingEvent = new AtomicReference();
+        Consumer<ThingUpdated> eventListener = (event) -> thingEvent.set(event);
+        domainEvents.registerListener(eventListener, ThingUpdated.class);
 
         // Initialize registry with Thing with two certs, and then detach one
         registry.attachCertificateToThing(mockThing.getThingName(), mockCertificate.getIotCertificateId());
@@ -150,9 +148,8 @@ class ThingRegistryTest {
         registry.detachCertificateFromThing(mockThing.getThingName(), mockCertificate.getIotCertificateId());
 
         // ensure event contains the correct information
-        ThingEvent event = thingEvent.get();
+        ThingUpdated event = thingEvent.get();
         assertThat(event, is(notNullValue()));
-        assertThat(event.getEventType(), is(ThingEvent.ThingEventType.THING_UPDATED));
         assertThat(event.getThingName(), is(mockThing.getThingName()));
         assertThat(event.getAttachedCertificateIds(), is(notNullValue()));
         assertThat(event.getAttachedCertificateIds(), contains(mockCertificate2.getIotCertificateId()));
@@ -160,18 +157,17 @@ class ThingRegistryTest {
 
     @Test
     void GIVEN_thingPresentInRegistry_WHEN_certificateDetached_THEN_thingEventEmitted() {
-        AtomicReference<ThingEvent> thingEvent = new AtomicReference();
-        Consumer<ThingEvent> eventListener = (event) -> thingEvent.set(event);
-        domainEvents.registerListener(eventListener, ThingEvent.class);
+        AtomicReference<ThingUpdated> thingEvent = new AtomicReference();
+        Consumer<ThingUpdated> eventListener = (event) -> thingEvent.set(event);
+        domainEvents.registerListener(eventListener, ThingUpdated.class);
 
         // Initialize registry with Thing and then detach
         registry.attachCertificateToThing(mockThing.getThingName(), mockCertificate.getIotCertificateId());
         registry.detachCertificateFromThing(mockThing.getThingName(), mockCertificate.getIotCertificateId());
 
         // ensure event contains the correct information
-        ThingEvent event = thingEvent.get();
+        ThingUpdated event = thingEvent.get();
         assertThat(event, is(notNullValue()));
-        assertThat(event.getEventType(), is(ThingEvent.ThingEventType.THING_UPDATED));
         assertThat(event.getThingName(), is(mockThing.getThingName()));
         assertThat(event.getAttachedCertificateIds().size(), is(0));
     }

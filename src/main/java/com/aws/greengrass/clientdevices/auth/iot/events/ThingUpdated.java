@@ -12,15 +12,9 @@ import lombok.Getter;
 import java.util.List;
 
 @AllArgsConstructor
-public class ThingEvent implements DomainEvent {
-    @Getter
-    private ThingEventType eventType;
+public class ThingUpdated implements DomainEvent {
     @Getter
     private String thingName;
     @Getter
     private List<String> attachedCertificateIds;
-
-    public enum ThingEventType {
-        THING_UPDATED
-    }
 }

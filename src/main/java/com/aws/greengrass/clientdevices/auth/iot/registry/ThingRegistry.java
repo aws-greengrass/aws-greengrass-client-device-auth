@@ -10,7 +10,7 @@ import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionEx
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
-import com.aws.greengrass.clientdevices.auth.iot.events.ThingEvent;
+import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -77,9 +77,7 @@ public class ThingRegistry {
         }
 
         domainEvents.emit(
-                new ThingEvent(ThingEvent.ThingEventType.THING_UPDATED,
-                        thingName,
-                        new ArrayList<>(certificateIds)));
+                new ThingUpdated(thingName, new ArrayList<>(certificateIds)));
     }
 
     /**
@@ -97,9 +95,7 @@ public class ThingRegistry {
 
         certificateIds.remove(certificateId);
         domainEvents.emit(
-                new ThingEvent(ThingEvent.ThingEventType.THING_UPDATED,
-                        thingName,
-                        new ArrayList<>(certificateIds)));
+                new ThingUpdated(thingName, new ArrayList<>(certificateIds)));
     }
 
     /**
