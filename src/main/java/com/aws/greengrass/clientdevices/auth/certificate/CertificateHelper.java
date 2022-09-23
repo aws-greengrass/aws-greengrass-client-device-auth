@@ -138,7 +138,7 @@ public final class CertificateHelper {
                                                          @NonNull List<String> connectivityInfoItems,
                                                          @NonNull Date notBefore,
                                                          @NonNull Date notAfter)
-                        throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+            throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
         return issueCertificate(caCert, caPrivateKey, subject, publicKey, connectivityInfoItems, notBefore,
                 notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
     }

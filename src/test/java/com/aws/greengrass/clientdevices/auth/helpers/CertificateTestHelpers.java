@@ -86,13 +86,13 @@ public final class CertificateTestHelpers {
     }
 
     static X509Certificate createServerCertificate(X509Certificate caCert, String commonName, PublicKey publicKey,
-                                                  PrivateKey caPrivateKey)
+                                                   PrivateKey caPrivateKey)
             throws NoSuchAlgorithmException, CertificateException, IOException, OperatorCreationException {
         return createCertificate(caCert, commonName, publicKey, caPrivateKey, CertificateTypes.SERVER_CERTIFICATE);
     }
 
     private static X509Certificate createCertificate(X509Certificate caCert, String commonName, PublicKey publicKey,
-                                              PrivateKey caPrivateKey, CertificateTypes type) throws NoSuchAlgorithmException,
+                                                     PrivateKey caPrivateKey, CertificateTypes type) throws NoSuchAlgorithmException,
             CertIOException, CertificateException, OperatorCreationException {
         Pair<Date, Date> dateRange = getValidityDateRange();
         X500Name subject = getX500Name(commonName);

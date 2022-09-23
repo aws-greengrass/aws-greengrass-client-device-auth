@@ -288,7 +288,7 @@ public class CertificateManager {
                     "get-key-pair", logger);
 
             X509Certificate[] certificateChain = RetryUtils.runWithRetry(retryConfig,
-                    () -> securityService.getCertificateChain(privateKeyUri, certificateUri),
+                    () -> certificateStore.loadCaCertificateChain(privateKeyUri, certificateUri),
                     "get-certificate-chain", logger);
 
             certificateStore.setCaKeyAndCertificateChain(keyPair.getPrivate(), certificateChain);

@@ -8,12 +8,14 @@ package com.aws.greengrass.integrationtests.certificateauthority;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateChainLoadingException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.config.Topics;
@@ -23,7 +25,6 @@ import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.security.SecurityService;
-import com.aws.greengrass.security.exceptions.CertificateChainLoadingException;
 import com.aws.greengrass.security.exceptions.KeyLoadingException;
 import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -76,7 +77,9 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -95,6 +98,7 @@ public class CustomCaConfigurationTest {
     @TempDir
     Path rootDir;
     private Kernel kernel;
+    private CertificateStore certificateStoreSpy;
 
 
     @BeforeEach
@@ -108,6 +112,12 @@ public class CustomCaConfigurationTest {
         kernel.getContext().put(SecurityService.class, securityServiceMock);
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitor);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
+
+        DomainEvents domainEvents =  new DomainEvents();
+        certificateStoreSpy = spy(new CertificateStore(rootDir, domainEvents , securityServiceMock));
+
+        kernel.getContext().put(DomainEvents.class, domainEvents);
+        kernel.getContext().put(CertificateStore.class, certificateStoreSpy);
 
         lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
     }
@@ -194,7 +204,7 @@ public class CustomCaConfigurationTest {
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri)).thenReturn(chain);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
@@ -224,7 +234,7 @@ public class CustomCaConfigurationTest {
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri)).thenReturn(chain);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
@@ -259,7 +269,7 @@ public class CustomCaConfigurationTest {
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri)).thenReturn(chain);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         givenNucleusRunningWithConfig("config.yaml");
         givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
@@ -291,8 +301,6 @@ public class CustomCaConfigurationTest {
 
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
-        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri)).thenReturn(chain);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
@@ -301,6 +309,9 @@ public class CustomCaConfigurationTest {
                 GetCertificateRequestOptions.CertificateType.SERVER, asyncCall.getRight());
 
         givenNucleusRunningWithConfig("config.yaml");
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
+
         subscribeToCertificateUpdates(request);
         givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 

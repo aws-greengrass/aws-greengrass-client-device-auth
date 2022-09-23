@@ -69,7 +69,9 @@ import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguratio
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -100,7 +102,7 @@ public class CertificateManagerTest {
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
-        certificateStore = new CertificateStore(tmpPath, new DomainEvents());
+        certificateStore = spy(new CertificateStore(tmpPath, new DomainEvents(), securityServiceMock));
 
         certificateManager = new CertificateManager(certificateStore,
                 mockConnectivityInformation, mockCertExpiryMonitor, mockShadowMonitor,
@@ -140,8 +142,8 @@ public class CertificateManagerTest {
         // TODO: Write the actual certificate to the file system and avoid mocking the security service. Doing
         //  this is a bad given we are exposing implementation details on the test.
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(keyPair);
-        when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri))
-                .thenReturn(new X509Certificate[]{caCertificate});
+        doReturn(new X509Certificate[]{caCertificate}).when(certificateStore)
+                .loadCaCertificateChain(privateKeyUri, certificateUri);
 
         // When
         certificateManager.configureCustomCA(cdaConfiguration);
@@ -166,8 +168,6 @@ public class CertificateManagerTest {
         // TODO: Write the actual certificate to the file system and avoid mocking the security service. Doing
         //  this is a bad given we are exposing implementation details on the test.
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(keyPair);
-        when(securityServiceMock.getCertificateChain(privateKeyUri, certificateUri))
-                .thenReturn(new X509Certificate[]{caCertificate});
 
         // Then
         List<String> caPemStrings = certificateManager.getCACertificates();
