@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.certificate;
+package com.aws.greengrass.clientdevices.auth.certificate.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.api.Result;
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
@@ -15,15 +15,15 @@ import com.aws.greengrass.logging.impl.LogManager;
 
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.function.Consumer;
 import javax.inject.Inject;
 
 
-// TODO: This class is acting almost like a handler the reason for not using a handler directly is because it registers
-//  CertificateGenerators same as the CertExpiryMonitor and CISMonitor. In order to minimize the surface area of changes
-//  without refactoring how we store subscribers we are taking this approach. Once we refactor how we store handlers
-//  this should become a fully fledged handler.
-public class CAConfigurationMonitor {
-    private static final Logger logger = LogManager.getLogger(CAConfigurationMonitor.class);
+// TODO: This class is a pseudo handler that stores the state of subscriptions. We are injecting it into the certificate
+//  manager for now to avoid having to refactor how we store the subscriptions. In the future this handler will listen
+//  to multiple events, call a use case and not store state.
+public class CertificateRotationHandler implements Consumer<CAConfigurationChanged> {
+    private static final Logger logger = LogManager.getLogger(CertificateRotationHandler.class);
     private final ConnectivityInformation connectivityInformation;
 
     private final Set<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArraySet<>();
@@ -37,7 +37,7 @@ public class CAConfigurationMonitor {
      * @param domainEvents domain events service
      */
     @Inject
-    public CAConfigurationMonitor(ConnectivityInformation connectivityInformation, DomainEvents domainEvents) {
+    public CertificateRotationHandler(ConnectivityInformation connectivityInformation, DomainEvents domainEvents) {
         this.connectivityInformation = connectivityInformation;
         this.domainEvents = domainEvents;
     }
@@ -45,33 +45,9 @@ public class CAConfigurationMonitor {
     /**
      * Start ca configuration monitor.
      */
-    public void startMonitor() {
-        domainEvents.registerListener(this::getHandler, CAConfigurationChanged.class);
+    public void listen() {
+        domainEvents.registerListener(this, CAConfigurationChanged.class);
     }
-
-    private Result getHandler(CAConfigurationChanged event) {
-        logger.debug("Received event {}", event.getName());
-
-        if (monitoredCertificateGenerators.isEmpty()) {
-            logger.info("No certificates to rotate, skipping");
-            return Result.ok();
-        }
-
-        Result result = Result.ok();
-
-        for (CertificateGenerator generator : monitoredCertificateGenerators) {
-            try {
-                generator.generateCertificate(
-                        connectivityInformation::getCachedHostAddresses,
-                        "Certificate Configuration Changed");
-            } catch (CertificateGenerationException e) {
-                result = Result.error(e);
-            }
-        }
-
-        return result;
-    }
-
 
     /**
      * Add cert generator ca configuration monitor.
@@ -90,4 +66,25 @@ public class CAConfigurationMonitor {
     public void removeFromMonitor(CertificateGenerator cg) {
         monitoredCertificateGenerators.remove(cg);
     }
+
+    @Override
+    public void accept(CAConfigurationChanged event) {
+        logger.debug("Received event {}", event.getName());
+
+        if (monitoredCertificateGenerators.isEmpty()) {
+            logger.info("No certificates to rotate, skipping");
+            return;
+        }
+
+        for (CertificateGenerator generator : monitoredCertificateGenerators) {
+            try {
+                generator.generateCertificate(
+                        connectivityInformation::getCachedHostAddresses,
+                        "Certificate Configuration Changed");
+            } catch (CertificateGenerationException e) {
+                logger.atError().cause(e).log("Failed to rotate server certificate");
+            }
+        }
+    }
 }
+

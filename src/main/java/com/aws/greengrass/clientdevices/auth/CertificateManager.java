@@ -8,7 +8,6 @@ package com.aws.greengrass.clientdevices.auth;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
-import com.aws.greengrass.clientdevices.auth.certificate.CAConfigurationMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
@@ -16,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRotationHandler;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
@@ -59,7 +59,7 @@ public class CertificateManager {
     private final ConnectivityInformation connectivityInformation;
     private final CertificateExpiryMonitor certExpiryMonitor;
     private final CISShadowMonitor cisShadowMonitor;
-    private final CAConfigurationMonitor caConfigurationMonitor;
+    private final CertificateRotationHandler caConfigurationMonitor;
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private final GreengrassServiceClientFactory clientFactory;
@@ -88,7 +88,7 @@ public class CertificateManager {
                               Clock clock,
                               GreengrassServiceClientFactory clientFactory,
                               SecurityService securityService,
-                              CAConfigurationMonitor caConfigurationMonitor) {
+                              CertificateRotationHandler caConfigurationMonitor) {
         this.certificateStore = certificateStore;
         this.connectivityInformation = connectivityInformation;
         this.certExpiryMonitor = certExpiryMonitor;
@@ -120,7 +120,6 @@ public class CertificateManager {
     public void startMonitors() {
         certExpiryMonitor.startMonitor();
         cisShadowMonitor.startMonitor();
-        caConfigurationMonitor.startMonitor();
     }
 
     /**

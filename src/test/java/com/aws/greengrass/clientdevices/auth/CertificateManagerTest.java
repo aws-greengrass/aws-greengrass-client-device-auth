@@ -9,7 +9,7 @@ import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
-import com.aws.greengrass.clientdevices.auth.certificate.CAConfigurationMonitor;
+import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRotationHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
@@ -86,7 +86,7 @@ public class CertificateManagerTest {
     @Mock
     CISShadowMonitor mockShadowMonitor;
     @Mock
-    CAConfigurationMonitor mockCaConfigurationMonitor;
+    CertificateRotationHandler mockCaConfigurationMonitor;
 
     @Mock
     GreengrassServiceClientFactory clientFactoryMock;
