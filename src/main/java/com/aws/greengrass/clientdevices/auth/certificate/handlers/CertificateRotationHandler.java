@@ -72,7 +72,7 @@ public class CertificateRotationHandler implements Consumer<CAConfigurationChang
         logger.debug("Received event {}", event.getName());
 
         if (monitoredCertificateGenerators.isEmpty()) {
-            logger.info("No certificates to rotate, skipping");
+            logger.debug("No certificates to rotate, skipping");
             return;
         }
 
