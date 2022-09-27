@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.session;
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.registry.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
 import com.aws.greengrass.clientdevices.auth.iot.registry.ThingRegistry;
@@ -55,6 +56,7 @@ public class MqttSessionFactoryTest {
     @Test
     void GIVEN_credentialsWithUnknownClientId_WHEN_createSession_THEN_throwsAuthenticationException() {
         when(mockCertificateRegistry.getIotCertificateIdForPem(any())).thenReturn(Optional.of("id"));
+        when(mockThingRegistry.getOrCreateThing(any())).thenReturn(Thing.of("clientId"));
         when(mockThingRegistry.isThingAttachedToCertificate(any(), any())).thenReturn(false);
 
         Assertions.assertThrows(AuthenticationException.class,
@@ -71,6 +73,7 @@ public class MqttSessionFactoryTest {
     @Test
     void GIVEN_credentialsWithCertificate_WHEN_createSession_AND_cloudError_THEN_throwsAuthenticationException() {
         when(mockCertificateRegistry.getIotCertificateIdForPem(any())).thenReturn(Optional.of("id"));
+        when(mockThingRegistry.getOrCreateThing(any())).thenReturn(Thing.of("clientId"));
         when(mockThingRegistry.isThingAttachedToCertificate(any(), any()))
                 .thenThrow(CloudServiceInteractionException.class);
         Assertions.assertThrows(AuthenticationException.class,
@@ -79,6 +82,7 @@ public class MqttSessionFactoryTest {
 
     @Test
     void GIVEN_credentialsWithValidClientId_WHEN_createSession_THEN_returnsSession() throws AuthenticationException {
+        when(mockThingRegistry.getOrCreateThing("clientId")).thenReturn(Thing.of("clientId"));
         when(mockCertificateRegistry.getIotCertificateIdForPem(any())).thenReturn(Optional.of("id"));
         when(mockThingRegistry.isThingAttachedToCertificate(any(), any())).thenReturn(true);
 

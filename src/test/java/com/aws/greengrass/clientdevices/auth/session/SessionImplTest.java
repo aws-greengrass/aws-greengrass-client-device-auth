@@ -19,7 +19,7 @@ public class SessionImplTest {
     @Test
     public void GIVEN_sessionWithThingAndCert_WHEN_getSessionAttributes_THEN_attributesAreReturned() {
         Certificate cert = new Certificate("FAKE_CERT_ID");
-        Thing thing = new Thing("MyThing");
+        Thing thing = Thing.of("MyThing");
         Session session = new SessionImpl(cert);
         session.putAttributeProvider(thing.getNamespace(), thing);
 

@@ -5,22 +5,24 @@
 
 package com.aws.greengrass.clientdevices.auth.iot.registry;
 
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
+import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import javax.inject.Inject;
 
 public class ThingRegistry {
-    // holds mapping of thingName to IoT Certificate ID;
+    // holds mapping of thingName to IoT Certificate IDs;
     // size-bound by default cache size, evicts oldest written entry if the max size is reached
-    private final Map<String, String> registry = Collections.synchronizedMap(
-            new LinkedHashMap<String, String>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
+    private final Map<String, Thing> registry = Collections.synchronizedMap(
+            new LinkedHashMap<String, Thing>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry eldest) {
                     return size() > RegistryConfig.REGISTRY_CACHE_SIZE;
@@ -28,10 +30,88 @@ public class ThingRegistry {
             });
 
     private final IotAuthClient iotAuthClient;
+    private final DomainEvents domainEvents;
 
     @Inject
-    public ThingRegistry(IotAuthClient iotAuthClient) {
+    public ThingRegistry(IotAuthClient iotAuthClient, DomainEvents domainEvents) {
         this.iotAuthClient = iotAuthClient;
+        this.domainEvents = domainEvents;
+    }
+
+    /**
+     * Get or create a Thing.
+     * @param thingName ThingName
+     * @return Thing object
+     */
+    public Thing getOrCreateThing(String thingName) {
+        Thing thing = getThingInternal(thingName);
+        if (thing == null) {
+            thing = createThing(thingName);
+        }
+        return thing;
+    }
+
+    /**
+     * Create a Thing.
+     * @param thingName ThingName
+     * @return Thing object
+     */
+    public Thing createThing(String thingName) {
+        Thing newThing = Thing.of(1, thingName);
+        storeThing(newThing);
+        return newThing.clone();
+    }
+
+    /**
+     * Retrieve a Thing based on ThingName.
+     *
+     * @param thingName ThingName
+     * @return Thing domain object, if it exists
+     */
+    public Thing getThing(String thingName) {
+        Thing thing = getThingInternal(thingName);
+        if (thing != null) {
+            return thing.clone();
+        }
+        return null;
+    }
+
+    /**
+     * Update a Thing.
+     * @param thing Thing which is being updated
+     * @return      New Thing version
+     */
+    public Thing updateThing(Thing thing) {
+        // TODO: this method should throw exceptions instead of returning
+        //  null if the Thing doesn't exist, if the caller is attempting to
+        //  update an old version, or if the Thing hasn't been modified.
+        Thing oldThing = getThingInternal(thing.getThingName());
+
+        if (oldThing == null) {
+            return null;
+        }
+
+        if (thing.getVersion() != oldThing.getVersion()) {
+            return null;
+        }
+
+        if (!thing.isModified()) {
+            // Nothing to modify - return old object
+            return thing;
+        }
+
+        Thing newThing = Thing.of(thing.getVersion() + 1, thing.getThingName(), thing.getAttachedCertificateIds());
+        return storeThing(newThing);
+    }
+
+    private Thing getThingInternal(String thingName) {
+        return registry.get(thingName);
+    }
+
+    private Thing storeThing(Thing thing) {
+        registry.put(thing.getThingName(), thing);
+        domainEvents.emit(new ThingUpdated(thing.getThingName(), thing.getVersion()));
+        return thing;
     }
 
     /**
@@ -47,31 +127,20 @@ public class ThingRegistry {
     public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
         try {
             if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
-                registerCertificateForThing(thing, certificate);
+                thing.attachCertificate(certificate.getIotCertificateId());
+                updateThing(thing);
                 return true;
             } else {
-                clearRegistryForThing(thing);
+                thing.detachCertificate(certificate.getIotCertificateId());
+                updateThing(thing);
             }
         } catch (CloudServiceInteractionException e) {
-            if (isCertificateRegisteredForThing(thing, certificate)) {
+            List<String> certIds = thing.getAttachedCertificateIds();
+            if (certIds.contains(certificate.getIotCertificateId())) {
                 return true;
             }
             throw e;
         }
         return false;
-    }
-
-    private void registerCertificateForThing(Thing thing, Certificate certificate) {
-        registry.put(thing.getThingName(), certificate.getIotCertificateId());
-    }
-
-    private void clearRegistryForThing(Thing thing) {
-        registry.remove(thing.getThingName());
-    }
-
-    private boolean isCertificateRegisteredForThing(Thing thing, Certificate certificate) {
-        return Optional.ofNullable(registry.get(thing.getThingName()))
-                .filter(certId -> certId.equals(certificate.getIotCertificateId()))
-                .isPresent();
     }
 }
