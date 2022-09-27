@@ -70,7 +70,7 @@ public final class Thing implements AttributeProvider, Cloneable {
         if (!Pattern.matches(thingNamePattern, thingName)) {
             throw new IllegalArgumentException("Invalid thing name. The thing name must match \"[a-zA-Z0-9\\-_:]+\".");
         }
-        return new Thing(version, thingName, new CopyOnWriteArrayList<>(certificateIds));
+        return new Thing(version, thingName, certificateIds);
     }
 
     @Override
@@ -109,13 +109,13 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @return Certificate IDs
      */
     public List<String> getAttachedCertificateIds() {
-        return new CopyOnWriteArrayList<>(attachedCertificateIds);
+        return new ArrayList<>(attachedCertificateIds);
     }
 
-    private Thing(int version, String thingName, CopyOnWriteArrayList<String> certificateIds) {
+    private Thing(int version, String thingName, List<String> certificateIds) {
         this.version = version;
         this.thingName = thingName;
-        this.attachedCertificateIds = certificateIds;
+        this.attachedCertificateIds = new CopyOnWriteArrayList<>(certificateIds);
     }
 
     @Override
