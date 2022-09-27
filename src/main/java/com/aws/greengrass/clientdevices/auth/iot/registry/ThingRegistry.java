@@ -39,12 +39,27 @@ public class ThingRegistry {
     }
 
     /**
+     * Get or create a Thing.
+     * @param thingName ThingName
+     * @return Thing object
+     */
+    public Thing getOrCreateThing(String thingName) {
+        Thing thing = getThingInternal(thingName);
+        if (thing == null) {
+            thing = createThing(thingName);
+        }
+        return thing;
+    }
+
+    /**
      * Create a Thing.
      * @param thingName ThingName
      * @return Thing object
      */
     public Thing createThing(String thingName) {
-        return updateThing(Thing.of(thingName));
+        Thing newThing = Thing.of(1, thingName);
+        storeThing(newThing);
+        return newThing.clone();
     }
 
     /**
@@ -54,7 +69,11 @@ public class ThingRegistry {
      * @return Thing domain object, if it exists
      */
     public Thing getThing(String thingName) {
-        return Thing.of(getThingInternal(thingName));
+        Thing thing = getThingInternal(thingName);
+        if (thing != null) {
+            return thing.clone();
+        }
+        return null;
     }
 
     /**
@@ -63,16 +82,16 @@ public class ThingRegistry {
      * @return      New Thing version
      */
     public Thing updateThing(Thing thing) {
-        // TODO - need to throw exception if provided Thing is not the most recent version
+        // TODO: this method should throw exceptions instead of returning
+        //  null if the Thing doesn't exist, if the caller is attempting to
+        //  update an old version, or if the Thing hasn't been modified.
         Thing oldThing = getThingInternal(thing.getThingName());
 
         if (oldThing == null) {
-            storeThing(thing);
-            return thing;
+            return null;
         }
 
         if (thing.getVersion() != oldThing.getVersion()) {
-            // TODO: throw exception since caller is trying to update an old version
             return null;
         }
 

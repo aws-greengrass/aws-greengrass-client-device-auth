@@ -58,11 +58,12 @@ class ThingRegistryTest {
         Thing retrievedThing = registry.getThing(mockThingName);
 
         assertThat(createdThing.getThingName(), is(mockThingName));
-        assertThat(createdThing.getVersion(), is(0));
+        assertThat(createdThing.getVersion(), is(1));
         assertThat(createdThing.getAttachedCertificateIds(), equalTo(Collections.emptyList()));
 
         assertThat(createdThing, equalTo(retrievedThing));
-        assertThat(createdThing != retrievedThing, is(true)); // Ensure a copy was returned
+        // IMPORTANT! Ensure a copy is returned. It is incorrect to call the equals method for this
+        assertThat(createdThing != retrievedThing, is(true));
 
         // TODO: check ThingUpdated event
     }
@@ -76,15 +77,10 @@ class ThingRegistryTest {
         // TODO: no update event
     }
 
+    @Disabled
     @Test
     void GIVEN_staleThing_WHEN_updateThing_THEN_updateRejected() {
-        Thing thing = registry.createThing(mockThingName);
-        //Thing thingCopy = Thing.of(thing);
-
-        thing.attachCertificate("new-cert");
-
-        // TODO: Finish me
-        // TODO: no update event
+        // TODO
     }
 
     @Test
@@ -100,21 +96,19 @@ class ThingRegistryTest {
         assertFalse(registry.isThingAttachedToCertificate(mockThing, mockCertificate));
     }
 
-    // TODO: fix this
-    @Disabled
     @Test
     void GIVEN_unreachable_cloud_WHEN_isThingAttachedToCertificate_THEN_return_cached_result() {
         // cache result before going offline
         Thing thing = registry.createThing(mockThingName);
         thing.attachCertificate(mockCertificate.getIotCertificateId());
-        registry.updateThing(thing);
+        Thing updatedThing = registry.updateThing(thing);
 
         // go offline
         doThrow(CloudServiceInteractionException.class)
                 .when(mockIotAuthClient).isThingAttachedToCertificate(any(), any());
 
         // verify cached result
-        assertTrue(registry.isThingAttachedToCertificate(mockThing, mockCertificate));
+        assertTrue(registry.isThingAttachedToCertificate(updatedThing, mockCertificate));
         verify(mockIotAuthClient, times(1)).isThingAttachedToCertificate(any(), any());
     }
 
