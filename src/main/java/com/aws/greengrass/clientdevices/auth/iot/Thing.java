@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 
 /**
@@ -24,13 +25,13 @@ import java.util.regex.Pattern;
  * objects as they are needed rather than storing references long term.
  */
 @Getter
-public final class Thing implements AttributeProvider {
+public final class Thing implements AttributeProvider, Cloneable {
     public static final String NAMESPACE = "Thing";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
 
     private final int version;
     private final String thingName;
-    private final List<String> attachedCertificateIds;
+    private final CopyOnWriteArrayList<String> attachedCertificateIds;
     private boolean modified = false;
 
     /**
@@ -69,16 +70,14 @@ public final class Thing implements AttributeProvider {
         if (!Pattern.matches(thingNamePattern, thingName)) {
             throw new IllegalArgumentException("Invalid thing name. The thing name must match \"[a-zA-Z0-9\\-_:]+\".");
         }
-        return new Thing(version, thingName, new ArrayList<>(certificateIds));
+        return new Thing(version, thingName, new CopyOnWriteArrayList<>(certificateIds));
     }
 
-    /**
-     * Create a copy of a Thing.
-     *
-     * @param other Thing to copy
-     */
-    public static Thing of(Thing other) {
-        return Thing.of(other.getVersion(), other.getThingName(), other.getAttachedCertificateIds());
+    @Override
+    public Thing clone() {
+        Thing newThing = Thing.of(getVersion(), getThingName(), getAttachedCertificateIds());
+        newThing.modified = modified;
+        return newThing;
     }
 
     /**
@@ -86,11 +85,9 @@ public final class Thing implements AttributeProvider {
      * @param certificateId Certificate ID to attach
      */
     public void attachCertificate(String certificateId) {
-        if (attachedCertificateIds.contains(certificateId)) {
-            return;
+        if (attachedCertificateIds.addIfAbsent(certificateId)) {
+            modified = true;
         }
-        attachedCertificateIds.add(certificateId);
-        modified = true;
     }
 
     /**
@@ -98,11 +95,9 @@ public final class Thing implements AttributeProvider {
      * @param certificateId Certificate ID to detach
      */
     public void detachCertificate(String certificateId) {
-        if (!attachedCertificateIds.contains(certificateId)) {
-            return;
+        if (attachedCertificateIds.remove(certificateId)) {
+            modified = true;
         }
-        attachedCertificateIds.remove(certificateId);
-        modified = true;
     }
 
     /**
@@ -114,10 +109,10 @@ public final class Thing implements AttributeProvider {
      * @return Certificate IDs
      */
     public List<String> getAttachedCertificateIds() {
-        return new ArrayList<>(attachedCertificateIds);
+        return new CopyOnWriteArrayList<>(attachedCertificateIds);
     }
 
-    private Thing(int version, String thingName, List<String> certificateIds) {
+    private Thing(int version, String thingName, CopyOnWriteArrayList<String> certificateIds) {
         this.version = version;
         this.thingName = thingName;
         this.attachedCertificateIds = certificateIds;
