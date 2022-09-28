@@ -9,18 +9,13 @@ import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionEx
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
-import com.aws.greengrass.util.RetryUtils;
 import com.aws.greengrass.util.Utils;
-import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
-import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityResponse;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIoTCertificateAssociationRequest;
 
-import java.time.Duration;
-import java.util.Arrays;
 import java.util.Optional;
 import javax.inject.Inject;
 
@@ -31,10 +26,6 @@ public interface IotAuthClient {
 
     class Default implements IotAuthClient {
         private static final Logger logger = LogManager.getLogger(Default.class);
-        private static final RetryUtils.RetryConfig SERVICE_EXCEPTION_RETRY_CONFIG =
-                RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofMillis(100)).maxAttempt(3)
-                        .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
-                        .build();
 
         private final GreengrassServiceClientFactory clientFactory;
 
@@ -58,16 +49,9 @@ public interface IotAuthClient {
             VerifyClientDeviceIdentityRequest request =
                     VerifyClientDeviceIdentityRequest.builder().clientDeviceCertificate(certificatePem).build();
             try {
-                VerifyClientDeviceIdentityResponse response = RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
-                        () -> clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(request),
-                        "verify-client-device-identity", logger);
+                VerifyClientDeviceIdentityResponse response =
+                        clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(request);
                 return Optional.of(response.clientDeviceCertificateId());
-            } catch (InterruptedException e) {
-                logger.atError().cause(e).log("Verify client device identity got interrupted");
-                // interrupt the current thread so that higher-level interrupt handlers can take care of it
-                Thread.currentThread().interrupt();
-                throw new CloudServiceInteractionException(
-                        "Failed to verify client device identity, process got interrupted", e);
             } catch (ValidationException | ResourceNotFoundException e) {
                 logger.atWarn().cause(e).kv("certificatePem", certificatePem)
                         .log("Certificate doesn't exist or isn't active");
@@ -96,20 +80,10 @@ public interface IotAuthClient {
                             .clientDeviceThingName(thing.getThingName())
                             .clientDeviceCertificateId(certificate.getIotCertificateId()).build();
             try {
-                RetryUtils.runWithRetry(SERVICE_EXCEPTION_RETRY_CONFIG,
-                        () -> clientFactory.getGreengrassV2DataClient()
-                                .verifyClientDeviceIoTCertificateAssociation(request),
-                        "verify-certificate-thing-association", logger);
+                clientFactory.getGreengrassV2DataClient().verifyClientDeviceIoTCertificateAssociation(request);
                 logger.atDebug().kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificate.getIotCertificateId())
-                        .log("Thing is attached to certificate");
+                        .kv("certificateId", certificate.getIotCertificateId()).log("Thing is attached to certificate");
                 return true;
-            } catch (InterruptedException e) {
-                logger.atWarn().cause(e).log("Verify certificate thing association got interrupted");
-                // interrupt the current thread so that higher-level interrupt handlers can take care of it
-                Thread.currentThread().interrupt();
-                throw new CloudServiceInteractionException(
-                        "Failed to verify certificate thing association, process got interrupted", e);
             } catch (ValidationException | ResourceNotFoundException e) {
                 logger.atDebug().cause(e).kv("thingName", thing.getThingName())
                         .kv("certificateId", certificate.getIotCertificateId())
