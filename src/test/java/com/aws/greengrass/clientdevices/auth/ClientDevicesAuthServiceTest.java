@@ -69,8 +69,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.MAX_ACTIVE_AUTH_TOKENS_TOPIC;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.PERFORMANCE_TOPIC;
 import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -305,10 +303,8 @@ class ClientDevicesAuthServiceTest {
     }
 
     private List<String> getCaCertificates()
-            throws ServiceLoadException, CertificateEncodingException, KeyStoreException, IOException {
-        ClientDevicesAuthService clientDevicesAuthService =
-                (ClientDevicesAuthService) kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
-        return clientDevicesAuthService.getCertificateManager().getCACertificates();
+            throws CertificateEncodingException, KeyStoreException, IOException {
+        return kernel.getContext().get(CertificateManager.class).getCACertificates();
     }
 
 
@@ -391,13 +387,6 @@ class ClientDevicesAuthServiceTest {
 
         topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.DEPRECATED_CA_TYPE_KEY)
                 .withValue(Collections.singletonList("ECDSA_P256"));
-
-        kernel.getContext().waitForPublishQueueToClear();
-        verify(managedCAUseCase, times(1)).apply(configurationCaptor.capture());
-        verify(customCAUseCase, times(2)).apply(configurationCaptor.capture());
-
-        topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
-                .withValue(2);
 
         kernel.getContext().waitForPublishQueueToClear();
         verify(managedCAUseCase, times(1)).apply(configurationCaptor.capture());

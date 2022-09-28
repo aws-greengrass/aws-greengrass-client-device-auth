@@ -12,18 +12,17 @@ import com.aws.greengrass.util.Coerce;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.DEFAULT_MAX_ACTIVE_AUTH_TOKENS;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.MAX_ACTIVE_AUTH_TOKENS_TOPIC;
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.PERFORMANCE_TOPIC;
-
 @SuppressWarnings("PMD.DataClass")
 public class SessionConfig {
     private static final Logger LOGGER = LogManager.getLogger(SessionConfig.class);
-    public static final int DEFAULT_SESSION_CAPACITY = DEFAULT_MAX_ACTIVE_AUTH_TOKENS;
+    public static final int DEFAULT_SESSION_CAPACITY = 2500;
     // valid session capacity should be within range [1, Integer.MAX_VALUE)
     // to be able to initialize and perform appropriate eviction check in LRU session cache
     public static final int MIN_SESSION_CAPACITY = 1;
     public static final int MAX_SESSION_CAPACITY = Integer.MAX_VALUE - 1;
+
+    public static final String PERFORMANCE_TOPIC = "performance";
+    public static final String MAX_ACTIVE_AUTH_TOKENS_TOPIC = "maxActiveAuthTokens";
 
     private final AtomicInteger sessionCapacity = new AtomicInteger(DEFAULT_SESSION_CAPACITY);
 
