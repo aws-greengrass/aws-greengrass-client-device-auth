@@ -16,6 +16,10 @@ public class SessionImpl extends ConcurrentHashMap<String, AttributeProvider> im
 
     static final long serialVersionUID = -1L;
 
+    public SessionImpl() {
+        super();
+    }
+
     // TODO: Replace this with Principal abstraction
     // so that a session can be instantiated using something else
     // e.g. username/password

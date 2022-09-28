@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.session;
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.registry.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
@@ -23,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -41,6 +41,8 @@ public class MqttSessionFactoryTest {
     @Mock
     private ThingRegistry mockThingRegistry;
     private MqttSessionFactory mqttSessionFactory;
+    private final Certificate activeCertificate = new Certificate("thing", Certificate.Status.ACTIVE);
+    private final Certificate inactiveCertificate = new Certificate("thing", Certificate.Status.INACTIVE);
     private final Map<String, String> credentialMap = ImmutableMap.of(
             "certificatePem", "PEM",
             "clientId", "clientId",
@@ -55,7 +57,7 @@ public class MqttSessionFactoryTest {
 
     @Test
     void GIVEN_credentialsWithUnknownClientId_WHEN_createSession_THEN_throwsAuthenticationException() {
-        when(mockCertificateRegistry.getIotCertificateIdForPem(any())).thenReturn(Optional.of("id"));
+        when(mockCertificateRegistry.getCertificateByPem(any())).thenReturn(activeCertificate);
         when(mockThingRegistry.getOrCreateThing(any())).thenReturn(Thing.of("clientId"));
         when(mockThingRegistry.isThingAttachedToCertificate(any(), any())).thenReturn(false);
 
@@ -65,14 +67,14 @@ public class MqttSessionFactoryTest {
 
     @Test
     void GIVEN_credentialsWithInvalidCertificate_WHEN_createSession_THEN_throwsAuthenticationException() {
-        when(mockCertificateRegistry.getIotCertificateIdForPem(any())).thenReturn(Optional.empty());
+        when(mockCertificateRegistry.getCertificateByPem(any())).thenReturn(inactiveCertificate);
         Assertions.assertThrows(AuthenticationException.class,
                 () -> mqttSessionFactory.createSession(credentialMap));
     }
 
     @Test
     void GIVEN_credentialsWithCertificate_WHEN_createSession_AND_cloudError_THEN_throwsAuthenticationException() {
-        when(mockCertificateRegistry.getIotCertificateIdForPem(any())).thenReturn(Optional.of("id"));
+        when(mockCertificateRegistry.getCertificateByPem(any())).thenReturn(activeCertificate);
         when(mockThingRegistry.getOrCreateThing(any())).thenReturn(Thing.of("clientId"));
         when(mockThingRegistry.isThingAttachedToCertificate(any(), any()))
                 .thenThrow(CloudServiceInteractionException.class);
@@ -83,7 +85,7 @@ public class MqttSessionFactoryTest {
     @Test
     void GIVEN_credentialsWithValidClientId_WHEN_createSession_THEN_returnsSession() throws AuthenticationException {
         when(mockThingRegistry.getOrCreateThing("clientId")).thenReturn(Thing.of("clientId"));
-        when(mockCertificateRegistry.getIotCertificateIdForPem(any())).thenReturn(Optional.of("id"));
+        when(mockCertificateRegistry.getCertificateByPem(any())).thenReturn(activeCertificate);
         when(mockThingRegistry.isThingAttachedToCertificate(any(), any())).thenReturn(true);
 
         Session session = mqttSessionFactory.createSession(credentialMap);
