@@ -216,6 +216,10 @@ public class CertificateManager {
         cisShadowMonitor.addToMonitor(certificateGenerator);
         caConfigurationMonitor.addToMonitor(certificateGenerator);
 
+        // TODO: Doing this here is wrong. We are assuming that we can call this and it would work but this should
+        //  only be called after we are sure a certificate authority has been configured. Which might not be true
+        //  before this gets called. Having this fail several times in a row (if no CA has been configured) will cause
+        //  downstream components that rely on this to fail
         certificateGenerator.generateCertificate(connectivityInformation::getCachedHostAddresses,
                 "initialization of server cert subscription");
 
@@ -275,7 +279,7 @@ public class CertificateManager {
         URI certificateUri = configuration.getCertificateUri().get();
 
         RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
-                .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
+                .initialRetryInterval(Duration.ofSeconds(5)).maxAttempt(3)
                 .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
 
         logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", certificateUri)

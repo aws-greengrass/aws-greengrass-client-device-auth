@@ -250,9 +250,12 @@ public class ClientDevicesAuthService extends PluginService {
 
     @Override
     protected CompletableFuture<Void> close(boolean waitForDependers) {
-        // shutdown the threadpool in close, not in shutdown() because it is created
-        // and injected in the constructor and we won't be able to restart it after it stops.
-        cloudCallThreadPool.shutdown();
+        if (cloudCallThreadPool != null) {
+            // shutdown the threadpool in close, not in shutdown() because it is created
+            // and injected in the constructor and we won't be able to restart it after it stops.
+            cloudCallThreadPool.shutdown();
+        }
+
         return super.close(waitForDependers);
     }
 }

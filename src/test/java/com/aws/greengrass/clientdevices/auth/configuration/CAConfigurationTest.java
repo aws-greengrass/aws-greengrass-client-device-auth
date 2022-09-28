@@ -85,6 +85,17 @@ public class CAConfigurationTest {
     }
 
     @Test
+    public void GIVEN_hsmCdaConfiguration_WHEN_getCAKeyUri_THEN_returnsCACertUri() throws URISyntaxException {
+        CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
+        assertFalse(caConfiguration.getPrivateKeyUri().isPresent());
+        configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
+                .withValue("pkcs11:object=test;CustomerRootCA;type=cert");
+        caConfiguration = CAConfiguration.from(configurationTopics);
+        assertThat(
+            caConfiguration.getPrivateKeyUri().get(), is(new URI("pkcs11:object=test;CustomerRootCA;type=cert")));
+    }
+
+    @Test
     public void GIVEN_pathInsteadOfUri_WHEN_configurationLoaded_THEN_itRaisesAnException() throws URISyntaxException {
         configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
                 .withValue("/root/tls/intermediate/certs/intermediate.cacert.pem");
