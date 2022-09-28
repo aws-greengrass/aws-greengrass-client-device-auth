@@ -178,6 +178,28 @@ public class CertificateStore {
             throw new CertificateChainLoadingException("Unable to find aliases in the key manager with the given "
                     + "private key and certificate URIs");
         }
+
+        // TODO: We are doing this here to avoid changing the PKCS11 provider or the nucleus code base. It is not
+        //  pretty but
+        if (privateKeyUri.getScheme().equals("pkcs11")) {
+            String schemeSpecificPart = certificateUri.getSchemeSpecificPart();
+
+            String[] attributes = schemeSpecificPart.split(";");
+            for (String attribute : attributes) {
+                int i = attribute.indexOf('=');
+                if (i == -1) {
+                    continue;
+                }
+
+                String attr = attribute.substring(0, i).trim();
+                String val = attribute.substring(i + 1).trim();
+
+                if ("object".equals(attr)) {
+                    return x509KeyManager.getCertificateChain(val);
+                }
+            }
+        }
+
         for (String alias : aliases) {
             if (x509KeyManager.getPrivateKey(alias).equals(keyPair.getPrivate())) {
                 return x509KeyManager.getCertificateChain(alias);

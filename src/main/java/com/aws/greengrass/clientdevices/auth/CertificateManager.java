@@ -279,7 +279,7 @@ public class CertificateManager {
         URI certificateUri = configuration.getCertificateUri().get();
 
         RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
-                .initialRetryInterval(Duration.ofSeconds(5)).maxAttempt(3)
+                .initialRetryInterval(Duration.ofSeconds(2)).maxAttempt(3)
                 .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
 
         logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", certificateUri)
