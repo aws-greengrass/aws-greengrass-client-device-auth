@@ -13,35 +13,26 @@ import com.aws.greengrass.util.Digest;
 import com.aws.greengrass.util.Utils;
 
 import java.security.NoSuchAlgorithmException;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Optional;
 import javax.inject.Inject;
 
 
 public class CertificateRegistry {
     private static final Logger logger = LogManager.getLogger(CertificateRegistry.class);
-    // holds mapping of certificateHash (SHA-256 hash of certificatePem) to IoT Certificate Id;
-    // size-bound by default cache size, evicts oldest written entry if the max size is reached
-    private final Map<String, String> registry = Collections.synchronizedMap(
-            new LinkedHashMap<String, String>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry eldest) {
-                    return size() > RegistryConfig.REGISTRY_CACHE_SIZE;
-                }
-            });
 
     private final IotAuthClient iotAuthClient;
+    private final Repository<String, String> repository;
 
     /**
      * Constructor.
      *
      * @param iotAuthClient IoT Auth Client
+     * @param repository    Repository for storage
      */
     @Inject
-    public CertificateRegistry(IotAuthClient iotAuthClient) {
+    public CertificateRegistry(IotAuthClient iotAuthClient, InMemoryRepository<String, String> repository) {
         this.iotAuthClient = iotAuthClient;
+        this.repository = repository;
     }
 
     /**
@@ -106,7 +97,7 @@ public class CertificateRegistry {
      */
     private Optional<String> getAssociatedCertificateId(String certificatePem) {
         return Optional.ofNullable(getCertificateHash(certificatePem))
-                .map(registry::get);
+                .map(repository::get);
     }
 
     /**
@@ -117,7 +108,7 @@ public class CertificateRegistry {
      */
     private void registerCertificateIdForPem(String certificateId, String certificatePem) {
         Optional.ofNullable(getCertificateHash(certificatePem))
-                .ifPresent(certHash -> registry.put(certHash, certificateId));
+                .ifPresent(certHash -> repository.put(certHash, certificateId));
     }
 
     /**
@@ -141,7 +132,7 @@ public class CertificateRegistry {
      */
     private void clearRegistryForPem(String certificatePem) {
         Optional.ofNullable(getCertificateHash(certificatePem))
-                .ifPresent(registry::remove);
+                .ifPresent(repository::remove);
     }
 
     /**

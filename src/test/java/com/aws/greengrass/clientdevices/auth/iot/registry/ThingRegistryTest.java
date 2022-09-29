@@ -48,7 +48,7 @@ class ThingRegistryTest {
     @BeforeEach
     void beforeEach() {
         domainEvents = new DomainEvents();
-        registry = new ThingRegistry(mockIotAuthClient, domainEvents);
+        registry = new ThingRegistry(mockIotAuthClient, domainEvents, new InMemoryRepository<>());
     }
 
     @Test

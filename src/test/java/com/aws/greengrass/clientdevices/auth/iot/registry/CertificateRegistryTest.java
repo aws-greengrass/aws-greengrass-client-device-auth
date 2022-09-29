@@ -43,7 +43,7 @@ class CertificateRegistryTest {
 
     @BeforeEach
     void beforeEach() {
-        registry = new CertificateRegistry(mockIotAuthClient);
+        registry = new CertificateRegistry(mockIotAuthClient, new InMemoryRepository<>());
     }
 
     @Test
