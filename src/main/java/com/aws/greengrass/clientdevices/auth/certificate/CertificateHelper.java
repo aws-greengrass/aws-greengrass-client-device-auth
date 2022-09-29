@@ -6,8 +6,6 @@
 package com.aws.greengrass.clientdevices.auth.certificate;
 
 import com.aws.greengrass.clientdevices.auth.util.ParseIPAddress;
-import com.aws.greengrass.logging.api.Logger;
-import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
 import lombok.NonNull;
 import org.bouncycastle.asn1.x500.X500Name;
