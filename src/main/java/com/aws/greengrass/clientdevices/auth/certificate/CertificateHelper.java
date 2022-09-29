@@ -36,6 +36,7 @@ import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.Provider;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
@@ -43,9 +44,12 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 
@@ -65,6 +69,8 @@ public final class CertificateHelper {
     public static final String PEM_BOUNDARY_CERTIFICATE = "CERTIFICATE";
     public static final String PEM_BOUNDARY_PUBLIC_KEY = "PUBLIC KEY";
     public static final String PEM_BOUNDARY_PRIVATE_KEY = "PRIVATE KEY";
+    private static final Map<ProviderType, String> providers = new HashMap<>();
+
 
     private CertificateHelper() {
     }
@@ -72,6 +78,36 @@ public final class CertificateHelper {
     static {
         // If not added "BC" is not recognized as the security provider
         Security.addProvider(new BouncyCastleProvider());
+        // Configure the default provider
+        providers.put(ProviderType.DEFAULT, "BC");
+    }
+
+    public enum ProviderType {
+        HSM, DEFAULT
+    }
+
+
+    /**
+     * Computes and returns the provider names from the registered providers in JCA that are required for issuing the
+     * certificates. When a user uses the PKCS11 provider it registers a provider by the name SunPKCS11-[name].
+     */
+    private static void computeProviders() {
+        Provider[] providers = Security.getProviders();
+
+        Arrays.stream(providers)
+                .filter((provider) -> provider.getName().contains("SunPKCS11-"))
+                .findFirst()
+                .ifPresent(provider -> CertificateHelper.providers.put(ProviderType.HSM, provider.getName()));
+    }
+
+    private static String getProvider(ProviderType type) {
+        // Only run computeProviders if we get a non default type to avoid recomputing the providers each time
+        // if we are not using an TPM/HSM.
+        if (type != ProviderType.DEFAULT) {
+            computeProviders();
+        }
+
+        return providers.getOrDefault(type, providers.get(ProviderType.DEFAULT));
     }
 
     private static BigInteger newSerialNumber() {
@@ -85,6 +121,7 @@ public final class CertificateHelper {
      * @param caNotBefore       CA NotBefore Date
      * @param caNotAfter        CA NotAfter Date
      * @param caCommonName      CA Common Name
+     * @param providerType      Type of provider
      * @return                  X509 certificate
      * @throws NoSuchAlgorithmException  Unsupported signing algorithm
      * @throws CertIOException           CertIOException
@@ -94,7 +131,8 @@ public final class CertificateHelper {
     public static X509Certificate createCACertificate(@NonNull KeyPair keyPair,
                                                       @NonNull Date caNotBefore,
                                                       @NonNull Date caNotAfter,
-                                                      @NonNull String caCommonName)
+                                                      @NonNull String caCommonName,
+                                                      @NonNull ProviderType providerType)
             throws NoSuchAlgorithmException, CertIOException, OperatorCreationException, CertificateException {
 
         final X500Name issuer = getX500Name(caCommonName);
@@ -108,11 +146,11 @@ public final class CertificateHelper {
                         extUtils.createSubjectKeyIdentifier(keyPair.getPublic()));
 
         String signingAlgorithm = CERTIFICATE_SIGNING_ALGORITHM.get(keyPair.getPrivate().getAlgorithm());
-        final ContentSigner contentSigner = new JcaContentSignerBuilder(signingAlgorithm).setProvider("BC")
+        final ContentSigner contentSigner = new JcaContentSignerBuilder(signingAlgorithm)
+                .setProvider(getProvider(providerType))
                 .build(keyPair.getPrivate());
 
-        return new JcaX509CertificateConverter().setProvider("BC")
-                .getCertificate(builder.build(contentSigner));
+        return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner));
     }
 
     /**
@@ -125,6 +163,7 @@ public final class CertificateHelper {
      * @param connectivityInfoItems GGC's connectivity info
      * @param notBefore             Certificate notBefore Date
      * @param notAfter              Certificate notAfter Date
+     * @param providerType          Type of provider
      * @return                      X509 certificate
      * @throws NoSuchAlgorithmException   NoSuchAlgorithmException
      * @throws OperatorCreationException  OperatorCreationException
@@ -137,10 +176,11 @@ public final class CertificateHelper {
                                                          @NonNull PublicKey publicKey,
                                                          @NonNull List<String> connectivityInfoItems,
                                                          @NonNull Date notBefore,
-                                                         @NonNull Date notAfter)
+                                                         @NonNull Date notAfter,
+                                                         @NonNull ProviderType providerType)
             throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
         return issueCertificate(caCert, caPrivateKey, subject, publicKey, connectivityInfoItems, notBefore,
-                notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+                notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth), providerType);
     }
 
     /**
@@ -152,6 +192,7 @@ public final class CertificateHelper {
      * @param publicKey     client's public key
      * @param notBefore     Certificate notBefore Date
      * @param notAfter      Certificate notAfter Date
+     * @param providerType  Type of provider
      * @return              X509 certificate
      * @throws NoSuchAlgorithmException   NoSuchAlgorithmException
      * @throws OperatorCreationException  OperatorCreationException
@@ -163,10 +204,11 @@ public final class CertificateHelper {
                                                          @NonNull X500Name subject,
                                                          @NonNull PublicKey publicKey,
                                                          @NonNull Date notBefore,
-                                                         @NonNull Date notAfter)
+                                                         @NonNull Date notAfter,
+                                                         @NonNull ProviderType providerType)
             throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
         return issueCertificate(caCert, caPrivateKey, subject, publicKey, null, notBefore,
-                notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth));
+                notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth), providerType);
     }
 
     private static X509Certificate issueCertificate(@NonNull X509Certificate caCert,
@@ -176,7 +218,8 @@ public final class CertificateHelper {
                                                     List<String> connectivityInfoItems,
                                                     @NonNull Date notBefore,
                                                     @NonNull Date notAfter,
-                                                    @NonNull ExtendedKeyUsage keyUsage)
+                                                    @NonNull ExtendedKeyUsage keyUsage,
+                                                    @NonNull ProviderType providerType)
             throws NoSuchAlgorithmException, CertificateException, IOException, OperatorCreationException {
         X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                 caCert, newSerialNumber(), notBefore, notAfter, subject, publicKey
@@ -193,10 +236,9 @@ public final class CertificateHelper {
         }
 
         final ContentSigner contentSigner = new JcaContentSignerBuilder(
-                caCert.getSigAlgName()).setProvider("BC").build(caPrivateKey);
+                caCert.getSigAlgName()).setProvider(getProvider(providerType)).build(caPrivateKey);
 
-        return new JcaX509CertificateConverter().setProvider("BC")
-                .getCertificate(builder.build(contentSigner));
+        return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner));
     }
 
     /**

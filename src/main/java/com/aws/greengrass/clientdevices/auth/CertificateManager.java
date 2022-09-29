@@ -66,6 +66,8 @@ public class CertificateManager {
     private final SecurityService securityService;
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CertificateManager.class);
+    private static final String pkcs11Scheme = "pkcs11";
+
 
 
     /**
@@ -216,6 +218,10 @@ public class CertificateManager {
         cisShadowMonitor.addToMonitor(certificateGenerator);
         caConfigurationMonitor.addToMonitor(certificateGenerator);
 
+        // TODO: Doing this here is wrong. We are assuming that we can call this and it would work but this should
+        //  only be called after we are sure a certificate authority has been configured. Which might not be true
+        //  before this gets called. Having this fail several times in a row (if no CA has been configured) will cause
+        //  downstream components that rely on this to fail
         certificateGenerator.generateCertificate(connectivityInformation::getCachedHostAddresses,
                 "initialization of server cert subscription");
 
@@ -275,7 +281,7 @@ public class CertificateManager {
         URI certificateUri = configuration.getCertificateUri().get();
 
         RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
-                .initialRetryInterval(Duration.ofMillis(200)).maxAttempt(3)
+                .initialRetryInterval(Duration.ofSeconds(2)).maxAttempt(3)
                 .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
 
         logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", certificateUri)
@@ -290,7 +296,11 @@ public class CertificateManager {
                     () -> certificateStore.loadCaCertificateChain(privateKeyUri, certificateUri),
                     "get-certificate-chain", logger);
 
-            certificateStore.setCaKeyAndCertificateChain(keyPair.getPrivate(), certificateChain);
+            CertificateHelper.ProviderType providerType = privateKeyUri.getScheme().contains(pkcs11Scheme)
+                    ? CertificateHelper.ProviderType.HSM
+                    : CertificateHelper.ProviderType.DEFAULT;
+
+            certificateStore.setCaKeyAndCertificateChain(providerType, keyPair.getPrivate(), certificateChain);
         } catch (Exception e) {
             throw new InvalidCertificateAuthorityException(String.format("Failed to configure CA: There was an error "
                     + "reading the provided private key %s or certificate chain %s", privateKeyUri, certificateUri), e);

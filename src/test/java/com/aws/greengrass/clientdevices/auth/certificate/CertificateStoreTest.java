@@ -43,8 +43,8 @@ public class CertificateStoreTest {
     static final int    RSA_BIT_LENGTH = 2048;
     static final String EC_KEY_ALGORITHM = "EC";
     static final int    EC_BIT_LENGTH = 256;
-    static final String RSA_CERT_SIG_ALG = "SHA256WITHRSA";
-    static final String ECDSA_CERT_SIG_ALG = "SHA256WITHECDSA";
+    static final String RSA_CERT_SIG_ALG = "SHA256withRSA";
+    static final String ECDSA_CERT_SIG_ALG = "SHA256withECDSA";
     static final String DEFAULT_PASSPHRASE = "defaultPassphrase";
 
     private CertificateStore certificateStore;

@@ -69,7 +69,8 @@ public class ClientCertificateGenerator extends CertificateGenerator {
                     subject,
                     publicKey,
                     Date.from(now),
-                    Date.from(now.plusSeconds(certificatesConfig.getClientCertValiditySeconds())));
+                    Date.from(now.plusSeconds(certificatesConfig.getClientCertValiditySeconds())),
+                    certificateStore.getProviderType());
 
             logger.atInfo()
                     .kv("subject", subject)
