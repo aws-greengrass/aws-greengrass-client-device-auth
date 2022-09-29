@@ -84,6 +84,9 @@ public class CertificateStore {
     @Getter
     private X509Certificate[] caCertificateChain;
     private PrivateKey caPrivateKey;
+    @Getter
+    private CertificateHelper.ProviderType providerType;
+
 
     public enum CAType {
         RSA_2048, ECDSA_P256
@@ -150,8 +153,6 @@ public class CertificateStore {
         return caPrivateKey;
     }
 
-
-
     /**
      * Get certificate chain using private and certificate URIs.
      *
@@ -179,35 +180,18 @@ public class CertificateStore {
                     + "private key and certificate URIs");
         }
 
-        // TODO: We are doing this here to avoid changing the PKCS11 provider or the nucleus code base. It is not
-        //  pretty but
-        if (privateKeyUri.getScheme().equals("pkcs11")) {
-            String schemeSpecificPart = certificateUri.getSchemeSpecificPart();
+        // TODO: We are making the assumption that the keyStore built by the security service provider will always
+        //  have at most 1 certificate (hence one single client alias). Ideally we don't have to make that assumption
+        //  and this logic could all live on the security service.
+        String alias = aliases[0];
+        X509Certificate[] chain = x509KeyManager.getCertificateChain(alias);
 
-            String[] attributes = schemeSpecificPart.split(";");
-            for (String attribute : attributes) {
-                int i = attribute.indexOf('=');
-                if (i == -1) {
-                    continue;
-                }
+       if (chain == null || chain.length < 1) {
+           throw new CertificateChainLoadingException("Unable to get the certificate chain using the private key and "
+                   + "certificate URIs");
+       }
 
-                String attr = attribute.substring(0, i).trim();
-                String val = attribute.substring(i + 1).trim();
-
-                if ("object".equals(attr)) {
-                    return x509KeyManager.getCertificateChain(val);
-                }
-            }
-        }
-
-        for (String alias : aliases) {
-            if (x509KeyManager.getPrivateKey(alias).equals(keyPair.getPrivate())) {
-                return x509KeyManager.getCertificateChain(alias);
-            }
-        }
-
-        throw new CertificateChainLoadingException("Unable to get the certificate chain using the private key and "
-                + "certificate URIs");
+       return chain;
     }
 
     /**
@@ -232,10 +216,12 @@ public class CertificateStore {
       *
       * @param privateKey  leaf CA private key
       * @param caCertificateChain a CA chain
+      * @param providerType  provider type DEFAULT or HSM, used to map to the correct JCA provider
       *
       * @throws KeyStoreException  if privateKey is not instance of PrivateKey or no ca chain provided
       */
-     public synchronized void setCaKeyAndCertificateChain(Key privateKey, X509Certificate... caCertificateChain)
+     public synchronized void setCaKeyAndCertificateChain(
+             CertificateHelper.ProviderType providerType, Key privateKey, X509Certificate... caCertificateChain)
             throws KeyStoreException {
         if (caCertificateChain == null) {
             throw new KeyStoreException("No certificate chain provided");
@@ -245,12 +231,12 @@ public class CertificateStore {
             throw new KeyStoreException("unable to retrieve CA private key");
         }
 
+        this.providerType = providerType;
         this.caCertificateChain = caCertificateChain;
         caPrivateKey = (PrivateKey) privateKey;
 
         eventEmitter.emit(new CACertificateChainChanged(caCertificateChain));
     }
-
 
     private void setCaKeyAndCertificateChain(Key privateKey, Certificate... caCertificateChain)
             throws KeyStoreException {
@@ -265,7 +251,7 @@ public class CertificateStore {
         }
 
         X509Certificate[] certificates = Arrays.stream(caCertificateChain).toArray(X509Certificate[]::new);
-        setCaKeyAndCertificateChain(privateKey, certificates);
+        setCaKeyAndCertificateChain(CertificateHelper.ProviderType.DEFAULT, privateKey, certificates);
     }
 
 
@@ -308,7 +294,7 @@ public class CertificateStore {
             Date notBefore = Date.from(now);
             Date notAfter = Date.from(now.plusSeconds(DEFAULT_CA_EXPIRY_SECONDS));
             caCertificate = CertificateHelper.createCACertificate(
-                    kp, notBefore, notAfter, DEFAULT_CA_CN);
+                    kp, notBefore, notAfter, DEFAULT_CA_CN, CertificateHelper.ProviderType.DEFAULT);
         } catch (NoSuchAlgorithmException | CertIOException | OperatorCreationException | CertificateException e) {
             throw new KeyStoreException("unable to generate CA certificate", e);
         }

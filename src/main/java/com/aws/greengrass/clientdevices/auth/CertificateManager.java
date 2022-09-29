@@ -66,6 +66,8 @@ public class CertificateManager {
     private final SecurityService securityService;
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CertificateManager.class);
+    private static final String pkcs11Scheme = "pkcs11";
+
 
 
     /**
@@ -294,7 +296,11 @@ public class CertificateManager {
                     () -> certificateStore.loadCaCertificateChain(privateKeyUri, certificateUri),
                     "get-certificate-chain", logger);
 
-            certificateStore.setCaKeyAndCertificateChain(keyPair.getPrivate(), certificateChain);
+            CertificateHelper.ProviderType providerType = privateKeyUri.getScheme().contains(pkcs11Scheme)
+                    ? CertificateHelper.ProviderType.HSM
+                    : CertificateHelper.ProviderType.DEFAULT;
+
+            certificateStore.setCaKeyAndCertificateChain(providerType, keyPair.getPrivate(), certificateChain);
         } catch (Exception e) {
             throw new InvalidCertificateAuthorityException(String.format("Failed to configure CA: There was an error "
                     + "reading the provided private key %s or certificate chain %s", privateKeyUri, certificateUri), e);

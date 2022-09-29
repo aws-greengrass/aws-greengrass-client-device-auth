@@ -77,7 +77,8 @@ public class ServerCertificateGenerator extends CertificateGenerator {
                     publicKey,
                     connectivityInfo,
                     Date.from(now),
-                    Date.from(now.plusSeconds(certificatesConfig.getServerCertValiditySeconds())));
+                    Date.from(now.plusSeconds(certificatesConfig.getServerCertValiditySeconds())),
+                    certificateStore.getProviderType());
         } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException
                 | KeyStoreException e) {
             logger.atError().cause(e).log("Failed to generate new server certificate");

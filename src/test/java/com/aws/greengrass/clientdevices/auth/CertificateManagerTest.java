@@ -126,7 +126,12 @@ public class CertificateManagerTest {
         Instant now = Instant.now();
         KeyPair keyPair = CertificateStore.newRSAKeyPair(2048);
         X509Certificate caCertificate = CertificateHelper.createCACertificate(
-                keyPair, Date.from(now), Date.from(now.plusSeconds(10)), "Custom Core CA");
+            keyPair,
+            Date.from(now),
+            Date.from(now.plusSeconds(10)),
+            "Custom Core CA",
+            CertificateHelper.ProviderType.DEFAULT
+        );
 
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
@@ -160,7 +165,12 @@ public class CertificateManagerTest {
         Instant now = Instant.now();
         KeyPair keyPair = CertificateStore.newRSAKeyPair(2048);
         X509Certificate caCertificate = CertificateHelper.createCACertificate(
-                keyPair, Date.from(now), Date.from(now.plusSeconds(10)), "Custom Core CA");
+            keyPair,
+            Date.from(now),
+            Date.from(now.plusSeconds(10)),
+            "Custom Core CA",
+            CertificateHelper.ProviderType.DEFAULT
+        );
 
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
@@ -270,7 +280,7 @@ public class CertificateManagerTest {
         X509Certificate caB = CertificateTestHelpers.createRootCertificateAuthority("Root B", caBKeys);
 
 
-        certificateStore.setCaKeyAndCertificateChain(caAKeys.getPrivate(), caA);
+        certificateStore.setCaKeyAndCertificateChain(CertificateHelper.ProviderType.DEFAULT, caAKeys.getPrivate(), caA);
         certificateManager.subscribeToCertificateUpdates(request);
 
         assertEquals(1, eventRef.get().getCaCertificates().length);
@@ -279,7 +289,7 @@ public class CertificateManagerTest {
         ArgumentCaptor<CertificateGenerator> generator = ArgumentCaptor.forClass(CertificateGenerator.class);
         verify(mockCertExpiryMonitor).addToMonitor(generator.capture());
 
-        certificateStore.setCaKeyAndCertificateChain(caBKeys.getPrivate(), caB);
+        certificateStore.setCaKeyAndCertificateChain(CertificateHelper.ProviderType.DEFAULT, caBKeys.getPrivate(), caB);
 
         // This part below just simulates the expiry monitor triggering expired certificates after the ca had changed
         generator.getValue().generateCertificate(ArrayList::new, "testing");
