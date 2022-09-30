@@ -51,10 +51,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
-import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertPathValidatorException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
@@ -197,7 +195,7 @@ public class CustomCaConfigurationTest {
             CertificateException, URISyntaxException, CertificateGenerationException, ExecutionException,
             InterruptedException, TimeoutException, ServiceLoadException, NoSuchAlgorithmException,
             OperatorCreationException, IOException, KeyLoadingException, ServiceUnavailableException,
-            CertificateChainLoadingException, CertPathValidatorException, InvalidAlgorithmParameterException {
+            CertificateChainLoadingException {
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         X509Certificate intermediateCA = chain[0];
