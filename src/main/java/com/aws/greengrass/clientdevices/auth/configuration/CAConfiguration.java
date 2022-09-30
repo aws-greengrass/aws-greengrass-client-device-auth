@@ -5,7 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
+import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.logging.api.Logger;
@@ -18,7 +20,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Represents the certificateAuthority and ca_type part of the component configuration. Acts as an adapter
@@ -58,18 +62,36 @@ public final class CAConfiguration {
      * Factory method for creating an immutable CAConfiguration from the service configuration.
      *
      * @param configurationTopics the configuration key of the service configuration
-     *
-     * @throws URISyntaxException if invalid certificateUri or privateKeyUri provided.
      */
-    public static CAConfiguration from(Topics configurationTopics) throws URISyntaxException {
+    public static Result<CAConfiguration> from(Topics configurationTopics) {
         Topics certAuthorityTopic = configurationTopics.lookupTopics(CERTIFICATE_AUTHORITY_TOPIC);
 
-        return new CAConfiguration(
+        Result<Optional<URI>> privateKeyUriResult = getCaPrivateKeyUriFromConfiguration(certAuthorityTopic);
+
+        if (privateKeyUriResult.isError()) {
+            return Result.error(privateKeyUriResult.getError());
+        }
+
+        Result<Optional<URI>> certificateUriResult = getCaCertificateUriFromConfiguration(certAuthorityTopic);
+
+        if (certificateUriResult.isError()) {
+            return Result.error(certificateUriResult.getError());
+        }
+
+        Optional<URI> privateKeyUri = privateKeyUriResult.get();
+        Optional<URI> certificateUri = certificateUriResult.get();
+
+        if (privateKeyUri.isPresent() != certificateUri.isPresent()) {
+            return Result.error(new InvalidConfigurationException(
+                    CA_PRIVATE_KEY_URI + " and " + CA_CERTIFICATE_URI + " must have a value."));
+        }
+
+        return Result.ok(new CAConfiguration(
                 getCaTypeListFromConfiguration(configurationTopics),
                 getCaTypeFromConfiguration(configurationTopics),
-                getCaPrivateKeyUriFromConfiguration(certAuthorityTopic),
-                getCaCertificateUriFromConfiguration(certAuthorityTopic)
-        );
+                privateKeyUriResult.get(),
+                certificateUriResult.get()
+        ));
     }
 
     /**
@@ -78,6 +100,22 @@ public final class CAConfiguration {
      */
     public boolean isUsingCustomCA() {
         return privateKeyUri.isPresent() && certificateUri.isPresent();
+    }
+
+    /**
+     * Verifies if the configuration for the certificateAuthority has changed, given a previous
+     * configuration.
+     *
+     * @param config  CAConfiguration
+     */
+    public boolean hasChanged(CAConfiguration config) {
+        if (config == null) {
+            return true;
+        }
+
+        return !Objects.equals(config.getCertificateUri(), certificateUri)
+                || !Objects.equals(config.getPrivateKeyUri(), privateKeyUri)
+                || !Objects.equals(config.getCaType(), caType);
     }
 
     private static List<String> getCaTypeListFromConfiguration(Topics configurationTopic) {
@@ -114,35 +152,44 @@ public final class CAConfiguration {
         return CertificateStore.CAType.valueOf(caType);
     }
 
-    private static URI getUri(String rawUri) throws URISyntaxException {
-        URI uri = new URI(rawUri);
-
-        if (uri.getScheme() == null) {
-            throw new URISyntaxException(rawUri, "Uri is missing the scheme");
+    private static Result<URI> getUri(String rawUri) {
+        URI uri;
+        try {
+            uri = new URI(rawUri);
+        } catch (URISyntaxException e) {
+           return Result.error(e);
         }
 
-        return uri;
+        if (uri.getScheme() == null) {
+            return Result.error(new URISyntaxException(rawUri, "Uri is missing the scheme"));
+        }
+
+        Stream<String> supportedSchemes = Stream.of("file", "pkcs11");
+        if (supportedSchemes.noneMatch(uri.getScheme()::contains)) {
+           return Result.error(
+                   new URISyntaxException(rawUri, "Unsupported URI scheme. Supported: " + supportedSchemes));
+        }
+
+        return Result.ok(uri);
     }
 
-    private static Optional<URI> getCaPrivateKeyUriFromConfiguration(Topics certAuthorityTopic) throws
-            URISyntaxException {
+    private static Result<Optional<URI>> getCaPrivateKeyUriFromConfiguration(Topics certAuthorityTopic) {
         String privateKeyUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_PRIVATE_KEY_URI));
 
         if (Utils.isEmpty(privateKeyUri)) {
-            return Optional.empty();
+            return Result.ok(Optional.empty());
         }
 
-        return Optional.of(getUri(privateKeyUri));
+        return getUri(privateKeyUri).map(Optional::ofNullable);
     }
 
-    private static Optional<URI> getCaCertificateUriFromConfiguration(Topics certAuthorityTopic) throws
-            URISyntaxException {
+    private static Result<Optional<URI>> getCaCertificateUriFromConfiguration(Topics certAuthorityTopic) {
         String certificateUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_CERTIFICATE_URI));
 
         if (Utils.isEmpty(certificateUri)) {
-            return Optional.empty();
+            return Result.ok(Optional.empty());
         }
 
-        return Optional.of(getUri(certificateUri));
+        return getUri(certificateUri).map(Optional::ofNullable);
     }
 }

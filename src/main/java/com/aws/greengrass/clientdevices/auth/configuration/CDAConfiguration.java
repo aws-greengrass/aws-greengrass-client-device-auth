@@ -6,15 +6,13 @@
 package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
 import com.aws.greengrass.config.Topics;
+import lombok.Getter;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
@@ -47,13 +45,14 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
 public final class CDAConfiguration {
 
     private final RuntimeConfiguration runtime;
-    private final CAConfiguration ca;
     private final DomainEvents domainEvents;
+    @Getter
+    public final CAConfiguration caConfig;
 
     private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca) {
         this.domainEvents = domainEvents;
         this.runtime = runtime;
-        this.ca = ca;
+        this.caConfig = ca;
     }
 
     /**
@@ -62,43 +61,47 @@ public final class CDAConfiguration {
      *
      * @param existingConfig  an existing version of the CDAConfiguration
      * @param topics configuration topics from GG
-     * @throws URISyntaxException if invalid URI inside the configuration
      */
-    public static CDAConfiguration from(CDAConfiguration existingConfig, Topics topics) throws URISyntaxException {
-        Topics runtimeTopics = topics.lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC);
+    public static Result<CDAConfiguration> from(CDAConfiguration existingConfig, Topics topics) {
         Topics serviceConfiguration = topics.lookupTopics(CONFIGURATION_CONFIG_KEY);
+        Result<CAConfiguration> caConfigResult =  CAConfiguration.from(serviceConfiguration);
+
+        if (caConfigResult.isError()) {
+            return Result.error(caConfigResult.getError());
+        }
 
         DomainEvents domainEvents = topics.getContext().get(DomainEvents.class);
+        Topics runtimeTopics = topics.lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC);
 
         CDAConfiguration newConfig = new CDAConfiguration(
             domainEvents,
             RuntimeConfiguration.from(runtimeTopics),
-            CAConfiguration.from(serviceConfiguration)
+            caConfigResult.get()
         );
 
-        newConfig.triggerChanges(newConfig, existingConfig);
-
-        return newConfig;
+        newConfig.triggerChanges(existingConfig);
+        return Result.ok(newConfig);
     }
 
     /**
      * Creates the CDA (Client Device Auth) Service configuration.
      *
      * @param topics configuration topics from GG
-     * @throws URISyntaxException if invalid URI inside the configuration
      */
-    public static CDAConfiguration from(Topics topics) throws URISyntaxException {
+    public static Result<CDAConfiguration> from(Topics topics) {
         return from(null, topics);
     }
 
-    private void triggerChanges(CDAConfiguration current, CDAConfiguration prev) {
+    private void triggerChanges(CDAConfiguration prev) {
         if (hasCAConfigurationChanged(prev)) {
-            domainEvents.emit(new CAConfigurationChanged(current));
+            domainEvents.emit(new CAConfigurationChanged(this));
         }
     }
 
+
+
     public boolean isUsingCustomCA() {
-        return ca.isUsingCustomCA();
+      return getCaConfig().isUsingCustomCA();
     }
 
     public String getCaPassphrase() {
@@ -114,15 +117,7 @@ public final class CDAConfiguration {
     }
 
     public CertificateStore.CAType getCaType() {
-        return ca.getCaType();
-    }
-
-    public Optional<URI> getPrivateKeyUri() {
-        return ca.getPrivateKeyUri();
-    }
-
-    public Optional<URI> getCertificateUri() {
-        return ca.getCertificateUri();
+        return caConfig.getCaType();
     }
 
     /**
@@ -136,8 +131,6 @@ public final class CDAConfiguration {
             return true;
         }
 
-        return !Objects.equals(config.getCertificateUri(), getCertificateUri())
-                || !Objects.equals(config.getPrivateKeyUri(), getPrivateKeyUri())
-                || !Objects.equals(config.getCaType(), getCaType());
+        return config.getCaConfig().hasChanged(this.getCaConfig());
     }
 }

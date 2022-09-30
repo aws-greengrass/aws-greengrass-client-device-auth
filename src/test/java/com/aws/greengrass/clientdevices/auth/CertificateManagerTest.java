@@ -145,7 +145,7 @@ public class CertificateManagerTest {
         configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue(certificateUri.toString());
 
-        CDAConfiguration cdaConfiguration = CDAConfiguration.from(configurationTopics);
+        CDAConfiguration cdaConfiguration = CDAConfiguration.from(configurationTopics).get();
 
         // TODO: Write the actual certificate to the file system and avoid mocking the security service. Doing
         //  this is a bad given we are exposing implementation details on the test.
@@ -154,7 +154,7 @@ public class CertificateManagerTest {
                 .loadCaCertificateChain(privateKeyUri, certificateUri);
 
         // When
-        certificateManager.configureCustomCA(cdaConfiguration);
+        certificateManager.configureCustomCA(cdaConfiguration.getCaConfig());
 
         // Then
         List<String> caPemStrings = certificateManager.getCACertificates();

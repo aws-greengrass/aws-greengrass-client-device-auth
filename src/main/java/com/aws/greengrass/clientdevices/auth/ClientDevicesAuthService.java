@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
+import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CACertificateChainChangedHandler;
@@ -36,7 +37,6 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
 
-import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -136,10 +136,12 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void onConfigurationChanged() {
-        try {
-            cdaConfiguration = CDAConfiguration.from(cdaConfiguration, getConfig());
-        } catch (URISyntaxException e) {
-            serviceErrored(e);
+        Result<CDAConfiguration> config = CDAConfiguration.from(cdaConfiguration, getConfig());
+
+        if (config.isOk()) {
+            this.cdaConfiguration = config.get();
+        } else if (config.isError()) {
+            logger.atError().cause(config.getError()).log("Configuration error");
         }
     }
 

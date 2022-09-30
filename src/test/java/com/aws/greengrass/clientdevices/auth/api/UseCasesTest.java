@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.api;
 
-import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
@@ -65,20 +64,6 @@ public class UseCasesTest {
         }
     }
 
-    static class UseCaseUpdatingDependency implements UseCases.UseCase<String, Void> {
-        private final CDAConfiguration configuration;
-
-        @Inject
-        public UseCaseUpdatingDependency(CDAConfiguration configuration) {
-            this.configuration = configuration;
-        }
-
-        @Override
-        public Result<String> apply(Void dto) {
-            return Result.ok(configuration.getCertificateUri().get().toString());
-        }
-    }
-
     @BeforeEach
     void beforeEach() {
         topics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
@@ -98,7 +83,9 @@ public class UseCasesTest {
     @Test
     void GIVEN_aUseCaseWithExceptions_WHEN_ran_THEN_itThrowsAnException() {
         UseCaseWithExceptions useCase = useCases.get(UseCaseWithExceptions.class);
-        assertTrue(useCase.apply(null).get() instanceof InvalidConfigurationException);
+        Result useCaseResult = useCase.apply(null);
+        assertTrue(useCaseResult.isError());
+        assertTrue(useCaseResult.getError() instanceof InvalidConfigurationException);
     }
 
     @Test

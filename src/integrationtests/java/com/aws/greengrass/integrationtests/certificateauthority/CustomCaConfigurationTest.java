@@ -18,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateChainLoadingException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.State;
@@ -52,6 +53,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.security.KeyPair;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -74,10 +76,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -99,6 +103,7 @@ public class CustomCaConfigurationTest {
     Path rootDir;
     private Kernel kernel;
     private CertificateStore certificateStoreSpy;
+
 
 
     @BeforeEach
@@ -316,5 +321,30 @@ public class CustomCaConfigurationTest {
         asyncCall.getLeft().get(2, TimeUnit.SECONDS);
         CertificateUpdateEvent event = eventRef.get();
         assertTrue(CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, event.getCertificate()));
+    }
+
+    @Test
+    void GIVEN_invalidConfigUri_WHEN_failures_THEN_serviceCanRecoverAfterGoodURIProvided(ExtensionContext context) throws CertificateException,
+            NoSuchAlgorithmException, OperatorCreationException, CertIOException, URISyntaxException,
+            InterruptedException, KeyLoadingException, ServiceUnavailableException, CertificateChainLoadingException,
+            ServiceLoadException, KeyStoreException {
+        ignoreExceptionOfType(context, InvalidConfigurationException.class);
+        Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
+        X509Certificate[] chain = credentials.getLeft();
+        KeyPair[] certificateKeys = credentials.getRight();
+        KeyPair intermediateKeyPair = certificateKeys[0];
+        givenNucleusRunningWithConfig("config.yaml");
+
+        // Configure Custom CA with bad values
+        givenCDAWithCustomCertificateAuthority(new URI("file:///private.key"), new URI(""));
+        verify(certificateStoreSpy, times(1)).setCaKeyAndCertificateChain(any(), any(), any());
+
+        // Configure with Good values
+        URI privateKeyUri = new URI("file:///private.key");
+        URI certificateUri = new URI("file:///certificate.pem");
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
+        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        verify(certificateStoreSpy, times(2)).setCaKeyAndCertificateChain(any(), any(), any());
     }
 }
