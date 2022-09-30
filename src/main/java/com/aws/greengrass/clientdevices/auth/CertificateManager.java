@@ -218,12 +218,10 @@ public class CertificateManager {
         cisShadowMonitor.addToMonitor(certificateGenerator);
         caConfigurationMonitor.addToMonitor(certificateGenerator);
 
-        // TODO: Doing this here is wrong. We are assuming that we can call this and it would work but this should
-        //  only be called after we are sure a certificate authority has been configured. Which might not be true
-        //  before this gets called. Having this fail several times in a row (if no CA has been configured) will cause
-        //  downstream components that rely on this to fail
-        certificateGenerator.generateCertificate(connectivityInformation::getCachedHostAddresses,
-                "initialization of server cert subscription");
+        if (certificateStore.isReady()) {
+            certificateGenerator.generateCertificate(connectivityInformation::getCachedHostAddresses,
+                    "initialization of server cert subscription");
+        }
 
         certSubscriptions.compute(certificateRequest, (k, v) -> {
             // A subscription already exists, we will replace it so that a new certificate is generated immediately
@@ -245,8 +243,11 @@ public class CertificateManager {
 
         caConfigurationMonitor.addToMonitor(certificateGenerator);
         certExpiryMonitor.addToMonitor(certificateGenerator);
-        certificateGenerator.generateCertificate(Collections::emptyList,
-                "initialization of client cert subscription");
+
+        if (certificateStore.isReady()) {
+            certificateGenerator.generateCertificate(Collections::emptyList,
+                    "initialization of client cert subscription");
+        }
 
         certSubscriptions.compute(certificateRequest, (k, v) -> {
             // A subscription already exists, we will replace it so that a new certificate is generated immediately

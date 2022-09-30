@@ -195,6 +195,14 @@ public class CertificateStore {
     }
 
     /**
+     * Checks if the certificate store is ready, which happens once it has all the required fields to
+     * provide what is required to issue certificates.
+     */
+    public boolean isReady() {
+        return this.getCaCertificateChain() != null && this.getCAPrivateKey() != null && this.getProviderType() != null;
+    }
+
+    /**
      * Get CA Public Certificate.
      *
      * @return                   CA X509Certificate object
