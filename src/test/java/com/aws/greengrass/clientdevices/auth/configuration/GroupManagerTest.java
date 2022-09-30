@@ -102,9 +102,7 @@ public class GroupManagerTest {
 
     private Session getSessionFromThing(String thingName) {
         Thing thing = Thing.of(thingName);
-        Session session = new SessionImpl(new Certificate("FAKE_CERT_ID"));
-        session.putAttributeProvider(thing.getNamespace(), thing);
-        return session;
+        return new SessionImpl(new Certificate("FAKE_CERT_ID"), thing);
     }
 
     private GroupDefinition getGroupDefinition(String thingName, String policyName) throws ParseException {

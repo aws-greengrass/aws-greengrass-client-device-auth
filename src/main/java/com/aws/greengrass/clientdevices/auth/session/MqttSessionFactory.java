@@ -46,7 +46,7 @@ public class MqttSessionFactory implements SessionFactory {
 
         boolean isGreengrassComponent = deviceAuthClient.isGreengrassComponent(mqttCredential.certificatePem);
         if (isGreengrassComponent) {
-            return createGreengrassComponentSession(mqttCredential);
+            return createGreengrassComponentSession();
         }
 
         return createIotThingSession(mqttCredential);
@@ -64,19 +64,14 @@ public class MqttSessionFactory implements SessionFactory {
             if (!thingRegistry.isThingAttachedToCertificate(thing, cert)) {
                 throw new AuthenticationException("unable to authenticate device");
             }
-            Session session = new SessionImpl(cert);
-            session.putAttributeProvider(Thing.NAMESPACE, thing);
-            return session;
+            return new SessionImpl(cert, thing);
         } catch (CloudServiceInteractionException e) {
             throw new AuthenticationException("Failed to verify certificate with cloud", e);
         }
     }
 
-    private Session createGreengrassComponentSession(MqttCredential mqttCredential) {
-        Certificate cert = new Certificate(mqttCredential.clientId);
-        Session session = new SessionImpl(cert);
-        session.putAttributeProvider(Component.NAMESPACE, new Component());
-        return session;
+    private Session createGreengrassComponentSession() {
+        return new SessionImpl(new Component());
     }
 
     private static class MqttCredential {
