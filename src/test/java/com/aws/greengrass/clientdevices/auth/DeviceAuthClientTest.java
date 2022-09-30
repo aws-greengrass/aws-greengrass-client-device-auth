@@ -97,8 +97,7 @@ public class DeviceAuthClientTest {
 
     @Test
     void GIVEN_internalClientSession_WHEN_canDevicePerform_THEN_authorizationReturnTrue() throws Exception {
-        Session session = new SessionImpl(new Certificate("certificateId"));
-        session.putAttributeProvider(Component.NAMESPACE, new Component());
+        Session session = new SessionImpl(new Certificate("certificateId"), new Component());
         when(sessionManager.findSession("sessionId")).thenReturn(session);
 
         boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());

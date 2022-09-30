@@ -8,8 +8,6 @@ package com.aws.greengrass.clientdevices.auth.session;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 
-import java.util.function.Function;
-
 public interface Session {
 
     /**
@@ -19,26 +17,6 @@ public interface Session {
      * @return Attribute provider
      */
     AttributeProvider getAttributeProvider(String attributeProviderNameSpace);
-
-    /**
-     * Put attribute provider to the namespace.
-     *
-     * @param attributeProviderNameSpace Attribute namespace
-     * @param attributeProvider          Attribute provider
-     * @return Attribute provider put to the session
-     */
-    AttributeProvider putAttributeProvider(String attributeProviderNameSpace, AttributeProvider attributeProvider);
-
-    /**
-     * Compute and put attribute provider if the namespace is not occupied.
-     *
-     * @param attributeProviderNameSpace Attribute namespace
-     * @param mappingFunction            Mapping function to compute attribute provider
-     * @return Attribute provider put to the session
-     */
-    AttributeProvider computeAttributeProviderIfAbsent(String attributeProviderNameSpace,
-                                                       Function<? super String, ? extends AttributeProvider>
-                                                               mappingFunction);
 
     /**
      * Get session attribute.
