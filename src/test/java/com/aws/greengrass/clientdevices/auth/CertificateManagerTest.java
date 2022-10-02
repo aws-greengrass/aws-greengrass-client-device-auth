@@ -154,7 +154,7 @@ public class CertificateManagerTest {
                 .loadCaCertificateChain(privateKeyUri, certificateUri);
 
         // When
-        certificateManager.configureCustomCA(cdaConfiguration.getCaConfig());
+        certificateManager.configureCustomCA(cdaConfiguration);
 
         // Then
         List<String> caPemStrings = certificateManager.getCACertificates();

@@ -12,7 +12,9 @@ import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationC
 import com.aws.greengrass.config.Topics;
 import lombok.Getter;
 
+import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
@@ -43,44 +45,29 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
  * </p>
  */
 public final class CDAConfiguration {
-
-    private final RuntimeConfiguration runtime;
-    private final DomainEvents domainEvents;
+    @Getter
+    private final RuntimeConfiguration runtimeConfig;
     @Getter
     public final CAConfiguration caConfig;
+    private final Topics configurationTopics;
 
-    private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca) {
-        this.domainEvents = domainEvents;
-        this.runtime = runtime;
-        this.caConfig = ca;
+    private CDAConfiguration(Topics configurationTopics, RuntimeConfiguration runtimeConfig, CAConfiguration caConfig) {
+        this.configurationTopics = configurationTopics;
+        this.runtimeConfig = runtimeConfig;
+        this.caConfig = caConfig;
     }
 
     /**
      * Creates the CDA (Client Device Auth) Service configuration. And allows it to be available in the context
      * with the updated values
      *
-     * @param existingConfig  an existing version of the CDAConfiguration
+     * @param existing  an existing version of the CDAConfiguration
      * @param topics configuration topics from GG
      */
-    public static Result<CDAConfiguration> from(CDAConfiguration existingConfig, Topics topics) {
-        Topics serviceConfiguration = topics.lookupTopics(CONFIGURATION_CONFIG_KEY);
-        Result<CAConfiguration> caConfigResult =  CAConfiguration.from(serviceConfiguration);
-
-        if (caConfigResult.isError()) {
-            return Result.error(caConfigResult.getError());
-        }
-
-        DomainEvents domainEvents = topics.getContext().get(DomainEvents.class);
-        Topics runtimeTopics = topics.lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC);
-
-        CDAConfiguration newConfig = new CDAConfiguration(
-            domainEvents,
-            RuntimeConfiguration.from(runtimeTopics),
-            caConfigResult.get()
-        );
-
-        newConfig.triggerChanges(existingConfig);
-        return Result.ok(newConfig);
+    public static Result<CDAConfiguration> from(CDAConfiguration existing, Topics topics) {
+        Result<CDAConfiguration> cdaConfigResult = getInstance(topics);
+        cdaConfigResult.ifOk((config) -> config.triggerChanges(existing));
+        return cdaConfigResult;
     }
 
     /**
@@ -92,45 +79,68 @@ public final class CDAConfiguration {
         return from(null, topics);
     }
 
+    private static Result<CDAConfiguration> getInstance(Topics configurationTopics) {
+        RuntimeConfiguration runtimeConfig =  RuntimeConfiguration.from(
+                configurationTopics.lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC));
+        Result<CAConfiguration> caConfigResult =  CAConfiguration.from(
+                configurationTopics.lookupTopics(CONFIGURATION_CONFIG_KEY));
+
+        CDAConfiguration cdaConfiguration = new CDAConfiguration(
+                configurationTopics, runtimeConfig, caConfigResult.get());
+
+        if (caConfigResult.isError()) {
+            return Result.error(cdaConfiguration, caConfigResult.getError());
+        }
+
+        return Result.ok(cdaConfiguration);
+    }
+
     private void triggerChanges(CDAConfiguration prev) {
-        if (hasCAConfigurationChanged(prev)) {
-            domainEvents.emit(new CAConfigurationChanged(this));
+        DomainEvents eventEmitter = configurationTopics.getContext().get(DomainEvents.class);
+
+        if (prev == null || !caConfig.isEqual(prev.getCaConfig())) {
+            eventEmitter.emit(new CAConfigurationChanged(this));
         }
     }
 
-
-
     public boolean isUsingCustomCA() {
-      return getCaConfig().isUsingCustomCA();
+      return caConfig.isUsingCustomCA();
     }
 
     public String getCaPassphrase() {
-        return runtime.getCaPassphrase();
+        return runtimeConfig.getCaPassphrase();
     }
 
     public void updateCAPassphrase(String caPassPhrase) {
-        runtime.updateCAPassphrase(caPassPhrase);
+        runtimeConfig.updateCAPassphrase(caPassPhrase);
     }
 
     public void updateCACertificates(List<String> caCertificates) {
-        runtime.updateCACertificates(caCertificates);
+        runtimeConfig.updateCACertificates(caCertificates);
     }
 
     public CertificateStore.CAType getCaType() {
         return caConfig.getCaType();
     }
 
+    public Optional<URI> getPrivateKeyUri() {
+        return caConfig.getPrivateKeyUri();
+    }
+
+    public Optional<URI> getCertificateUri() {
+        return caConfig.getCertificateUri();
+    }
+
     /**
-     * Verifies if the configuration for the certificateAuthority has changed, given a previous
-     * configuration.
-     *
-     * @param config  CDAConfiguration
+     * Checks if the configuration has changed compared to another one.
+     * @param configuration An instance of the CDAConfiguration
      */
-    private boolean hasCAConfigurationChanged(CDAConfiguration config) {
-        if (config == null) {
-            return true;
+    public boolean isEqual(CDAConfiguration configuration) {
+        if (configuration == null) {
+            return false;
         }
 
-        return config.getCaConfig().hasChanged(this.getCaConfig());
+        // TODO: As we add more configurations here we should change the equality comparison.
+        return caConfig.isEqual(configuration.getCaConfig());
     }
 }

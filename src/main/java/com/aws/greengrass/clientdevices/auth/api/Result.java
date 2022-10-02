@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.api;
 
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public final class Result<T> {
@@ -42,6 +43,11 @@ public final class Result<T> {
         return new Result<>(Status.ERROR, null, err);
     }
 
+    public static <T, E extends Exception> Result<T> error(T value, E err) {
+        return new Result<>(Status.ERROR, value, err);
+    }
+
+
     public static <E extends Exception> Result<E> warning(E err) {
         return new Result<>(Status.WARNING, null, err);
     }
@@ -56,10 +62,6 @@ public final class Result<T> {
      * @throws NoSuchElementException when no value present
      */
     public T get() {
-        if (this.isError()) {
-            throw new NoSuchElementException("No value available. Result is an error: " + error.getMessage());
-        }
-
         return value;
     }
 
@@ -75,8 +77,14 @@ public final class Result<T> {
         return status == Status.OK;
     }
 
-    public boolean isEmpty() {
-        return status == Status.OK && this.value == null;
+    /**
+     * Calls a consumer with the stored value if the Result isOk.
+     * @param consumer a consumer function.
+     */
+    public void ifOk(Consumer<T> consumer) {
+        if (isOk()) {
+            consumer.accept(value);
+        }
     }
 
     public <R> Result<R> map(Function<T, R> fn) {

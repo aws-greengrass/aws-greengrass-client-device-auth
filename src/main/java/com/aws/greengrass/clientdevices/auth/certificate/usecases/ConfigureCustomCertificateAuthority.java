@@ -8,7 +8,6 @@ package com.aws.greengrass.clientdevices.auth.certificate.usecases;
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
 import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
-import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
@@ -47,12 +46,11 @@ public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Voi
         // TODO: We need to synchronize the changes that configuration has on the state of the service. There is
         //  a possibility that 2 threads run different use cases and change the certificate authority concurrently
         //  causing potential race conditions
-        CAConfiguration certificateAuthorityConfig = configuration.getCaConfig();
 
         try {
             logger.info("Configuring custom certificate authority.");
-            // TODO: We will pull the configureCustomCA out of the certificate Manager to here
-            certificateManager.configureCustomCA(certificateAuthorityConfig);
+            // NOTE: We will pull the configureCustomCA out of the certificate Manager to here
+            certificateManager.configureCustomCA(configuration);
             configuration.updateCACertificates(certificateManager.getCACertificates());
         } catch (InvalidConfigurationException | InvalidCertificateAuthorityException | CertificateEncodingException
                  | KeyStoreException | IOException e) {

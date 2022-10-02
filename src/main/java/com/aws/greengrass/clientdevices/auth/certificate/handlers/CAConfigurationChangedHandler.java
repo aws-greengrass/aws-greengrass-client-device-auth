@@ -52,6 +52,7 @@ public class CAConfigurationChangedHandler implements Consumer<CAConfigurationCh
         } else {
             useCases.get(ConfigureManagedCertificateAuthority.class).apply(configuration);
         }
+
     }
 }
 

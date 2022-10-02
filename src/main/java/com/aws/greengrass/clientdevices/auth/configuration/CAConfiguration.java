@@ -65,33 +65,33 @@ public final class CAConfiguration {
      */
     public static Result<CAConfiguration> from(Topics configurationTopics) {
         Topics certAuthorityTopic = configurationTopics.lookupTopics(CERTIFICATE_AUTHORITY_TOPIC);
-
         Result<Optional<URI>> privateKeyUriResult = getCaPrivateKeyUriFromConfiguration(certAuthorityTopic);
-
-        if (privateKeyUriResult.isError()) {
-            return Result.error(privateKeyUriResult.getError());
-        }
-
         Result<Optional<URI>> certificateUriResult = getCaCertificateUriFromConfiguration(certAuthorityTopic);
 
+        CAConfiguration caConfiguration = new CAConfiguration(
+                getCaTypeListFromConfiguration(configurationTopics),
+                getCaTypeFromConfiguration(configurationTopics),
+                privateKeyUriResult.get(),
+                certificateUriResult.get()
+        );
+
+        if (privateKeyUriResult.isError()) {
+            return Result.error(caConfiguration, privateKeyUriResult.getError());
+        }
+
         if (certificateUriResult.isError()) {
-            return Result.error(certificateUriResult.getError());
+            return Result.error(caConfiguration, certificateUriResult.getError());
         }
 
         Optional<URI> privateKeyUri = privateKeyUriResult.get();
         Optional<URI> certificateUri = certificateUriResult.get();
 
         if (privateKeyUri.isPresent() != certificateUri.isPresent()) {
-            return Result.error(new InvalidConfigurationException(
+            return Result.error(caConfiguration, new InvalidConfigurationException(
                     CA_PRIVATE_KEY_URI + " and " + CA_CERTIFICATE_URI + " must have a value."));
         }
 
-        return Result.ok(new CAConfiguration(
-                getCaTypeListFromConfiguration(configurationTopics),
-                getCaTypeFromConfiguration(configurationTopics),
-                privateKeyUriResult.get(),
-                certificateUriResult.get()
-        ));
+        return Result.ok(caConfiguration);
     }
 
     /**
@@ -108,14 +108,14 @@ public final class CAConfiguration {
      *
      * @param config  CAConfiguration
      */
-    public boolean hasChanged(CAConfiguration config) {
+    public boolean isEqual(CAConfiguration config) {
         if (config == null) {
-            return true;
+            return false;
         }
 
-        return !Objects.equals(config.getCertificateUri(), certificateUri)
-                || !Objects.equals(config.getPrivateKeyUri(), privateKeyUri)
-                || !Objects.equals(config.getCaType(), caType);
+        return Objects.equals(config.getCertificateUri(), certificateUri)
+                && Objects.equals(config.getPrivateKeyUri(), privateKeyUri)
+                && Objects.equals(config.getCaType(), caType);
     }
 
     private static List<String> getCaTypeListFromConfiguration(Topics configurationTopic) {

@@ -27,6 +27,7 @@ import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
 import com.aws.greengrass.dependency.ImplementsService;
+import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.ipc.AuthorizeClientDeviceActionOperationHandler;
 import com.aws.greengrass.ipc.GetClientDeviceAuthTokenOperationHandler;
 import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
@@ -89,6 +90,7 @@ public class ClientDevicesAuthService extends PluginService {
 
         context.get(UseCases.class).init(context);
         context.get(CertificateManager.class).updateCertificatesConfiguration(new CertificatesConfig(getConfig()));
+
         initializeInfrastructure();
         initializeHandlers();
         subscribeToConfigChanges();
@@ -131,17 +133,31 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void subscribeToConfigChanges() {
+        // This first call is just to initialize an empty configuration
         onConfigurationChanged();
         config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(this::configChangeHandler);
     }
 
     private void onConfigurationChanged() {
-        Result<CDAConfiguration> config = CDAConfiguration.from(cdaConfiguration, getConfig());
+        Result<CDAConfiguration> result = CDAConfiguration.from(cdaConfiguration, getConfig());
+        CDAConfiguration configuration = result.get();
 
-        if (config.isOk()) {
-            this.cdaConfiguration = config.get();
-        } else if (config.isError()) {
-            logger.atError().cause(config.getError()).log("Configuration error");
+        // Nothing has changed
+        if (configuration.isEqual(cdaConfiguration)) {
+            return;
+        }
+
+        cdaConfiguration = configuration;
+
+        if (result.isOk() && inState(State.BROKEN)) {
+            logger.info("Service is {} and configuration changed. Attempting to reinstall.", State.BROKEN);
+            requestReinstall();
+            return;
+        }
+
+        // It changed but the configuration is bad
+        if (result.isError()) {
+           serviceErrored(result.getError());
         }
     }
 
