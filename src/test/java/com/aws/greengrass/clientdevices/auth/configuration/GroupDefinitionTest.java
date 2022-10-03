@@ -10,7 +10,6 @@ import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.WildcardSuffixAttribute;
 import com.aws.greengrass.clientdevices.auth.configuration.parser.ParseException;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +44,6 @@ public class GroupDefinitionTest {
     @Test
     void GIVEN_groupDefinitionAndNonMatchingSession_WHEN_containsSession_THEN_returnsFalse() throws ParseException {
         GroupDefinition groupDefinition = new GroupDefinition("thingName: thing", "Policy1");
-        assertThat(groupDefinition.containsClientDevice(
-                new SessionImpl(new Certificate("FAKE_CERT_ID"))), is(false));
+        assertThat(groupDefinition.containsClientDevice(new SessionImpl()), is(false));
     }
 }

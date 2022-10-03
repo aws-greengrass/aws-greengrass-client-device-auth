@@ -100,7 +100,7 @@ class ThingRegistryTest {
     void GIVEN_unreachable_cloud_WHEN_isThingAttachedToCertificate_THEN_return_cached_result() {
         // cache result before going offline
         Thing thing = registry.createThing(mockThingName);
-        thing.attachCertificate(mockCertificate.getIotCertificateId());
+        thing.attachCertificate(mockCertificate.getCertificateId());
         Thing updatedThing = registry.updateThing(thing);
 
         // go offline

@@ -22,10 +22,13 @@ import javax.inject.Inject;
 public interface IotAuthClient {
     Optional<String> getActiveCertificateId(String certificatePem);
 
+    Certificate getIotCertificate(String certificatePem) throws InvalidCertificateException;
+
     boolean isThingAttachedToCertificate(Thing thing, Certificate certificate);
 
     class Default implements IotAuthClient {
         private static final Logger logger = LogManager.getLogger(Default.class);
+        private static final String CERTPEM_KEY = "certificatePem";
 
         private final GreengrassServiceClientFactory clientFactory;
 
@@ -53,15 +56,46 @@ public interface IotAuthClient {
                         clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(request);
                 return Optional.of(response.clientDeviceCertificateId());
             } catch (ValidationException | ResourceNotFoundException e) {
-                logger.atWarn().cause(e).kv("certificatePem", certificatePem)
+                logger.atWarn().cause(e).kv(CERTPEM_KEY, certificatePem)
                         .log("Certificate doesn't exist or isn't active");
                 return Optional.empty();
             } catch (Exception e) {
-                logger.atError().cause(e).kv("certificatePem", certificatePem)
+                logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
                         .log("Failed to verify client device identity with cloud. Check that the core device's IoT "
                                 + "policy grants the greengrass:VerifyClientDeviceIdentity permission.");
                 throw new CloudServiceInteractionException("Failed to verify client device identity", e);
             }
+        }
+
+        @Override
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        public Certificate getIotCertificate(String certificatePem) throws InvalidCertificateException {
+            if (Utils.isEmpty(certificatePem)) {
+                throw new IllegalArgumentException("Certificate PEM is empty");
+            }
+
+            // Throws InvalidCertificateException if we can't parse the certificate
+            Certificate cert = Certificate.fromPem(certificatePem);
+
+            VerifyClientDeviceIdentityRequest request =
+                    VerifyClientDeviceIdentityRequest.builder().clientDeviceCertificate(certificatePem).build();
+            try {
+                // We can ignore the response since it contains only the cert ID, which we directly compute
+                clientFactory.getGreengrassV2DataClient().verifyClientDeviceIdentity(request);
+                cert.setStatus(Certificate.Status.ACTIVE);
+            } catch (ValidationException | ResourceNotFoundException e) {
+                logger.atWarn().cause(e).kv(CERTPEM_KEY, certificatePem)
+                        .log("Certificate doesn't exist or isn't active");
+                throw new InvalidCertificateException("Invalid IoT certificate", e);
+            } catch (Exception e) {
+                // TODO: don't log at error level for network failures
+                logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
+                        .log("Failed to verify client device identity with cloud. Check that the core device's IoT "
+                                + "policy grants the greengrass:VerifyClientDeviceIdentity permission.");
+                cert.setStatus(Certificate.Status.UNKNOWN);
+            }
+
+            return cert;
         }
 
         @Override
@@ -71,32 +105,32 @@ public interface IotAuthClient {
                 throw new IllegalArgumentException("No thing name available to validate");
             }
 
-            if (certificate == null || Utils.isEmpty(certificate.getIotCertificateId())) {
+            if (certificate == null || Utils.isEmpty(certificate.getCertificateId())) {
                 throw new IllegalArgumentException("No IoT certificate ID available to validate");
             }
 
             VerifyClientDeviceIoTCertificateAssociationRequest request =
                     VerifyClientDeviceIoTCertificateAssociationRequest.builder()
                             .clientDeviceThingName(thing.getThingName())
-                            .clientDeviceCertificateId(certificate.getIotCertificateId()).build();
+                            .clientDeviceCertificateId(certificate.getCertificateId()).build();
             try {
                 clientFactory.getGreengrassV2DataClient().verifyClientDeviceIoTCertificateAssociation(request);
                 logger.atDebug().kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificate.getIotCertificateId()).log("Thing is attached to certificate");
+                        .kv("certificateId", certificate.getCertificateId()).log("Thing is attached to certificate");
                 return true;
             } catch (ValidationException | ResourceNotFoundException e) {
                 logger.atDebug().cause(e).kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificate.getIotCertificateId())
+                        .kv("certificateId", certificate.getCertificateId())
                         .log("Thing is not attached to certificate");
                 return false;
             } catch (Exception e) {
                 logger.atError().cause(e).kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificate.getIotCertificateId())
+                        .kv("certificateId", certificate.getCertificateId())
                         .log("Failed to verify certificate thing association. Check that the core device's IoT policy"
                                 + " grants the greengrass:VerifyClientDeviceIoTCertificateAssociation permission.");
                 throw new CloudServiceInteractionException(
                         String.format("Failed to verify certificate %s thing %s association",
-                                certificate.getIotCertificateId(), thing.getThingName()), e);
+                                certificate.getCertificateId(), thing.getThingName()), e);
             }
         }
     }

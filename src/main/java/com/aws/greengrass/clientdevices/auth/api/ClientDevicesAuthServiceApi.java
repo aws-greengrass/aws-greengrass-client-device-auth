@@ -11,35 +11,35 @@ import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.clientdevices.auth.iot.registry.CertificateRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 
 import java.util.Map;
 import javax.inject.Inject;
 
 public class ClientDevicesAuthServiceApi {
-    private final CertificateRegistry certificateRegistry;
     private final SessionManager sessionManager;
     private final DeviceAuthClient deviceAuthClient;
     private final CertificateManager certificateManager;
+    private final UseCases useCases;
 
     /**
      * Constructor.
      *
-     * @param certificateRegistry iot auth client
      * @param sessionManager      session manager
      * @param deviceAuthClient    device auth client
      * @param certificateManager  certificate manager
+     * @param useCases            CDA use cases
      */
     @Inject
-    public ClientDevicesAuthServiceApi(CertificateRegistry certificateRegistry,
-                                       SessionManager sessionManager,
+    public ClientDevicesAuthServiceApi(SessionManager sessionManager,
                                        DeviceAuthClient deviceAuthClient,
-                                       CertificateManager certificateManager) {
-        this.certificateRegistry = certificateRegistry;
+                                       CertificateManager certificateManager,
+                                       UseCases useCases) {
         this.sessionManager = sessionManager;
         this.deviceAuthClient = deviceAuthClient;
         this.certificateManager = certificateManager;
+        this.useCases = useCases;
     }
 
     /**
@@ -52,7 +52,8 @@ public class ClientDevicesAuthServiceApi {
         if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
             return true;
         } else {
-            return certificateRegistry.isCertificateValid(certificatePem);
+            Result<Boolean> result = useCases.get(VerifyIotCertificate.class).apply(certificatePem);
+            return result.isOk() && result.get();
         }
     }
 
