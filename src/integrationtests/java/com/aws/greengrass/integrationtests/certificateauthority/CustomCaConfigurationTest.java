@@ -64,6 +64,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -133,20 +134,30 @@ public class CustomCaConfigurationTest {
         kernel.shutdown();
     }
 
-    // TODO: Consolidate this test helpers with ClientDevicesAuthServiceTest
-    private void givenNucleusRunningWithConfig(String configFileName) throws InterruptedException {
+    private void givenNucleusRunningWithConfig(String configFileName, Consumer<State> consumer) throws InterruptedException {
         CountDownLatch authServiceRunning = new CountDownLatch(1);
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
-            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName()) && service.getState()
-                    .equals(State.RUNNING)) {
-                authServiceRunning.countDown();
+            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName())) {
+                State serviceState = service.getState();
+                consumer.accept(serviceState);
+
+                if (serviceState.equals(State.RUNNING)) {
+                    authServiceRunning.countDown();
+                }
+
             }
         });
         kernel.launch();
+
         assertThat(authServiceRunning.await(30L, TimeUnit.SECONDS), is(true));
     }
+
+    private void givenNucleusRunningWithConfig(String configFileName) throws InterruptedException {
+        givenNucleusRunningWithConfig(configFileName, (State s) -> {});
+    }
+
 
     private static Pair<X509Certificate[], KeyPair[]> givenRootAndIntermediateCA() throws NoSuchAlgorithmException,
             CertificateException,
@@ -167,7 +178,7 @@ public class CustomCaConfigurationTest {
     /**
      * Simulates an external party configuring their custom CA.
      */
-    private void givenCDAWithCustomCertificateAuthority(URI privateKeyUri, URI certificateUri) throws
+    private void configureCDAWithCustomCertificateAuthority(URI privateKeyUri, URI certificateUri) throws
             ServiceLoadException {
         // Service Configuration
         Topics topics = kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig();
@@ -219,7 +230,7 @@ public class CustomCaConfigurationTest {
                 GetCertificateRequestOptions.CertificateType.CLIENT, asyncCall.getRight());
 
         givenNucleusRunningWithConfig("config.yaml");
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        configureCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
         subscribeToCertificateUpdates(request);
 
         asyncCall.getLeft().get(1, TimeUnit.SECONDS);
@@ -249,7 +260,7 @@ public class CustomCaConfigurationTest {
                 GetCertificateRequestOptions.CertificateType.CLIENT, asyncCall.getRight());
 
         givenNucleusRunningWithConfig("config.yaml");
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        configureCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
         subscribeToCertificateUpdates(request);
 
         asyncCall.getLeft().get(1, TimeUnit.SECONDS);
@@ -278,7 +289,7 @@ public class CustomCaConfigurationTest {
         doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         givenNucleusRunningWithConfig("config.yaml");
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        configureCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
         ArgumentCaptor<PutCertificateAuthoritiesRequest> requestCaptor =
                 ArgumentCaptor.forClass(PutCertificateAuthoritiesRequest.class);
@@ -315,7 +326,7 @@ public class CustomCaConfigurationTest {
         doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         subscribeToCertificateUpdates(request);
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        configureCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
         // Called 2 times. 1 for initial manages CA and then after the config is changes to use custom CA
         asyncCall.getLeft().get(2, TimeUnit.SECONDS);
@@ -324,27 +335,85 @@ public class CustomCaConfigurationTest {
     }
 
     @Test
-    void GIVEN_invalidConfigUri_WHEN_failures_THEN_serviceCanRecoverAfterGoodURIProvided(ExtensionContext context) throws CertificateException,
-            NoSuchAlgorithmException, OperatorCreationException, CertIOException, URISyntaxException,
-            InterruptedException, KeyLoadingException, ServiceUnavailableException, CertificateChainLoadingException,
-            ServiceLoadException, KeyStoreException {
+    void GIVEN_invalidConfigServiceErrored_WHEN_whenCorrected_THEN_serviceCanRecover(ExtensionContext context)
+            throws CertificateException, NoSuchAlgorithmException, OperatorCreationException, CertIOException,
+            URISyntaxException, InterruptedException, KeyLoadingException, ServiceUnavailableException,
+            CertificateChainLoadingException, ServiceLoadException, KeyStoreException {
         ignoreExceptionOfType(context, InvalidConfigurationException.class);
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         KeyPair[] certificateKeys = credentials.getRight();
         KeyPair intermediateKeyPair = certificateKeys[0];
-        givenNucleusRunningWithConfig("config.yaml");
+        CountDownLatch authServiceErrored = new CountDownLatch(1);
+        Consumer<State> serviceStateChangeListener = (State s) -> {
+            if (s.equals(State.ERRORED)) {
+                authServiceErrored.countDown();
+            }
+        };
+
+        givenNucleusRunningWithConfig("config.yaml", serviceStateChangeListener);
+        configureCDAWithCustomCertificateAuthority(new URI("file:///private.key"), new URI(""));
 
         // Configure Custom CA with bad values
-        givenCDAWithCustomCertificateAuthority(new URI("file:///private.key"), new URI(""));
         verify(certificateStoreSpy, times(1)).setCaKeyAndCertificateChain(any(), any(), any());
+        assertThat(authServiceErrored.await(10L, TimeUnit.SECONDS), is(true));
 
         // Configure with Good values
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
         doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        configureCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
         verify(certificateStoreSpy, times(2)).setCaKeyAndCertificateChain(any(), any(), any());
+    }
+
+    @Test
+    void GIVEN_invalidConfigServiceBroken_WHEN_whenCorrected_THEN_serviceCanRecover(ExtensionContext context)
+            throws CertificateException, NoSuchAlgorithmException, OperatorCreationException, CertIOException,
+            URISyntaxException, InterruptedException, KeyLoadingException, ServiceUnavailableException,
+            CertificateChainLoadingException, ServiceLoadException, KeyStoreException {
+        ignoreExceptionOfType(context, InvalidConfigurationException.class);
+        ignoreExceptionOfType(context, URISyntaxException.class);
+        long waitTimeMsAfterConfigChange = 500;
+        Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
+        X509Certificate[] chain = credentials.getLeft();
+        KeyPair[] certificateKeys = credentials.getRight();
+        KeyPair intermediateKeyPair = certificateKeys[0];
+
+        CountDownLatch authServiceBroken = new CountDownLatch(1);
+        CountDownLatch recoveredFromBroken = new CountDownLatch(1);
+        AtomicBoolean wasBroken = new AtomicBoolean(false);
+        Consumer<State> serviceStateChangeListener = (State s) -> {
+            System.out.println(s);
+            System.out.println(wasBroken.get() && s.equals(State.RUNNING));
+            if (s.equals(State.BROKEN)) {
+                wasBroken.getAndSet(true);
+                authServiceBroken.countDown();
+            }
+
+            if (wasBroken.get() && s.equals(State.RUNNING)) {
+                recoveredFromBroken.countDown();
+            }
+        };
+
+        givenNucleusRunningWithConfig("config.yaml", serviceStateChangeListener);
+        verify(certificateStoreSpy, times(1)).setCaKeyAndCertificateChain(any(), any(), any());
+
+        // Do enough bad operations until the service goes belly up
+        configureCDAWithCustomCertificateAuthority(new URI("file:///private.key"), new URI(""));
+        Thread.sleep(waitTimeMsAfterConfigChange); // Give enough time for the kernel to cycle through retries and fail
+        configureCDAWithCustomCertificateAuthority(new URI(""), new URI("file:///certificate.key"));
+        Thread.sleep(waitTimeMsAfterConfigChange);
+        configureCDAWithCustomCertificateAuthority(new URI("/private.key"), new URI("file:///certificate.key"));
+        Thread.sleep(waitTimeMsAfterConfigChange);
+        assertThat(authServiceBroken.await(10L, TimeUnit.SECONDS), is(true));
+
+        //  Do the right thing
+        URI privateKeyUri = new URI("file:///private.key");
+        URI certificateUri = new URI("file:///certificate.pem");
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
+        configureCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        assertThat(recoveredFromBroken.await(10L, TimeUnit.SECONDS), is(true));
     }
 }
