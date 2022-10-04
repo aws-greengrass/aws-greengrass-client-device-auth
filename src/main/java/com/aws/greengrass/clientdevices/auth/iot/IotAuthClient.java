@@ -62,7 +62,7 @@ public interface IotAuthClient {
             } catch (Exception e) {
                 logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
                         .log("Failed to verify client device identity with cloud. Check that the core device's IoT "
-                                + "policy grants the greengrass:VerifyClientDeviceIdentity permission.");
+                                + "policy grants the greengrass:VerifyClientDeviceIdentity permission");
                 throw new CloudServiceInteractionException("Failed to verify client device identity", e);
             }
         }
@@ -71,7 +71,7 @@ public interface IotAuthClient {
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
         public Certificate getIotCertificate(String certificatePem) throws InvalidCertificateException {
             if (Utils.isEmpty(certificatePem)) {
-                throw new IllegalArgumentException("Certificate PEM is empty");
+                throw new InvalidCertificateException("Certificate PEM is empty");
             }
 
             // Throws InvalidCertificateException if we can't parse the certificate
@@ -91,7 +91,7 @@ public interface IotAuthClient {
                 // TODO: don't log at error level for network failures
                 logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
                         .log("Failed to verify client device identity with cloud. Check that the core device's IoT "
-                                + "policy grants the greengrass:VerifyClientDeviceIdentity permission.");
+                                + "policy grants the greengrass:VerifyClientDeviceIdentity permission");
                 cert.setStatus(Certificate.Status.UNKNOWN);
             }
 

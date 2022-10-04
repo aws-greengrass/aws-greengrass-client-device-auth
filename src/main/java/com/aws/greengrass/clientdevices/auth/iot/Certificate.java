@@ -12,7 +12,8 @@ import lombok.Getter;
 import org.bouncycastle.util.encoders.Hex;
 
 import java.io.ByteArrayInputStream;
-import java.io.UnsupportedEncodingException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -58,7 +59,7 @@ public class Certificate implements AttributeProvider {
         try {
             String certificateId = computeCertificateId(certificatePem);
             return new Certificate(certificateId);
-        } catch (CertificateException | NoSuchAlgorithmException | UnsupportedEncodingException e) {
+        } catch (CertificateException | NoSuchAlgorithmException | IOException e) {
             throw new InvalidCertificateException("Unable to parse certificate PEM", e);
         }
     }
@@ -109,12 +110,13 @@ public class Certificate implements AttributeProvider {
     }
 
     private static String computeCertificateId(String certificatePem)
-            throws CertificateException, NoSuchAlgorithmException, UnsupportedEncodingException {
+            throws CertificateException, NoSuchAlgorithmException, IOException {
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
-        X509Certificate cert = (X509Certificate) cf.generateCertificate(
-                new ByteArrayInputStream(certificatePem.getBytes(StandardCharsets.UTF_8)));
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        digest.reset();
-        return new String(Hex.encode(digest.digest(cert.getEncoded())), "UTF-8");
+        try (InputStream is = new ByteArrayInputStream(certificatePem.getBytes(StandardCharsets.UTF_8))) {
+            X509Certificate cert = (X509Certificate) cf.generateCertificate(is);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.reset();
+            return new String(Hex.encode(digest.digest(cert.getEncoded())), StandardCharsets.UTF_8);
+        }
     }
 }
