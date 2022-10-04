@@ -127,16 +127,16 @@ public class ThingRegistry {
     public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
         try {
             if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
-                thing.attachCertificate(certificate.getIotCertificateId());
+                thing.attachCertificate(certificate.getCertificateId());
                 updateThing(thing);
                 return true;
             } else {
-                thing.detachCertificate(certificate.getIotCertificateId());
+                thing.detachCertificate(certificate.getCertificateId());
                 updateThing(thing);
             }
         } catch (CloudServiceInteractionException e) {
             List<String> certIds = thing.getAttachedCertificateIds();
-            if (certIds.contains(certificate.getIotCertificateId())) {
+            if (certIds.contains(certificate.getCertificateId())) {
                 return true;
             }
             throw e;

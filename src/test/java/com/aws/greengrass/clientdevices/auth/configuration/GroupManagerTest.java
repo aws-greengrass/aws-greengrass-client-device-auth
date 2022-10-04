@@ -9,7 +9,6 @@ import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
 import com.aws.greengrass.clientdevices.auth.configuration.parser.ParseException;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Test;
@@ -102,7 +101,7 @@ public class GroupManagerTest {
 
     private Session getSessionFromThing(String thingName) {
         Thing thing = Thing.of(thingName);
-        return new SessionImpl(new Certificate("FAKE_CERT_ID"), thing);
+        return new SessionImpl(thing);
     }
 
     private GroupDefinition getGroupDefinition(String thingName, String policyName) throws ParseException {
