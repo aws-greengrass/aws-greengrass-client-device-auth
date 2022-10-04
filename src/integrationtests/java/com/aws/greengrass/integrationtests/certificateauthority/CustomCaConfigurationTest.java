@@ -384,8 +384,6 @@ public class CustomCaConfigurationTest {
         CountDownLatch recoveredFromBroken = new CountDownLatch(1);
         AtomicBoolean wasBroken = new AtomicBoolean(false);
         Consumer<State> serviceStateChangeListener = (State s) -> {
-            System.out.println(s);
-            System.out.println(wasBroken.get() && s.equals(State.RUNNING));
             if (s.equals(State.BROKEN)) {
                 wasBroken.getAndSet(true);
                 authServiceBroken.countDown();
