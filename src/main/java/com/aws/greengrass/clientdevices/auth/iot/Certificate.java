@@ -8,18 +8,96 @@ package com.aws.greengrass.clientdevices.auth.iot;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.StringLiteralAttribute;
-import lombok.NonNull;
-import lombok.Value;
+import lombok.Getter;
+import org.bouncycastle.util.encoders.Hex;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
 
-@Value
+@Getter
 public class Certificate implements AttributeProvider {
     public static final String NAMESPACE = "Certificate";
 
-    @NonNull
-    String iotCertificateId; // Needed for certificate revocation
+    public enum Status {
+        ACTIVE,
+        INACTIVE,
+        UNKNOWN
+    }
+
+    String certificateId;
+    Status status;
+    Instant lastUpdated;
+
+
+    /**
+     * TODO: Make this private.
+     * @param certificateId certificate ID
+     */
+    public Certificate(String certificateId) {
+        this.certificateId = certificateId;
+        this.status = Status.UNKNOWN;
+        this.lastUpdated = Instant.MIN;
+    }
+
+    /**
+     * Factory method to construct a Certificate object from certificate PEM.
+     * @param certificatePem Certificate PEM
+     * @return Certificate
+     * @throws InvalidCertificateException if certificate PEM is invalid
+     */
+    public static Certificate fromPem(String certificatePem) throws InvalidCertificateException {
+        try {
+            String certificateId = computeCertificateId(certificatePem);
+            return new Certificate(certificateId);
+        } catch (CertificateException | NoSuchAlgorithmException | IOException e) {
+            throw new InvalidCertificateException("Unable to parse certificate PEM", e);
+        }
+    }
+
+    /**
+     * Set certificate status as of the current time.
+     * @param status Certificate status
+     */
+    public void setStatus(Status status) {
+        setStatus(status, Instant.now());
+    }
+
+    /**
+     * Set certificate status as of the provided time.
+     * @param status      Certificate status
+     * @param lastUpdated Timestamp
+     */
+    public void setStatus(Status status, Instant lastUpdated) {
+        this.status = status;
+        this.lastUpdated = lastUpdated;
+    }
+
+    /**
+     * Check certificate status.
+     * @return true if this certificate is active in IoT Core.
+     */
+    public boolean isActive() {
+        return status == Status.ACTIVE;
+    }
+
+    /**
+     * Retrieve certificate PEM.
+     * @return certificate PEM as a UTF-8 encoded string
+     * @throws UnsupportedOperationException since this is not yet supported
+     */
+    public String getCertificatePem() {
+        throw new UnsupportedOperationException("Retrieving certificate PEM currently not supported");
+    }
 
     @Override
     public String getNamespace() {
@@ -28,6 +106,17 @@ public class Certificate implements AttributeProvider {
 
     @Override
     public Map<String, DeviceAttribute> getDeviceAttributes() {
-        return Collections.singletonMap("CertificateId", new StringLiteralAttribute(getIotCertificateId()));
+        return Collections.singletonMap("CertificateId", new StringLiteralAttribute(getCertificateId()));
+    }
+
+    private static String computeCertificateId(String certificatePem)
+            throws CertificateException, NoSuchAlgorithmException, IOException {
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        try (InputStream is = new ByteArrayInputStream(certificatePem.getBytes(StandardCharsets.UTF_8))) {
+            X509Certificate cert = (X509Certificate) cf.generateCertificate(is);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.reset();
+            return new String(Hex.encode(digest.digest(cert.getEncoded())), StandardCharsets.UTF_8);
+        }
     }
 }

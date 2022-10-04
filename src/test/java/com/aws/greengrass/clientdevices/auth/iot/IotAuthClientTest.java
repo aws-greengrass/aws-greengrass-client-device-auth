@@ -133,7 +133,7 @@ public class IotAuthClientTest {
     @Test
     void GIVEN_certificateAndThing_and_cloudVerificationSuccess_WHEN_isThingAttachedToCertificate_THEN_returnTrue() {
         when(thing.getThingName()).thenReturn("thingName");
-        when(certificate.getIotCertificateId()).thenReturn("certificateId");
+        when(certificate.getCertificateId()).thenReturn("certificateId");
         when(client.verifyClientDeviceIoTCertificateAssociation(
                 any(VerifyClientDeviceIoTCertificateAssociationRequest.class)))
                 .thenReturn(VerifyClientDeviceIoTCertificateAssociationResponse.builder().build());
@@ -150,7 +150,7 @@ public class IotAuthClientTest {
             ExtensionContext context) {
         ignoreExceptionOfType(context, ValidationException.class);
         when(thing.getThingName()).thenReturn("thingName");
-        when(certificate.getIotCertificateId()).thenReturn("certificateId");
+        when(certificate.getCertificateId()).thenReturn("certificateId");
         when(client.verifyClientDeviceIoTCertificateAssociation(
                 any(VerifyClientDeviceIoTCertificateAssociationRequest.class))).thenThrow(ValidationException.class);
 
@@ -162,7 +162,7 @@ public class IotAuthClientTest {
             ExtensionContext context) {
         ignoreExceptionOfType(context, AccessDeniedException.class);
         when(thing.getThingName()).thenReturn("thingName");
-        when(certificate.getIotCertificateId()).thenReturn("certificateId");
+        when(certificate.getCertificateId()).thenReturn("certificateId");
         when(client.verifyClientDeviceIoTCertificateAssociation(
                 any(VerifyClientDeviceIoTCertificateAssociationRequest.class))).thenThrow(AccessDeniedException.class);
 
@@ -185,7 +185,7 @@ public class IotAuthClientTest {
             ExtensionContext context) {
         ignoreExceptionOfType(context, IllegalArgumentException.class);
         when(thing.getThingName()).thenReturn("thingName");
-        when(certificate.getIotCertificateId()).thenReturn("");
+        when(certificate.getCertificateId()).thenReturn("");
 
         assertThrows(IllegalArgumentException.class,
                 () -> iotAuthClient.isThingAttachedToCertificate(thing, certificate));
