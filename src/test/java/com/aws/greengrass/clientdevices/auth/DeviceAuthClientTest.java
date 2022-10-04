@@ -12,7 +12,6 @@ import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
@@ -74,7 +73,7 @@ public class DeviceAuthClientTest {
     @Test
     void GIVEN_missingDevicePermission_WHEN_canDevicePerform_THEN_authorizationReturnFalse() throws Exception {
         String sessionId = "FAKE_SESSION";
-        Session session = new SessionImpl(new Certificate("certificateId"));
+        Session session = new SessionImpl();
         when(sessionManager.findSession(sessionId)).thenReturn(session);
         AuthorizationRequest authorizationRequest =
                 new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId);
@@ -83,7 +82,7 @@ public class DeviceAuthClientTest {
 
     @Test
     void GIVEN_sessionHasPermission_WHEN_canDevicePerform_THEN_authorizationReturnTrue() throws Exception {
-        Session session = new SessionImpl(new Certificate("certificateId"));
+        Session session = new SessionImpl();
         when(sessionManager.findSession("sessionId")).thenReturn(session);
         when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
                 Collections.singleton(
@@ -97,7 +96,7 @@ public class DeviceAuthClientTest {
 
     @Test
     void GIVEN_internalClientSession_WHEN_canDevicePerform_THEN_authorizationReturnTrue() throws Exception {
-        Session session = new SessionImpl(new Certificate("certificateId"), new Component());
+        Session session = new SessionImpl(new Component());
         when(sessionManager.findSession("sessionId")).thenReturn(session);
 
         boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());

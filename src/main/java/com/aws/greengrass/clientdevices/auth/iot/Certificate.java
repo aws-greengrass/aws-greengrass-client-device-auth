@@ -39,11 +39,7 @@ public class Certificate implements AttributeProvider {
     Instant lastUpdated;
 
 
-    /**
-     * TODO: Make this private.
-     * @param certificateId certificate ID
-     */
-    public Certificate(String certificateId) {
+    Certificate(String certificateId) {
         this.certificateId = certificateId;
         this.status = Status.UNKNOWN;
         this.lastUpdated = Instant.MIN;
