@@ -72,8 +72,10 @@ public class ClientDevicesAuthService extends PluginService {
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private ThreadPoolExecutor cloudCallThreadPool;
     private int cloudCallQueueSize;
+
+    private final Object configLock = new Object();
     private CDAConfiguration cdaConfiguration;
-    private boolean configurationErrored = false;
+    private volatile boolean configurationErrored = false;
 
 
     /**
@@ -147,25 +149,30 @@ public class ClientDevicesAuthService extends PluginService {
             return;
         }
 
-        try {
-            CDAConfiguration configuration = CDAConfiguration.from(cdaConfiguration, getConfig());
+        // Note: Need to synchronize this block given multiple threads can be reading the value of configurationErrored
+        // and changing it.
+        synchronized (configLock) {
+            try {
+                CDAConfiguration configuration = CDAConfiguration.from(cdaConfiguration, getConfig());
 
-            if (configuration.isEqual(cdaConfiguration)) {
-                return;
+                if (configuration.isEqual(cdaConfiguration)) {
+                    return;
+                }
+
+                cdaConfiguration = configuration;
+
+                // Good configuration and was previously broken
+                if (inState(State.BROKEN)) {
+                    logger.info("Service is {} and configuration changed. Attempting to reinstall.", State.BROKEN);
+                    configurationErrored = false;
+                    requestReinstall();
+                }
+            } catch (URISyntaxException | InvalidConfigurationException e) {
+                configurationErrored = true;
+                serviceErrored(e);
             }
-
-            cdaConfiguration = configuration;
-
-            // Good configuration and was previously broken
-            if (inState(State.BROKEN)) {
-                logger.info("Service is {} and configuration changed. Attempting to reinstall.", State.BROKEN);
-                configurationErrored = false;
-                requestReinstall();
-            }
-        } catch (URISyntaxException | InvalidConfigurationException e) {
-            configurationErrored = true;
-            serviceErrored(e);
         }
+
     }
 
     private void configChangeHandler(WhatHappened whatHappened, Node node) {
@@ -209,9 +216,11 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CertificateManager.class).startMonitors();
         super.startup();
 
-        if (configurationErrored) {
-            configurationErrored = false;
-            onConfigurationChanged();
+        synchronized (configLock) {
+            if (configurationErrored) {
+                configurationErrored = false;
+                onConfigurationChanged();
+            }
         }
     }
 
