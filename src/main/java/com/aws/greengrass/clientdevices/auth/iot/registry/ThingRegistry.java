@@ -12,30 +12,28 @@ import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import javax.inject.Inject;
 
 public class ThingRegistry {
-    // holds mapping of thingName to IoT Certificate IDs;
-    // size-bound by default cache size, evicts oldest written entry if the max size is reached
-    private final Map<String, Thing> registry = Collections.synchronizedMap(
-            new LinkedHashMap<String, Thing>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry eldest) {
-                    return size() > RegistryConfig.REGISTRY_CACHE_SIZE;
-                }
-            });
-
     private final IotAuthClient iotAuthClient;
     private final DomainEvents domainEvents;
+    private final ThingConfigStoreAdapter configStoreAdapter;
 
+    /**
+     * Construct Thing Registry.
+     *
+     * @param iotAuthClient      IoT Auth Client
+     * @param domainEvents       Domain Events
+     * @param configStoreAdapter Runtime configuration store adapter
+     */
     @Inject
-    public ThingRegistry(IotAuthClient iotAuthClient, DomainEvents domainEvents) {
+    public ThingRegistry(IotAuthClient iotAuthClient,
+                         DomainEvents domainEvents,
+                         ThingConfigStoreAdapter configStoreAdapter) {
         this.iotAuthClient = iotAuthClient;
         this.domainEvents = domainEvents;
+        this.configStoreAdapter = configStoreAdapter;
     }
 
     /**
@@ -105,11 +103,11 @@ public class ThingRegistry {
     }
 
     private Thing getThingInternal(String thingName) {
-        return registry.get(thingName);
+        return configStoreAdapter.getThing(thingName).orElse(Thing.of(thingName));
     }
 
     private Thing storeThing(Thing thing) {
-        registry.put(thing.getThingName(), thing);
+        configStoreAdapter.createOrUpdateThing(thing);
         domainEvents.emit(new ThingUpdated(thing.getThingName(), thing.getVersion()));
         return thing;
     }

@@ -9,7 +9,9 @@ import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.util.Coerce;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Manages the runtime configuration for the plugin. It allows to read and write
@@ -19,6 +21,9 @@ import java.util.List;
  * |    |---- ca_passphrase: "..."
  * |    |---- certificates:
  * |         |---- authorities: [...]
+ * |    |---- clientDeviceThings:
+ * |          |---- thingName:
+ * |                |---- key: "value"
  * |
  * </p>
  */
@@ -26,6 +31,7 @@ public final class RuntimeConfiguration {
     public static final String CA_PASSPHRASE_KEY = "ca_passphrase";
     private static final String AUTHORITIES_KEY = "authorities";
     private static final String CERTIFICATES_KEY = "certificates";
+    private static final String CLIENT_DEVICE_THINGS_KEY = "clientDeviceThings";
     private final Topics config;
 
 
@@ -66,4 +72,31 @@ public final class RuntimeConfiguration {
         caPassphrase.withValue(passphrase);
     }
 
+    /**
+     * Update (or create if not available) opaque client device thing details in the config.
+     *
+     * @param thingName    client device Thing name
+     * @param thingDetails opaque client device Thing details
+     */
+    public void updateClientDeviceThing(String thingName, Map<String, Object> thingDetails) {
+        Topics clientDeviceThings = config.lookupTopics(CLIENT_DEVICE_THINGS_KEY);
+        Topics clientDeviceThing = clientDeviceThings.lookupTopics(thingName);
+        clientDeviceThing.replaceAndWait(thingDetails);
+    }
+
+    /**
+     * Retrieves opaque client device thing details from the config.
+     *
+     * @param thingName Thing name
+     * @return map of thing details
+     */
+    public Map<String, Object> getClientDeviceThing(String thingName) {
+        Topics clientDeviceThings = config.findTopics(CLIENT_DEVICE_THINGS_KEY);
+        if (clientDeviceThings == null || clientDeviceThings.findTopics(thingName) == null
+                || clientDeviceThings.findTopics(thingName).isEmpty()) {
+            return Collections.emptyMap();
+        } else {
+            return clientDeviceThings.findTopics(thingName).toPOJO();
+        }
+    }
 }

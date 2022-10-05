@@ -15,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRot
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
@@ -89,6 +90,7 @@ public class ClientDevicesAuthService extends PluginService {
 
         context.get(UseCases.class).init(context);
         context.get(CertificateManager.class).updateCertificatesConfiguration(new CertificatesConfig(getConfig()));
+        context.put(RuntimeConfiguration.class, RuntimeConfiguration.from(getRuntimeConfig()));
         initializeInfrastructure();
         initializeHandlers();
         subscribeToConfigChanges();

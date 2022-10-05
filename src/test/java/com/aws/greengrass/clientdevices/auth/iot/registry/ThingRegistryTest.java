@@ -7,11 +7,15 @@ package com.aws.greengrass.clientdevices.auth.iot.registry;
 
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
+import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -19,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.util.Collections;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -37,18 +42,27 @@ import static org.mockito.Mockito.when;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class ThingRegistryTest {
     private static final String mockThingName = "mock-thing";
-    private static final Thing mockThing = Thing.of("mock-thing");
+    private static final Thing mockThing = Thing.of(mockThingName);
     private static final Certificate mockCertificate = new Certificate("mock-certificateId");
 
     @Mock
     private IotAuthClient mockIotAuthClient;
+    private ThingConfigStoreAdapter configStoreAdapter;
     private DomainEvents domainEvents;
     private ThingRegistry registry;
+    private Topics configTopic;
 
     @BeforeEach
     void beforeEach() {
         domainEvents = new DomainEvents();
-        registry = new ThingRegistry(mockIotAuthClient, domainEvents);
+        configTopic = Topics.of(new Context(), "config", null);
+        configStoreAdapter = new ThingConfigStoreAdapter(RuntimeConfiguration.from(configTopic));
+        registry = new ThingRegistry(mockIotAuthClient, domainEvents, configStoreAdapter);
+    }
+
+    @AfterEach
+    void afterEach() throws IOException {
+        configTopic.context.close();
     }
 
     @Test
