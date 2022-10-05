@@ -9,7 +9,6 @@ import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.util.Coerce;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -23,8 +22,7 @@ import java.util.Map;
  * |         |---- authorities: [...]
  * |    |---- clientDeviceThings:
  * |          |---- thingName:
- * |                |---- key: "value"
- * |
+ * |                |---- key: value
  * </p>
  */
 public final class RuntimeConfiguration {
@@ -73,30 +71,59 @@ public final class RuntimeConfiguration {
     }
 
     /**
-     * Update (or create if not available) opaque client device thing details in the config.
+     * Retrieves opaque client device thing configuration.
      *
-     * @param thingName    client device Thing name
-     * @param thingDetails opaque client device Thing details
+     * @param thingName Thing name
+     * @return config topic mapped to given thing name
      */
-    public void updateClientDeviceThing(String thingName, Map<String, Object> thingDetails) {
-        Topics clientDeviceThings = config.lookupTopics(CLIENT_DEVICE_THINGS_KEY);
-        Topics clientDeviceThing = clientDeviceThings.lookupTopics(thingName);
+    public Topics getClientDeviceThing(String thingName) {
+        return config.findTopics(CLIENT_DEVICE_THINGS_KEY, thingName);
+    }
+
+    /**
+     * Create or replace client device thing details in the config.
+     * @param thingName    client device thing name
+     * @param thingDetails thing details
+     */
+    public void createOrReplaceClientDeviceThing(String thingName, Map<String, Object> thingDetails) {
+        Topics clientDeviceThing = config.lookupTopics(CLIENT_DEVICE_THINGS_KEY, thingName);
         clientDeviceThing.replaceAndWait(thingDetails);
     }
 
     /**
-     * Retrieves opaque client device thing details from the config.
+     * Update client device thing details in the config.
      *
-     * @param thingName Thing name
-     * @return map of thing details
+     * @param thingName    client device Thing name
+     * @param thingDetails map of client device Thing details to be updated
      */
-    public Map<String, Object> getClientDeviceThing(String thingName) {
-        Topics clientDeviceThings = config.findTopics(CLIENT_DEVICE_THINGS_KEY);
-        if (clientDeviceThings == null || clientDeviceThings.findTopics(thingName) == null
-                || clientDeviceThings.findTopics(thingName).isEmpty()) {
-            return Collections.emptyMap();
+    public void updateClientDeviceThing(String thingName, Map<String, Object> thingDetails) {
+        Topics clientDeviceThing = config.findTopics(CLIENT_DEVICE_THINGS_KEY, thingName);
+        if (clientDeviceThing == null) {
+            return;
+        }
+        thingDetails.forEach((key, value) -> updateClientDeviceThingDetail(clientDeviceThing, key, value));
+    }
+
+    @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
+    private void updateClientDeviceThingDetail(Topics clientDeviceThing, String detailKey, Object newValue) {
+        Topic thingDetail = clientDeviceThing.lookup(detailKey);
+        IllegalArgumentException ex = new IllegalArgumentException(
+                String.format("Unsupported thing detail value %s", newValue));
+        if (newValue instanceof Integer) {
+            thingDetail.withValue((Integer) newValue);
+        } else if (newValue instanceof String) {
+            thingDetail.withValue((String) newValue);
+        } else if (newValue instanceof List<?>) {
+            for (Object obj : (List<?>) newValue) {
+                if (obj instanceof String) {
+                    thingDetail.withValue((List<String>) newValue);
+                } else {
+                    throw ex;
+                }
+                break;
+            }
         } else {
-            return clientDeviceThings.findTopics(thingName).toPOJO();
+            throw ex;
         }
     }
 }

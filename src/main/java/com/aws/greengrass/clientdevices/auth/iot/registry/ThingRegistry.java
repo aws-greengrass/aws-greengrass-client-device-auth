@@ -107,7 +107,7 @@ public class ThingRegistry {
     }
 
     private Thing storeThing(Thing thing) {
-        configStoreAdapter.createOrUpdateThing(thing);
+        configStoreAdapter.createThing(thing);
         domainEvents.emit(new ThingUpdated(thing.getThingName(), thing.getVersion()));
         return thing;
     }

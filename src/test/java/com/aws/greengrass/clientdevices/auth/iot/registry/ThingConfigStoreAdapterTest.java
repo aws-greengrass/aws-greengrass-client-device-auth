@@ -52,7 +52,7 @@ class ThingConfigStoreAdapterTest {
     @Test
     void GIVEN_validThingName_WHEN_getThing_THEN_validThingReturned() {
         Thing createdThing = Thing.of(1, mockThingName, mockAttachedCertIds);
-        configStoreAdapter.createOrUpdateThing(createdThing);
+        configStoreAdapter.createThing(createdThing);
         Thing retrievedThing = configStoreAdapter.getThing(mockThingName).get();
         assertNotNull(retrievedThing);
         assertEquals(retrievedThing, createdThing);
@@ -61,9 +61,9 @@ class ThingConfigStoreAdapterTest {
     @Test
     void GIVEN_validThing_WHEN_updateThing_THEN_thingUpdated() {
         Thing createdThing = Thing.of(1, mockThingName, mockAttachedCertIds);
-        configStoreAdapter.createOrUpdateThing(createdThing);
+        configStoreAdapter.createThing(createdThing);
         Thing updatedThing = Thing.of(2, mockThingName, Collections.emptyList());
-        configStoreAdapter.createOrUpdateThing(updatedThing);
+        configStoreAdapter.createThing(updatedThing);
         Thing retrievedThing = configStoreAdapter.getThing(mockThingName).get();
         assertNotNull(retrievedThing);
         assertEquals(retrievedThing, updatedThing);
@@ -78,7 +78,7 @@ class ThingConfigStoreAdapterTest {
 
     @Test
     void GIVEN_invalidThing_WHEN_updateThing_THEN_exceptionThrown() {
-        assertThrows(IllegalArgumentException.class, () -> configStoreAdapter.createOrUpdateThing(null));
+        assertThrows(IllegalArgumentException.class, () -> configStoreAdapter.createThing(null));
     }
 
 }
