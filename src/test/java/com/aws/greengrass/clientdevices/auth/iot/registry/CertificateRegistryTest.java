@@ -12,7 +12,6 @@ import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.operator.OperatorCreationException;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,18 +40,16 @@ class CertificateRegistryTest {
     private CertificateRegistry registry;
 
     @BeforeAll
-    static void beforeAll() {
-        try {
-            KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
-            KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
-            X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
+    static void beforeAll()
+            throws CertificateException, NoSuchAlgorithmException, OperatorCreationException, IOException {
+        KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
+        KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
 
-            validClientCertificate = CertificateTestHelpers.createClientCertificate(rootCA, "Client", clientKeyPair.getPublic(),
-                    rootKeyPair.getPrivate());
-            validClientCertificatePem = CertificateHelper.toPem(validClientCertificate);
-        } catch (NoSuchAlgorithmException | CertificateException | OperatorCreationException | IOException e) {
-            Assertions.fail("Unable to initialize test certificates!");
-        }
+        validClientCertificate =
+                CertificateTestHelpers.createClientCertificate(rootCA, "Client", clientKeyPair.getPublic(),
+                        rootKeyPair.getPrivate());
+        validClientCertificatePem = CertificateHelper.toPem(validClientCertificate);
     }
 
     @BeforeEach
