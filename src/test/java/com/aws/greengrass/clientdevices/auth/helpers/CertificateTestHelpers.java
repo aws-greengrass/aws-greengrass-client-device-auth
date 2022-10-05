@@ -70,7 +70,7 @@ public final class CertificateTestHelpers {
     }
 
     private enum CertificateTypes {
-        ROOT_CA, INTERMEDIATE_CA, SERVER_CERTIFICATE
+        ROOT_CA, INTERMEDIATE_CA, SERVER_CERTIFICATE, CLIENT_CERTIFICATE
     }
 
     public static X509Certificate createRootCertificateAuthority(String commonName, KeyPair kp)
@@ -85,10 +85,18 @@ public final class CertificateTestHelpers {
         return createCertificate(caCert, commonName, publicKey, caPrivateKey, CertificateTypes.INTERMEDIATE_CA);
     }
 
-    static X509Certificate createServerCertificate(X509Certificate caCert, String commonName, PublicKey publicKey,
+    public static X509Certificate createServerCertificate(X509Certificate caCert, String commonName,
+                                                          PublicKey publicKey,
                                                    PrivateKey caPrivateKey)
             throws NoSuchAlgorithmException, CertificateException, IOException, OperatorCreationException {
         return createCertificate(caCert, commonName, publicKey, caPrivateKey, CertificateTypes.SERVER_CERTIFICATE);
+    }
+
+    public static X509Certificate createClientCertificate(X509Certificate caCert, String commonName,
+                                                          PublicKey publicKey,
+                                                   PrivateKey caPrivateKey)
+            throws CertificateException, NoSuchAlgorithmException, OperatorCreationException, CertIOException {
+        return createCertificate(caCert, commonName, publicKey, caPrivateKey, CertificateTypes.CLIENT_CERTIFICATE);
     }
 
     private static X509Certificate createCertificate(X509Certificate caCert, String commonName, PublicKey publicKey,
@@ -149,6 +157,15 @@ public final class CertificateTestHelpers {
                     .addExtension(Extension.basicConstraints, true, new BasicConstraints(false))
                     .addExtension(Extension.extendedKeyUsage, true,
                             new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+        }
+
+        if (type == CertificateTypes.CLIENT_CERTIFICATE) {
+            builder
+                    .addExtension(Extension.authorityKeyIdentifier, false,
+                            extUtils.createAuthorityKeyIdentifier(caCert))
+                    .addExtension(Extension.basicConstraints, true, new BasicConstraints(false))
+                    .addExtension(Extension.extendedKeyUsage, true,
+                            new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth));
         }
     }
 

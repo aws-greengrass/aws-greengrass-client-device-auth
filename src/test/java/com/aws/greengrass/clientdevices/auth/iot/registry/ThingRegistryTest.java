@@ -10,6 +10,8 @@ import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
+import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
+import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.config.Topics;
@@ -43,7 +45,7 @@ import static org.mockito.Mockito.when;
 class ThingRegistryTest {
     private static final String mockThingName = "mock-thing";
     private static final Thing mockThing = Thing.of(mockThingName);
-    private static final Certificate mockCertificate = new Certificate("mock-certificateId");
+    private static Certificate mockCertificate;
 
     @Mock
     private IotAuthClient mockIotAuthClient;
@@ -53,11 +55,12 @@ class ThingRegistryTest {
     private Topics configTopic;
 
     @BeforeEach
-    void beforeEach() {
+    void beforeEach() throws InvalidCertificateException {
         domainEvents = new DomainEvents();
         configTopic = Topics.of(new Context(), "config", null);
         configStoreAdapter = new ThingConfigStoreAdapter(RuntimeConfiguration.from(configTopic));
         registry = new ThingRegistry(mockIotAuthClient, domainEvents, configStoreAdapter);
+        mockCertificate = CertificateFake.of("mock-certificateId");
     }
 
     @AfterEach
