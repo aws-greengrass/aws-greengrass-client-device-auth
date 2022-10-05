@@ -8,12 +8,13 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.config.Topics;
+import lombok.Getter;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
@@ -47,24 +48,27 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
 public final class CDAConfiguration {
 
     private final RuntimeConfiguration runtime;
-    private final CAConfiguration ca;
+    @Getter
+    private final CAConfiguration caConfig;
     private final DomainEvents domainEvents;
 
     private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca) {
         this.domainEvents = domainEvents;
         this.runtime = runtime;
-        this.ca = ca;
+        this.caConfig = ca;
     }
 
     /**
-     * Creates the CDA (Client Device Auth) Service configuration. And allows it to be available in the context
-     * with the updated values
+     * Creates the CDA (Client Device Auth) Service configuration.
      *
      * @param existingConfig  an existing version of the CDAConfiguration
      * @param topics configuration topics from GG
+     *
      * @throws URISyntaxException if invalid URI inside the configuration
+     * @throws InvalidConfigurationException if a part of the configuration is invalid
      */
-    public static CDAConfiguration from(CDAConfiguration existingConfig, Topics topics) throws URISyntaxException {
+    public static CDAConfiguration from(CDAConfiguration existingConfig, Topics topics) throws URISyntaxException,
+            InvalidConfigurationException {
         Topics runtimeTopics = topics.lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC);
         Topics serviceConfiguration = topics.lookupTopics(CONFIGURATION_CONFIG_KEY);
 
@@ -85,20 +89,22 @@ public final class CDAConfiguration {
      * Creates the CDA (Client Device Auth) Service configuration.
      *
      * @param topics configuration topics from GG
+     *
      * @throws URISyntaxException if invalid URI inside the configuration
+     * @throws InvalidConfigurationException if a part of the configuration is invalid
      */
-    public static CDAConfiguration from(Topics topics) throws URISyntaxException {
+    public static CDAConfiguration from(Topics topics) throws URISyntaxException, InvalidConfigurationException {
         return from(null, topics);
     }
 
     private void triggerChanges(CDAConfiguration current, CDAConfiguration prev) {
-        if (hasCAConfigurationChanged(prev)) {
+        if (prev == null || !caConfig.isEqual(prev.getCaConfig())) {
             domainEvents.emit(new CAConfigurationChanged(current));
         }
     }
 
     public boolean isUsingCustomCA() {
-        return ca.isUsingCustomCA();
+        return caConfig.isUsingCustomCA();
     }
 
     public String getCaPassphrase() {
@@ -114,30 +120,28 @@ public final class CDAConfiguration {
     }
 
     public CertificateStore.CAType getCaType() {
-        return ca.getCaType();
+        return caConfig.getCaType();
     }
 
     public Optional<URI> getPrivateKeyUri() {
-        return ca.getPrivateKeyUri();
+        return caConfig.getPrivateKeyUri();
     }
 
     public Optional<URI> getCertificateUri() {
-        return ca.getCertificateUri();
+        return caConfig.getCertificateUri();
     }
 
     /**
-     * Verifies if the configuration for the certificateAuthority has changed, given a previous
-     * configuration.
+     * Verifies if the configuration for the certificateAuthority is equal to another CDA configuration.
      *
-     * @param config  CDAConfiguration
+     * @param configuration  CDAConfiguration
      */
-    private boolean hasCAConfigurationChanged(CDAConfiguration config) {
-        if (config == null) {
-            return true;
+    public boolean isEqual(CDAConfiguration configuration) {
+        if (configuration == null) {
+            return false;
         }
 
-        return !Objects.equals(config.getCertificateUri(), getCertificateUri())
-                || !Objects.equals(config.getPrivateKeyUri(), getPrivateKeyUri())
-                || !Objects.equals(config.getCaType(), getCaType());
+        // TODO: As we add more configurations here we should change the equality comparison.
+        return caConfig.isEqual(configuration.getCaConfig());
     }
 }

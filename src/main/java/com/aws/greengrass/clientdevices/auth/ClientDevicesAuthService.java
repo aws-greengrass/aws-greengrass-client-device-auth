@@ -16,6 +16,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
@@ -26,6 +27,7 @@ import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
 import com.aws.greengrass.dependency.ImplementsService;
+import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.ipc.AuthorizeClientDeviceActionOperationHandler;
 import com.aws.greengrass.ipc.GetClientDeviceAuthTokenOperationHandler;
 import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
@@ -71,6 +73,7 @@ public class ClientDevicesAuthService extends PluginService {
     private ThreadPoolExecutor cloudCallThreadPool;
     private int cloudCallQueueSize;
     private CDAConfiguration cdaConfiguration;
+    private boolean configurationErrored = false;
 
 
     /**
@@ -136,9 +139,31 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void onConfigurationChanged() {
+        // Note: The nucleus emits multiple configuration changed events, one per key that changed. It will also
+        // keep emitting them regardless of the state it is current in. If the configuration was incorrect, we want the
+        // service to error, but we don't want to check again until the nucleus has run the remediation steps (when the
+        // service errors, the nucleus will try to call shutdown -> install -> startup).
+        if (configurationErrored && !inState(State.BROKEN)) {
+            return;
+        }
+
         try {
-            cdaConfiguration = CDAConfiguration.from(cdaConfiguration, getConfig());
-        } catch (URISyntaxException e) {
+            CDAConfiguration configuration = CDAConfiguration.from(cdaConfiguration, getConfig());
+
+            if (configuration.isEqual(cdaConfiguration)) {
+                return;
+            }
+
+            cdaConfiguration = configuration;
+
+            // Good configuration and was previously broken
+            if (inState(State.BROKEN)) {
+                logger.info("Service is {} and configuration changed. Attempting to reinstall.", State.BROKEN);
+                configurationErrored = false;
+                requestReinstall();
+            }
+        } catch (URISyntaxException | InvalidConfigurationException e) {
+            configurationErrored = true;
             serviceErrored(e);
         }
     }
@@ -183,6 +208,11 @@ public class ClientDevicesAuthService extends PluginService {
     protected void startup() throws InterruptedException {
         context.get(CertificateManager.class).startMonitors();
         super.startup();
+
+        if (configurationErrored) {
+            configurationErrored = false;
+            onConfigurationChanged();
+        }
     }
 
     @Override

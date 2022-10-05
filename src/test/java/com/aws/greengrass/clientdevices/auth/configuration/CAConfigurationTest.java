@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -47,27 +48,33 @@ public class CAConfigurationTest {
     }
 
     @Test
-    public void GIVEN_cdaDefaultConfiguration_WHEN_getCATypeList_THEN_returnsEmptyList() throws URISyntaxException {
+    public void GIVEN_cdaDefaultConfiguration_WHEN_getCATypeList_THEN_returnsEmptyList() throws URISyntaxException,
+            InvalidConfigurationException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(caConfiguration.getCaTypeList(), is(Collections.emptyList()));
     }
 
     @Test
-    public void GIVEN_cdaDefaultConfiguration_WHEN_getCAKeyUri_THEN_returnsNull() throws URISyntaxException {
+    public void GIVEN_cdaDefaultConfiguration_WHEN_getCAKeyUri_THEN_returnsNull() throws URISyntaxException,
+            InvalidConfigurationException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertFalse(caConfiguration.getPrivateKeyUri().isPresent());
     }
 
     @Test
-    public void GIVEN_cdaDefaultConfiguration_WHEN_getCACertUri_THEN_returnsNull() throws URISyntaxException {
+    public void GIVEN_cdaDefaultConfiguration_WHEN_getCACertUri_THEN_returnsNull() throws URISyntaxException,
+            InvalidConfigurationException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertFalse(caConfiguration.getCertificateUri().isPresent());
     }
 
     @Test
-    public void GIVEN_cdaConfiguration_WHEN_getCACertUri_THEN_returnsCACertUri() throws URISyntaxException {
+    public void GIVEN_cdaConfiguration_WHEN_getCACertUri_THEN_returnsCACertUri() throws URISyntaxException,
+            InvalidConfigurationException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertFalse(caConfiguration.getCertificateUri().isPresent());
+        configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
+                .withValue("file:///key-uri");
         configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue("file:///cert-uri");
         caConfiguration = CAConfiguration.from(configurationTopics);
@@ -75,24 +82,30 @@ public class CAConfigurationTest {
     }
 
     @Test
-    public void GIVEN_cdaConfiguration_WHEN_getCAKeyUri_THEN_returnsCACertUri() throws URISyntaxException {
+    public void GIVEN_cdaConfiguration_WHEN_getCAKeyUri_THEN_returnsCACertUri() throws URISyntaxException,
+            InvalidConfigurationException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertFalse(caConfiguration.getPrivateKeyUri().isPresent());
         configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
                 .withValue("file:///key-uri");
+        configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
+                .withValue("file:///cert-uri");
         caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(caConfiguration.getPrivateKeyUri().get(), is(new URI("file:///key-uri")));
     }
 
     @Test
-    public void GIVEN_hsmCdaConfiguration_WHEN_getCAKeyUri_THEN_returnsCACertUri() throws URISyntaxException {
+    public void GIVEN_hsmCdaConfiguration_WHEN_getCAKeyUri_THEN_returnsCACertUri() throws URISyntaxException,
+            InvalidConfigurationException {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertFalse(caConfiguration.getPrivateKeyUri().isPresent());
         configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
+                .withValue("pkcs11:object=test;CustomerRootCA;type=private");
+        configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue("pkcs11:object=test;CustomerRootCA;type=cert");
         caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(
-            caConfiguration.getPrivateKeyUri().get(), is(new URI("pkcs11:object=test;CustomerRootCA;type=cert")));
+            caConfiguration.getPrivateKeyUri().get(), is(new URI("pkcs11:object=test;CustomerRootCA;type=private")));
     }
 
     @Test
@@ -104,7 +117,8 @@ public class CAConfigurationTest {
     }
 
     @Test
-    public void GIVEN_cdaConfiguration_WHEN_getCATypeList_THEN_returnsCATypeList() throws URISyntaxException {
+    public void GIVEN_cdaConfiguration_WHEN_getCATypeList_THEN_returnsCATypeList() throws URISyntaxException,
+            InvalidConfigurationException {
         configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_TYPE_KEY)
                 .withValue(Arrays.asList("RSA_2048","ECDSA_P256"));
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
@@ -114,7 +128,8 @@ public class CAConfigurationTest {
     }
 
     @Test
-    public void GIVEN_oldCdaConfiguration_WHEN_reading_ca_type_THEN_returns_ca_type() throws URISyntaxException {
+    public void GIVEN_oldCdaConfiguration_WHEN_reading_ca_type_THEN_returns_ca_type() throws URISyntaxException,
+            InvalidConfigurationException {
         // NOTE: This test is to ensure we are backwards compatible with the v.2.2.2
         // we are changing how/where ca_type is stored
         configurationTopics.lookup(DEPRECATED_CA_TYPE_KEY)
@@ -127,7 +142,7 @@ public class CAConfigurationTest {
 
     @Test
     public void GIVEN_oldCdaConfiguration_and_newCdaConfiguration_WHEN_reading_caType_THEN_newValueRead() throws
-            URISyntaxException {
+            URISyntaxException, InvalidConfigurationException {
         // Old path - pre v.2.2.2
         configurationTopics.lookup(DEPRECATED_CA_TYPE_KEY)
                 .withValue(Arrays.asList("ECDSA_P256"));
