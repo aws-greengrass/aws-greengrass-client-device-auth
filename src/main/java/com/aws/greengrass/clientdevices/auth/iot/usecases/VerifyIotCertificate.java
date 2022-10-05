@@ -40,9 +40,12 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
     public Result<Boolean> apply(String certificatePem) {
         Optional<String> certId = iotAuthClient.getActiveCertificateId(certificatePem);
 
-        // TODO: This code will not handle the case where a certificate is revoked
-        //  This will be handled as part of a subsequent PR, as making that change
-        //  now breaks a lot of fragile tests
+        // NOTE: This code will not remove certificates from the registry if they are revoked
+        //  in IoT Core. This is currently okay, as we will fail those connections during the
+        //  TLS handshake.
+        // Eventually, we need to handle offline and cert revocation scenarios. However, that
+        //  will be handled as part of a subsequent PR, as making that change now breaks a lot
+        //  of fragile tests
         if (certId.isPresent()) {
             try {
                 Certificate clientCertificate;

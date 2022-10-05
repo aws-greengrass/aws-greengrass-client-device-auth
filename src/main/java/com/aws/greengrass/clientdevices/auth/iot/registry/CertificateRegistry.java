@@ -27,6 +27,7 @@ public class CertificateRegistry {
 
     /**
      * Retrieve certificate by certificate pem.
+     *
      * @param certificatePem cert pem
      * @return certificate object
      * @throws InvalidCertificateException if certificate PEM is invalid
@@ -36,12 +37,26 @@ public class CertificateRegistry {
         return getCertificateById(cert.getCertificateId());
     }
 
+    /**
+     * Create and store a new certificate.
+     * </p>
+     * Certificates are created with an initial UNKNOWN state. Callers
+     * are responsible for updating the appropriate metadata and then
+     * calling {@link #updateCertificate(Certificate)}
+     *
+     * @param certificatePem Certificate PEM
+     * @return certificate object
+     * @throws InvalidCertificateException if certificate PEM is invalid
+     */
     public Certificate createCertificate(String certificatePem) throws InvalidCertificateException {
-        return Certificate.fromPem(certificatePem);
+        Certificate newCert = Certificate.fromPem(certificatePem);
+        updateCertificate(newCert);
+        return newCert;
     }
 
     /**
      * Update certificate.
+     *
      * @param certificate certificate object
      */
     public void updateCertificate(Certificate certificate) {
@@ -50,6 +65,7 @@ public class CertificateRegistry {
 
     /**
      * Removes a certificate from the registry.
+     *
      * @param certificate certificate to remove
      */
     public void removeCertificate(Certificate certificate) {
