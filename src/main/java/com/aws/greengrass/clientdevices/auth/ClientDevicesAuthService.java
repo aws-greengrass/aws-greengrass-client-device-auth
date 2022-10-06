@@ -90,7 +90,6 @@ public class ClientDevicesAuthService extends PluginService {
 
         context.get(UseCases.class).init(context);
         context.get(CertificateManager.class).updateCertificatesConfiguration(new CertificatesConfig(getConfig()));
-        context.put(RuntimeConfiguration.class, RuntimeConfiguration.from(getRuntimeConfig()));
         initializeInfrastructure();
         initializeHandlers();
         subscribeToConfigChanges();
@@ -109,6 +108,7 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void initializeInfrastructure() {
+        context.put(RuntimeConfiguration.class, RuntimeConfiguration.from(getRuntimeConfig()));
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
         cloudCallQueueSize = getValidCloudCallQueueSize(config);
         cloudCallThreadPool = new ThreadPoolExecutor(1,

@@ -20,14 +20,16 @@ import javax.inject.Inject;
  * <p>
  * |---- runtime
  * |    |---- clientDeviceThings:
- * |          |---- thingName:
- * |                |---- version: "..."
- * |                |---- attachedCertificateIds: [...]
+ * |          |---- schemaVersion:
+ * |                |---- thingName:
+ * |                      |---- version: "..."
+ * |                      |---- attachedCertificateIds: [...]
  * </p>
  */
 public class ThingConfigStoreAdapter {
-    public static final String THING_VERSION_KEY = "version";
-    public static final String ATTACHED_CERTIFICATE_IDS_KEY = "attachedCertificateIds";
+    private static final String CONFIG_SCHEMA_VERSION = "1.0";
+    private static final String THING_VERSION_KEY = "version";
+    private static final String ATTACHED_CERTIFICATE_IDS_KEY = "attachedCertificateIds";
     private final RuntimeConfiguration runtimeConfig;
 
     @Inject
@@ -49,7 +51,7 @@ public class ThingConfigStoreAdapter {
                 ImmutableMap.of(
                         THING_VERSION_KEY, thing.getVersion(),
                         ATTACHED_CERTIFICATE_IDS_KEY, thing.getAttachedCertificateIds()
-                ));
+                ), CONFIG_SCHEMA_VERSION);
     }
 
     /**
@@ -60,7 +62,7 @@ public class ThingConfigStoreAdapter {
      * @return optional of client device Thing
      */
     Optional<Thing> getThing(String thingName) {
-        Topics thingDetails = runtimeConfig.getClientDeviceThing(thingName);
+        Topics thingDetails = runtimeConfig.getClientDeviceThing(thingName, CONFIG_SCHEMA_VERSION);
         if (thingDetails == null || thingDetails.isEmpty()) {
             return Optional.empty();
         }

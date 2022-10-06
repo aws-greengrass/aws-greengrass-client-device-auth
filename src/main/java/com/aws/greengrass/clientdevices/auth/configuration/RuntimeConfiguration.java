@@ -21,8 +21,9 @@ import java.util.Map;
  * |    |---- certificates:
  * |         |---- authorities: [...]
  * |    |---- clientDeviceThings:
- * |          |---- thingName:
- * |                |---- key: value
+ * |          |---- schemaVersion:
+ * |                |---- thingName:
+ * |                      |---- key: value
  * </p>
  */
 public final class RuntimeConfiguration {
@@ -73,31 +74,37 @@ public final class RuntimeConfiguration {
     /**
      * Retrieves opaque client device thing configuration.
      *
-     * @param thingName Thing name
+     * @param thingName     Thing name
+     * @param schemaVersion Thing config schema version
      * @return config topic mapped to given thing name
      */
-    public Topics getClientDeviceThing(String thingName) {
-        return config.findTopics(CLIENT_DEVICE_THINGS_KEY, thingName);
+    public Topics getClientDeviceThing(String thingName, String schemaVersion) {
+        return config.findTopics(CLIENT_DEVICE_THINGS_KEY, schemaVersion, thingName);
     }
 
     /**
      * Create or replace client device thing details in the config.
-     * @param thingName    client device thing name
-     * @param thingDetails thing details
+     *
+     * @param thingName     client device thing name
+     * @param thingDetails  thing details
+     * @param schemaVersion Thing config schema version
      */
-    public void createOrReplaceClientDeviceThing(String thingName, Map<String, Object> thingDetails) {
-        Topics clientDeviceThing = config.lookupTopics(CLIENT_DEVICE_THINGS_KEY, thingName);
+    public void createOrReplaceClientDeviceThing(String thingName,
+                                                 Map<String, Object> thingDetails,
+                                                 String schemaVersion) {
+        Topics clientDeviceThing = config.lookupTopics(CLIENT_DEVICE_THINGS_KEY, schemaVersion, thingName);
         clientDeviceThing.replaceAndWait(thingDetails);
     }
 
     /**
      * Update client device thing details in the config.
      *
-     * @param thingName    client device Thing name
-     * @param thingDetails map of client device Thing details to be updated
+     * @param thingName     client device Thing name
+     * @param thingDetails  map of client device Thing details to be updated
+     * @param schemaVersion Thing config schema version
      */
-    public void updateClientDeviceThing(String thingName, Map<String, Object> thingDetails) {
-        Topics clientDeviceThing = config.findTopics(CLIENT_DEVICE_THINGS_KEY, thingName);
+    public void updateClientDeviceThing(String thingName, Map<String, Object> thingDetails, String schemaVersion) {
+        Topics clientDeviceThing = config.findTopics(CLIENT_DEVICE_THINGS_KEY, schemaVersion, thingName);
         if (clientDeviceThing == null) {
             return;
         }
@@ -108,7 +115,7 @@ public final class RuntimeConfiguration {
     private void updateClientDeviceThingDetail(Topics clientDeviceThing, String detailKey, Object newValue) {
         Topic thingDetail = clientDeviceThing.lookup(detailKey);
         IllegalArgumentException ex = new IllegalArgumentException(
-                String.format("Unsupported thing detail value %s", newValue));
+                String.format("Unsupported thing detail value: %s", newValue));
         if (newValue instanceof Integer) {
             thingDetail.withValue((Integer) newValue);
         } else if (newValue instanceof String) {
