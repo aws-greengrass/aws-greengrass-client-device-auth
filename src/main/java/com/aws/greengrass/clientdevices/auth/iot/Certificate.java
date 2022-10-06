@@ -30,19 +30,18 @@ public class Certificate implements AttributeProvider {
 
     public enum Status {
         ACTIVE,
-        INACTIVE,
         UNKNOWN
     }
 
-    String certificateId;
-    Status status;
-    Instant lastUpdated;
+    private String certificateId;
+    private Status status;
+    private Instant statusLastUpdated;
 
 
     Certificate(String certificateId) {
         this.certificateId = certificateId;
         this.status = Status.UNKNOWN;
-        this.lastUpdated = Instant.MIN;
+        this.statusLastUpdated = Instant.EPOCH; // Treat epoch as beginning of time
     }
 
     /**
@@ -75,7 +74,7 @@ public class Certificate implements AttributeProvider {
      */
     public void setStatus(Status status, Instant lastUpdated) {
         this.status = status;
-        this.lastUpdated = lastUpdated;
+        this.statusLastUpdated = lastUpdated;
     }
 
     /**

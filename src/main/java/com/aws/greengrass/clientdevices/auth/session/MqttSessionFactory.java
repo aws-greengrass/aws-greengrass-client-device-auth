@@ -9,10 +9,10 @@ import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
+import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
-import com.aws.greengrass.clientdevices.auth.iot.registry.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.registry.ThingRegistry;
 
 import java.util.Map;

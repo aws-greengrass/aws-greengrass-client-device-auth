@@ -11,7 +11,7 @@ import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionEx
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
-import com.aws.greengrass.clientdevices.auth.iot.registry.CertificateRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
 import com.aws.greengrass.clientdevices.auth.iot.registry.ThingRegistry;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;

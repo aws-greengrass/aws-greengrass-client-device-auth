@@ -88,7 +88,6 @@ public final class RuntimeConfiguration {
      */
     public void updateCAPassphrase(String passphrase) {
         Topic caPassphrase = config.lookup(CA_PASSPHRASE_KEY);
-        // TODO: This passphrase needs to be encrypted prior to storing in TLOG
         caPassphrase.withValue(passphrase);
     }
 
@@ -181,6 +180,18 @@ public final class RuntimeConfiguration {
         Topics v1CertTopics = getOrRepairTopics(config, CERTS_KEY, CERTS_V1_KEY, cert.getCertificateId());
         v1CertTopics.lookup(CERTS_STATUS_KEY).withValue(cert.getStatus().ordinal());
         v1CertTopics.lookup(CERTS_STATUS_UPDATED_KEY).withValue(cert.getStatusUpdated());
+    }
+
+    /**
+     * Removes a v1 Certificate from the Runtime Configuration.
+     *
+     * @param certificateId certificate id
+     */
+    public void removeCertificateV1(String certificateId) {
+        Node v1CertNode = config.findNode(CERTS_KEY, CERTS_V1_KEY, certificateId);
+        if (v1CertNode != null) {
+            v1CertNode.remove();
+        }
     }
 
     private Topics getOrRepairTopics(Topics root, String... path) {
