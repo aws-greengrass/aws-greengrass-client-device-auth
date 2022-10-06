@@ -7,11 +7,12 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1;
 import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1;
+import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.util.Coerce;
-import com.aws.greengrass.util.Utils;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,13 +43,13 @@ public final class RuntimeConfiguration {
     public static final String CA_PASSPHRASE_KEY = "ca_passphrase";
     private static final String AUTHORITIES_KEY = "authorities";
     private static final String CERTIFICATES_KEY = "certificates";
-    private static final String THINGS_KEY = "clientDeviceThings";
-    private static final String THINGS_V1_KEY = "v1";
-    private static final String THINGS_CERTIFICATES_KEY = "c";
-    private static final String CERTS_KEY = "clientDeviceCerts";
-    private static final String CERTS_V1_KEY = "v1";
-    private static final String CERTS_STATUS_KEY = "s";
-    private static final String CERTS_STATUS_UPDATED_KEY = "l";
+    static final String THINGS_KEY = "clientDeviceThings";
+    static final String THINGS_V1_KEY = "v1";
+    static final String THINGS_CERTIFICATES_KEY = "c";
+    static final String CERTS_KEY = "clientDeviceCerts";
+    static final String CERTS_V1_KEY = "v1";
+    static final String CERTS_STATUS_KEY = "s";
+    static final String CERTS_STATUS_UPDATED_KEY = "l";
 
     private final Topics config;
 
@@ -103,7 +104,10 @@ public final class RuntimeConfiguration {
             return Optional.empty();
         }
 
-        Topics certTopics = v1ThingTopics.lookupTopics(THINGS_CERTIFICATES_KEY);
+        Topics certTopics = v1ThingTopics.findTopics(THINGS_CERTIFICATES_KEY);
+        if (certTopics == null || certTopics.isEmpty()) {
+            return Optional.of(new ThingV1(thingName, Collections.emptyMap()));
+        }
         Map<String, Long> certMap = new HashMap<>();
         certTopics.forEach(node -> {
             certMap.put(node.getName(), Coerce.toLong(node));
@@ -122,9 +126,21 @@ public final class RuntimeConfiguration {
             return;
         }
 
-        Topics v1ThingTopics = config.lookupTopics(THINGS_KEY, THINGS_V1_KEY, thing.getThingName());
+        Topics v1ThingTopics = getOrRepairTopics(config, THINGS_KEY, THINGS_V1_KEY, thing.getThingName());
         Map<String, Object> certMap = new HashMap<>(thing.getCertificates());
-        v1ThingTopics.lookupTopics(THINGS_CERTIFICATES_KEY).replaceAndWait(certMap);
+        getOrRepairTopics(v1ThingTopics, THINGS_CERTIFICATES_KEY).replaceAndWait(certMap);
+    }
+
+    /**
+     * Removes a v1 Thing from the Runtime Configuration.
+     *
+     * @param thingName Thing name
+     */
+    public void removeThingV1(String thingName) {
+        Node v1ThingNode = config.findNode(THINGS_KEY, THINGS_V1_KEY, thingName);
+        if (v1ThingNode != null) {
+            v1ThingNode.remove();
+        }
     }
 
     /**
@@ -169,8 +185,30 @@ public final class RuntimeConfiguration {
             return;
         }
 
-        Topics v1CertTopics = config.lookupTopics(CERTS_KEY, CERTS_V1_KEY, cert.getCertificateId());
+        Topics v1CertTopics = getOrRepairTopics(config, CERTS_KEY, CERTS_V1_KEY, cert.getCertificateId());
         v1CertTopics.lookup(CERTS_STATUS_KEY).withValue(cert.getStatus().ordinal());
         v1CertTopics.lookup(CERTS_STATUS_UPDATED_KEY).withValue(cert.getStatusUpdated());
+    }
+
+    private Topics getOrRepairTopics(Topics root, String... path) {
+        try {
+            return root.lookupTopics(path);
+        } catch (IllegalArgumentException e) {
+            return repairTopics(root, path);
+        }
+    }
+
+    private Topics repairTopics(Topics root, String... path) {
+        Topics currentNode = root;
+        for (String topic : path) {
+            Node tempNode = currentNode.findNode(topic);
+            if (tempNode instanceof Topics) {
+                currentNode = (Topics) tempNode;
+            } else {
+                tempNode.remove();
+                break;
+            }
+        }
+        return root.lookupTopics(path);
     }
 }

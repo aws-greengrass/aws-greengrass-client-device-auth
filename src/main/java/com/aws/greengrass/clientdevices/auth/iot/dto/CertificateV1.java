@@ -5,13 +5,12 @@
 
 package com.aws.greengrass.clientdevices.auth.iot.dto;
 
-import com.aws.greengrass.clientdevices.auth.api.DomainEvent;
 import lombok.AllArgsConstructor;
 import lombok.Value;
 
 @Value
 @AllArgsConstructor
-public class CertificateV1 implements DomainEvent {
+public class CertificateV1 {
     // IMPORTANT! New statuses must be added to the END of this list
     //  so that we can safely deserialize from storage
     public enum Status {
