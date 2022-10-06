@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.iot.registry;
+package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
-import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
+import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.BeforeAll;
@@ -54,7 +55,8 @@ class CertificateRegistryTest {
 
     @BeforeEach
     void beforeEach() {
-        registry = new CertificateRegistry();
+        RuntimeConfiguration runtimeConfig = RuntimeConfiguration.from(Topics.of(new Context(), "", null));
+        registry = new CertificateRegistry(runtimeConfig);
     }
 
     @Test
@@ -98,7 +100,7 @@ class CertificateRegistryTest {
         assertThat(cert.isPresent(), is(true));
         assertThat(cert.get().getCertificateId(), equalTo(newCert.getCertificateId()));
         assertThat(cert.get().getStatus(), equalTo(Certificate.Status.ACTIVE));
-        assertThat(cert.get().getLastUpdated(), equalTo(now));
+        assertThat(cert.get().getStatusLastUpdated(), equalTo(now));
     }
 
     @Test
@@ -109,7 +111,7 @@ class CertificateRegistryTest {
         Optional<Certificate> cert = registry.getCertificateFromPem(validClientCertificatePem);
         assertThat(cert.isPresent(), is(true));
 
-        registry.removeCertificate(cert.get());
+        registry.deleteCertificate(cert.get());
 
         Optional<Certificate> cert2 = registry.getCertificateFromPem(validClientCertificatePem);
         assertThat(cert2.isPresent(), is(false));

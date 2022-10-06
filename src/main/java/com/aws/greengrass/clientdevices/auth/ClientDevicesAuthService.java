@@ -15,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRot
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
@@ -107,6 +108,9 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void initializeInfrastructure() {
+        context.put(RuntimeConfiguration.class, RuntimeConfiguration.from(getRuntimeConfig()));
+
+        // Initialize IPC thread pool
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
         cloudCallQueueSize = getValidCloudCallQueueSize(config);
         cloudCallThreadPool = new ThreadPoolExecutor(1,
