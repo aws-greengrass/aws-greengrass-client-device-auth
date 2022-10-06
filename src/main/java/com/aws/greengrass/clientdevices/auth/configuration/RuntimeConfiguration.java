@@ -165,7 +165,7 @@ public final class RuntimeConfiguration {
         }
 
         Long statusUpdated = 0L;
-        if (statusUpdated != null) {
+        if (statusUpdatedTopic != null) {
             statusUpdated = Coerce.toLong(statusUpdatedTopic);
         }
 
