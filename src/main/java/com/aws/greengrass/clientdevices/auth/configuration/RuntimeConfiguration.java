@@ -5,11 +5,19 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
+import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1;
+import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1;
+import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.util.Coerce;
+import lombok.NonNull;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Manages the runtime configuration for the plugin. It allows to read and write
@@ -20,12 +28,30 @@ import java.util.List;
  * |    |---- certificates:
  * |         |---- authorities: [...]
  * |
+ * |    |---- "clientDeviceThings":
+ * |          |---- "v1":
+ * |                |---- thingName:
+ * |                      |---- "c":
+ * |                           |---- certId:lastVerified
+ * |    |---- "clientDeviceCerts":
+ * |          |---- "v1":
+ * |                |---- certificateId:
+ * |                      |---- "s": status
+ * |                      |---- "l": lastUpdated
  * </p>
  */
 public final class RuntimeConfiguration {
     public static final String CA_PASSPHRASE_KEY = "ca_passphrase";
     private static final String AUTHORITIES_KEY = "authorities";
     private static final String CERTIFICATES_KEY = "certificates";
+    static final String THINGS_KEY = "clientDeviceThings";
+    static final String THINGS_V1_KEY = "v1";
+    static final String THINGS_CERTIFICATES_KEY = "c";
+    static final String CERTS_KEY = "clientDeviceCerts";
+    static final String CERTS_V1_KEY = "v1";
+    static final String CERTS_STATUS_KEY = "s";
+    static final String CERTS_STATUS_UPDATED_KEY = "l";
+
     private final Topics config;
 
 
@@ -66,4 +92,116 @@ public final class RuntimeConfiguration {
         caPassphrase.withValue(passphrase);
     }
 
+    /**
+     * Retrieve a Thing.
+     *
+     * @param thingName ThingName
+     * @return Optional of ThingV1 DTO, else empty optional
+     */
+    public Optional<ThingV1> getThingV1(String thingName) {
+        Topics v1ThingTopics = config.findTopics(THINGS_KEY, THINGS_V1_KEY, thingName);
+
+        if (v1ThingTopics == null) {
+            return Optional.empty();
+        }
+
+        Topics certTopics = v1ThingTopics.findTopics(THINGS_CERTIFICATES_KEY);
+        if (certTopics == null || certTopics.isEmpty()) {
+            return Optional.of(new ThingV1(thingName, Collections.emptyMap()));
+        }
+        Map<String, Long> certMap = new HashMap<>();
+        certTopics.forEach(node -> {
+            certMap.put(node.getName(), Coerce.toLong(node));
+        });
+
+        return Optional.of(new ThingV1(thingName, certMap));
+    }
+
+    /**
+     * Store a Thing in the Runtime Configuration.
+     *
+     * @param thing Thing DTO
+     */
+    public void putThing(@NonNull ThingV1 thing) {
+        Topics v1ThingTopics = getOrRepairTopics(config, THINGS_KEY, THINGS_V1_KEY, thing.getThingName());
+        Map<String, Object> certMap = new HashMap<>(thing.getCertificates());
+        getOrRepairTopics(v1ThingTopics, THINGS_CERTIFICATES_KEY).replaceAndWait(certMap);
+    }
+
+    /**
+     * Removes a v1 Thing from the Runtime Configuration.
+     *
+     * @param thingName Thing name
+     */
+    public void removeThingV1(String thingName) {
+        Node v1ThingNode = config.findNode(THINGS_KEY, THINGS_V1_KEY, thingName);
+        if (v1ThingNode != null) {
+            v1ThingNode.remove();
+        }
+    }
+
+    /**
+     * Get a certificate.
+     *
+     * @param certificateId Certificate ID
+     * @return  Optional of CertificateV1 DTO, else empty optional
+     */
+    public Optional<CertificateV1> getCertificateV1(String certificateId) {
+        Topics v1CertTopics = config.findTopics(CERTS_KEY, CERTS_V1_KEY, certificateId);
+
+        if (v1CertTopics == null) {
+            return Optional.empty();
+        }
+
+        Topic statusTopic = v1CertTopics.find(CERTS_STATUS_KEY);
+        Topic statusUpdatedTopic = v1CertTopics.find(CERTS_STATUS_UPDATED_KEY);
+
+        CertificateV1.Status status = CertificateV1.Status.UNKNOWN;
+        if (statusTopic != null) {
+            int topicVal = Coerce.toInt(statusTopic);
+            if (topicVal < CertificateV1.Status.values().length) {
+                status = CertificateV1.Status.values()[topicVal];
+            }
+        }
+
+        Long statusUpdated = 0L;
+        if (statusUpdatedTopic != null) {
+            statusUpdated = Coerce.toLong(statusUpdatedTopic);
+        }
+
+        return Optional.of(new CertificateV1(certificateId, status, statusUpdated));
+    }
+
+    /**
+     * Store a certificate in Runtime Configuration.
+     *
+     * @param cert Certificate DTO
+     */
+    public void putCertificate(@NonNull CertificateV1 cert) {
+        Topics v1CertTopics = getOrRepairTopics(config, CERTS_KEY, CERTS_V1_KEY, cert.getCertificateId());
+        v1CertTopics.lookup(CERTS_STATUS_KEY).withValue(cert.getStatus().ordinal());
+        v1CertTopics.lookup(CERTS_STATUS_UPDATED_KEY).withValue(cert.getStatusUpdated());
+    }
+
+    private Topics getOrRepairTopics(Topics root, String... path) {
+        try {
+            return root.lookupTopics(path);
+        } catch (IllegalArgumentException e) {
+            return repairTopics(root, path);
+        }
+    }
+
+    private Topics repairTopics(Topics root, String... path) {
+        Topics currentNode = root;
+        for (String topic : path) {
+            Node tempNode = currentNode.findNode(topic);
+            if (tempNode instanceof Topics) {
+                currentNode = (Topics) tempNode;
+            } else {
+                tempNode.remove();
+                break;
+            }
+        }
+        return root.lookupTopics(path);
+    }
 }
