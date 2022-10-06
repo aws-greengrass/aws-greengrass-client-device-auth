@@ -11,6 +11,7 @@ import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.util.Coerce;
+import lombok.NonNull;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -121,11 +122,7 @@ public final class RuntimeConfiguration {
      *
      * @param thing Thing DTO
      */
-    public void putThing(ThingV1 thing) {
-        if (thing == null) {
-            return;
-        }
-
+    public void putThing(@NonNull ThingV1 thing) {
         Topics v1ThingTopics = getOrRepairTopics(config, THINGS_KEY, THINGS_V1_KEY, thing.getThingName());
         Map<String, Object> certMap = new HashMap<>(thing.getCertificates());
         getOrRepairTopics(v1ThingTopics, THINGS_CERTIFICATES_KEY).replaceAndWait(certMap);
@@ -180,11 +177,7 @@ public final class RuntimeConfiguration {
      *
      * @param cert Certificate DTO
      */
-    public void putCertificate(CertificateV1 cert) {
-        if (cert == null) {
-            return;
-        }
-
+    public void putCertificate(@NonNull CertificateV1 cert) {
         Topics v1CertTopics = getOrRepairTopics(config, CERTS_KEY, CERTS_V1_KEY, cert.getCertificateId());
         v1CertTopics.lookup(CERTS_STATUS_KEY).withValue(cert.getStatus().ordinal());
         v1CertTopics.lookup(CERTS_STATUS_UPDATED_KEY).withValue(cert.getStatusUpdated());

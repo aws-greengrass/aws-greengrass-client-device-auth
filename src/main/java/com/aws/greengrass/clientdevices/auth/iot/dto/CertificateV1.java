@@ -20,5 +20,5 @@ public class CertificateV1 {
 
     private String certificateId;
     private Status status;
-    private Long statusUpdated;
+    private Long statusUpdated; // Timestamp in milliseconds since epoch
 }

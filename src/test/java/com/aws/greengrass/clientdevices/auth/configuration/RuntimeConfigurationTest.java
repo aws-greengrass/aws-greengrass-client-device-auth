@@ -70,11 +70,6 @@ public class RuntimeConfigurationTest {
     }
 
     @Test
-    void GIVEN_nullThing_WHEN_putThing_THEN_doesntThrow() {
-        runtimeConfiguration.putThing(null);
-    }
-
-    @Test
     void GIVEN_missingConfig_WHEN_getThingV1_THEN_returnDefault() {
         // create thing config with missing children (details)
         configurationTopics.lookupTopics(THINGS_KEY, THINGS_V1_KEY, mockThingName);
