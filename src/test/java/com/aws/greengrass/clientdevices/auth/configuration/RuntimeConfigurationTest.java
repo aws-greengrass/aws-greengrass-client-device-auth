@@ -86,7 +86,6 @@ public class RuntimeConfigurationTest {
         for (int index = 0; index < topicList.length; index++) {
             String[] temp = Arrays.copyOfRange(topicList, 0, index+1);
             configurationTopics.lookup(temp);
-            System.out.println(configurationTopics.toPOJO());
             ThingV1 thing = new ThingV1(mockThingName, Collections.emptyMap());
             runtimeConfiguration.putThing(thing);
             ThingV1 readThing = runtimeConfiguration.getThingV1(mockThingName).get();
