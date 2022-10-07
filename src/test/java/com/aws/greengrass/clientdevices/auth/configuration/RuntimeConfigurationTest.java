@@ -50,7 +50,7 @@ public class RuntimeConfigurationTest {
     @Test
     void GIVEN_emptyRegistry_WHEN_putThingV1_THEN_thingIsReadable() {
         Map<String, Long> certMap = ImmutableMap.of("certId", 0L);
-        ThingV1DTO thingDTO = new ThingV1DTO(1, mockThingName, certMap);
+        ThingV1DTO thingDTO = new ThingV1DTO(mockThingName, certMap);
 
         runtimeConfiguration.putThing(thingDTO);
 
@@ -86,7 +86,7 @@ public class RuntimeConfigurationTest {
         for (int index = 0; index < topicList.length; index++) {
             String[] temp = Arrays.copyOfRange(topicList, 0, index+1);
             configurationTopics.lookup(temp);
-            ThingV1DTO thing = new ThingV1DTO(1, mockThingName, Collections.emptyMap());
+            ThingV1DTO thing = new ThingV1DTO(mockThingName, Collections.emptyMap());
             runtimeConfiguration.putThing(thing);
             ThingV1DTO readThing = runtimeConfiguration.getThingV1(mockThingName).get();
             assertNotNull(readThing);
