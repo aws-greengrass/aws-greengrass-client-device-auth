@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
@@ -40,7 +41,7 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @throws IllegalArgumentException If the given ThingName contains illegal characters
      */
     public static Thing of(String thingName) {
-        return Thing.of(thingName, new HashMap<>());
+        return Thing.of(thingName, null);
     }
 
     /**
@@ -92,11 +93,7 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @return Certificate IDs
      */
     public Map<String, Instant> getAttachedCertificateIds() {
-        Map<String, Instant> certIds;
-        synchronized (attachedCertificateIds) {
-            certIds = new HashMap<>(attachedCertificateIds);
-        }
-        return certIds;
+        return new HashMap<>(attachedCertificateIds);
     }
 
     /**
@@ -111,7 +108,11 @@ public final class Thing implements AttributeProvider, Cloneable {
 
     private Thing(String thingName, Map<String, Instant> certificateIds) {
         this.thingName = thingName;
-        this.attachedCertificateIds = Collections.synchronizedMap(new HashMap<>(certificateIds));
+        if (certificateIds == null) {
+            this.attachedCertificateIds = new ConcurrentHashMap<>();
+        } else {
+            this.attachedCertificateIds = new ConcurrentHashMap<>(certificateIds);
+        }
     }
 
     @Override
