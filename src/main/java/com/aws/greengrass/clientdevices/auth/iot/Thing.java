@@ -29,7 +29,6 @@ public final class Thing implements AttributeProvider, Cloneable {
     public static final String NAMESPACE = "Thing";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
 
-    private final int version;
     private final String thingName;
     private final CopyOnWriteArrayList<String> attachedCertificateIds;
     private boolean modified = false;
@@ -37,45 +36,30 @@ public final class Thing implements AttributeProvider, Cloneable {
     /**
      * Create a new Thing.
      *
-     * @param thingName AWS IoT ThingName
-     * @throws IllegalArgumentException If the given ThingName contains illegal characters
-     */
-    public static Thing of(String thingName) {
-        return Thing.of(0, thingName);
-    }
-
-    /**
-     * Create a new Thing.
-     *
-     * @param version        Thing version
      * @param thingName      AWS IoT ThingName
      * @throws IllegalArgumentException If the given ThingName contains illegal characters
      */
-    public static Thing of(int version, String thingName) {
-        return Thing.of(version, thingName, new ArrayList<>());
+    public static Thing of(String thingName) {
+        return Thing.of(thingName, new ArrayList<>());
     }
 
     /**
      * Create a new Thing.
      *
-     * @param version        Thing version
      * @param thingName      AWS IoT ThingName
      * @param certificateIds Attached certificate IDs
      * @throws IllegalArgumentException If the given ThingName contains illegal characters
      */
-    public static Thing of(int version, String thingName, List<String> certificateIds) {
-        if (version < 0) {
-            throw new IllegalArgumentException("Invalid version. Version must not be < 0");
-        }
+    public static Thing of(String thingName, List<String> certificateIds) {
         if (!Pattern.matches(thingNamePattern, thingName)) {
             throw new IllegalArgumentException("Invalid thing name. The thing name must match \"[a-zA-Z0-9\\-_:]+\".");
         }
-        return new Thing(version, thingName, certificateIds);
+        return new Thing(thingName, certificateIds);
     }
 
     @Override
     public Thing clone() {
-        Thing newThing = Thing.of(getVersion(), getThingName(), getAttachedCertificateIds());
+        Thing newThing = Thing.of(getThingName(), getAttachedCertificateIds());
         newThing.modified = modified;
         return newThing;
     }
@@ -112,8 +96,7 @@ public final class Thing implements AttributeProvider, Cloneable {
         return new ArrayList<>(attachedCertificateIds);
     }
 
-    private Thing(int version, String thingName, List<String> certificateIds) {
-        this.version = version;
+    private Thing(String thingName, List<String> certificateIds) {
         this.thingName = thingName;
         this.attachedCertificateIds = new CopyOnWriteArrayList<>(certificateIds);
     }
@@ -132,14 +115,13 @@ public final class Thing implements AttributeProvider, Cloneable {
             return false;
         }
 
-        return version == other.version
-                && thingName.equals(other.thingName)
+        return thingName.equals(other.thingName)
                 && attachedCertificateIds.equals(other.attachedCertificateIds);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(version, thingName, attachedCertificateIds);
+        return Objects.hash(thingName, attachedCertificateIds);
     }
 
     @Override

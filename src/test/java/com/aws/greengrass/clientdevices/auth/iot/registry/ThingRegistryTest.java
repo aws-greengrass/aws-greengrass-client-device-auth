@@ -61,7 +61,6 @@ class ThingRegistryTest {
         Thing retrievedThing = registry.getThing(mockThingName);
 
         assertThat(createdThing.getThingName(), is(mockThingName));
-        assertThat(createdThing.getVersion(), is(1));
         assertThat(createdThing.getAttachedCertificateIds(), equalTo(Collections.emptyList()));
 
         assertThat(createdThing, equalTo(retrievedThing));
