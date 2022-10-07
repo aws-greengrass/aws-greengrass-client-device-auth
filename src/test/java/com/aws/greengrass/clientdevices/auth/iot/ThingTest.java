@@ -7,21 +7,35 @@ package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.utils.ImmutableMap;
 
-import java.util.Arrays;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.not;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class ThingTest {
+    private static final String mockThingName = "mock-thing";
+    private static final String mockCertId = "mock-cert-id";
+    private static Map<String, Instant> mockCertIdMap = new HashMap<>();
+
+    @BeforeAll
+    static void beforeAll() {
+        mockCertIdMap.put(mockCertId, Instant.now());
+    }
+
     @Test
     void GIVEN_validThingName_WHEN_Thing_THEN_objectIsCreated() {
         Assertions.assertDoesNotThrow(() -> Thing.of("abcdefghijklmnopqrstuvwxyz:_-"));
@@ -50,60 +64,64 @@ public class ThingTest {
 
     @Test
     void GIVEN_thing_WHEN_attachCertificate_THEN_certAttachedAndDirtyBitSet() {
-        Thing thing = Thing.of("Thing");
-        thing.attachCertificate("cert-id");
+        Thing thing = Thing.of(mockThingName);
+        thing.attachCertificate(mockCertId);
 
         assertThat(thing.isModified(), is(true));
-        List<String> certIds = thing.getAttachedCertificateIds();
-        assertThat(certIds, equalTo(Collections.singletonList("cert-id")));
+        Map<String, Instant> certIds = thing.getAttachedCertificateIds();
+        assertThat(certIds.get(mockCertId), isA(Instant.class));
     }
 
     @Test
     void GIVEN_thingWithCertificate_WHEN_attachSameCertificate_THEN_noChange() {
-        Thing thing = Thing.of("Thing", Collections.singletonList("cert-id"));
-        thing.attachCertificate("cert-id");
+        Thing thing = Thing.of(mockThingName, mockCertIdMap);
+        thing.attachCertificate(mockCertId);
 
         assertThat(thing.isModified(), is(false));
-        List<String> certIds = thing.getAttachedCertificateIds();
-        assertThat(certIds, equalTo(Collections.singletonList("cert-id")));
+        Map<String, Instant> certIds = thing.getAttachedCertificateIds();
+        assertThat(certIds, equalTo(mockCertIdMap));
     }
 
     @Test
     void GIVEN_thingWithoutCertificate_WHEN_detachCertificate_THEN_noChange() {
-        Thing thing = Thing.of("Thing");
-        thing.detachCertificate("cert-id");
+        Thing thing = Thing.of(mockThingName);
+        thing.detachCertificate(mockCertId);
 
         assertThat(thing.isModified(), is(false));
-        List<String> certIds = thing.getAttachedCertificateIds();
-        assertThat(certIds, equalTo(Collections.emptyList()));
+        Map<String, Instant> certIds = thing.getAttachedCertificateIds();
+        assertThat(certIds.size(), is(0));
     }
 
     @Test
     void GIVEN_thingWithCertificate_WHEN_detachCertificate_THEN_certDetachedAndDirtyBitSet() {
-        Thing thing = Thing.of("Thing", Collections.singletonList("cert-id"));
-        thing.detachCertificate("cert-id");
+        Thing thing = Thing.of(mockThingName, mockCertIdMap);
+        thing.detachCertificate(mockCertId);
 
         assertThat(thing.isModified(), is(true));
-        List<String> certIds = thing.getAttachedCertificateIds();
-        assertThat(certIds, equalTo(Collections.emptyList()));
+        Map<String, Instant> certIds = thing.getAttachedCertificateIds();
+        assertThat(certIds.size(), is(0));
     }
 
     @Test
     void testEquals() {
+        Instant now = Instant.now();
+        Instant later = now.plus(1, ChronoUnit.DAYS);
         Thing Thing_NoList = Thing.of("Thing");
-        Thing Thing2_NoList = Thing.of("Thing2", Collections.emptyList());
-        Thing Thing_EmptyList = Thing.of("Thing", Collections.emptyList());
-        Thing Thing_SingleCert = Thing.of("Thing", Collections.singletonList("certId"));
-        Thing Thing_SingleCert_copy = Thing.of("Thing", Collections.singletonList("certId"));
-        Thing Thing_CertA = Thing.of("Thing", Collections.singletonList("CertA"));
-        Thing Thing_CertB = Thing.of("Thing", Collections.singletonList("CertB"));
-        Thing Thing_MultiCert = Thing.of("Thing", Arrays.asList("Cert1", "Cert2"));
-        Thing Thing_MultiCert_copy = Thing.of("Thing", Arrays.asList("Cert1", "Cert2"));
+        Thing Thing2_NoList = Thing.of("Thing2", Collections.emptyMap());
+        Thing Thing_EmptyList = Thing.of("Thing", Collections.emptyMap());
+        Thing Thing_SingleCert = Thing.of("Thing", Collections.singletonMap("certId", now));
+        Thing Thing_SingleCert_copy = Thing.of("Thing", Collections.singletonMap("certId", now));
+        Thing Thing_SingleCert_newer = Thing.of("Thing", Collections.singletonMap("certId", later));
+        Thing Thing_CertA = Thing.of("Thing", Collections.singletonMap("CertA", now));
+        Thing Thing_CertB = Thing.of("Thing", Collections.singletonMap("CertB", now));
+        Thing Thing_MultiCert = Thing.of("Thing", ImmutableMap.of("Cert1", now, "Cert2", now));
+        Thing Thing_MultiCert_copy = Thing.of("Thing", ImmutableMap.of("Cert1", now, "Cert2", now));
 
         assertThat(Thing_NoList, equalTo(Thing_EmptyList));
         assertThat(Thing_NoList, not(equalTo(Thing2_NoList)));
         assertThat(Thing_SingleCert, equalTo(Thing_SingleCert_copy));
         assertThat(Thing_SingleCert, equalTo(Thing_SingleCert));
+        assertThat(Thing_SingleCert, not(equalTo(Thing_SingleCert_newer)));
         assertThat(Thing_CertA, not(equalTo(Thing_CertB)));
         assertThat(Thing_MultiCert, equalTo(Thing_MultiCert_copy));
     }

@@ -31,6 +31,7 @@ import java.util.Optional;
  * |    |---- "clientDeviceThings":
  * |          |---- "v1":
  * |                |---- thingName:
+ * |                      |---- "v": thingVersion
  * |                      |---- "c":
  * |                           |---- certId:lastVerified
  * |    |---- "clientDeviceCerts":
@@ -47,6 +48,7 @@ public final class RuntimeConfiguration {
     static final String THINGS_KEY = "clientDeviceThings";
     static final String THINGS_V1_KEY = "v1";
     static final String THINGS_CERTIFICATES_KEY = "c";
+    static final String THINGS_VERSION_KEY = "v";
     static final String CERTS_KEY = "clientDeviceCerts";
     static final String CERTS_V1_KEY = "v1";
     static final String CERTS_STATUS_KEY = "s";
@@ -104,16 +106,19 @@ public final class RuntimeConfiguration {
             return Optional.empty();
         }
 
+        // defaults to 0 for invalid config values
+        int thingVersion = Coerce.toInt(v1ThingTopics.find(THINGS_VERSION_KEY));
+
         Topics certTopics = v1ThingTopics.findTopics(THINGS_CERTIFICATES_KEY);
         if (certTopics == null || certTopics.isEmpty()) {
-            return Optional.of(new ThingV1(thingName, Collections.emptyMap()));
+            return Optional.of(new ThingV1(thingVersion, thingName, Collections.emptyMap()));
         }
         Map<String, Long> certMap = new HashMap<>();
         certTopics.forEach(node -> {
             certMap.put(node.getName(), Coerce.toLong(node));
         });
 
-        return Optional.of(new ThingV1(thingName, certMap));
+        return Optional.of(new ThingV1(thingVersion, thingName, certMap));
     }
 
     /**
@@ -125,6 +130,7 @@ public final class RuntimeConfiguration {
         Topics v1ThingTopics = getOrRepairTopics(config, THINGS_KEY, THINGS_V1_KEY, thing.getThingName());
         Map<String, Object> certMap = new HashMap<>(thing.getCertificates());
         getOrRepairTopics(v1ThingTopics, THINGS_CERTIFICATES_KEY).replaceAndWait(certMap);
+        v1ThingTopics.lookup(THINGS_VERSION_KEY).withValue(thing.getVersion());
     }
 
     /**

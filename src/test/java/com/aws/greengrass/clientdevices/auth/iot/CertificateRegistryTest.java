@@ -13,6 +13,7 @@ import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,7 @@ class CertificateRegistryTest {
     private static X509Certificate validClientCertificate;
     private static String validClientCertificatePem;
 
+    private Topics configTopic;
     private CertificateRegistry registry;
 
     @BeforeAll
@@ -55,8 +57,13 @@ class CertificateRegistryTest {
 
     @BeforeEach
     void beforeEach() {
-        RuntimeConfiguration runtimeConfig = RuntimeConfiguration.from(Topics.of(new Context(), "", null));
-        registry = new CertificateRegistry(runtimeConfig);
+        configTopic = Topics.of(new Context(), "config", null);
+        registry = new CertificateRegistry(RuntimeConfiguration.from(configTopic));
+    }
+
+    @AfterEach
+    void afterEach() throws IOException {
+        configTopic.context.close();
     }
 
     @Test
@@ -88,7 +95,7 @@ class CertificateRegistryTest {
     void GIVEN_certificateWithUpdate_WHEN_updateCertificate_THEN_updatedCertificateIsRetrievable()
             throws InvalidCertificateException {
         Certificate newCert = registry.createCertificate(validClientCertificatePem);
-        Instant now = Instant.now();
+        Instant now = Instant.now();System.out.println(now);
 
         assertThat(newCert.getStatus(), equalTo(Certificate.Status.UNKNOWN));
 
@@ -100,7 +107,8 @@ class CertificateRegistryTest {
         assertThat(cert.isPresent(), is(true));
         assertThat(cert.get().getCertificateId(), equalTo(newCert.getCertificateId()));
         assertThat(cert.get().getStatus(), equalTo(Certificate.Status.ACTIVE));
-        assertThat(cert.get().getStatusLastUpdated(), equalTo(now));
+        // asserting on epochMillis since Instant resolution varies with JDK versions
+        assertThat(cert.get().getStatusLastUpdated().toEpochMilli(), equalTo(now.toEpochMilli()));
     }
 
     @Test
