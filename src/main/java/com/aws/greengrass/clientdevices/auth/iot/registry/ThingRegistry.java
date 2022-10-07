@@ -11,7 +11,7 @@ import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionEx
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
-import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1;
+import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
 
 import java.time.Instant;
@@ -103,7 +103,7 @@ public class ThingRegistry {
     }
 
     private Thing getThingInternal(String thingName) {
-        Optional<ThingV1> thingV1 = runtimeConfig.getThingV1(thingName);
+        Optional<ThingV1DTO> thingV1 = runtimeConfig.getThingV1(thingName);
         return thingV1.map(this::dtoToThing).orElse(null);
     }
 
@@ -134,8 +134,9 @@ public class ThingRegistry {
                 updateThing(thing);
             }
         } catch (CloudServiceInteractionException e) {
-            Map<String, Instant> certIds = thing.getAttachedCertificateIds();
-            if (certIds.containsKey(certificate.getCertificateId())) {
+            // TODO: also check the instant when this cert was attached this thing
+            //  and validate against configured offline TTL
+            if (thing.isCertificateAttached(certificate.getCertificateId())) {
                 return true;
             }
             throw e;
@@ -143,21 +144,21 @@ public class ThingRegistry {
         return false;
     }
 
-    private Thing dtoToThing(ThingV1 dto) {
+    private Thing dtoToThing(ThingV1DTO dto) {
         Map<String, Instant> certIds = dto.getCertificates().entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         entry -> Instant.ofEpochMilli(entry.getValue())
                 ));
-        return Thing.of(dto.getVersion(), dto.getThingName(), certIds);
+        return Thing.of(dto.getThingName(), certIds);
     }
 
-    private ThingV1 thingToDto(Thing thing) {
+    private ThingV1DTO thingToDto(Thing thing) {
         Map<String, Long> certIds = thing.getAttachedCertificateIds().entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         entry -> entry.getValue().toEpochMilli()
                 ));
-        return new ThingV1(thing.getThingName(), certIds);
+        return new ThingV1DTO(thing.getThingName(), certIds);
     }
 }

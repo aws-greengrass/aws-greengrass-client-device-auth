@@ -69,9 +69,6 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @param certificateId Certificate ID to attach
      */
     public void attachCertificate(String certificateId) {
-        if (attachedCertificateIds.containsKey(certificateId)) {
-            return;
-        }
         attachedCertificateIds.put(certificateId, Instant.now());
         modified = true;
     }
@@ -100,6 +97,16 @@ public final class Thing implements AttributeProvider, Cloneable {
             certIds = new HashMap<>(attachedCertificateIds);
         }
         return certIds;
+    }
+
+    /**
+     * Indicates whether the given certificate is attached to this thing.
+     *
+     * @param certificateId Certificate ID
+     * @return whether the given certificate is attached
+     */
+    public boolean isCertificateAttached(String certificateId) {
+        return attachedCertificateIds.containsKey(certificateId);
     }
 
     private Thing(String thingName, Map<String, Instant> certificateIds) {

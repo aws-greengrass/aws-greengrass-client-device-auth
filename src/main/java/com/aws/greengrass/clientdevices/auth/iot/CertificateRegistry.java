@@ -6,7 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
-import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1;
+import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1DTO;
 import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.time.Instant;
@@ -17,13 +17,13 @@ import javax.inject.Inject;
 
 public class CertificateRegistry {
     private final RuntimeConfiguration runtimeConfiguration;
-    private final Map<Certificate.Status, CertificateV1.Status> domain2dtoStatus = ImmutableMap.of(
-            Certificate.Status.ACTIVE, CertificateV1.Status.ACTIVE,
-            Certificate.Status.UNKNOWN, CertificateV1.Status.UNKNOWN
+    private final Map<Certificate.Status, CertificateV1DTO.Status> domain2dtoStatus = ImmutableMap.of(
+            Certificate.Status.ACTIVE, CertificateV1DTO.Status.ACTIVE,
+            Certificate.Status.UNKNOWN, CertificateV1DTO.Status.UNKNOWN
     );
-    private final Map<CertificateV1.Status, Certificate.Status> dto2domainStatus = ImmutableMap.of(
-            CertificateV1.Status.ACTIVE, Certificate.Status.ACTIVE,
-            CertificateV1.Status.UNKNOWN, Certificate.Status.UNKNOWN
+    private final Map<CertificateV1DTO.Status, Certificate.Status> dto2domainStatus = ImmutableMap.of(
+            CertificateV1DTO.Status.ACTIVE, Certificate.Status.ACTIVE,
+            CertificateV1DTO.Status.UNKNOWN, Certificate.Status.UNKNOWN
     );
 
     @Inject
@@ -40,7 +40,7 @@ public class CertificateRegistry {
      */
     public Optional<Certificate> getCertificateFromPem(String certificatePem) throws InvalidCertificateException {
         Certificate cert = Certificate.fromPem(certificatePem);
-        Optional<CertificateV1> certV1dto = runtimeConfiguration.getCertificateV1(cert.getCertificateId());
+        Optional<CertificateV1DTO> certV1dto = runtimeConfiguration.getCertificateV1(cert.getCertificateId());
         return certV1dto.map(this::v1dto2Cert);
     }
 
@@ -79,14 +79,14 @@ public class CertificateRegistry {
         runtimeConfiguration.removeCertificateV1(certificate.getCertificateId());
     }
 
-    private Certificate v1dto2Cert(CertificateV1 dto) {
+    private Certificate v1dto2Cert(CertificateV1DTO dto) {
         Certificate cert = new Certificate(dto.getCertificateId());
         cert.setStatus(dto2domainStatus.get(dto.getStatus()), Instant.ofEpochMilli(dto.getStatusUpdated()));
         return cert;
     }
 
-    private CertificateV1 cert2v1dto(Certificate cert) {
-        return new CertificateV1(cert.getCertificateId(), domain2dtoStatus.get(cert.getStatus()),
+    private CertificateV1DTO cert2v1dto(Certificate cert) {
+        return new CertificateV1DTO(cert.getCertificateId(), domain2dtoStatus.get(cert.getStatus()),
                 cert.getStatusLastUpdated().toEpochMilli());
     }
 }

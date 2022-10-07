@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class ThingTest {
@@ -76,10 +77,17 @@ public class ThingTest {
     void GIVEN_thingWithCertificate_WHEN_attachSameCertificate_THEN_noChange() {
         Thing thing = Thing.of(mockThingName, mockCertIdMap);
         thing.attachCertificate(mockCertId);
+        Instant prevInstant = thing.getAttachedCertificateIds().get(mockCertId);
+        assertNotNull(prevInstant);
+        assertThat(thing.isModified(), is(true));
+        // attach same certificate again
+        thing.attachCertificate(mockCertId);
 
-        assertThat(thing.isModified(), is(false));
         Map<String, Instant> certIds = thing.getAttachedCertificateIds();
-        assertThat(certIds, equalTo(mockCertIdMap));
+        Instant updatedInstant = certIds.get(mockCertId);
+        assertNotNull(updatedInstant);
+        // this Instant comparison is flaky across JDK versions as the Instant resolution/precision varies
+        // assertTrue(prevInstant.isBefore(updatedInstant));
     }
 
     @Test

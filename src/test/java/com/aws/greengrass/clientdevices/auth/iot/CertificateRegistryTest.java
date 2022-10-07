@@ -95,7 +95,7 @@ class CertificateRegistryTest {
     void GIVEN_certificateWithUpdate_WHEN_updateCertificate_THEN_updatedCertificateIsRetrievable()
             throws InvalidCertificateException {
         Certificate newCert = registry.createCertificate(validClientCertificatePem);
-        Instant now = Instant.now();System.out.println(now);
+        Instant now = Instant.now();
 
         assertThat(newCert.getStatus(), equalTo(Certificate.Status.UNKNOWN));
 
