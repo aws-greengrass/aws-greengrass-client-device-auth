@@ -10,7 +10,7 @@ import lombok.Value;
 
 @Value
 @AllArgsConstructor
-public class CertificateV1 {
+public class CertificateV1DTO {
     // IMPORTANT! New statuses must be added to the END of this list
     //  so that we can safely deserialize from storage
     public enum Status {

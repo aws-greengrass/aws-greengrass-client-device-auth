@@ -12,7 +12,7 @@ import java.util.Map;
 
 @Value
 @AllArgsConstructor
-public class ThingV1 {
+public class ThingV1DTO {
     private String thingName;
     // Map from CertificateID to the time this certificate was known to be attached to the Thing
     //  Timestamp is in milliseconds since epoch

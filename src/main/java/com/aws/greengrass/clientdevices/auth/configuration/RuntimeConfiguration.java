@@ -5,8 +5,8 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
-import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1;
-import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1;
+import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1DTO;
+import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
@@ -97,7 +97,7 @@ public final class RuntimeConfiguration {
      * @param thingName ThingName
      * @return Optional of ThingV1 DTO, else empty optional
      */
-    public Optional<ThingV1> getThingV1(String thingName) {
+    public Optional<ThingV1DTO> getThingV1(String thingName) {
         Topics v1ThingTopics = config.findTopics(THINGS_KEY, THINGS_V1_KEY, thingName);
 
         if (v1ThingTopics == null) {
@@ -106,14 +106,14 @@ public final class RuntimeConfiguration {
 
         Topics certTopics = v1ThingTopics.findTopics(THINGS_CERTIFICATES_KEY);
         if (certTopics == null || certTopics.isEmpty()) {
-            return Optional.of(new ThingV1(thingName, Collections.emptyMap()));
+            return Optional.of(new ThingV1DTO(thingName, Collections.emptyMap()));
         }
         Map<String, Long> certMap = new HashMap<>();
         certTopics.forEach(node -> {
             certMap.put(node.getName(), Coerce.toLong(node));
         });
 
-        return Optional.of(new ThingV1(thingName, certMap));
+        return Optional.of(new ThingV1DTO(thingName, certMap));
     }
 
     /**
@@ -121,7 +121,7 @@ public final class RuntimeConfiguration {
      *
      * @param thing Thing DTO
      */
-    public void putThing(@NonNull ThingV1 thing) {
+    public void putThing(@NonNull ThingV1DTO thing) {
         Topics v1ThingTopics = getOrRepairTopics(config, THINGS_KEY, THINGS_V1_KEY, thing.getThingName());
         Map<String, Object> certMap = new HashMap<>(thing.getCertificates());
         getOrRepairTopics(v1ThingTopics, THINGS_CERTIFICATES_KEY).replaceAndWait(certMap);
@@ -145,7 +145,7 @@ public final class RuntimeConfiguration {
      * @param certificateId Certificate ID
      * @return  Optional of CertificateV1 DTO, else empty optional
      */
-    public Optional<CertificateV1> getCertificateV1(String certificateId) {
+    public Optional<CertificateV1DTO> getCertificateV1(String certificateId) {
         Topics v1CertTopics = config.findTopics(CERTS_KEY, CERTS_V1_KEY, certificateId);
 
         if (v1CertTopics == null) {
@@ -155,11 +155,11 @@ public final class RuntimeConfiguration {
         Topic statusTopic = v1CertTopics.find(CERTS_STATUS_KEY);
         Topic statusUpdatedTopic = v1CertTopics.find(CERTS_STATUS_UPDATED_KEY);
 
-        CertificateV1.Status status = CertificateV1.Status.UNKNOWN;
+        CertificateV1DTO.Status status = CertificateV1DTO.Status.UNKNOWN;
         if (statusTopic != null) {
             int topicVal = Coerce.toInt(statusTopic);
-            if (topicVal < CertificateV1.Status.values().length) {
-                status = CertificateV1.Status.values()[topicVal];
+            if (topicVal < CertificateV1DTO.Status.values().length) {
+                status = CertificateV1DTO.Status.values()[topicVal];
             }
         }
 
@@ -168,7 +168,7 @@ public final class RuntimeConfiguration {
             statusUpdated = Coerce.toLong(statusUpdatedTopic);
         }
 
-        return Optional.of(new CertificateV1(certificateId, status, statusUpdated));
+        return Optional.of(new CertificateV1DTO(certificateId, status, statusUpdated));
     }
 
     /**
@@ -176,7 +176,7 @@ public final class RuntimeConfiguration {
      *
      * @param cert Certificate DTO
      */
-    public void putCertificate(@NonNull CertificateV1 cert) {
+    public void putCertificate(@NonNull CertificateV1DTO cert) {
         Topics v1CertTopics = getOrRepairTopics(config, CERTS_KEY, CERTS_V1_KEY, cert.getCertificateId());
         v1CertTopics.lookup(CERTS_STATUS_KEY).withValue(cert.getStatus().ordinal());
         v1CertTopics.lookup(CERTS_STATUS_UPDATED_KEY).withValue(cert.getStatusUpdated());

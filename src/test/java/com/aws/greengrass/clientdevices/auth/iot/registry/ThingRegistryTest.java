@@ -7,13 +7,17 @@ package com.aws.greengrass.clientdevices.auth.iot.registry;
 
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
+import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -21,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.util.Collections;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -44,14 +49,21 @@ class ThingRegistryTest {
 
     @Mock
     private IotAuthClient mockIotAuthClient;
+    private Topics configTopics;
     private DomainEvents domainEvents;
     private ThingRegistry registry;
 
     @BeforeEach
     void beforeEach() throws InvalidCertificateException {
         domainEvents = new DomainEvents();
-        registry = new ThingRegistry(mockIotAuthClient, domainEvents);
+        configTopics = Topics.of(new Context(), "config", null);
+        registry = new ThingRegistry(mockIotAuthClient, domainEvents, RuntimeConfiguration.from(configTopics));
         mockCertificate = CertificateFake.of("mock-certificateId");
+    }
+
+    @AfterEach
+    void afterEach() throws IOException {
+        configTopics.context.close();
     }
 
     @Test
@@ -61,7 +73,7 @@ class ThingRegistryTest {
         Thing retrievedThing = registry.getThing(mockThingName);
 
         assertThat(createdThing.getThingName(), is(mockThingName));
-        assertThat(createdThing.getAttachedCertificateIds(), equalTo(Collections.emptyList()));
+        assertThat(createdThing.getAttachedCertificateIds(), equalTo(Collections.emptyMap()));
 
         assertThat(createdThing, equalTo(retrievedThing));
         // IMPORTANT! Ensure a copy is returned. It is incorrect to call the equals method for this

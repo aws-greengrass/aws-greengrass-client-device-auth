@@ -6,36 +6,39 @@
 package com.aws.greengrass.clientdevices.auth.iot.registry;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
+import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 public class ThingRegistry {
-    // holds mapping of thingName to IoT Certificate IDs;
-    // size-bound by default cache size, evicts oldest written entry if the max size is reached
-    private final Map<String, Thing> registry = Collections.synchronizedMap(
-            new LinkedHashMap<String, Thing>(RegistryConfig.REGISTRY_CACHE_SIZE, 0.75f, false) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry eldest) {
-                    return size() > RegistryConfig.REGISTRY_CACHE_SIZE;
-                }
-            });
-
     private final IotAuthClient iotAuthClient;
     private final DomainEvents domainEvents;
+    private final RuntimeConfiguration runtimeConfig;
 
+    /**
+     * Construct Thing registry.
+     *
+     * @param iotAuthClient IoT auth client
+     * @param domainEvents Domain events
+     * @param runtimeConfig Runtime configuration store
+     */
     @Inject
-    public ThingRegistry(IotAuthClient iotAuthClient, DomainEvents domainEvents) {
+    public ThingRegistry(IotAuthClient iotAuthClient,
+                         DomainEvents domainEvents,
+                         RuntimeConfiguration runtimeConfig) {
         this.iotAuthClient = iotAuthClient;
         this.domainEvents = domainEvents;
+        this.runtimeConfig = runtimeConfig;
     }
 
     /**
@@ -100,11 +103,12 @@ public class ThingRegistry {
     }
 
     private Thing getThingInternal(String thingName) {
-        return registry.get(thingName);
+        Optional<ThingV1DTO> thingV1 = runtimeConfig.getThingV1(thingName);
+        return thingV1.map(this::dtoToThing).orElse(null);
     }
 
     private Thing storeThing(Thing thing) {
-        registry.put(thing.getThingName(), thing);
+        runtimeConfig.putThing(thingToDto(thing));
         domainEvents.emit(new ThingUpdated(thing.getThingName(), 0)); // TODO: remove from event
         return thing;
     }
@@ -130,12 +134,31 @@ public class ThingRegistry {
                 updateThing(thing);
             }
         } catch (CloudServiceInteractionException e) {
-            List<String> certIds = thing.getAttachedCertificateIds();
-            if (certIds.contains(certificate.getCertificateId())) {
+            // TODO: also check the instant when this cert was attached this thing
+            //  and validate against configured offline TTL
+            if (thing.isCertificateAttached(certificate.getCertificateId())) {
                 return true;
             }
             throw e;
         }
         return false;
+    }
+
+    private Thing dtoToThing(ThingV1DTO dto) {
+        Map<String, Instant> certIds = dto.getCertificates().entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> Instant.ofEpochMilli(entry.getValue())
+                ));
+        return Thing.of(dto.getThingName(), certIds);
+    }
+
+    private ThingV1DTO thingToDto(Thing thing) {
+        Map<String, Long> certIds = thing.getAttachedCertificateIds().entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().toEpochMilli()
+                ));
+        return new ThingV1DTO(thing.getThingName(), certIds);
     }
 }

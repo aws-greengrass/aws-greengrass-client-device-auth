@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
-import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1;
+import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -50,17 +50,17 @@ public class RuntimeConfigurationTest {
     @Test
     void GIVEN_emptyRegistry_WHEN_putThingV1_THEN_thingIsReadable() {
         Map<String, Long> certMap = ImmutableMap.of("certId", 0L);
-        ThingV1 thingDTO = new ThingV1(mockThingName, certMap);
+        ThingV1DTO thingDTO = new ThingV1DTO(mockThingName, certMap);
 
         runtimeConfiguration.putThing(thingDTO);
 
         // Read it back and ensure it equals
-        ThingV1 readThing = runtimeConfiguration.getThingV1(mockThingName).get();
+        ThingV1DTO readThing = runtimeConfiguration.getThingV1(mockThingName).get();
         assertThat(thingDTO, equalTo(readThing));
 
         // Try again with new runtime configuration
         runtimeConfiguration = RuntimeConfiguration.from(configurationTopics);
-        ThingV1 readThing2 = runtimeConfiguration.getThingV1(mockThingName).get();
+        ThingV1DTO readThing2 = runtimeConfiguration.getThingV1(mockThingName).get();
         assertThat(thingDTO, equalTo(readThing2));
     }
 
@@ -73,7 +73,7 @@ public class RuntimeConfigurationTest {
     void GIVEN_missingConfig_WHEN_getThingV1_THEN_returnDefault() {
         // create thing config with missing children (details)
         configurationTopics.lookupTopics(THINGS_KEY, THINGS_V1_KEY, mockThingName);
-        ThingV1 readThing = runtimeConfiguration.getThingV1(mockThingName).get();
+        ThingV1DTO readThing = runtimeConfiguration.getThingV1(mockThingName).get();
         assertNotNull(readThing);
         assertThat(readThing.getThingName(), is(mockThingName));
         assertThat(readThing.getCertificates(), is(Collections.emptyMap()));
@@ -86,13 +86,13 @@ public class RuntimeConfigurationTest {
         for (int index = 0; index < topicList.length; index++) {
             String[] temp = Arrays.copyOfRange(topicList, 0, index+1);
             configurationTopics.lookup(temp);
-            ThingV1 thing = new ThingV1(mockThingName, Collections.emptyMap());
+            ThingV1DTO thing = new ThingV1DTO(mockThingName, Collections.emptyMap());
             runtimeConfiguration.putThing(thing);
-            ThingV1 readThing = runtimeConfiguration.getThingV1(mockThingName).get();
+            ThingV1DTO readThing = runtimeConfiguration.getThingV1(mockThingName).get();
             assertNotNull(readThing);
             assertThat(readThing.getThingName(), is(mockThingName));
             assertThat(readThing.getCertificates(), is(Collections.emptyMap()));
-
+            // reset config
             configurationTopics = Topics.of(configurationTopics.context, "config", null);
         }
     }

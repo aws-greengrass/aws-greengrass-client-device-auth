@@ -10,12 +10,12 @@ import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.WildcardSuffixAttribute;
 import lombok.Getter;
 
-import java.util.ArrayList;
+import java.time.Instant;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
@@ -30,7 +30,8 @@ public final class Thing implements AttributeProvider, Cloneable {
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
 
     private final String thingName;
-    private final CopyOnWriteArrayList<String> attachedCertificateIds;
+    // map of certificate ID to the time this certificate was known to be attached to the Thing
+    private final Map<String, Instant> attachedCertificateIds;
     private boolean modified = false;
 
     /**
@@ -40,7 +41,7 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @throws IllegalArgumentException If the given ThingName contains illegal characters
      */
     public static Thing of(String thingName) {
-        return Thing.of(thingName, new ArrayList<>());
+        return Thing.of(thingName, null);
     }
 
     /**
@@ -50,7 +51,7 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @param certificateIds Attached certificate IDs
      * @throws IllegalArgumentException If the given ThingName contains illegal characters
      */
-    public static Thing of(String thingName, List<String> certificateIds) {
+    public static Thing of(String thingName, Map<String, Instant> certificateIds) {
         if (!Pattern.matches(thingNamePattern, thingName)) {
             throw new IllegalArgumentException("Invalid thing name. The thing name must match \"[a-zA-Z0-9\\-_:]+\".");
         }
@@ -69,9 +70,8 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @param certificateId Certificate ID to attach
      */
     public void attachCertificate(String certificateId) {
-        if (attachedCertificateIds.addIfAbsent(certificateId)) {
-            modified = true;
-        }
+        attachedCertificateIds.put(certificateId, Instant.now());
+        modified = true;
     }
 
     /**
@@ -79,26 +79,40 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @param certificateId Certificate ID to detach
      */
     public void detachCertificate(String certificateId) {
-        if (attachedCertificateIds.remove(certificateId)) {
+        if (attachedCertificateIds.remove(certificateId) != null) {
             modified = true;
         }
     }
 
     /**
      * Returns copy of attached certificate IDs.
-     * </p>
-     * This list cannot be modified directly. Refer to {@link #attachCertificate(String) attachCertificate} and
+     * <p>
+     * This map should not be modified directly. Refer to {@link #attachCertificate(String) attachCertificate} and
      * {@link #detachCertificate(String) detachCertificate}
-     *
+     * </p>
      * @return Certificate IDs
      */
-    public List<String> getAttachedCertificateIds() {
-        return new ArrayList<>(attachedCertificateIds);
+    public Map<String, Instant> getAttachedCertificateIds() {
+        return new HashMap<>(attachedCertificateIds);
     }
 
-    private Thing(String thingName, List<String> certificateIds) {
+    /**
+     * Indicates whether the given certificate is attached to this thing.
+     *
+     * @param certificateId Certificate ID
+     * @return whether the given certificate is attached
+     */
+    public boolean isCertificateAttached(String certificateId) {
+        return attachedCertificateIds.containsKey(certificateId);
+    }
+
+    private Thing(String thingName, Map<String, Instant> certificateIds) {
         this.thingName = thingName;
-        this.attachedCertificateIds = new CopyOnWriteArrayList<>(certificateIds);
+        if (certificateIds == null) {
+            this.attachedCertificateIds = new ConcurrentHashMap<>();
+        } else {
+            this.attachedCertificateIds = new ConcurrentHashMap<>(certificateIds);
+        }
     }
 
     @Override
