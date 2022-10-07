@@ -7,21 +7,19 @@ package com.aws.greengrass.clientdevices.auth.iot.usecases;
 
 import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
-import com.aws.greengrass.logging.api.Logger;
-import com.aws.greengrass.logging.impl.LogManager;
 
 import java.util.Optional;
 import javax.inject.Inject;
 
 public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
-    private static final Logger logger = LogManager.getLogger(VerifyIotCertificate.class);
-
     private final IotAuthClient iotAuthClient;
     private final CertificateRegistry certificateRegistry;
+    private final NetworkState networkState;
 
 
     /**
@@ -29,45 +27,47 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
      *
      * @param iotAuthClient       IoT auth client
      * @param certificateRegistry Certificate Registry
+     * @param networkState        Network state
      */
     @Inject
-    public VerifyIotCertificate(IotAuthClient iotAuthClient, CertificateRegistry certificateRegistry) {
+    public VerifyIotCertificate(IotAuthClient iotAuthClient, CertificateRegistry certificateRegistry,
+                                NetworkState networkState) {
         this.iotAuthClient = iotAuthClient;
         this.certificateRegistry = certificateRegistry;
+        this.networkState = networkState;
     }
 
     @Override
     public Result<Boolean> apply(String certificatePem) {
-        Optional<String> certId = iotAuthClient.getActiveCertificateId(certificatePem);
+        // If we think we have network connectivity, then opportunistically go to the
+        // cloud for verification.
+        // If the local registry doesn't have information about the certificate, or if
+        // certificate information is outdated, then also go to the cloud, regardless
+        // of whether we think we're connected.
+        // Else, rely on whatever is in the local registry.
+        boolean verified = false;
 
-        // NOTE: This code will not remove certificates from the registry if they are revoked
-        //  in IoT Core. This is currently okay, as we will fail those connections during the
-        //  TLS handshake.
-        // Eventually, we need to handle offline and cert revocation scenarios. However, that
-        //  will be handled as part of a subsequent PR, as making that change now breaks a lot
-        //  of fragile tests
-        if (certId.isPresent()) {
-            try {
-                Certificate clientCertificate;
-                Optional<Certificate> cert = certificateRegistry.getCertificateFromPem(certificatePem);
-
-                if (cert.isPresent()) {
-                    clientCertificate = cert.get();
-                } else {
-                    clientCertificate = certificateRegistry.createCertificate(certificatePem);
-                }
-
-                clientCertificate.setStatus(Certificate.Status.ACTIVE);
-                certificateRegistry.updateCertificate(clientCertificate);
-            } catch (InvalidCertificateException e) {
-                // This should never happen
-                logger.atError()
-                        .kv("CertificateID", certId.get())
-                        .log("Unable to create Certificate object from client certificate, despite having received a "
-                                + "valid certificate ID from IoT Core");
+        try {
+            Optional<Certificate> cert = certificateRegistry.getCertificateFromPem(certificatePem);
+            if (cert.isPresent() && cert.get().isActive()) {
+                verified = true;
             }
+
+            if (networkState.getConnectionStateFromMqtt() == NetworkState.ConnectionState.NETWORK_UP || !verified) {
+                cert = iotAuthClient.getIotCertificate(certificatePem);
+                if (cert.isPresent()) {
+                    verified = cert.get().isActive();
+                }
+            }
+
+            if (!cert.get().isActive()) {
+                // Certificate is not active - remove it
+                certificateRegistry.deleteCertificate(cert.get());
+            }
+        } catch (InvalidCertificateException e) {
+            return Result.ok(false);
         }
 
-        return Result.ok(iotAuthClient.getActiveCertificateId(certificatePem).isPresent());
+        return Result.ok(verified);
     }
 }

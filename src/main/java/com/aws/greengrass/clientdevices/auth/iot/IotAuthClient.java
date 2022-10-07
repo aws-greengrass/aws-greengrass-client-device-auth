@@ -22,7 +22,7 @@ import javax.inject.Inject;
 public interface IotAuthClient {
     Optional<String> getActiveCertificateId(String certificatePem);
 
-    Certificate getIotCertificate(String certificatePem) throws InvalidCertificateException;
+    Optional<Certificate> getIotCertificate(String certificatePem) throws InvalidCertificateException;
 
     boolean isThingAttachedToCertificate(Thing thing, Certificate certificate);
 
@@ -69,11 +69,7 @@ public interface IotAuthClient {
 
         @Override
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
-        public Certificate getIotCertificate(String certificatePem) throws InvalidCertificateException {
-            if (Utils.isEmpty(certificatePem)) {
-                throw new InvalidCertificateException("Certificate PEM is empty");
-            }
-
+        public Optional<Certificate> getIotCertificate(String certificatePem) throws InvalidCertificateException {
             // Throws InvalidCertificateException if we can't parse the certificate
             Certificate cert = Certificate.fromPem(certificatePem);
 
@@ -86,16 +82,16 @@ public interface IotAuthClient {
             } catch (ValidationException | ResourceNotFoundException e) {
                 logger.atWarn().cause(e).kv(CERTPEM_KEY, certificatePem)
                         .log("Certificate doesn't exist or isn't active");
-                throw new InvalidCertificateException("Invalid IoT certificate", e);
+                cert.setStatus(Certificate.Status.INACTIVE);
             } catch (Exception e) {
                 // TODO: don't log at error level for network failures
                 logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
                         .log("Failed to verify client device identity with cloud. Check that the core device's IoT "
                                 + "policy grants the greengrass:VerifyClientDeviceIdentity permission");
-                cert.setStatus(Certificate.Status.UNKNOWN);
+                return Optional.empty();
             }
 
-            return cert;
+            return Optional.of(cert);
         }
 
         @Override
