@@ -57,7 +57,7 @@ public class ThingRegistry {
      * @return Thing object
      */
     public Thing createThing(String thingName) {
-        Thing newThing = Thing.of(1, thingName);
+        Thing newThing = Thing.of(thingName);
         storeThing(newThing);
         return newThing.clone();
     }
@@ -83,15 +83,10 @@ public class ThingRegistry {
      */
     public Thing updateThing(Thing thing) {
         // TODO: this method should throw exceptions instead of returning
-        //  null if the Thing doesn't exist, if the caller is attempting to
-        //  update an old version, or if the Thing hasn't been modified.
+        //  null if the Thing doesn't exist or if the Thing hasn't been modified.
         Thing oldThing = getThingInternal(thing.getThingName());
 
         if (oldThing == null) {
-            return null;
-        }
-
-        if (thing.getVersion() != oldThing.getVersion()) {
             return null;
         }
 
@@ -100,7 +95,7 @@ public class ThingRegistry {
             return thing;
         }
 
-        Thing newThing = Thing.of(thing.getVersion() + 1, thing.getThingName(), thing.getAttachedCertificateIds());
+        Thing newThing = Thing.of(thing.getThingName(), thing.getAttachedCertificateIds());
         return storeThing(newThing);
     }
 
@@ -110,7 +105,7 @@ public class ThingRegistry {
 
     private Thing storeThing(Thing thing) {
         registry.put(thing.getThingName(), thing);
-        domainEvents.emit(new ThingUpdated(thing.getThingName(), thing.getVersion()));
+        domainEvents.emit(new ThingUpdated(thing.getThingName(), 0)); // TODO: remove from event
         return thing;
     }
 

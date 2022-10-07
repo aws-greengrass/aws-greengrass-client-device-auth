@@ -49,14 +49,8 @@ public class ThingTest {
     }
 
     @Test
-    void GIVEN_invalidVersion_WHEN_Thing_THEN_exceptionThrown() {
-        Assertions.assertThrows(IllegalArgumentException.class, () -> Thing.of(-1, "Thing"));
-        Assertions.assertDoesNotThrow(() -> Thing.of(0, "Thing"));
-    }
-
-    @Test
     void GIVEN_thing_WHEN_attachCertificate_THEN_certAttachedAndDirtyBitSet() {
-        Thing thing = Thing.of(0, "Thing");
+        Thing thing = Thing.of("Thing");
         thing.attachCertificate("cert-id");
 
         assertThat(thing.isModified(), is(true));
@@ -66,7 +60,7 @@ public class ThingTest {
 
     @Test
     void GIVEN_thingWithCertificate_WHEN_attachSameCertificate_THEN_noChange() {
-        Thing thing = Thing.of(0, "Thing", Collections.singletonList("cert-id"));
+        Thing thing = Thing.of("Thing", Collections.singletonList("cert-id"));
         thing.attachCertificate("cert-id");
 
         assertThat(thing.isModified(), is(false));
@@ -76,7 +70,7 @@ public class ThingTest {
 
     @Test
     void GIVEN_thingWithoutCertificate_WHEN_detachCertificate_THEN_noChange() {
-        Thing thing = Thing.of(0, "Thing");
+        Thing thing = Thing.of("Thing");
         thing.detachCertificate("cert-id");
 
         assertThat(thing.isModified(), is(false));
@@ -86,7 +80,7 @@ public class ThingTest {
 
     @Test
     void GIVEN_thingWithCertificate_WHEN_detachCertificate_THEN_certDetachedAndDirtyBitSet() {
-        Thing thing = Thing.of(0, "Thing", Collections.singletonList("cert-id"));
+        Thing thing = Thing.of("Thing", Collections.singletonList("cert-id"));
         thing.detachCertificate("cert-id");
 
         assertThat(thing.isModified(), is(true));
@@ -96,22 +90,21 @@ public class ThingTest {
 
     @Test
     void testEquals() {
-        Thing version0_Thing_NoList = Thing.of(0, "Thing");
-        Thing version0_Thing2_NoList = Thing.of(0, "Thing2", Collections.emptyList());
-        Thing version0_Thing_EmptyList = Thing.of(0, "Thing", Collections.emptyList());
-        Thing version1_Thing_SingleCert = Thing.of(1, "Thing", Collections.singletonList("certId"));
-        Thing version1_Thing_SingleCert_copy = Thing.of(1, "Thing", Collections.singletonList("certId"));
-        Thing version2_Thing_SingleCert = Thing.of(2, "Thing", Collections.singletonList("certId"));
-        Thing version3_Thing_CertA = Thing.of(3, "Thing", Collections.singletonList("CertA"));
-        Thing version3_Thing_CertB = Thing.of(3, "Thing", Collections.singletonList("CertB"));
-        Thing version4_Thing_MultiCert = Thing.of(4, "Thing", Arrays.asList("Cert1", "Cert2"));
-        Thing version4_Thing_MultiCert_copy = Thing.of(4, "Thing", Arrays.asList("Cert1", "Cert2"));
+        Thing Thing_NoList = Thing.of("Thing");
+        Thing Thing2_NoList = Thing.of("Thing2", Collections.emptyList());
+        Thing Thing_EmptyList = Thing.of("Thing", Collections.emptyList());
+        Thing Thing_SingleCert = Thing.of("Thing", Collections.singletonList("certId"));
+        Thing Thing_SingleCert_copy = Thing.of("Thing", Collections.singletonList("certId"));
+        Thing Thing_CertA = Thing.of("Thing", Collections.singletonList("CertA"));
+        Thing Thing_CertB = Thing.of("Thing", Collections.singletonList("CertB"));
+        Thing Thing_MultiCert = Thing.of("Thing", Arrays.asList("Cert1", "Cert2"));
+        Thing Thing_MultiCert_copy = Thing.of("Thing", Arrays.asList("Cert1", "Cert2"));
 
-        assertThat(version0_Thing_NoList, equalTo(version0_Thing_EmptyList));
-        assertThat(version0_Thing_NoList, not(equalTo(version0_Thing2_NoList)));
-        assertThat(version1_Thing_SingleCert, equalTo(version1_Thing_SingleCert_copy));
-        assertThat(version1_Thing_SingleCert, not(equalTo(version2_Thing_SingleCert)));
-        assertThat(version3_Thing_CertA, not(equalTo(version3_Thing_CertB)));
-        assertThat(version4_Thing_MultiCert, equalTo(version4_Thing_MultiCert_copy));
+        assertThat(Thing_NoList, equalTo(Thing_EmptyList));
+        assertThat(Thing_NoList, not(equalTo(Thing2_NoList)));
+        assertThat(Thing_SingleCert, equalTo(Thing_SingleCert_copy));
+        assertThat(Thing_SingleCert, equalTo(Thing_SingleCert));
+        assertThat(Thing_CertA, not(equalTo(Thing_CertB)));
+        assertThat(Thing_MultiCert, equalTo(Thing_MultiCert_copy));
     }
 }
