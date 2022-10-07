@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -16,7 +15,6 @@ import software.amazon.awssdk.utils.ImmutableMap;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,17 +23,13 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class ThingTest {
     private static final String mockThingName = "mock-thing";
     private static final String mockCertId = "mock-cert-id";
-    private static Map<String, Instant> mockCertIdMap = new HashMap<>();
-
-    @BeforeAll
-    static void beforeAll() {
-        mockCertIdMap.put(mockCertId, Instant.now());
-    }
+    private static Map<String, Instant> mockCertIdMap = ImmutableMap.of(mockCertId, Instant.now());
 
     @Test
     void GIVEN_validThingName_WHEN_Thing_THEN_objectIsCreated() {
@@ -74,20 +68,19 @@ public class ThingTest {
     }
 
     @Test
-    void GIVEN_thingWithCertificate_WHEN_attachSameCertificate_THEN_noChange() {
-        Thing thing = Thing.of(mockThingName, mockCertIdMap);
-        thing.attachCertificate(mockCertId);
+    void GIVEN_thingWithCertificate_WHEN_attachSameCertificate_THEN_timestampUpdated() {
+        Thing thing = Thing.of(mockThingName, ImmutableMap.of(mockCertId, Instant.EPOCH));
         Instant prevInstant = thing.getAttachedCertificateIds().get(mockCertId);
         assertNotNull(prevInstant);
-        assertThat(thing.isModified(), is(true));
-        // attach same certificate again
+
+        // Re-attach certificate
         thing.attachCertificate(mockCertId);
+        assertThat(thing.isModified(), is(true));
 
         Map<String, Instant> certIds = thing.getAttachedCertificateIds();
         Instant updatedInstant = certIds.get(mockCertId);
         assertNotNull(updatedInstant);
-        // this Instant comparison is flaky across JDK versions as the Instant resolution/precision varies
-        // assertTrue(prevInstant.isBefore(updatedInstant));
+        assertTrue(updatedInstant.isAfter(prevInstant));
     }
 
     @Test

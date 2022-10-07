@@ -111,7 +111,7 @@ public final class Thing implements AttributeProvider, Cloneable {
 
     private Thing(String thingName, Map<String, Instant> certificateIds) {
         this.thingName = thingName;
-        this.attachedCertificateIds = Collections.synchronizedMap(certificateIds);
+        this.attachedCertificateIds = Collections.synchronizedMap(new HashMap<>(certificateIds));
     }
 
     @Override
