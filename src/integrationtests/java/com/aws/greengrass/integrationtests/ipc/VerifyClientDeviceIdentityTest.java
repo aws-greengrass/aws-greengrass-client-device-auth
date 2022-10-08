@@ -22,6 +22,7 @@ import com.aws.greengrass.util.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -62,6 +63,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
+@Disabled("These tests need to be re-written!")
 class VerifyClientDeviceIdentityTest {
     private static GlobalStateChangeListener listener;
     @TempDir

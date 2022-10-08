@@ -76,7 +76,7 @@ class CertificateRegistryTest {
     @Test
     void GIVEN_registryWithCertificate_WHEN_getCertificateFromPem_THEN_certificateReturnedWithUnknownStatus()
             throws InvalidCertificateException {
-        Certificate newCert = registry.createCertificate(validClientCertificatePem);
+        Certificate newCert = registry.getOrCreateCertificate(validClientCertificatePem);
 
         Optional<Certificate> cert = registry.getCertificateFromPem(validClientCertificatePem);
         assertThat(cert.isPresent(), is(true));
@@ -88,13 +88,13 @@ class CertificateRegistryTest {
 
     @Test
     void GIVEN_invalidCertificate_WHEN_createCertificate_THEN_exceptionThrown() {
-        assertThrows(InvalidCertificateException.class, () -> registry.createCertificate("BAD CERT"));
+        assertThrows(InvalidCertificateException.class, () -> registry.getOrCreateCertificate("BAD CERT"));
     }
 
     @Test
     void GIVEN_certificateWithUpdate_WHEN_updateCertificate_THEN_updatedCertificateIsRetrievable()
             throws InvalidCertificateException {
-        Certificate newCert = registry.createCertificate(validClientCertificatePem);
+        Certificate newCert = registry.getOrCreateCertificate(validClientCertificatePem);
         Instant now = Instant.now();
 
         assertThat(newCert.getStatus(), equalTo(Certificate.Status.UNKNOWN));
@@ -114,7 +114,7 @@ class CertificateRegistryTest {
     @Test
     void GIVEN_validCertificate_WHEN_removeCertificate_THEN_certificateIsNotRetrievable()
             throws InvalidCertificateException {
-        registry.createCertificate(validClientCertificatePem);
+        registry.getOrCreateCertificate(validClientCertificatePem);
 
         Optional<Certificate> cert = registry.getCertificateFromPem(validClientCertificatePem);
         assertThat(cert.isPresent(), is(true));

@@ -82,7 +82,7 @@ public interface IotAuthClient {
             } catch (ValidationException | ResourceNotFoundException e) {
                 logger.atWarn().cause(e).kv(CERTPEM_KEY, certificatePem)
                         .log("Certificate doesn't exist or isn't active");
-                cert.setStatus(Certificate.Status.INACTIVE);
+                cert.setStatus(Certificate.Status.UNKNOWN);
             } catch (Exception e) {
                 // TODO: don't log at error level for network failures
                 logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)

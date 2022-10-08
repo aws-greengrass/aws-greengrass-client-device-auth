@@ -30,7 +30,6 @@ public class Certificate implements AttributeProvider {
 
     public enum Status {
         ACTIVE,
-        INACTIVE,
         UNKNOWN
     }
 
