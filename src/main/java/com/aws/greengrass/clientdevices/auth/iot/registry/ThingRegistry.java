@@ -116,7 +116,6 @@ public class ThingRegistry {
     /**
      * Returns whether the Thing is associated to the given IoT Certificate.
      * Returns valid locally registered result when IoT Core cannot be reached.
-     * TODO: add a separate refreshable caching layer for offline auth
      *
      * @param thing IoT Thing
      * @param certificate IoT Certificate
@@ -124,24 +123,20 @@ public class ThingRegistry {
      * @throws CloudServiceInteractionException when thing <-> certificate association cannot be verified
      */
     public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
-        try {
-            if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
-                thing.attachCertificate(certificate.getCertificateId());
-                updateThing(thing);
-                return true;
-            } else {
-                thing.detachCertificate(certificate.getCertificateId());
-                updateThing(thing);
-            }
-        } catch (CloudServiceInteractionException e) {
-            // TODO: also check the instant when this cert was attached this thing
-            //  and validate against configured offline TTL
-            if (thing.isCertificateAttached(certificate.getCertificateId())) {
-                return true;
-            }
-            throw e;
+        // If we have a local cache hit, then return true. Else, go to cloud
+        if (thing.isCertificateAttached(certificate.getCertificateId())) {
+            return true;
         }
-        return false;
+
+        if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
+            thing.attachCertificate(certificate.getCertificateId());
+            updateThing(thing);
+            return true;
+        } else {
+            thing.detachCertificate(certificate.getCertificateId());
+            updateThing(thing);
+            return false;
+        }
     }
 
     private Thing dtoToThing(ThingV1DTO dto) {

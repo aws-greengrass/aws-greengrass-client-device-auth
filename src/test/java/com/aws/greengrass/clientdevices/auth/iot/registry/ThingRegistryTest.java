@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.iot.registry;
 
-
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
@@ -19,7 +18,6 @@ import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -91,38 +89,17 @@ class ThingRegistryTest {
         // TODO: no update event
     }
 
-    @Disabled
-    @Test
-    void GIVEN_staleThing_WHEN_updateThing_THEN_updateRejected() {
-        // TODO
-    }
-
     @Test
     void GIVEN_validThingAndCertificate_WHEN_isThingAttachedToCertificate_THEN_pass() {
-        // positive result
-        when(mockIotAuthClient.isThingAttachedToCertificate(any(Thing.class), any(Certificate.class))).thenReturn(true);
-        assertTrue(registry.isThingAttachedToCertificate(mockThing, mockCertificate));
-        verify(mockIotAuthClient, times(1)).isThingAttachedToCertificate(any(), any());
-
+        // TODO: This test should be re-written since isThingAttachedToCertificate modifies registry state
         // negative result
-        reset(mockIotAuthClient);
         when(mockIotAuthClient.isThingAttachedToCertificate(any(Thing.class), any(Certificate.class))).thenReturn(false);
         assertFalse(registry.isThingAttachedToCertificate(mockThing, mockCertificate));
-    }
 
-    @Test
-    void GIVEN_unreachable_cloud_WHEN_isThingAttachedToCertificate_THEN_return_cached_result() {
-        // cache result before going offline
-        Thing thing = registry.createThing(mockThingName);
-        thing.attachCertificate(mockCertificate.getCertificateId());
-        Thing updatedThing = registry.updateThing(thing);
-
-        // go offline
-        doThrow(CloudServiceInteractionException.class)
-                .when(mockIotAuthClient).isThingAttachedToCertificate(any(), any());
-
-        // verify cached result
-        assertTrue(registry.isThingAttachedToCertificate(updatedThing, mockCertificate));
+        // positive result
+        reset(mockIotAuthClient);
+        when(mockIotAuthClient.isThingAttachedToCertificate(any(Thing.class), any(Certificate.class))).thenReturn(true);
+        assertTrue(registry.isThingAttachedToCertificate(mockThing, mockCertificate));
         verify(mockIotAuthClient, times(1)).isThingAttachedToCertificate(any(), any());
     }
 
