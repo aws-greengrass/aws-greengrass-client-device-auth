@@ -39,6 +39,7 @@ import software.amazon.awssdk.aws.greengrass.model.UnauthorizedError;
 import software.amazon.awssdk.eventstreamrpc.EventStreamRPCConnection;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -83,6 +84,7 @@ class AuthorizeClientDeviceActionTest {
     @BeforeEach
     void beforeEach(ExtensionContext context) throws DeviceConfigurationException {
         ignoreExceptionOfType(context, SpoolerStoreException.class);
+        ignoreExceptionOfType(context, NoSuchFileException.class); // Loading CA keystore
 
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
