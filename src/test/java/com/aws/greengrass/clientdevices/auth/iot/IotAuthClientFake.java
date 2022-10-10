@@ -40,10 +40,7 @@ public class IotAuthClientFake implements IotAuthClient {
         Certificate cert = Certificate.fromPem(certPem);
         String certId = cert.getCertificateId();
 
-        if (!thingToCerts.containsKey(thing)) {
-            thingToCerts.put(thing, new HashSet<>());
-        }
-        thingToCerts.get(thing).add(certId);
+        thingToCerts.computeIfAbsent(thing, (k) -> new HashSet<>()).add(certId);
     }
 
     public void detachCertificateFromThing(String thing, String certPem) throws InvalidCertificateException {
