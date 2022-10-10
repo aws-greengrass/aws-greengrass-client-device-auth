@@ -5,12 +5,13 @@
 
 package com.aws.greengrass.integrationtests.ipc;
 
+import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
+import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.clientdevices.auth.AuthorizationRequest;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidSessionException;
-import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
@@ -18,7 +19,6 @@ import com.aws.greengrass.logging.impl.config.LogConfig;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.UniqueRootPathExtension;
-import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +37,6 @@ import software.amazon.awssdk.aws.greengrass.model.InvalidClientDeviceAuthTokenE
 import software.amazon.awssdk.aws.greengrass.model.ServiceError;
 import software.amazon.awssdk.aws.greengrass.model.UnauthorizedError;
 import software.amazon.awssdk.eventstreamrpc.EventStreamRPCConnection;
-import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -65,10 +64,6 @@ class AuthorizeClientDeviceActionTest {
     Path rootDir;
     private Kernel kernel;
     @Mock
-    private GreengrassServiceClientFactory clientFactory;
-    @Mock
-    private GreengrassV2DataClient v2DataClient;
-    @Mock
     private DeviceAuthClient deviceAuthClient;
 
     private static void authzClientDeviceAction(GreengrassCoreIPCClient ipcClient,
@@ -82,17 +77,17 @@ class AuthorizeClientDeviceActionTest {
     }
 
     @BeforeEach
-    void beforeEach(ExtensionContext context) throws DeviceConfigurationException {
+    void beforeEach(ExtensionContext context) {
         ignoreExceptionOfType(context, SpoolerStoreException.class);
         ignoreExceptionOfType(context, NoSuchFileException.class); // Loading CA keystore
 
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
-        kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
-        when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(v2DataClient);
-
+        // Set up Iot auth client
+        IotAuthClientFake iotAuthClientFake = new IotAuthClientFake();
+        kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
     }
 
     private void startNucleusWithConfig(String configFileName) throws InterruptedException {
