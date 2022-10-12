@@ -38,6 +38,7 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
@@ -185,12 +186,12 @@ public class CertificateStore {
         String alias = aliases[0];
         X509Certificate[] chain = x509KeyManager.getCertificateChain(alias);
 
-       if (chain == null || chain.length < 1) {
-           throw new CertificateChainLoadingException("Unable to get the certificate chain using the private key and "
-                   + "certificate URIs");
-       }
+        if (chain == null || chain.length < 1) {
+            throw new CertificateChainLoadingException("Unable to get the certificate chain using the private key and "
+                    + "certificate URIs");
+        }
 
-       return chain;
+        return chain;
     }
 
     /**
@@ -216,19 +217,19 @@ public class CertificateStore {
     }
 
 
-     /**
-      * Sets the CA chain and private key that are used to generate certificates. It combines setting both values
-      * at the same time to avoid invalid states where the caChain can be updated without updating the value of
-      * the private key required to sign generated certificates.
-      *
-      * @param privateKey  leaf CA private key
-      * @param caCertificateChain a CA chain
-      * @param providerType  provider type DEFAULT or HSM, used to map to the correct JCA provider
-      *
-      * @throws KeyStoreException  if privateKey is not instance of PrivateKey or no ca chain provided
-      */
-     public synchronized void setCaKeyAndCertificateChain(
-             CertificateHelper.ProviderType providerType, Key privateKey, X509Certificate... caCertificateChain)
+    /**
+     * Sets the CA chain and private key that are used to generate certificates. It combines setting both values
+     * at the same time to avoid invalid states where the caChain can be updated without updating the value of
+     * the private key required to sign generated certificates.
+     *
+     * @param privateKey  leaf CA private key
+     * @param caCertificateChain a CA chain
+     * @param providerType  provider type DEFAULT or HSM, used to map to the correct JCA provider
+     *
+     * @throws KeyStoreException  if privateKey is not instance of PrivateKey or no ca chain provided
+     */
+    public synchronized void setCaKeyAndCertificateChain(
+            CertificateHelper.ProviderType providerType, Key privateKey, X509Certificate... caCertificateChain)
             throws KeyStoreException {
         if (caCertificateChain == null) {
             throw new KeyStoreException("No certificate chain provided");
@@ -313,7 +314,7 @@ public class CertificateStore {
             throw new KeyStoreException("unable to load CA keystore", e);
         }
         // generate new passphrase for new CA certificate
-        passphrase = CertificateHelper.generateRandomPassphrase().toCharArray();
+        passphrase = generateRandomPassphrase().toCharArray();
         caCertificateChain = new X509Certificate[]{ caCertificate };
         ks.setKeyEntry(CA_KEY_ALIAS, kp.getPrivate(), getPassphrase(), caCertificateChain);
         keyStore = ks;
@@ -423,6 +424,23 @@ public class CertificateStore {
         try (OutputStream writeStream = Files.newOutputStream(filePath)) {
             writeStream.write(certificatePem.getBytes());
         }
+    }
+
+    /**
+     * Generates a secure passphrase suitable for use with KeyStores.
+     *
+     * @return ASCII passphrase
+     */
+    static String generateRandomPassphrase() {
+        // Generate cryptographically secure sequence of bytes
+        SecureRandom secureRandom = new SecureRandom();
+        byte[] randomBytes = new byte[16];
+        secureRandom.nextBytes(randomBytes);
+        StringBuilder sb = new StringBuilder();
+        for (byte b : randomBytes) {
+            sb.append(byteToAsciiCharacter(b));
+        }
+        return sb.toString();
     }
 
     // Map random byte into ASCII space

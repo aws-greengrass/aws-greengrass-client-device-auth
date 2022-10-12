@@ -52,8 +52,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.aws.greengrass.clientdevices.auth.certificate.CertificateStore.byteToAsciiCharacter;
-
 
 public final class CertificateHelper {
     public static final String KEY_TYPE_RSA = "RSA";
@@ -296,22 +294,5 @@ public final class CertificateHelper {
         nameBuilder.addRDN(BCStyle.CN, commonName);
 
         return nameBuilder.build();
-    }
-
-    /**
-     * Generates a secure passphrase suitable for use with KeyStores.
-     *
-     * @return ASCII passphrase
-     */
-    public static String generateRandomPassphrase() {
-        // Generate cryptographically secure sequence of bytes
-        SecureRandom secureRandom = new SecureRandom();
-        byte[] randomBytes = new byte[16];
-        secureRandom.nextBytes(randomBytes);
-        StringBuilder sb = new StringBuilder();
-        for (byte b : randomBytes) {
-            sb.append(byteToAsciiCharacter(b));
-        }
-        return sb.toString();
     }
 }
