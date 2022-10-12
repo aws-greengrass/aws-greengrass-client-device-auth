@@ -25,7 +25,6 @@ import java.util.Optional;
  * <p>
  * |---- runtime
  * |    |---- ca_passphrase: "..."
- * |    |---- client_passphrase: "..."
  * |    |---- certificates:
  * |         |---- authorities: [...]
  * |
@@ -43,7 +42,6 @@ import java.util.Optional;
  */
 public final class RuntimeConfiguration {
     public static final String CA_PASSPHRASE_KEY = "ca_passphrase";
-    public static  final String CLIENT_PASSPHRASE_KEY = "client_passphrase";
     private static final String AUTHORITIES_KEY = "authorities";
     private static final String CERTIFICATES_KEY = "certificates";
     static final String THINGS_KEY = "clientDeviceThings";
@@ -72,25 +70,6 @@ public final class RuntimeConfiguration {
         Topic caPassphrase = config.lookup(CA_PASSPHRASE_KEY).dflt("");
         return Coerce.toString(caPassphrase);
     }
-
-    /**
-     * Returns the value of the client keystore passphrase.
-     */
-    public String getClientPassphrase() {
-        Topic caPassphrase = config.lookup(CLIENT_PASSPHRASE_KEY);
-        return Coerce.toString(caPassphrase);
-    }
-
-    /**
-     * Updates the runtime configuration value for client key store passphrase.
-     *
-     * @param passphrase new passphrase
-     */
-    public void updateClientPassphrase(String passphrase) {
-        Topic caPassphrase = config.lookup(CLIENT_PASSPHRASE_KEY);
-        caPassphrase.withValue(passphrase);
-    }
-
 
     /**
      * Updates the configuration value for certificates.

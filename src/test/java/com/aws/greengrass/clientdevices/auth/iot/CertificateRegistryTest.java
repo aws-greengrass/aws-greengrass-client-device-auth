@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.config.Topics;
@@ -63,7 +64,8 @@ class CertificateRegistryTest {
     @BeforeEach
     void beforeEach() throws KeyStoreException {
         configTopic = Topics.of(new Context(), "config", null);
-        registry = new CertificateRegistry(RuntimeConfiguration.from(configTopic), rootDir.resolve("store"));
+        ClientCertificateStore store = new ClientCertificateStore(rootDir.resolve("store"));
+        registry = new CertificateRegistry(RuntimeConfiguration.from(configTopic), store);
     }
 
     @AfterEach
@@ -99,8 +101,7 @@ class CertificateRegistryTest {
 
     @Test
     void GIVEN_certificateWithUpdate_WHEN_updateCertificate_THEN_updatedCertificateIsRetrievable()
-            throws InvalidCertificateException, CertificateException, KeyStoreException, IOException,
-            NoSuchAlgorithmException {
+            throws InvalidCertificateException {
         Certificate newCert = registry.getOrCreateCertificate(validClientCertificatePem);
         Instant now = Instant.now();
 

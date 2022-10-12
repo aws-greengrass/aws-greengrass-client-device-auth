@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth.certificate.infra;
 
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
-import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.util.FileSystemPermission;
 import com.aws.greengrass.util.platforms.Platform;
@@ -37,25 +36,21 @@ import javax.inject.Inject;
 public class ClientCertificateStore {
     private static final String STORE_NAME = "client.jks";
     private final Path storePath;
-    private final RuntimeConfiguration runtimeConfiguration;
     private KeyStore keyStore;
-    private char[] passphrase;
 
 
     /**
      * Create a certificate store for tests.
      *
-     * @param runtimeConfiguration - Runtime configuration
      * @param kernel - Nucleus Kernel
      *
      * @throws  KeyStoreException - If fails to create or load key store
      * @throws  IOException - If fails to get work path
      */
     @Inject
-    public ClientCertificateStore(RuntimeConfiguration runtimeConfiguration, Kernel kernel) throws KeyStoreException,
+    public ClientCertificateStore(Kernel kernel) throws KeyStoreException,
             IOException {
         this(
-            runtimeConfiguration,
             kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
         );
     }
@@ -64,28 +59,16 @@ public class ClientCertificateStore {
     /**
      * Create a certificate store for tests.
      *
-     * @param runtimeConfiguration - Runtime configuration
      * @param storePath - Path to the key store in the file system
      *
      * @throws  KeyStoreException - If fails to create or load key store
      */
-    public ClientCertificateStore(RuntimeConfiguration runtimeConfiguration, Path storePath) throws KeyStoreException {
+    public ClientCertificateStore(Path storePath) throws KeyStoreException {
         this.storePath = storePath.resolve(STORE_NAME);
-        this.runtimeConfiguration = runtimeConfiguration;
-
         this.init();
     }
 
     private void init() throws KeyStoreException {
-        String passphrase = runtimeConfiguration.getClientPassphrase();
-
-        if (passphrase == null) {
-            passphrase = CertificateHelper.generateRandomPassphrase();
-            runtimeConfiguration.updateClientPassphrase(passphrase);
-        }
-
-        this.passphrase = passphrase.toCharArray();
-
         try {
             this.keyStore = loadStore();
         } catch (KeyStoreException | IOException | CertificateException | NoSuchAlgorithmException
@@ -98,7 +81,7 @@ public class ClientCertificateStore {
             CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException {
         KeyStore ks = KeyStore.getInstance("JKS");
         try (InputStream ksInputStream = Files.newInputStream(storePath)) {
-            ks.load(ksInputStream, passphrase);
+            ks.load(ksInputStream, new char[]{});
         }
 
         return ks;
@@ -126,7 +109,7 @@ public class ClientCertificateStore {
             Files.createDirectories(storePath.getParent());
 
             try (OutputStream writeStream = Files.newOutputStream(storePath)) {
-                ks.store(writeStream, passphrase);
+                ks.store(writeStream, new char[]{});
             }
 
             Platform platform = Platform.getInstance();
@@ -136,6 +119,18 @@ public class ClientCertificateStore {
             platform.setPermissions(accessLevel, storePath);
         } catch (CertificateException | IOException | NoSuchAlgorithmException e) {
             throw new KeyStoreException(e);
+        }
+    }
+
+    /**
+     * Checks if there is a certificate PEM already stored for a certificateId.
+     * @param certificateId - The id of the stored certificate.
+     */
+    public boolean exists(String certificateId) {
+        try {
+            return keyStore.isCertificateEntry(certificateId);
+        } catch (KeyStoreException e) {
+            return false;
         }
     }
 

@@ -5,15 +5,14 @@
 
 package com.aws.greengrass.clientdevices.auth.iot;
 
-import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1DTO;
-import com.aws.greengrass.lifecyclemanager.Kernel;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.security.KeyStoreException;
 import java.security.cert.CertificateException;
 import java.time.Instant;
@@ -32,28 +31,22 @@ public class CertificateRegistry {
             CertificateV1DTO.Status.ACTIVE, Certificate.Status.ACTIVE,
             CertificateV1DTO.Status.UNKNOWN, Certificate.Status.UNKNOWN
     );
+    private static final Logger logger = LogManager.getLogger(CertificateRegistry.class);
+
     private final ClientCertificateStore pemStore;
 
     /**
      * Creates a certificate registry.
      * @param runtimeConfiguration - Runtime configuration
-     * @param kernel - Nucleus Kernel
+     * @param pemStore - An instance of ClientCertificateStore
      *
      * @throws IOException - If fails to get the service work path
      * @throws KeyStoreException - If fails to create a key store to store certificate PEMs.
      */
     @Inject
-    public CertificateRegistry(RuntimeConfiguration runtimeConfiguration, Kernel kernel) throws IOException,
-            KeyStoreException {
-       this(
-           runtimeConfiguration,
-           kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
-       );
-    }
-
-    public CertificateRegistry(RuntimeConfiguration runtimeConfiguration, Path pemStorePath) throws KeyStoreException {
+    public CertificateRegistry(RuntimeConfiguration runtimeConfiguration, ClientCertificateStore pemStore) {
         this.runtimeConfiguration = runtimeConfiguration;
-        this.pemStore = new ClientCertificateStore(runtimeConfiguration, pemStorePath);
+        this.pemStore = pemStore;
     }
 
     /**
@@ -83,15 +76,23 @@ public class CertificateRegistry {
      * @throws CertificateException - If fails generate certificate from PEM
      * @throws KeyStoreException - If fails to store the key store into disk
      */
-    public Certificate getOrCreateCertificate(String certificatePem) throws InvalidCertificateException,
-            CertificateException, KeyStoreException {
+    public Certificate getOrCreateCertificate(String certificatePem) throws InvalidCertificateException {
         Certificate newCert = Certificate.fromPem(certificatePem);
         Optional<CertificateV1DTO> dto = runtimeConfiguration.getCertificateV1(newCert.getCertificateId());
+
+        if (!pemStore.exists(newCert.getCertificateId())) {
+            try {
+                this.pemStore.storePem(newCert.getCertificateId(), certificatePem);
+            } catch (CertificateException | KeyStoreException e) {
+                logger.atWarn().kv("certificateId", newCert.getCertificateId())
+                        .log("Failed to store certificate pem");
+            }
+        }
+
         if (dto.isPresent()) {
             return certificateV1DTOToCert(dto.get());
         }
 
-        this.pemStore.storePem(newCert.getCertificateId(), certificatePem);
         runtimeConfiguration.putCertificate(certificateToCertificateV1DTO(newCert));
         return newCert;
     }
