@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import javax.inject.Inject;
 
 /**
  * Singleton class for managing AuthN and AuthZ sessions.
@@ -40,7 +41,17 @@ public class SessionManager {
                 }
             });
 
-    private SessionConfig sessionConfig;
+    private final SessionConfig sessionConfig;
+
+    /**
+     * Construct Session Manager.
+     *
+     * @param sessionConfig Session configuration
+     */
+    @Inject
+    public SessionManager(SessionConfig sessionConfig) {
+        this.sessionConfig = sessionConfig;
+    }
 
     /**
      * Looks up a session by id.
@@ -74,15 +85,6 @@ public class SessionManager {
     public void closeSession(String sessionId) {
         logger.atDebug().kv(SESSION_ID, sessionId).log("Closing session");
         closeSessionInternal(sessionId);
-    }
-
-    /**
-     * Session configuration setter.
-     *
-     * @param sessionConfig session configuration
-     */
-    public void setSessionConfig(SessionConfig sessionConfig) {
-        this.sessionConfig = sessionConfig;
     }
 
     private synchronized void closeSessionInternal(String sessionId) {

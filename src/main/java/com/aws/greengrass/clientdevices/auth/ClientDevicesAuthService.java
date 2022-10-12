@@ -21,7 +21,6 @@ import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
-import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.clientdevices.auth.util.ResizableLinkedBlockingQueue;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topics;
@@ -63,10 +62,13 @@ public class ClientDevicesAuthService extends PluginService {
     public static final String MAX_ACTIVE_AUTH_TOKENS_TOPIC = "maxActiveAuthTokens";
     public static final String CLOUD_REQUEST_QUEUE_SIZE_TOPIC = "cloudRequestQueueSize";
     public static final String MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC = "maxConcurrentCloudRequests";
+    public static final String SECURITY_TOPIC = "security";
+    public static final String CLIENT_DEVICE_TRUST_DURATION_HOURS_TOPIC = "clientDeviceTrustDurationHours";
     // Limit the queue size before we start rejecting requests
     private static final int DEFAULT_CLOUD_CALL_QUEUE_SIZE = 100;
     private static final int DEFAULT_THREAD_POOL_SIZE = 1;
     public static final int DEFAULT_MAX_ACTIVE_AUTH_TOKENS = 2500;
+    public static final int DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS = 24;
 
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private ThreadPoolExecutor cloudCallThreadPool;
@@ -109,6 +111,7 @@ public class ClientDevicesAuthService extends PluginService {
 
     private void initializeInfrastructure() {
         context.put(RuntimeConfiguration.class, RuntimeConfiguration.from(getRuntimeConfig()));
+        context.put(SessionConfig.class, SessionConfig.from(getConfig()));
 
         // Initialize IPC thread pool
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
@@ -121,7 +124,6 @@ public class ClientDevicesAuthService extends PluginService {
 
     private void initializeHandlers() {
         // Register auth session handlers
-        context.get(SessionManager.class).setSessionConfig(new SessionConfig(getConfig()));
         SessionCreator.registerSessionFactory("mqtt", context.get(MqttSessionFactory.class));
 
         // Register domain event handlers
@@ -198,6 +200,8 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     public void postInject() {
         super.postInject();
+        context.put(SessionConfig.class, SessionConfig.from(getConfig()));
+
         AuthorizationHandler authorizationHandler = context.get(AuthorizationHandler.class);
         try {
             authorizationHandler.registerComponent(this.getName(),
