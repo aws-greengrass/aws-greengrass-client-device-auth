@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.config.Topics;
@@ -22,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.security.KeyPair;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -56,9 +58,10 @@ class CertificateRegistryTest {
     }
 
     @BeforeEach
-    void beforeEach() {
+    void beforeEach() throws KeyStoreException {
         configTopic = Topics.of(new Context(), "config", null);
-        registry = new CertificateRegistry(RuntimeConfiguration.from(configTopic));
+        ClientCertificateStore store = new ClientCertificateStore();
+        registry = new CertificateRegistry(RuntimeConfiguration.from(configTopic), store);
     }
 
     @AfterEach

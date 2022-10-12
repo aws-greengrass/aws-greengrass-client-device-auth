@@ -186,12 +186,12 @@ public class CertificateStore {
         String alias = aliases[0];
         X509Certificate[] chain = x509KeyManager.getCertificateChain(alias);
 
-       if (chain == null || chain.length < 1) {
-           throw new CertificateChainLoadingException("Unable to get the certificate chain using the private key and "
-                   + "certificate URIs");
-       }
+        if (chain == null || chain.length < 1) {
+            throw new CertificateChainLoadingException("Unable to get the certificate chain using the private key and "
+                    + "certificate URIs");
+        }
 
-       return chain;
+        return chain;
     }
 
     /**
@@ -217,19 +217,19 @@ public class CertificateStore {
     }
 
 
-     /**
-      * Sets the CA chain and private key that are used to generate certificates. It combines setting both values
-      * at the same time to avoid invalid states where the caChain can be updated without updating the value of
-      * the private key required to sign generated certificates.
-      *
-      * @param privateKey  leaf CA private key
-      * @param caCertificateChain a CA chain
-      * @param providerType  provider type DEFAULT or HSM, used to map to the correct JCA provider
-      *
-      * @throws KeyStoreException  if privateKey is not instance of PrivateKey or no ca chain provided
-      */
-     public synchronized void setCaKeyAndCertificateChain(
-             CertificateHelper.ProviderType providerType, Key privateKey, X509Certificate... caCertificateChain)
+    /**
+     * Sets the CA chain and private key that are used to generate certificates. It combines setting both values
+     * at the same time to avoid invalid states where the caChain can be updated without updating the value of
+     * the private key required to sign generated certificates.
+     *
+     * @param privateKey  leaf CA private key
+     * @param caCertificateChain a CA chain
+     * @param providerType  provider type DEFAULT or HSM, used to map to the correct JCA provider
+     *
+     * @throws KeyStoreException  if privateKey is not instance of PrivateKey or no ca chain provided
+     */
+    public synchronized void setCaKeyAndCertificateChain(
+            CertificateHelper.ProviderType providerType, Key privateKey, X509Certificate... caCertificateChain)
             throws KeyStoreException {
         if (caCertificateChain == null) {
             throw new KeyStoreException("No certificate chain provided");
