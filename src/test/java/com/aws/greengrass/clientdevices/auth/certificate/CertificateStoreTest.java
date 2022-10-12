@@ -149,7 +149,7 @@ public class CertificateStoreTest {
     @Test
     public void GIVEN_CertificateStore_WHEN_generateRandomPassphrase_THEN_ascii_passphrase_consistently_returned() {
         for (int x = 0; x < 1000; x++) {
-            String passphrase = CertificateStore.generateRandomPassphrase();
+            String passphrase = CertificateHelper.generateRandomPassphrase();
             assertThat(passphrase.length(), equalTo(16));
             for (int i = 0; i < passphrase.length(); i++) {
                 assertThat(passphrase.charAt(i), greaterThanOrEqualTo(' '));

@@ -15,6 +15,8 @@ import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
+import java.security.KeyStoreException;
+import java.security.cert.CertificateException;
 import java.util.Optional;
 import javax.inject.Inject;
 
@@ -63,7 +65,7 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
             if (!cert.isActive() || isNetworkUp()) {
                 cloudCert = iotAuthClient.getIotCertificate(certificatePem);
             }
-        } catch (InvalidCertificateException e) {
+        } catch (InvalidCertificateException | CertificateException | KeyStoreException e) {
             logger.atWarn()
                     .kv("certificatePem", certificatePem)
                     .log("Unable to process certificate", e);

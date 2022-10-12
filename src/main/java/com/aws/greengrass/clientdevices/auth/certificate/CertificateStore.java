@@ -38,7 +38,6 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
-import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
@@ -314,7 +313,7 @@ public class CertificateStore {
             throw new KeyStoreException("unable to load CA keystore", e);
         }
         // generate new passphrase for new CA certificate
-        passphrase = generateRandomPassphrase().toCharArray();
+        passphrase = CertificateHelper.generateRandomPassphrase().toCharArray();
         caCertificateChain = new X509Certificate[]{ caCertificate };
         ks.setKeyEntry(CA_KEY_ALIAS, kp.getPrivate(), getPassphrase(), caCertificateChain);
         keyStore = ks;
@@ -424,23 +423,6 @@ public class CertificateStore {
         try (OutputStream writeStream = Files.newOutputStream(filePath)) {
             writeStream.write(certificatePem.getBytes());
         }
-    }
-
-    /**
-     * Generates a secure passphrase suitable for use with KeyStores.
-     *
-     * @return ASCII passphrase
-     */
-    static String generateRandomPassphrase() {
-        // Generate cryptographically secure sequence of bytes
-        SecureRandom secureRandom = new SecureRandom();
-        byte[] randomBytes = new byte[16];
-        secureRandom.nextBytes(randomBytes);
-        StringBuilder sb = new StringBuilder();
-        for (byte b : randomBytes) {
-            sb.append(byteToAsciiCharacter(b));
-        }
-        return sb.toString();
     }
 
     // Map random byte into ASCII space
