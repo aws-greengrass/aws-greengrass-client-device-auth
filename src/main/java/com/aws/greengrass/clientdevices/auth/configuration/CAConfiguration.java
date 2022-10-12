@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.logging.api.Logger;
@@ -16,8 +17,10 @@ import lombok.Getter;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.text.MessageFormat;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -60,15 +63,31 @@ public final class CAConfiguration {
      * @param configurationTopics the configuration key of the service configuration
      *
      * @throws URISyntaxException if invalid certificateUri or privateKeyUri provided.
+     * @throws InvalidConfigurationException if provided privateKeyUri but not certificateUri
      */
-    public static CAConfiguration from(Topics configurationTopics) throws URISyntaxException {
+    public static CAConfiguration from(Topics configurationTopics) throws URISyntaxException,
+            InvalidConfigurationException {
         Topics certAuthorityTopic = configurationTopics.lookupTopics(CERTIFICATE_AUTHORITY_TOPIC);
+
+        Optional<URI> privateKeyUri = getCaPrivateKeyUriFromConfiguration(certAuthorityTopic);
+        Optional<URI> certificateUri = getCaCertificateUriFromConfiguration(certAuthorityTopic);
+
+        if (privateKeyUri.isPresent() != certificateUri.isPresent()) {
+            throw new InvalidConfigurationException(
+                MessageFormat.format(
+                    "{0} and {1} must have a value. Provided {0}:{2} and {1}:{3}",
+                    CA_PRIVATE_KEY_URI, CA_CERTIFICATE_URI,
+                    privateKeyUri.orElse(new URI("")),
+                    certificateUri.orElse(new URI(""))
+                )
+            );
+        }
 
         return new CAConfiguration(
                 getCaTypeListFromConfiguration(configurationTopics),
                 getCaTypeFromConfiguration(configurationTopics),
-                getCaPrivateKeyUriFromConfiguration(certAuthorityTopic),
-                getCaCertificateUriFromConfiguration(certAuthorityTopic)
+                privateKeyUri,
+                certificateUri
         );
     }
 
@@ -145,4 +164,20 @@ public final class CAConfiguration {
 
         return Optional.of(getUri(certificateUri));
     }
+
+    /**
+     * Checks if the CAConfiguration is equal to another.
+     *
+     * @param config  a CAConfiguration
+     */
+    public boolean isEqual(CAConfiguration config) {
+        if (config == null) {
+            return false;
+        }
+
+        return Objects.equals(config.getCertificateUri(), certificateUri)
+                && Objects.equals(config.getPrivateKeyUri(), privateKeyUri)
+                && Objects.equals(config.getCaType(), caType);
+    }
+
 }
