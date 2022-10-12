@@ -12,7 +12,6 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import software.amazon.awssdk.utils.ImmutableMap;
 
-import java.io.IOException;
 import java.security.KeyStoreException;
 import java.security.cert.CertificateException;
 import java.time.Instant;
@@ -39,9 +38,6 @@ public class CertificateRegistry {
      * Creates a certificate registry.
      * @param runtimeConfiguration - Runtime configuration
      * @param pemStore - An instance of ClientCertificateStore
-     *
-     * @throws IOException - If fails to get the service work path
-     * @throws KeyStoreException - If fails to create a key store to store certificate PEMs.
      */
     @Inject
     public CertificateRegistry(RuntimeConfiguration runtimeConfiguration, ClientCertificateStore pemStore) {
@@ -73,8 +69,6 @@ public class CertificateRegistry {
      * @return certificate object
      *
      * @throws InvalidCertificateException if certificate PEM is invalid
-     * @throws CertificateException - If fails generate certificate from PEM
-     * @throws KeyStoreException - If fails to store the key store into disk
      */
     public Certificate getOrCreateCertificate(String certificatePem) throws InvalidCertificateException {
         Certificate newCert = Certificate.fromPem(certificatePem);
