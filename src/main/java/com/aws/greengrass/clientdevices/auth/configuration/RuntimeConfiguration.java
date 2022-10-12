@@ -215,5 +215,4 @@ public final class RuntimeConfiguration {
         }
         return root.lookupTopics(path);
     }
-
 }

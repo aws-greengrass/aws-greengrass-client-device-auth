@@ -39,9 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -140,15 +138,13 @@ public class OfflineAuthenticationTest {
        boolean verifyResult = api.verifyClientDeviceIdentity(CertificateHelper.toPem(clientCert));
 
        // Then
-        assertTrue(verifyResult);
-        assertTrue(Files.exists(kernel.getNucleusPaths().workPath(
-                ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).resolve(Paths.get("client.jks"))));
+       assertTrue(verifyResult);
 
-        String clientCertId = Certificate.fromPem(clientCertPem).getCertificateId();
-        ClientCertificateStore store = kernel.getContext().get(ClientCertificateStore.class);
-        String storedPem = store.getPem(clientCertId).get();
+       String clientCertId = Certificate.fromPem(clientCertPem).getCertificateId();
+       ClientCertificateStore store = kernel.getContext().get(ClientCertificateStore.class);
+       String storedPem = store.getPem(clientCertId).get();
 
-        assertEquals(storedPem, clientCertPem);
+       assertEquals(storedPem, clientCertPem);
     }
 
 }

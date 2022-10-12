@@ -19,11 +19,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.io.TempDir;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -40,8 +38,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class CertificateRegistryTest {
-    @TempDir
-    Path rootDir;
     private static X509Certificate validClientCertificate;
     private static String validClientCertificatePem;
 
@@ -64,7 +60,7 @@ class CertificateRegistryTest {
     @BeforeEach
     void beforeEach() throws KeyStoreException {
         configTopic = Topics.of(new Context(), "config", null);
-        ClientCertificateStore store = new ClientCertificateStore(rootDir.resolve("store"));
+        ClientCertificateStore store = new ClientCertificateStore();
         registry = new CertificateRegistry(RuntimeConfiguration.from(configTopic), store);
     }
 
@@ -82,8 +78,7 @@ class CertificateRegistryTest {
 
     @Test
     void GIVEN_registryWithCertificate_WHEN_getCertificateFromPem_THEN_certificateReturnedWithUnknownStatus()
-            throws InvalidCertificateException, CertificateException, KeyStoreException, IOException,
-            NoSuchAlgorithmException {
+            throws InvalidCertificateException {
         Certificate newCert = registry.getOrCreateCertificate(validClientCertificatePem);
 
         Optional<Certificate> cert = registry.getCertificateFromPem(validClientCertificatePem);
@@ -121,8 +116,7 @@ class CertificateRegistryTest {
 
     @Test
     void GIVEN_validCertificate_WHEN_removeCertificate_THEN_certificateIsNotRetrievable()
-            throws InvalidCertificateException, CertificateException, KeyStoreException, IOException,
-            NoSuchAlgorithmException {
+            throws InvalidCertificateException {
         registry.getOrCreateCertificate(validClientCertificatePem);
 
         Optional<Certificate> cert = registry.getCertificateFromPem(validClientCertificatePem);
