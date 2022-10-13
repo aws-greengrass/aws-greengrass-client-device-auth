@@ -12,10 +12,13 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonito
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
+import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
@@ -47,12 +50,14 @@ import java.security.cert.X509Certificate;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class OfflineAuthenticationTest {
@@ -68,6 +73,8 @@ public class OfflineAuthenticationTest {
     CISShadowMonitor cisShadowMonitorMock;
     @Mock
     private GreengrassV2DataClient client;
+    @Mock
+    private NetworkState networkStateMock;
     @TempDir
     Path rootDir;
     private Kernel kernel;
@@ -81,6 +88,7 @@ public class OfflineAuthenticationTest {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
+        kernel.getContext().put(NetworkState.class, networkStateMock);
         kernel.getContext().put(GroupManager.class, groupManager);
         kernel.getContext().put(SecurityService.class, securityServiceMock);
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitorMock);
@@ -126,16 +134,16 @@ public class OfflineAuthenticationTest {
         KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
         X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
         KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
-        X509Certificate clientCert = CertificateTestHelpers.createClientCertificate(
+        X509Certificate clientCert = createClientCertificate(
                 rootCA, "AWS IoT Certificate", clientKeyPair.getPublic(), rootKeyPair.getPrivate());
-        String clientCertPem = CertificateHelper.toPem(clientCert);
 
+        String clientCertPem = CertificateHelper.toPem(clientCert);
         iotAuthClientFake.activateCert(clientCertPem);
         givenNucleusRunningWithConfig("config.yaml");
 
         // When
        ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
-       boolean verifyResult = api.verifyClientDeviceIdentity(CertificateHelper.toPem(clientCert));
+       boolean verifyResult = api.verifyClientDeviceIdentity(clientCertPem);
 
        // Then
        assertTrue(verifyResult);
@@ -146,5 +154,49 @@ public class OfflineAuthenticationTest {
 
        assertEquals(storedPem, clientCertPem);
     }
+
+   @Test
+   void GIVEN_storedCertificates_WHEN_refreshEnabled_THEN_storedCertificatesRefreshed() throws
+           NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
+           InvalidCertificateException, InterruptedException {
+       // Given
+       KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
+       X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
+       KeyPair clientAKeyPair = CertificateStore.newRSAKeyPair(2048);
+       X509Certificate clientACrt = createClientCertificate(
+               rootCA, "AWS IoT Certificate", clientAKeyPair.getPublic(), rootKeyPair.getPrivate());
+       KeyPair clientBKeyPair = CertificateStore.newRSAKeyPair(2048);
+       X509Certificate clientBCrt = createClientCertificate(
+               rootCA, "AWS IoT Certificate", clientBKeyPair.getPublic(), rootKeyPair.getPrivate());
+
+       String clientAPem = CertificateHelper.toPem(clientACrt);
+       iotAuthClientFake.activateCert(clientAPem);
+       String clientBPem = CertificateHelper.toPem(clientBCrt);
+       iotAuthClientFake.activateCert(clientBPem);
+       when(networkStateMock.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
+
+       // When
+       givenNucleusRunningWithConfig("config.yaml");
+
+       // Simulate some client components (like Moquette) verifying some certificates
+       ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
+       api.verifyClientDeviceIdentity(clientAPem);
+       api.verifyClientDeviceIdentity(clientBPem);
+
+       CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
+       Certificate certA = certRegistry.getCertificateFromPem(clientAPem).get();
+       Certificate certB = certRegistry.getCertificateFromPem(clientBPem).get();
+
+       BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
+       assertTrue(backgroundRefresh.isRunning());
+       backgroundRefresh.run(); // Force a run because otherwise it is controlled by a ScheduledExecutorService
+
+       // Then
+       Certificate certAAfter = certRegistry.getCertificateFromPem(clientAPem).get();
+       Certificate certBAfter = certRegistry.getCertificateFromPem(clientBPem).get();
+
+       assertTrue(certAAfter.wasUpdatedAfter(certA));
+       assertTrue(certBAfter.wasUpdatedAfter(certB));
+   }
 
 }

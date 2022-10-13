@@ -140,6 +140,22 @@ public final class RuntimeConfiguration {
     }
 
     /**
+     * Get all the certificate ids stored under.
+     * |    |---- "clientDeviceCerts":
+     * |          |---- "v1":
+     * |                |---- certificateId:
+     */
+    public String[] getAllCertificateIdsV1() {
+        Topics v1CertTopics = config.findTopics(CERTS_KEY, CERTS_V1_KEY);
+
+        if (v1CertTopics == null) {
+            return new String[]{};
+        }
+
+        return Coerce.toStringArray(v1CertTopics.children.keySet().toArray());
+    }
+
+    /**
      * Get a certificate.
      *
      * @param certificateId Certificate ID
