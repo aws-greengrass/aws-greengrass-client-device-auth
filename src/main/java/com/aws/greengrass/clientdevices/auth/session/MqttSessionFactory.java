@@ -15,8 +15,6 @@ import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.ThingRegistry;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Optional;
 import javax.inject.Inject;
@@ -25,7 +23,6 @@ public class MqttSessionFactory implements SessionFactory {
     private final DeviceAuthClient deviceAuthClient;
     private final CertificateRegistry certificateRegistry;
     private final ThingRegistry thingRegistry;
-    private final SessionConfig sessionConfig;
 
     /**
      * Constructor.
@@ -33,17 +30,14 @@ public class MqttSessionFactory implements SessionFactory {
      * @param deviceAuthClient    Device auth client
      * @param certificateRegistry device Certificate registry
      * @param thingRegistry       thing registry
-     * @param sessionConfig       Session configuration
      */
     @Inject
     public MqttSessionFactory(DeviceAuthClient deviceAuthClient,
                               CertificateRegistry certificateRegistry,
-                              ThingRegistry thingRegistry,
-                              SessionConfig sessionConfig) {
+                              ThingRegistry thingRegistry) {
         this.deviceAuthClient = deviceAuthClient;
         this.certificateRegistry = certificateRegistry;
         this.thingRegistry = thingRegistry;
-        this.sessionConfig = sessionConfig;
     }
 
     @Override
@@ -62,12 +56,11 @@ public class MqttSessionFactory implements SessionFactory {
     private Session createIotThingSession(MqttCredential mqttCredential) throws AuthenticationException {
         try {
             Optional<Certificate> cert = certificateRegistry.getCertificateFromPem(mqttCredential.certificatePem);
-            if (!cert.isPresent() || !isWithinTrustDuration(cert.get().getStatusLastUpdated())) {
+            if (!cert.isPresent() || !cert.get().getStatus().equals(Certificate.Status.ACTIVE)) {
                 throw new AuthenticationException("Certificate isn't active");
             }
             Thing thing = thingRegistry.getOrCreateThing(mqttCredential.clientId);
-            if (!thingRegistry.isThingAttachedToCertificate(thing, cert.get())
-                    || !isWithinTrustDuration(thing.getAttachedCertificateIds().get(cert.get().getCertificateId()))) {
+            if (!thingRegistry.isThingAttachedToCertificate(thing, cert.get())) {
                 throw new AuthenticationException("unable to authenticate device");
             }
             return new SessionImpl(cert.get(), thing);
@@ -78,15 +71,6 @@ public class MqttSessionFactory implements SessionFactory {
 
     private Session createGreengrassComponentSession() {
         return new SessionImpl(new Component());
-    }
-
-    private boolean isWithinTrustDuration(Instant lastVerifiedInstant) {
-        if (lastVerifiedInstant == null) {
-            return false;
-        }
-        Instant validTill = lastVerifiedInstant.plus(
-                sessionConfig.getClientDeviceTrustDurationHours(), ChronoUnit.HOURS);
-        return validTill.isAfter(Instant.now());
     }
 
     private static class MqttCredential {

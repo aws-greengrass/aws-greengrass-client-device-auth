@@ -8,7 +8,6 @@ package com.aws.greengrass.clientdevices.auth.session;
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
@@ -25,18 +24,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.utils.ImmutableMap;
 
-import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -47,8 +42,6 @@ public class MqttSessionFactoryTest {
     private CertificateRegistry mockCertificateRegistry;
     @Mock
     private ThingRegistry mockThingRegistry;
-    @Mock
-    private SessionConfig mockSessionConfig;
     private MqttSessionFactory mqttSessionFactory;
     private final Map<String, String> credentialMap = ImmutableMap.of(
             "certificatePem", "PEM",
@@ -59,8 +52,7 @@ public class MqttSessionFactoryTest {
 
     @BeforeEach
     void beforeEach() {
-        lenient().when(mockSessionConfig.getClientDeviceTrustDurationHours()).thenReturn(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS);
-        mqttSessionFactory = new MqttSessionFactory(mockDeviceAuthClient, mockCertificateRegistry, mockThingRegistry, mockSessionConfig);
+        mqttSessionFactory = new MqttSessionFactory(mockDeviceAuthClient, mockCertificateRegistry, mockThingRegistry);
     }
 
     @Test
@@ -98,13 +90,9 @@ public class MqttSessionFactoryTest {
     @Test
     void GIVEN_credentialsWithValidClientId_WHEN_createSession_THEN_returnsSession()
             throws AuthenticationException, InvalidCertificateException {
-        Certificate activeCert = CertificateFake.activeCertificate("fake-cert");
+        when(mockThingRegistry.getOrCreateThing("clientId")).thenReturn(Thing.of("clientId"));
         when(mockCertificateRegistry.getCertificateFromPem(any()))
-                .thenReturn(Optional.of(activeCert));
-        Map<String, Instant> attachedCerts = new HashMap<>();
-        // attached certificate within trust duration
-        attachedCerts.put(activeCert.getCertificateId(), Instant.now());
-        when(mockThingRegistry.getOrCreateThing("clientId")).thenReturn(Thing.of("clientId", attachedCerts));
+                .thenReturn(Optional.of(CertificateFake.activeCertificate()));
         when(mockThingRegistry.isThingAttachedToCertificate(any(), any())).thenReturn(true);
 
         Session session = mqttSessionFactory.createSession(credentialMap);
@@ -118,32 +106,5 @@ public class MqttSessionFactoryTest {
         Session session = mqttSessionFactory.createSession(credentialMap);
         assertThat(session, is(IsNull.notNullValue()));
         assertThat(session.getSessionAttribute(Component.NAMESPACE, "component"), notNullValue());
-    }
-
-    @Test
-    void GIVEN_credentialsWithCertificateBeyondTrustDuration_WHEN_createSession_THEN_throwsAuthenticationException()
-            throws InvalidCertificateException {
-        Certificate activeCert = CertificateFake.activeCertificate("fake-cert", Instant.EPOCH);
-        when(mockCertificateRegistry.getCertificateFromPem(any()))
-                .thenReturn(Optional.of(activeCert));
-
-        Assertions.assertThrows(AuthenticationException.class,
-                () -> mqttSessionFactory.createSession(credentialMap));
-    }
-
-    @Test
-    void GIVEN_thingWithAttachedCertBeyondTrustDuration_WHEN_createSession_THEN_throwsAuthenticationException()
-            throws InvalidCertificateException {
-        Certificate activeCert = CertificateFake.activeCertificate();
-        when(mockCertificateRegistry.getCertificateFromPem(any()))
-                .thenReturn(Optional.of(activeCert));
-        Map<String, Instant> attachedCerts = new HashMap<>();
-        // lastVerified date set to the epoch time
-        attachedCerts.put(activeCert.getCertificateId(), Instant.EPOCH);
-        when(mockThingRegistry.getOrCreateThing("clientId")).thenReturn(Thing.of("clientId", attachedCerts));
-        when(mockThingRegistry.isThingAttachedToCertificate(any(), any())).thenReturn(true);
-
-        Assertions.assertThrows(AuthenticationException.class,
-                () -> mqttSessionFactory.createSession(credentialMap));
     }
 }

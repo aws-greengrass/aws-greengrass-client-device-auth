@@ -6,8 +6,11 @@
 package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.api.Result;
+import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyMetadataTrust;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -19,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collections;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -29,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -42,6 +47,10 @@ class ThingRegistryTest {
 
     @Mock
     private IotAuthClient mockIotAuthClient;
+    @Mock
+    private UseCases mockUseCases;
+    @Mock
+    private VerifyMetadataTrust mockVerifyMetadataTrust;
     private Topics configTopics;
     private DomainEvents domainEvents;
     private ThingRegistry registry;
@@ -50,8 +59,11 @@ class ThingRegistryTest {
     void beforeEach() throws InvalidCertificateException {
         domainEvents = new DomainEvents();
         configTopics = Topics.of(new Context(), "config", null);
-        registry = new ThingRegistry(mockIotAuthClient, domainEvents, RuntimeConfiguration.from(configTopics));
+        lenient().when(mockVerifyMetadataTrust.apply(any(Instant.class))).thenReturn(Result.ok(true));
+        lenient().when(mockUseCases.get(VerifyMetadataTrust.class)).thenReturn(mockVerifyMetadataTrust);
+        registry = new ThingRegistry(mockIotAuthClient, domainEvents, mockUseCases, RuntimeConfiguration.from(configTopics));
         mockCertificate = CertificateFake.of("mock-certificateId");
+        mockThing.detachCertificate(mockCertificate.getCertificateId());
     }
 
     @AfterEach
@@ -106,5 +118,27 @@ class ThingRegistryTest {
         assertThrows(CloudServiceInteractionException.class, () ->
                 registry.isThingAttachedToCertificate(mockThing, mockCertificate));
         verify(mockIotAuthClient, times(1)).isThingAttachedToCertificate(any(), any());
+    }
+
+    @Test
+    void GIVEN_thingWithExpiredCacheMetadata_WHEN_isThingAttachedToCertificate_THEN_returnRejectLocalCacheResult() {
+        mockThing.attachCertificate(mockCertificate.getCertificateId());
+        when(mockIotAuthClient.isThingAttachedToCertificate(any(Thing.class), any(Certificate.class))).thenReturn(true);
+
+        // expired local trust on the attached certificate
+        reset(mockVerifyMetadataTrust);
+        lenient().when(mockVerifyMetadataTrust.apply(any(Instant.class))).thenReturn(Result.ok(false));
+
+        assertTrue(registry.isThingAttachedToCertificate(mockThing, mockCertificate));
+        // verify that cloud was consulted, instead of local cache
+        verify(mockIotAuthClient, times(1)).isThingAttachedToCertificate(any(), any());
+
+        // negative cloud result
+        reset(mockIotAuthClient);
+        when(mockIotAuthClient.isThingAttachedToCertificate(any(Thing.class), any(Certificate.class))).thenReturn(false);
+        assertFalse(registry.isThingAttachedToCertificate(mockThing, mockCertificate));
+        verify(mockIotAuthClient, times(1)).isThingAttachedToCertificate(any(), any());
+        // verify that the certificate is detached from the thing locally as well
+        assertFalse(mockThing.isCertificateAttached(mockCertificate.getCertificateId()));
     }
 }

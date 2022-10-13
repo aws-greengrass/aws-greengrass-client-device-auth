@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
+import com.aws.greengrass.clientdevices.auth.certificate.events.SecurityConfigurationChanged;
 import com.aws.greengrass.config.Topics;
 
 import java.net.URI;
@@ -50,12 +51,17 @@ public final class CDAConfiguration {
 
     private final RuntimeConfiguration runtime;
     private final CAConfiguration ca;
+    private final SecurityConfiguration security;
     private final DomainEvents domainEvents;
 
-    private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca) {
+    private CDAConfiguration(DomainEvents domainEvents,
+                             RuntimeConfiguration runtime,
+                             CAConfiguration ca,
+                             SecurityConfiguration security) {
         this.domainEvents = domainEvents;
         this.runtime = runtime;
         this.ca = ca;
+        this.security = security;
     }
 
     /**
@@ -75,7 +81,8 @@ public final class CDAConfiguration {
         CDAConfiguration newConfig = new CDAConfiguration(
             domainEvents,
             RuntimeConfiguration.from(runtimeTopics),
-            CAConfiguration.from(serviceConfiguration)
+            CAConfiguration.from(serviceConfiguration),
+            SecurityConfiguration.from(serviceConfiguration)
         );
 
         newConfig.triggerChanges(newConfig, existingConfig);
@@ -96,6 +103,8 @@ public final class CDAConfiguration {
     private void triggerChanges(CDAConfiguration current, CDAConfiguration prev) {
         if (hasCAConfigurationChanged(prev)) {
             domainEvents.emit(new CAConfigurationChanged(current));
+        } else if (hasSecurityConfigurationChanged(prev)) {
+            domainEvents.emit(new SecurityConfigurationChanged(current));
         }
     }
 
@@ -127,6 +136,10 @@ public final class CDAConfiguration {
         return ca.getCertificateUri();
     }
 
+    public int getClientDeviceTrustDurationHours() {
+        return security.getClientDeviceTrustDurationHours();
+    }
+
     /**
      * Verifies if the configuration for the certificateAuthority has changed, given a previous
      * configuration.
@@ -141,5 +154,13 @@ public final class CDAConfiguration {
         return !Objects.equals(config.getCertificateUri(), getCertificateUri())
                 || !Objects.equals(config.getPrivateKeyUri(), getPrivateKeyUri())
                 || !Objects.equals(config.getCaType(), getCaType());
+    }
+
+    private boolean hasSecurityConfigurationChanged(CDAConfiguration config) {
+        if (config == null) {
+            return true;
+        }
+
+        return !Objects.equals(config.getClientDeviceTrustDurationHours(), getClientDeviceTrustDurationHours());
     }
 }
