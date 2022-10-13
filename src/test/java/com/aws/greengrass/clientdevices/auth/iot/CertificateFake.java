@@ -11,6 +11,7 @@ import org.bouncycastle.util.encoders.Hex;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 
 public final class CertificateFake extends Certificate {
     @Getter
@@ -32,6 +33,13 @@ public final class CertificateFake extends Certificate {
     public static CertificateFake activeCertificate(String certPem) throws InvalidCertificateException {
         CertificateFake cert = CertificateFake.of(certPem);
         cert.setStatus(Status.ACTIVE);
+        return cert;
+    }
+
+    public static CertificateFake activeCertificate(String certPem, Instant lastUpdated)
+            throws InvalidCertificateException {
+        CertificateFake cert = CertificateFake.of(certPem);
+        cert.setStatus(Status.ACTIVE, lastUpdated);
         return cert;
     }
 

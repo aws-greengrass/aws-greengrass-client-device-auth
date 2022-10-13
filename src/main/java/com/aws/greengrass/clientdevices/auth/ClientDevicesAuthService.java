@@ -111,7 +111,6 @@ public class ClientDevicesAuthService extends PluginService {
 
     private void initializeInfrastructure() {
         context.put(RuntimeConfiguration.class, RuntimeConfiguration.from(getRuntimeConfig()));
-        context.put(SessionConfig.class, SessionConfig.from(getConfig()));
 
         // Initialize IPC thread pool
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;

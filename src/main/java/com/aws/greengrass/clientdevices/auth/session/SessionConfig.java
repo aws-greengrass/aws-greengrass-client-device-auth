@@ -77,9 +77,9 @@ public final class SessionConfig {
     /**
      * Get configured client device trust duration.
      *
-     * @return client device trust duration in days
+     * @return client device trust duration in hours
      */
-    public int getClientDeviceTrustDurationDays() {
+    public int getClientDeviceTrustDurationHours() {
         return clientDeviceTrustDuration.get();
     }
 

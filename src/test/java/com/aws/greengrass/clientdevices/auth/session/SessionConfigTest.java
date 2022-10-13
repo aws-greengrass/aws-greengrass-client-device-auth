@@ -90,18 +90,18 @@ class SessionConfigTest {
 
     @Test
     public void GIVEN_noConfiguredTrustDuration_WHEN_getTrustDuration_THEN_returnsDefaultDurationDays() {
-        assertThat(sessionConfig.getClientDeviceTrustDurationDays(), is(equalTo(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
+        assertThat(sessionConfig.getClientDeviceTrustDurationHours(), is(equalTo(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
     }
 
     @Test
     public void GIVEN_defaultTrustDuration_WHEN_updateTrustDurationDays_THEN_returnsUpdatedTrustDurationDays() {
-        assertThat(sessionConfig.getClientDeviceTrustDurationDays(), is(equalTo(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
+        assertThat(sessionConfig.getClientDeviceTrustDurationHours(), is(equalTo(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
         int newTrustDuration = 100;
         configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_HOURS_TOPIC)
                 .withValue(newTrustDuration);
         // block until config changes are merged in
         configurationTopics.context.waitForPublishQueueToClear();
-        assertThat(sessionConfig.getClientDeviceTrustDurationDays(), is(equalTo(newTrustDuration)));
+        assertThat(sessionConfig.getClientDeviceTrustDurationHours(), is(equalTo(newTrustDuration)));
     }
 
     @Test
@@ -110,22 +110,22 @@ class SessionConfigTest {
         int configuredTrustDuration = 0;
         configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_HOURS_TOPIC).withValue(configuredTrustDuration);
         configurationTopics.context.waitForPublishQueueToClear();
-        assertThat(sessionConfig.getClientDeviceTrustDurationDays(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
+        assertThat(sessionConfig.getClientDeviceTrustDurationHours(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
 
         // overflown integer
         int overflown = Integer.MAX_VALUE + 1;
         configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_HOURS_TOPIC).withValue(overflown);
         configurationTopics.context.waitForPublishQueueToClear();
-        assertThat(sessionConfig.getClientDeviceTrustDurationDays(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
+        assertThat(sessionConfig.getClientDeviceTrustDurationHours(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
 
         // integer max value
         configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_HOURS_TOPIC).withValue(Integer.MAX_VALUE);
         configurationTopics.context.waitForPublishQueueToClear();
-        assertThat(sessionConfig.getClientDeviceTrustDurationDays(), is(equalTo(MAX_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
+        assertThat(sessionConfig.getClientDeviceTrustDurationHours(), is(equalTo(MAX_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
 
         String empty = "";
         configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_HOURS_TOPIC).withValue(empty);
         configurationTopics.context.waitForPublishQueueToClear();
-        assertThat(sessionConfig.getClientDeviceTrustDurationDays(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
+        assertThat(sessionConfig.getClientDeviceTrustDurationHours(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_HOURS)));
     }
 }
