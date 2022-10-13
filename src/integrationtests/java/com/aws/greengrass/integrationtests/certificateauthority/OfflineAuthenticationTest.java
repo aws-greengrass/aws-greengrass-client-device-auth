@@ -184,19 +184,30 @@ public class OfflineAuthenticationTest {
        api.verifyClientDeviceIdentity(clientBPem);
 
        CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
+       Certificate ogCertA = certRegistry.getCertificateFromPem(clientAPem).get();
+       Certificate ogCertB = certRegistry.getCertificateFromPem(clientBPem).get();
+
+       BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
+       assertTrue(backgroundRefresh.isRunning(), "background refresh is not running");
+       backgroundRefresh.run(); // Force a run because otherwise it is controlled by a ScheduledExecutorService
+       kernel.getConfig().waitConfigUpdateComplete();
+
+       // Then
        Certificate certA = certRegistry.getCertificateFromPem(clientAPem).get();
        Certificate certB = certRegistry.getCertificateFromPem(clientBPem).get();
 
-       BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
-       assertTrue(backgroundRefresh.isRunning());
-       backgroundRefresh.run(); // Force a run because otherwise it is controlled by a ScheduledExecutorService
-
-       // Then
-       Certificate certAAfter = certRegistry.getCertificateFromPem(clientAPem).get();
-       Certificate certBAfter = certRegistry.getCertificateFromPem(clientBPem).get();
-
-       assertTrue(certAAfter.wasUpdatedAfter(certA));
-       assertTrue(certBAfter.wasUpdatedAfter(certB));
+       assertTrue(certA.wasUpdatedAfter(ogCertA),
+           String.format(
+               "certA %s was not updated after ogCertA %s",
+               certA.getStatusLastUpdated(), ogCertA.getStatusLastUpdated()
+           )
+       );
+       assertTrue(certB.wasUpdatedAfter(ogCertB),
+           String.format(
+               "certB %s was not updated after ogCertB %s",
+               certB.getStatusLastUpdated(), ogCertB.getStatusLastUpdated()
+           )
+       );
    }
 
 }
