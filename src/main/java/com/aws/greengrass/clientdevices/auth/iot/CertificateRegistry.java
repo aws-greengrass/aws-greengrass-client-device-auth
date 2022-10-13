@@ -15,11 +15,8 @@ import software.amazon.awssdk.utils.ImmutableMap;
 import java.security.KeyStoreException;
 import java.security.cert.CertificateException;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.inject.Inject;
 
 
@@ -106,14 +103,8 @@ public class CertificateRegistry {
     /**
      * Returns the PEMs that are stored for all the certificate ids that are being tracked.
      */
-    public List<String> getAllCertificatePems() {
-        String[] certificateIds = runtimeConfiguration.getAllCertificateIdsV1();
-
-        return Stream.of(certificateIds)
-                .filter(pemStore::exists)
-                .map(pemStore::getPem)
-                .map(Optional::get)
-                .collect(Collectors.toList());
+    public String[] getAllCertificateIds() {
+        return runtimeConfiguration.getAllCertificateIdsV1();
     }
 
     /**
