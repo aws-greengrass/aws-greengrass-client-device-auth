@@ -12,7 +12,15 @@ public class UseCases {
     private Context context;
 
     public interface UseCase<R, D>  {
-        Result<R> apply(D var1);
+        @SuppressWarnings("PMD.SignatureDeclareThrowsException")
+        Result<R> apply(D var1) throws Exception;
+    }
+
+    public UseCases() {
+    }
+
+    public UseCases(Context context) {
+        this.context = context;
     }
 
     public void init(Context context) {
