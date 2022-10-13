@@ -38,6 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 
@@ -47,6 +48,8 @@ import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -57,6 +60,8 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -110,6 +115,16 @@ public class OfflineAuthenticationTest {
     @AfterEach
     void cleanup() {
         kernel.shutdown();
+    }
+
+    private Runnable mockInstant(long expected) {
+        Clock spyClock = spy(Clock.class);
+        MockedStatic<Clock> clockMock;
+        clockMock = mockStatic(Clock.class);
+        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
+        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
+
+        return clockMock::close;
     }
 
     private void givenNucleusRunningWithConfig(String configFileName) throws InterruptedException {
@@ -178,6 +193,9 @@ public class OfflineAuthenticationTest {
        // When
        givenNucleusRunningWithConfig("config.yaml");
 
+       Instant now = Instant.now();
+       Runnable resetClock = mockInstant(now.toEpochMilli());
+
        // Simulate some client components (like Moquette) verifying some certificates
        ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
        api.verifyClientDeviceIdentity(clientAPem);
@@ -186,6 +204,12 @@ public class OfflineAuthenticationTest {
        CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
        Certificate ogCertA = certRegistry.getCertificateFromPem(clientAPem).get();
        Certificate ogCertB = certRegistry.getCertificateFromPem(clientBPem).get();
+       assertEquals(ogCertA.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
+       assertEquals(ogCertB.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
+
+       Instant anHourLater = now.plusSeconds(60 * 60);
+       resetClock.run();
+       mockInstant(anHourLater.toEpochMilli());
 
        BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
        assertTrue(backgroundRefresh.isRunning(), "background refresh is not running");
@@ -196,18 +220,8 @@ public class OfflineAuthenticationTest {
        Certificate certA = certRegistry.getCertificateFromPem(clientAPem).get();
        Certificate certB = certRegistry.getCertificateFromPem(clientBPem).get();
 
-       assertTrue(certA.wasUpdatedAfter(ogCertA),
-           String.format(
-               "certA %s was not updated after ogCertA %s",
-               certA.getStatusLastUpdated(), ogCertA.getStatusLastUpdated()
-           )
-       );
-       assertTrue(certB.wasUpdatedAfter(ogCertB),
-           String.format(
-               "certB %s was not updated after ogCertB %s",
-               certB.getStatusLastUpdated(), ogCertB.getStatusLastUpdated()
-           )
-       );
+       assertEquals(certA.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+       assertEquals(certB.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
    }
 
 }
