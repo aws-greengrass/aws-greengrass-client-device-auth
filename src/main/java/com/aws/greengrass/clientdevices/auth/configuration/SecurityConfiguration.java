@@ -11,6 +11,8 @@ import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Coerce;
 import lombok.Getter;
 
+import java.util.Objects;
+
 /**
  * Represents the security configuration. Acts as an adapter from the GG Topics to the domain.
  * <p>
@@ -46,6 +48,20 @@ public final class SecurityConfiguration {
         return new SecurityConfiguration(
                 getClientDeviceTrustDurationHours(securityTopics)
         );
+    }
+
+    /**
+     * Compares new configuration with itself.
+     *
+     * @return boolean indicating whether config has changed
+     */
+    boolean hasChanged(SecurityConfiguration newConfig) {
+        if (newConfig == null) {
+            return true;
+        }
+
+        return !Objects.equals(newConfig.getClientDeviceTrustDurationHours(),
+                getClientDeviceTrustDurationHours());
     }
 
     private static int getClientDeviceTrustDurationHours(Topics securityTopics) {

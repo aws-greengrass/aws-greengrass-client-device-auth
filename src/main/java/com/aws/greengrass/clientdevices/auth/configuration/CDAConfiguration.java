@@ -157,8 +157,6 @@ public final class CDAConfiguration {
         if (config == null) {
             return true;
         }
-
-        return !Objects.equals(config.security.getClientDeviceTrustDurationHours(),
-                security.getClientDeviceTrustDurationHours());
+        return security.hasChanged(config.security);
     }
 }
