@@ -6,12 +6,12 @@
 package com.aws.greengrass.clientdevices.auth.certificate.events;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvent;
-import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @AllArgsConstructor
 public class SecurityConfigurationChanged implements DomainEvent {
     @Getter
-    private CDAConfiguration configuration;
+    private SecurityConfiguration configuration;
 }

@@ -8,7 +8,7 @@ package com.aws.greengrass.clientdevices.auth.certificate.handlers;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.events.SecurityConfigurationChanged;
-import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyMetadataTrust;
 
 import java.util.function.Consumer;
@@ -44,7 +44,7 @@ public class SecurityConfigurationChangedHandler implements Consumer<SecurityCon
      */
     @Override
     public void accept(SecurityConfigurationChanged event)  {
-        CDAConfiguration configuration = event.getConfiguration();
+        SecurityConfiguration configuration = event.getConfiguration();
         useCases.get(VerifyMetadataTrust.class)
                 .updateClientDeviceTrustDurationHours(configuration.getClientDeviceTrustDurationHours());
     }

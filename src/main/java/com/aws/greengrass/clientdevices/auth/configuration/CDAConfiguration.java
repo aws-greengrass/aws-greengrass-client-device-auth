@@ -103,8 +103,9 @@ public final class CDAConfiguration {
     private void triggerChanges(CDAConfiguration current, CDAConfiguration prev) {
         if (hasCAConfigurationChanged(prev)) {
             domainEvents.emit(new CAConfigurationChanged(current));
-        } else if (hasSecurityConfigurationChanged(prev)) {
-            domainEvents.emit(new SecurityConfigurationChanged(current));
+        }
+        if (hasSecurityConfigurationChanged(prev)) {
+            domainEvents.emit(new SecurityConfigurationChanged(current.security));
         }
     }
 
@@ -136,10 +137,6 @@ public final class CDAConfiguration {
         return ca.getCertificateUri();
     }
 
-    public int getClientDeviceTrustDurationHours() {
-        return security.getClientDeviceTrustDurationHours();
-    }
-
     /**
      * Verifies if the configuration for the certificateAuthority has changed, given a previous
      * configuration.
@@ -161,6 +158,7 @@ public final class CDAConfiguration {
             return true;
         }
 
-        return !Objects.equals(config.getClientDeviceTrustDurationHours(), getClientDeviceTrustDurationHours());
+        return !Objects.equals(config.security.getClientDeviceTrustDurationHours(),
+                security.getClientDeviceTrustDurationHours());
     }
 }
