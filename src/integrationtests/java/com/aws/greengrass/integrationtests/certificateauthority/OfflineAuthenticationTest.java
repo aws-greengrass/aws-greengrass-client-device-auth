@@ -12,10 +12,13 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonito
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
+import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
@@ -35,6 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 
@@ -44,15 +48,21 @@ import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class OfflineAuthenticationTest {
@@ -68,6 +78,8 @@ public class OfflineAuthenticationTest {
     CISShadowMonitor cisShadowMonitorMock;
     @Mock
     private GreengrassV2DataClient client;
+    @Mock
+    private NetworkState networkStateMock;
     @TempDir
     Path rootDir;
     private Kernel kernel;
@@ -81,6 +93,7 @@ public class OfflineAuthenticationTest {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
+        kernel.getContext().put(NetworkState.class, networkStateMock);
         kernel.getContext().put(GroupManager.class, groupManager);
         kernel.getContext().put(SecurityService.class, securityServiceMock);
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitorMock);
@@ -102,6 +115,16 @@ public class OfflineAuthenticationTest {
     @AfterEach
     void cleanup() {
         kernel.shutdown();
+    }
+
+    private Runnable mockInstant(long expected) {
+        Clock spyClock = spy(Clock.class);
+        MockedStatic<Clock> clockMock;
+        clockMock = mockStatic(Clock.class);
+        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
+        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
+
+        return clockMock::close;
     }
 
     private void givenNucleusRunningWithConfig(String configFileName) throws InterruptedException {
@@ -126,16 +149,16 @@ public class OfflineAuthenticationTest {
         KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
         X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
         KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
-        X509Certificate clientCert = CertificateTestHelpers.createClientCertificate(
+        X509Certificate clientCert = createClientCertificate(
                 rootCA, "AWS IoT Certificate", clientKeyPair.getPublic(), rootKeyPair.getPrivate());
-        String clientCertPem = CertificateHelper.toPem(clientCert);
 
+        String clientCertPem = CertificateHelper.toPem(clientCert);
         iotAuthClientFake.activateCert(clientCertPem);
         givenNucleusRunningWithConfig("config.yaml");
 
         // When
        ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
-       boolean verifyResult = api.verifyClientDeviceIdentity(CertificateHelper.toPem(clientCert));
+       boolean verifyResult = api.verifyClientDeviceIdentity(clientCertPem);
 
        // Then
        assertTrue(verifyResult);
@@ -146,5 +169,59 @@ public class OfflineAuthenticationTest {
 
        assertEquals(storedPem, clientCertPem);
     }
+
+   @Test
+   void GIVEN_storedCertificates_WHEN_refreshEnabled_THEN_storedCertificatesRefreshed() throws
+           NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
+           InvalidCertificateException, InterruptedException {
+       // Given
+       KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
+       X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
+       KeyPair clientAKeyPair = CertificateStore.newRSAKeyPair(2048);
+       X509Certificate clientACrt = createClientCertificate(
+               rootCA, "AWS IoT Certificate", clientAKeyPair.getPublic(), rootKeyPair.getPrivate());
+       KeyPair clientBKeyPair = CertificateStore.newRSAKeyPair(2048);
+       X509Certificate clientBCrt = createClientCertificate(
+               rootCA, "AWS IoT Certificate", clientBKeyPair.getPublic(), rootKeyPair.getPrivate());
+
+       String clientAPem = CertificateHelper.toPem(clientACrt);
+       iotAuthClientFake.activateCert(clientAPem);
+       String clientBPem = CertificateHelper.toPem(clientBCrt);
+       iotAuthClientFake.activateCert(clientBPem);
+       when(networkStateMock.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
+
+       // When
+       givenNucleusRunningWithConfig("config.yaml");
+
+       Instant now = Instant.now();
+       Runnable resetClock = mockInstant(now.toEpochMilli());
+
+       // Simulate some client components (like Moquette) verifying some certificates
+       ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
+       api.verifyClientDeviceIdentity(clientAPem);
+       api.verifyClientDeviceIdentity(clientBPem);
+
+       CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
+       Certificate ogCertA = certRegistry.getCertificateFromPem(clientAPem).get();
+       Certificate ogCertB = certRegistry.getCertificateFromPem(clientBPem).get();
+       assertEquals(ogCertA.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
+       assertEquals(ogCertB.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
+
+       Instant anHourLater = now.plusSeconds(60 * 60);
+       resetClock.run();
+       mockInstant(anHourLater.toEpochMilli());
+
+       BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
+       assertTrue(backgroundRefresh.isRunning(), "background refresh is not running");
+       backgroundRefresh.run(); // Force a run because otherwise it is controlled by a ScheduledExecutorService
+       kernel.getConfig().waitConfigUpdateComplete();
+
+       // Then
+       Certificate certA = certRegistry.getCertificateFromPem(clientAPem).get();
+       Certificate certB = certRegistry.getCertificateFromPem(clientBPem).get();
+
+       assertEquals(certA.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+       assertEquals(certB.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+   }
 
 }
