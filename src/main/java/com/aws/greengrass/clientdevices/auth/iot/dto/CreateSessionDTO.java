@@ -10,7 +10,7 @@ import lombok.Value;
 
 @Value
 @AllArgsConstructor
-public class CreateSessionCommand {
+public class CreateSessionDTO {
     String thingName;
     String certificatePem;
 }

@@ -18,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.CreateIoTThingSession;
+import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyThingAttachedToCertificate;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.hamcrest.core.IsNull;
@@ -67,10 +68,13 @@ public class MqttSessionFactoryTest {
     @BeforeEach
     void beforeEach() {
         context = new Context();
-        CreateIoTThingSession useCase = new CreateIoTThingSession(
-                iotAuthClientMock, mockThingRegistry, mockCertificateRegistry, mockNetworkState);
-        context.put(CreateIoTThingSession.class, useCase);
         UseCases useCases = new UseCases(context);
+        CreateIoTThingSession createIoTThingSession =
+                new CreateIoTThingSession(mockThingRegistry, mockCertificateRegistry, useCases);
+        VerifyThingAttachedToCertificate verifyThingAttachedToCertificate =
+                new VerifyThingAttachedToCertificate(iotAuthClientMock, mockThingRegistry, mockNetworkState);
+        context.put(CreateIoTThingSession.class, createIoTThingSession);
+        context.put(VerifyThingAttachedToCertificate.class, verifyThingAttachedToCertificate);
         mqttSessionFactory = new MqttSessionFactory(mockDeviceAuthClient, useCases);
     }
 
