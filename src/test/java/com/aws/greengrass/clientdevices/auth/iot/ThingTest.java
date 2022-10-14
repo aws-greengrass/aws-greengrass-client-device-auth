@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -125,5 +126,21 @@ public class ThingTest {
         assertThat(Thing_SingleCert, not(equalTo(Thing_SingleCert_newer)));
         assertThat(Thing_CertA, not(equalTo(Thing_CertB)));
         assertThat(Thing_MultiCert, equalTo(Thing_MultiCert_copy));
+    }
+
+    @Test
+    void GIVEN_thingWithValidActiveCertificate_WHEN_isCertificateAttached_THEN_returnTrue() {
+        Thing thing = Thing.of(mockThingName);
+        thing.attachCertificate(mockCertId);
+        assertTrue(thing.isCertificateAttached(mockCertId));
+    }
+
+    @Test
+    void GIVEN_thingWithExpiredActiveCertificate_WHEN_isCertificateAttached_THEN_returnFalse() {
+        // update trust duration to zero, indicating not to trust any metadata
+        Thing.updateMetadataTrustDurationHours(0);
+        Thing thing = Thing.of(mockThingName);
+        thing.attachCertificate(mockCertId);
+        assertFalse(thing.isCertificateAttached(mockCertId));
     }
 }
