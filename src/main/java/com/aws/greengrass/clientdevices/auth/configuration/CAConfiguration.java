@@ -18,6 +18,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -78,6 +79,16 @@ public final class CAConfiguration {
      */
     public boolean isUsingCustomCA() {
         return privateKeyUri.isPresent() && certificateUri.isPresent();
+    }
+
+    /**
+     * Compares 2 CAConfigurations and returns true if it has changed.
+     * @param config - an existing CAConfiguration
+     */
+    public boolean hasChanged(CAConfiguration config) {
+        return !Objects.equals(config.getCertificateUri(), getCertificateUri())
+                || !Objects.equals(config.getPrivateKeyUri(), getPrivateKeyUri())
+                || !Objects.equals(config.getCaType(), getCaType());
     }
 
     private static List<String> getCaTypeListFromConfiguration(Topics configurationTopic) {

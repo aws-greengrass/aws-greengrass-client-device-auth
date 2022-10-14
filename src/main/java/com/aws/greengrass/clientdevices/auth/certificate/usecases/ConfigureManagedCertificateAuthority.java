@@ -8,7 +8,8 @@ package com.aws.greengrass.clientdevices.auth.certificate.usecases;
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
 import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
-import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
@@ -21,22 +22,26 @@ import javax.inject.Inject;
  * Creates or loads a  self-signed CA that will be used to issue certificates to other plugins and to verify client
  * devices.
  */
-public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Void, CDAConfiguration> {
+public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Void, CAConfiguration> {
     private final CertificateManager certificateManager;
     private static final Logger logger = LogManager.getLogger(ConfigureManagedCertificateAuthority.class);
+    private final RuntimeConfiguration runtimeConfig;
 
 
     /**
      * Configure core certificate authority.
      * @param certificateManager  Certificate manager.
+     * @param runtimeConfig - The runtime configuration
      */
     @Inject
-    public ConfigureManagedCertificateAuthority(CertificateManager certificateManager) {
+    public ConfigureManagedCertificateAuthority(
+            CertificateManager certificateManager, RuntimeConfiguration runtimeConfig) {
         this.certificateManager = certificateManager;
+        this.runtimeConfig = runtimeConfig;
     }
 
     @Override
-    public Result apply(CDAConfiguration configuration) {
+    public Result apply(CAConfiguration configuration) {
         // TODO: We should not be passing the entire configuration just what changed. We are just doing it for
         //  its convenience but eventually syncing the runtime config can be its own use case triggered by events.
 
@@ -49,9 +54,9 @@ public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Vo
         try {
             // NOTE: Update doesn't really reflect what we are doing we and the store should just store objects
             // not have the logic of how to create them
-            certificateManager.generateCA(configuration.getCaPassphrase(), configuration.getCaType());
-            configuration.updateCAPassphrase(certificateManager.getCaPassPhrase());
-            configuration.updateCACertificates(certificateManager.getCACertificates());
+            certificateManager.generateCA(runtimeConfig.getCaPassphrase(), configuration.getCaType());
+            runtimeConfig.updateCAPassphrase(certificateManager.getCaPassPhrase());
+            runtimeConfig.updateCACertificates(certificateManager.getCACertificates());
         } catch (IOException | CertificateEncodingException | KeyStoreException e) {
             logger.atError().cause(e).log("Failed to configure managed CA");
             return Result.error(e);
