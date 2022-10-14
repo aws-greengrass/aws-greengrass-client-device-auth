@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,6 +18,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Map;
 
+import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -37,6 +39,11 @@ public class ThingTest {
         Assertions.assertDoesNotThrow(() -> Thing.of("abcdefghijklmnopqrstuvwxyz:_-"));
         Assertions.assertDoesNotThrow(() -> Thing.of("ABCDEFGHIJKLMNOPQRSTUXWXYZ"));
         Assertions.assertDoesNotThrow(() -> Thing.of("0123456789"));
+    }
+
+    @AfterEach
+    void afterEach() {
+        Thing.updateMetadataTrustDurationHours(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS);
     }
 
     @Test
