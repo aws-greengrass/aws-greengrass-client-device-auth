@@ -23,7 +23,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
-import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS;
+import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,7 +47,7 @@ class CertificateTest {
 
     @AfterEach
     void afterEach() {
-        Certificate.updateMetadataTrustDurationHours(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS);
+        Certificate.updateMetadataTrustDurationMinutes(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
     }
 
     @Test
@@ -60,7 +60,7 @@ class CertificateTest {
     @Test
     void GIVEN_expiredActiveCertificate_WHEN_isActive_THEN_returnFalse() throws InvalidCertificateException {
         // update trust duration to zero, indicating not to trust any metadata
-        Certificate.updateMetadataTrustDurationHours(0);
+        Certificate.updateMetadataTrustDurationMinutes(0);
         Certificate cert = Certificate.fromPem(validClientCertificatePem);
         cert.setStatus(Certificate.Status.ACTIVE);
         assertFalse(cert.isActive());

@@ -18,23 +18,23 @@ import java.util.Objects;
  * <p>
  * |---- configuration
  * |    |---- security:
- * |          |---- clientDeviceTrustDurationHours: "..."
+ * |          |---- clientDeviceTrustDurationMinutes: "..."
  * </p>
  */
 @Getter
 public final class SecurityConfiguration {
     private static final Logger logger = LogManager.getLogger(SecurityConfiguration.class);
     public static final String SECURITY_TOPIC = "security";
-    public static final String CLIENT_DEVICE_TRUST_DURATION_HOURS_TOPIC = "clientDeviceTrustDurationHours";
-    public static final int DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS = 24;
-    public static final int MIN_CLIENT_DEVICE_TRUST_DURATION_HOURS = 0;
-    public static final int MAX_CLIENT_DEVICE_TRUST_DURATION_HOURS = Integer.MAX_VALUE;
+    public static final String CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC = "clientDeviceTrustDurationMinutes";
+    public static final int DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES = 24;
+    public static final int MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES = 0;
+    public static final int MAX_CLIENT_DEVICE_TRUST_DURATION_MINUTES = Integer.MAX_VALUE;
 
-    private int clientDeviceTrustDurationHours;
+    private int clientDeviceTrustDurationMinutes;
 
 
-    private SecurityConfiguration(int clientDeviceTrustDurationHours) {
-        this.clientDeviceTrustDurationHours = clientDeviceTrustDurationHours;
+    private SecurityConfiguration(int clientDeviceTrustDurationMinutes) {
+        this.clientDeviceTrustDurationMinutes = clientDeviceTrustDurationMinutes;
     }
 
     /**
@@ -46,7 +46,7 @@ public final class SecurityConfiguration {
         Topics securityTopics = configurationTopics.lookupTopics(SECURITY_TOPIC);
 
         return new SecurityConfiguration(
-                getClientDeviceTrustDurationHours(securityTopics)
+                getClientDeviceTrustDurationMinutes(securityTopics)
         );
     }
 
@@ -60,15 +60,15 @@ public final class SecurityConfiguration {
             return true;
         }
 
-        return !Objects.equals(newConfig.getClientDeviceTrustDurationHours(),
-                getClientDeviceTrustDurationHours());
+        return !Objects.equals(newConfig.getClientDeviceTrustDurationMinutes(),
+                getClientDeviceTrustDurationMinutes());
     }
 
-    private static int getClientDeviceTrustDurationHours(Topics securityTopics) {
-        int configValue = Coerce.toInt(securityTopics.findOrDefault(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS,
-                CLIENT_DEVICE_TRUST_DURATION_HOURS_TOPIC));
-        return clampIfInvalid(CLIENT_DEVICE_TRUST_DURATION_HOURS_TOPIC, configValue,
-                MIN_CLIENT_DEVICE_TRUST_DURATION_HOURS, MAX_CLIENT_DEVICE_TRUST_DURATION_HOURS);
+    private static int getClientDeviceTrustDurationMinutes(Topics securityTopics) {
+        int configValue = Coerce.toInt(securityTopics.findOrDefault(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES,
+                CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC));
+        return clampIfInvalid(CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC, configValue,
+                MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES, MAX_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
     }
 
     private static int clampIfInvalid(String configKey, int configValue, int min, int max) {

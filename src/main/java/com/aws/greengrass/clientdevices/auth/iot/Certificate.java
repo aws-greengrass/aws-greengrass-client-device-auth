@@ -26,13 +26,13 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS;
+import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 
 @Getter
 public class Certificate implements AttributeProvider {
     public static final String NAMESPACE = "Certificate";
-    private static final AtomicInteger metadataTrustDurationHours =
-            new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS);
+    private static final AtomicInteger metadataTrustDurationMinutes =
+            new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
 
     public enum Status {
         ACTIVE,
@@ -125,14 +125,14 @@ public class Certificate implements AttributeProvider {
     /**
      * Updates the duration for which a certificate metadata can be trusted.
      *
-     * @param newTrustDuration desired trust duration in hours
+     * @param newTrustDuration desired trust duration in minutes
      */
-    public static void updateMetadataTrustDurationHours(int newTrustDuration) {
-        metadataTrustDurationHours.set(newTrustDuration);
+    public static void updateMetadataTrustDurationMinutes(int newTrustDuration) {
+        metadataTrustDurationMinutes.set(newTrustDuration);
     }
 
     private boolean isStatusTrusted() {
-        Instant validTill = statusLastUpdated.plus(metadataTrustDurationHours.get(), ChronoUnit.HOURS);
+        Instant validTill = statusLastUpdated.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
         return validTill.isAfter(Instant.now());
     }
 

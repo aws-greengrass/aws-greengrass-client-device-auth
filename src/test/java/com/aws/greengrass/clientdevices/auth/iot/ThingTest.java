@@ -18,7 +18,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Map;
 
-import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS;
+import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -43,7 +43,7 @@ public class ThingTest {
 
     @AfterEach
     void afterEach() {
-        Thing.updateMetadataTrustDurationHours(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS);
+        Thing.updateMetadataTrustDurationMinutes(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
     }
 
     @Test
@@ -145,7 +145,7 @@ public class ThingTest {
     @Test
     void GIVEN_thingWithExpiredActiveCertificate_WHEN_isCertificateAttached_THEN_returnFalse() {
         // update trust duration to zero, indicating not to trust any metadata
-        Thing.updateMetadataTrustDurationHours(0);
+        Thing.updateMetadataTrustDurationMinutes(0);
         Thing thing = Thing.of(mockThingName);
         thing.attachCertificate(mockCertId);
         assertFalse(thing.isCertificateAttached(mockCertId));

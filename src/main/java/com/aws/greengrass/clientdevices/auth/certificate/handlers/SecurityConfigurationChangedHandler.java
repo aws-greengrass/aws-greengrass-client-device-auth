@@ -42,7 +42,7 @@ public class SecurityConfigurationChangedHandler implements Consumer<SecurityCon
     @Override
     public void accept(SecurityConfigurationChanged event)  {
         SecurityConfiguration configuration = event.getConfiguration();
-        Certificate.updateMetadataTrustDurationHours(configuration.getClientDeviceTrustDurationHours());
-        Thing.updateMetadataTrustDurationHours(configuration.getClientDeviceTrustDurationHours());
+        Certificate.updateMetadataTrustDurationMinutes(configuration.getClientDeviceTrustDurationMinutes());
+        Thing.updateMetadataTrustDurationMinutes(configuration.getClientDeviceTrustDurationMinutes());
     }
 }

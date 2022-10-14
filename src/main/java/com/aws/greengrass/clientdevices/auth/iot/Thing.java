@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
-import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS;
+import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 
 /**
  * This is a versioned representation of an IoT Thing. It is **NOT** updated
@@ -32,8 +32,8 @@ import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfig
 public final class Thing implements AttributeProvider, Cloneable {
     public static final String NAMESPACE = "Thing";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
-    private static final AtomicInteger metadataTrustDurationHours =
-            new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS);
+    private static final AtomicInteger metadataTrustDurationMinutes =
+            new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
 
     private final String thingName;
     // map of certificate ID to the time this certificate was known to be attached to the Thing
@@ -158,14 +158,14 @@ public final class Thing implements AttributeProvider, Cloneable {
     /**
      * Updates the duration for which a certificate attachment can be trusted.
      *
-     * @param newTrustDuration desired trust duration in hours
+     * @param newTrustDuration desired trust duration in minutes
      */
-    public static void updateMetadataTrustDurationHours(int newTrustDuration) {
-        metadataTrustDurationHours.set(newTrustDuration);
+    public static void updateMetadataTrustDurationMinutes(int newTrustDuration) {
+        metadataTrustDurationMinutes.set(newTrustDuration);
     }
 
     private boolean isCertAttachmentTrusted(Instant lastVerified) {
-        Instant validTill = lastVerified.plus(metadataTrustDurationHours.get(), ChronoUnit.HOURS);
+        Instant validTill = lastVerified.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
         return validTill.isAfter(Instant.now());
     }
 }

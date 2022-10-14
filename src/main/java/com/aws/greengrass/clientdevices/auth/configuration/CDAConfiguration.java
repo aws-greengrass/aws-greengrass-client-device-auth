@@ -24,7 +24,7 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
  * Certificate Manager Service uses the following topic structure:
  * |---- configuration
  * |    |---- security:
- * |         |---- clientDeviceTrustDurationHours: "..."
+ * |         |---- clientDeviceTrustDurationMinutes: "..."
  * |    |---- performance:
  * |         |---- cloudRequestQueueSize: "..."
  * |         |---- maxConcurrentCloudRequests: "..."
