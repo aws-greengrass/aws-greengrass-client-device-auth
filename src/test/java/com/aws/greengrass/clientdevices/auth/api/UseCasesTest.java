@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.api;
 
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
 import com.aws.greengrass.config.Topics;
@@ -75,7 +76,8 @@ public class UseCasesTest {
 
         @Override
         public Result<String> apply(Void dto) {
-            return Result.ok(configuration.getCertificateUri().get().toString());
+            CAConfiguration caConfig = configuration.getCertificateAuthorityConfiguration();
+            return Result.ok(caConfig.getCertificateUri().get().toString());
         }
     }
 

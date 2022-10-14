@@ -10,7 +10,7 @@ import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCustomCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureManagedCertificateAuthority;
-import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 
 import java.util.function.Consumer;
 import javax.inject.Inject;
@@ -45,7 +45,7 @@ public class CAConfigurationChangedHandler implements Consumer<CAConfigurationCh
      */
     @Override
     public void accept(CAConfigurationChanged event)  {
-        CDAConfiguration configuration = event.getConfiguration();
+        CAConfiguration configuration = event.getConfiguration();
 
         if (configuration.isUsingCustomCA()) {
             useCases.get(ConfigureCustomCertificateAuthority.class).apply(configuration);
