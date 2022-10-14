@@ -21,12 +21,18 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS;
 
 @Getter
 public class Certificate implements AttributeProvider {
     public static final String NAMESPACE = "Certificate";
+    private static final AtomicInteger metadataTrustDurationHours =
+            new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_HOURS);
 
     public enum Status {
         ACTIVE,
@@ -79,10 +85,10 @@ public class Certificate implements AttributeProvider {
 
     /**
      * Check certificate status.
-     * @return true if this certificate is active in IoT Core.
+     * @return true if this certificate is verified and active in IoT Core.
      */
     public boolean isActive() {
-        return status == Status.ACTIVE;
+        return status == Status.ACTIVE && isStatusTrusted();
     }
 
     /**
@@ -114,6 +120,20 @@ public class Certificate implements AttributeProvider {
     @Override
     public Map<String, DeviceAttribute> getDeviceAttributes() {
         return Collections.singletonMap("CertificateId", new StringLiteralAttribute(getCertificateId()));
+    }
+
+    /**
+     * Updates the duration for which a certificate metadata can be trusted.
+     *
+     * @param newTrustDuration desired trust duration in hours
+     */
+    public static void updateMetadataTrustDurationHours(int newTrustDuration) {
+        metadataTrustDurationHours.set(newTrustDuration);
+    }
+
+    private boolean isStatusTrusted() {
+        Instant validTill = statusLastUpdated.plus(metadataTrustDurationHours.get(), ChronoUnit.HOURS);
+        return validTill.isAfter(Instant.now());
     }
 
     private static String computeCertificateId(String certificatePem)

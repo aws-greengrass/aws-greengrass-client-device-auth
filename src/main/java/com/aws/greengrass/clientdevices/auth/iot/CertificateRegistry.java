@@ -5,12 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth.iot;
 
-import com.aws.greengrass.clientdevices.auth.api.Result;
-import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1DTO;
-import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyMetadataTrust;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import software.amazon.awssdk.utils.ImmutableMap;
@@ -24,7 +21,6 @@ import javax.inject.Inject;
 
 
 public class CertificateRegistry {
-    private final UseCases useCases;
     private final RuntimeConfiguration runtimeConfiguration;
     private final Map<Certificate.Status, CertificateV1DTO.Status> domain2dtoStatus = ImmutableMap.of(
             Certificate.Status.ACTIVE, CertificateV1DTO.Status.ACTIVE,
@@ -41,15 +37,11 @@ public class CertificateRegistry {
     /**
      * Creates a certificate registry.
      *
-     * @param useCases Use cases
      * @param runtimeConfiguration Runtime configuration
      * @param pemStore An instance of ClientCertificateStore
      */
     @Inject
-    public CertificateRegistry(UseCases useCases,
-                               RuntimeConfiguration runtimeConfiguration,
-                               ClientCertificateStore pemStore) {
-        this.useCases = useCases;
+    public CertificateRegistry(RuntimeConfiguration runtimeConfiguration, ClientCertificateStore pemStore) {
         this.runtimeConfiguration = runtimeConfiguration;
         this.pemStore = pemStore;
     }
@@ -64,7 +56,7 @@ public class CertificateRegistry {
     public Optional<Certificate> getCertificateFromPem(String certificatePem) throws InvalidCertificateException {
         Certificate cert = Certificate.fromPem(certificatePem);
         Optional<CertificateV1DTO> dto = runtimeConfiguration.getCertificateV1(cert.getCertificateId());
-        return dto.map(this::certificateV1DTOToCert).filter(this::isTrusted);
+        return dto.map(this::certificateV1DTOToCert);
     }
 
     /**
@@ -123,12 +115,6 @@ public class CertificateRegistry {
      */
     public void deleteCertificate(Certificate certificate) {
         runtimeConfiguration.removeCertificateV1(certificate.getCertificateId());
-    }
-
-    private boolean isTrusted(Certificate certificate) {
-        Instant lastVerified = certificate.getStatusLastUpdated();
-        Result<Boolean> trust = useCases.get(VerifyMetadataTrust.class).apply(lastVerified);
-        return trust.isOk() && trust.get();
     }
 
     private Certificate certificateV1DTOToCert(CertificateV1DTO dto) {

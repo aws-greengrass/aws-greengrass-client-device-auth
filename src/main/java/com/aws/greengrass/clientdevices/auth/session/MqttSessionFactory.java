@@ -56,7 +56,7 @@ public class MqttSessionFactory implements SessionFactory {
     private Session createIotThingSession(MqttCredential mqttCredential) throws AuthenticationException {
         try {
             Optional<Certificate> cert = certificateRegistry.getCertificateFromPem(mqttCredential.certificatePem);
-            if (!cert.isPresent() || !cert.get().getStatus().equals(Certificate.Status.ACTIVE)) {
+            if (!cert.isPresent() || !cert.get().isActive()) {
                 throw new AuthenticationException("Certificate isn't active");
             }
             Thing thing = thingRegistry.getOrCreateThing(mqttCredential.clientId);

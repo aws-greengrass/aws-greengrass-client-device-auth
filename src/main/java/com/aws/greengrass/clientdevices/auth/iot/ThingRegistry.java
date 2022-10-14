@@ -6,13 +6,10 @@
 package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.api.Result;
-import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
-import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyMetadataTrust;
 
 import java.time.Instant;
 import java.util.Map;
@@ -23,7 +20,6 @@ import javax.inject.Inject;
 public class ThingRegistry {
     private final IotAuthClient iotAuthClient;
     private final DomainEvents domainEvents;
-    private final UseCases useCases;
     private final RuntimeConfiguration runtimeConfig;
 
     /**
@@ -31,17 +27,14 @@ public class ThingRegistry {
      *
      * @param iotAuthClient IoT auth client
      * @param domainEvents Domain events
-     * @param useCases Use cases
      * @param runtimeConfig Runtime configuration store
      */
     @Inject
     public ThingRegistry(IotAuthClient iotAuthClient,
                          DomainEvents domainEvents,
-                         UseCases useCases,
                          RuntimeConfiguration runtimeConfig) {
         this.iotAuthClient = iotAuthClient;
         this.domainEvents = domainEvents;
-        this.useCases = useCases;
         this.runtimeConfig = runtimeConfig;
     }
 
@@ -127,13 +120,9 @@ public class ThingRegistry {
      * @throws CloudServiceInteractionException when thing <-> certificate association cannot be verified
      */
     public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
-        // If we have a local cache hit and it is trusted, then return true. Else, go to cloud
+        // If we have a local cache hit, then return true. Else, go to cloud
         if (thing.isCertificateAttached(certificate.getCertificateId())) {
-            Instant lastVerified = thing.getAttachedCertificateIds().get(certificate.getCertificateId());
-            Result<Boolean> trust = useCases.get(VerifyMetadataTrust.class).apply(lastVerified);
-            if (trust.isOk() && trust.get()) {
-                return true;
-            }
+            return true;
         }
 
         if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {

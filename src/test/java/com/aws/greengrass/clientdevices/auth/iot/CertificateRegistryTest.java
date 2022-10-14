@@ -5,14 +5,11 @@
 
 package com.aws.greengrass.clientdevices.auth.iot;
 
-import com.aws.greengrass.clientdevices.auth.api.Result;
-import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
-import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyMetadataTrust;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -22,7 +19,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
@@ -38,9 +34,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.reset;
 
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -48,10 +41,6 @@ class CertificateRegistryTest {
     private static X509Certificate validClientCertificate;
     private static String validClientCertificatePem;
 
-    @Mock
-    private UseCases mockUseCases;
-    @Mock
-    private VerifyMetadataTrust mockVerifyMetadataTrust;
     private Topics configTopic;
     private CertificateRegistry registry;
 
@@ -70,11 +59,9 @@ class CertificateRegistryTest {
 
     @BeforeEach
     void beforeEach() throws KeyStoreException {
-        lenient().when(mockVerifyMetadataTrust.apply(any(Instant.class))).thenReturn(Result.ok(true));
-        lenient().when(mockUseCases.get(VerifyMetadataTrust.class)).thenReturn(mockVerifyMetadataTrust);
         configTopic = Topics.of(new Context(), "config", null);
         ClientCertificateStore store = new ClientCertificateStore();
-        registry = new CertificateRegistry(mockUseCases, RuntimeConfiguration.from(configTopic), store);
+        registry = new CertificateRegistry(RuntimeConfiguration.from(configTopic), store);
     }
 
     @AfterEach
@@ -139,27 +126,5 @@ class CertificateRegistryTest {
 
         Optional<Certificate> cert2 = registry.getCertificateFromPem(validClientCertificatePem);
         assertThat(cert2.isPresent(), is(false));
-    }
-
-    @Test
-    void GIVEN_certificateWithExpiredRegistryMetadata_WHEN_getCertificateFromPem_THEN_returnRejectLocalCacheResult()
-            throws InvalidCertificateException {
-        Certificate validCert = registry.getOrCreateCertificate(validClientCertificatePem);
-        validCert.setStatus(Certificate.Status.ACTIVE);
-        registry.updateCertificate(validCert);
-
-        // expired local metadata trust
-        reset(mockVerifyMetadataTrust);
-        lenient().when(mockVerifyMetadataTrust.apply(any(Instant.class))).thenReturn(Result.ok(false));
-
-        Optional<Certificate> cert = registry.getCertificateFromPem(validClientCertificatePem);
-        assertThat(cert.isPresent(), is(false));
-
-        // certificate with non-ACTIVE status
-        registry.deleteCertificate(validCert);
-        Certificate newCert = registry.getOrCreateCertificate(validClientCertificatePem);
-        assertThat(newCert.getStatus(), is(Certificate.Status.UNKNOWN));
-        Optional<Certificate> unknown = registry.getCertificateFromPem(validClientCertificatePem);
-        assertThat(unknown.isPresent(), is(false));
     }
 }

@@ -19,7 +19,6 @@ import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyMetadataTrust;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
@@ -371,7 +370,6 @@ class ClientDevicesAuthServiceTest {
         when(managedCAUseCase.apply(configurationCaptor.capture())).thenReturn(Result.ok());
         when(useCasesMock.get(ConfigureCustomCertificateAuthority.class)).thenReturn(customCAUseCase);
         when(useCasesMock.get(ConfigureManagedCertificateAuthority.class)).thenReturn(managedCAUseCase);
-        when(useCasesMock.get(VerifyMetadataTrust.class)).thenReturn(mock(VerifyMetadataTrust.class));
         kernel.getContext().put(UseCases.class, useCasesMock);
 
         startNucleusWithConfig("config.yaml");

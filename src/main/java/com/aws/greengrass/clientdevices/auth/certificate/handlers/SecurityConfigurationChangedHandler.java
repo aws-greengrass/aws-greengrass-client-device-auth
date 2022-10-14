@@ -6,28 +6,25 @@
 package com.aws.greengrass.clientdevices.auth.certificate.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.events.SecurityConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration;
-import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyMetadataTrust;
+import com.aws.greengrass.clientdevices.auth.iot.Certificate;
+import com.aws.greengrass.clientdevices.auth.iot.Thing;
 
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
 public class SecurityConfigurationChangedHandler implements Consumer<SecurityConfigurationChanged> {
     private final DomainEvents domainEvents;
-    private final UseCases useCases;
 
     /**
      * Construct SecurityConfigurationChanged Handler.
      *
      * @param domainEvents Domain event router
-     * @param useCases Use cases
      */
     @Inject
-    public SecurityConfigurationChangedHandler(DomainEvents domainEvents, UseCases useCases) {
+    public SecurityConfigurationChangedHandler(DomainEvents domainEvents) {
         this.domainEvents = domainEvents;
-        this.useCases = useCases;
     }
 
     /**
@@ -45,7 +42,7 @@ public class SecurityConfigurationChangedHandler implements Consumer<SecurityCon
     @Override
     public void accept(SecurityConfigurationChanged event)  {
         SecurityConfiguration configuration = event.getConfiguration();
-        useCases.get(VerifyMetadataTrust.class)
-                .updateClientDeviceTrustDurationHours(configuration.getClientDeviceTrustDurationHours());
+        Certificate.updateMetadataTrustDurationHours(configuration.getClientDeviceTrustDurationHours());
+        Thing.updateMetadataTrustDurationHours(configuration.getClientDeviceTrustDurationHours());
     }
 }
