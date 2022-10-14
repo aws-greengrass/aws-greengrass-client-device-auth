@@ -19,6 +19,8 @@ import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateChainLoadingException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
+import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
+import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
@@ -99,6 +101,7 @@ public class CustomCaConfigurationTest {
     Path rootDir;
     private Kernel kernel;
     private CertificateStore certificateStoreSpy;
+    private IotAuthClientFake iotAuthClientFake;
 
 
     @BeforeEach
@@ -108,6 +111,7 @@ public class CustomCaConfigurationTest {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
+
         kernel.getContext().put(GroupManager.class, groupManager);
         kernel.getContext().put(SecurityService.class, securityServiceMock);
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitorMock);
@@ -115,8 +119,10 @@ public class CustomCaConfigurationTest {
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
         DomainEvents domainEvents =  new DomainEvents();
+        iotAuthClientFake = new IotAuthClientFake();
         certificateStoreSpy = spy(new CertificateStore(rootDir, domainEvents , securityServiceMock));
 
+        kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
         kernel.getContext().put(DomainEvents.class, domainEvents);
         kernel.getContext().put(CertificateStore.class, certificateStoreSpy);
 
