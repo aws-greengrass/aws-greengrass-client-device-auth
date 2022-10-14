@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
@@ -99,7 +100,21 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @return Certificate IDs
      */
     public Map<String, Instant> getAttachedCertificateIds() {
+        // TODO: Do not expose this it is breaking encapsulation. Instead add methods inside of here that can
+        //  answer to questions external callers might have
         return new HashMap<>(attachedCertificateIds);
+    }
+
+    /**
+     * Returns the last updated instant we updated the value of a certificate being attached to a thing.
+     * @param certificateId - A certificateId
+     */
+    public Optional<Instant> certificateLastAttachedOn(String certificateId) {
+        if (!attachedCertificateIds.containsKey(certificateId)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(attachedCertificateIds.get(certificateId));
     }
 
     /**

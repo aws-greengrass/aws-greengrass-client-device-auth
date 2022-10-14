@@ -15,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificate
 import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
+import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
@@ -22,6 +23,8 @@ import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
+import com.aws.greengrass.clientdevices.auth.iot.Thing;
+import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.Kernel;
@@ -50,6 +53,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -173,8 +177,10 @@ public class OfflineAuthenticationTest {
    @Test
    void GIVEN_storedCertificates_WHEN_refreshEnabled_THEN_storedCertificatesRefreshed() throws
            NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
-           InvalidCertificateException, InterruptedException {
+           InvalidCertificateException, InterruptedException, AuthenticationException {
        // Given
+
+       // Generate some credentials for the fake client devices
        KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
        X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
        KeyPair clientAKeyPair = CertificateStore.newRSAKeyPair(2048);
@@ -184,29 +190,57 @@ public class OfflineAuthenticationTest {
        X509Certificate clientBCrt = createClientCertificate(
                rootCA, "AWS IoT Certificate", clientBKeyPair.getPublic(), rootKeyPair.getPrivate());
 
+       // Configure the IotClientFake
        String clientAPem = CertificateHelper.toPem(clientACrt);
        iotAuthClientFake.activateCert(clientAPem);
        String clientBPem = CertificateHelper.toPem(clientBCrt);
        iotAuthClientFake.activateCert(clientBPem);
        when(networkStateMock.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
+       String thingOne = "ThingOne";
+       iotAuthClientFake.attachCertificateToThing(thingOne, clientAPem);
+       String thingTwo = "ThingTwo";
+       iotAuthClientFake.attachCertificateToThing(thingTwo, clientBPem);
 
-       // When
        givenNucleusRunningWithConfig("config.yaml");
 
        Instant now = Instant.now();
        Runnable resetClock = mockInstant(now.toEpochMilli());
+       ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
 
        // Simulate some client components (like Moquette) verifying some certificates
-       ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
        api.verifyClientDeviceIdentity(clientAPem);
        api.verifyClientDeviceIdentity(clientBPem);
 
+       // Simulate a client connecting and generating a session
+       api.getClientDeviceAuthToken("mqtt",   new HashMap<String, String>() {{
+           put("clientId", thingOne);
+           put("certificatePem", clientAPem);
+           put("username", "foo");
+           put("password", "bar");
+       }});
+       api.getClientDeviceAuthToken("mqtt", new HashMap<String, String>() {{
+           put("clientId", thingTwo);
+           put("certificatePem", clientBPem);
+           put("username", "baz");
+           put("password", "fizz");
+       }});
+
+
+       // Check state before refresh of the certificates
        CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
        Certificate ogCertA = certRegistry.getCertificateFromPem(clientAPem).get();
        Certificate ogCertB = certRegistry.getCertificateFromPem(clientBPem).get();
        assertEquals(ogCertA.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
        assertEquals(ogCertB.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
 
+       // Check state before refresh of thing attachments
+       ThingRegistry thingRegistry = kernel.getContext().get(ThingRegistry.class);
+       Thing ogThingA = thingRegistry.getOrCreateThing(thingOne);
+       Thing ogThingB = thingRegistry.getOrCreateThing(thingTwo);
+       assertEquals(ogThingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(), now.toEpochMilli());
+       assertEquals(ogThingB.certificateLastAttachedOn(ogCertB.getCertificateId()).get().toEpochMilli(), now.toEpochMilli());
+
+       // When
        Instant anHourLater = now.plusSeconds(60 * 60);
        resetClock.run();
        mockInstant(anHourLater.toEpochMilli());
@@ -217,11 +251,24 @@ public class OfflineAuthenticationTest {
        kernel.getConfig().waitConfigUpdateComplete();
 
        // Then
+
+       // Verify certificates updated after refresh
        Certificate certA = certRegistry.getCertificateFromPem(clientAPem).get();
        Certificate certB = certRegistry.getCertificateFromPem(clientBPem).get();
-
        assertEquals(certA.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
        assertEquals(certB.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+
+       // Verify thing certificate attachments got updated after refresh
+       Thing thingA = thingRegistry.getOrCreateThing(thingOne);
+       Thing thingB = thingRegistry.getOrCreateThing(thingTwo);
+       assertEquals(
+           thingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(),
+           anHourLater.toEpochMilli()
+       );
+       assertEquals(
+           thingB.certificateLastAttachedOn(ogCertB.getCertificateId()).get().toEpochMilli(),
+           anHourLater.toEpochMilli()
+       );
    }
 
 }
