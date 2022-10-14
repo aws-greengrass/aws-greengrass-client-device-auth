@@ -12,7 +12,6 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCustomCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureManagedCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
-import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.ConfigurationFormatVersion;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
@@ -364,7 +363,7 @@ class ClientDevicesAuthServiceTest {
     @Test
     void GIVEN_certificateAuthorityConfiguration_WHEN_itChanges_THEN_CAisConfigured() throws InterruptedException,
             ServiceLoadException {
-        ArgumentCaptor<CDAConfiguration> configurationCaptor = ArgumentCaptor.forClass(CDAConfiguration.class);
+        ArgumentCaptor<CAConfiguration> configurationCaptor = ArgumentCaptor.forClass(CAConfiguration.class);
         UseCases useCasesMock = mock(UseCases.class);
         ConfigureCustomCertificateAuthority customCAUseCase = mock(ConfigureCustomCertificateAuthority.class);
         when(customCAUseCase.apply(configurationCaptor.capture())).thenReturn(Result.ok());

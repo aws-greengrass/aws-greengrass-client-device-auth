@@ -6,23 +6,20 @@
 package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.certificate.events.SecurityConfigurationChanged;
 import com.aws.greengrass.config.Topics;
+import lombok.Getter;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STORE_NAMESPACE_TOPIC;
 
 /**
- * Aggregate of configuration components. It represents the configuration of the service
- * at a point in time.
+ * Factory for the service configuration. Given some Topic it will create the service configuration, validating its
+ * values and setting defaults as needed.
  * <p>
  * Certificate Manager Service uses the following topic structure:
  * |---- configuration
@@ -50,8 +47,9 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
 public final class CDAConfiguration {
 
     private final RuntimeConfiguration runtime;
-    private final CAConfiguration ca;
     private final SecurityConfiguration security;
+    @Getter
+    private final CAConfiguration certificateAuthorityConfiguration;
     private final DomainEvents domainEvents;
 
     private CDAConfiguration(DomainEvents domainEvents,
@@ -60,8 +58,8 @@ public final class CDAConfiguration {
                              SecurityConfiguration security) {
         this.domainEvents = domainEvents;
         this.runtime = runtime;
-        this.ca = ca;
         this.security = security;
+        this.certificateAuthorityConfiguration = ca;
     }
 
     /**
@@ -102,39 +100,15 @@ public final class CDAConfiguration {
 
     private void triggerChanges(CDAConfiguration current, CDAConfiguration prev) {
         if (hasCAConfigurationChanged(prev)) {
-            domainEvents.emit(new CAConfigurationChanged(current));
+            domainEvents.emit(new CAConfigurationChanged(current.getCertificateAuthorityConfiguration()));
         }
         if (hasSecurityConfigurationChanged(prev)) {
             domainEvents.emit(new SecurityConfigurationChanged(current.security));
         }
     }
 
-    public boolean isUsingCustomCA() {
-        return ca.isUsingCustomCA();
-    }
-
-    public String getCaPassphrase() {
-        return runtime.getCaPassphrase();
-    }
-
-    public void updateCAPassphrase(String caPassPhrase) {
-        runtime.updateCAPassphrase(caPassPhrase);
-    }
-
     public void updateCACertificates(List<String> caCertificates) {
         runtime.updateCACertificates(caCertificates);
-    }
-
-    public CertificateStore.CAType getCaType() {
-        return ca.getCaType();
-    }
-
-    public Optional<URI> getPrivateKeyUri() {
-        return ca.getPrivateKeyUri();
-    }
-
-    public Optional<URI> getCertificateUri() {
-        return ca.getCertificateUri();
     }
 
     /**
@@ -148,9 +122,8 @@ public final class CDAConfiguration {
             return true;
         }
 
-        return !Objects.equals(config.getCertificateUri(), getCertificateUri())
-                || !Objects.equals(config.getPrivateKeyUri(), getPrivateKeyUri())
-                || !Objects.equals(config.getCaType(), getCaType());
+        CAConfiguration caConfiguration = config.getCertificateAuthorityConfiguration();
+        return certificateAuthorityConfiguration.hasChanged(caConfiguration);
     }
 
     private boolean hasSecurityConfigurationChanged(CDAConfiguration config) {

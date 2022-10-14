@@ -16,7 +16,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRotationHandler;
-import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
@@ -272,7 +272,7 @@ public class CertificateManager {
      *                                      certificateUri
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    public void configureCustomCA(CDAConfiguration configuration) throws InvalidConfigurationException {
+    public void configureCustomCA(CAConfiguration configuration) throws InvalidConfigurationException {
         if (!configuration.isUsingCustomCA()) {
             throw new InvalidConfigurationException(
                     "Invalid configuration: certificateUri and privateKeyUri are required.");

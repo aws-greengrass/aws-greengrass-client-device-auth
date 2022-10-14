@@ -13,6 +13,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.handlers.CACertificateC
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CAConfigurationChangedHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRotationHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.SecurityConfigurationChangedHandler;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
@@ -109,7 +110,11 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void initializeInfrastructure() {
+        // Infra setup
         context.put(RuntimeConfiguration.class, RuntimeConfiguration.from(getRuntimeConfig()));
+        NetworkState networkState = context.get(NetworkState.class);
+        networkState.registerHandler(context.get(CISShadowMonitor.class));
+        context.get(BackgroundCertificateRefresh.class).start();
 
         // Initialize IPC thread pool
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
@@ -130,10 +135,6 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CAConfigurationChangedHandler.class).listen();
         context.get(CertificateRotationHandler.class).listen();
         context.get(SecurityConfigurationChangedHandler.class).listen();
-
-        // Initialize infrastructure
-        NetworkState networkState = context.get(NetworkState.class);
-        networkState.registerHandler(context.get(CISShadowMonitor.class));
     }
 
     private void subscribeToConfigChanges() {
@@ -195,6 +196,7 @@ public class ClientDevicesAuthService extends PluginService {
     protected void shutdown() throws InterruptedException {
         super.shutdown();
         context.get(CertificateManager.class).stopMonitors();
+        context.get(BackgroundCertificateRefresh.class).stop();
     }
 
     @Override

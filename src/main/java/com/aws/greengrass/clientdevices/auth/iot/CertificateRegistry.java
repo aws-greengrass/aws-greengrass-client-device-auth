@@ -110,6 +110,13 @@ public class CertificateRegistry {
     }
 
     /**
+     * Returns the PEMs that are stored for all the certificate ids that are being tracked.
+     */
+    public String[] getAllCertificateIds() {
+        return runtimeConfiguration.getAllCertificateIdsV1();
+    }
+
+    /**
      * Deletes a certificate from the repository.
      *
      * @param certificate certificate to remove
