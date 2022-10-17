@@ -50,7 +50,7 @@ public class MqttSessionFactory implements SessionFactory {
         //  refactor this later
         CreateIoTThingSession useCase = useCases.get(CreateIoTThingSession.class);
         CreateSessionDTO command = new CreateSessionDTO(mqttCredential.clientId, mqttCredential.certificatePem);
-        Result<SessionImpl> sessionResult = useCase.apply(command);
+        Result<Session> sessionResult = useCase.apply(command);
 
         if (sessionResult.isOk()) {
             return sessionResult.get();

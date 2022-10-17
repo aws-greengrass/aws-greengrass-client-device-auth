@@ -16,6 +16,9 @@ public class UseCases {
         Result<R> apply(D var1) throws Exception;
     }
 
+    public UseCases() {
+    }
+
     public UseCases(Context context) {
         this.context = context;
     }

@@ -16,13 +16,14 @@ import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.CreateSessionDTO;
 import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
+import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
 
 import java.util.Optional;
 import javax.inject.Inject;
 
 public class CreateIoTThingSession
-        implements UseCases.UseCase<SessionImpl, CreateSessionDTO> {
+        implements UseCases.UseCase<Session, CreateSessionDTO> {
     private final ThingRegistry thingRegistry;
     private final CertificateRegistry certificateRegistry;
     private final UseCases useCases;
@@ -49,7 +50,7 @@ public class CreateIoTThingSession
      * @param dto - VerifyCertificateAttachedToThingDTO
      */
     @Override
-    public Result<SessionImpl> apply(CreateSessionDTO dto) throws AuthenticationException {
+    public Result<Session> apply(CreateSessionDTO dto) throws AuthenticationException {
         String certificatePem = dto.getCertificatePem();
         String thingName = dto.getThingName();
         Optional<Certificate> certificate;
