@@ -84,7 +84,7 @@ public class UseCasesTest {
     @BeforeEach
     void beforeEach() {
         topics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
-        this.useCases = new UseCases();
+        this.useCases = new UseCases(topics.getContext());
         this.useCases.init(topics.getContext());
     }
 

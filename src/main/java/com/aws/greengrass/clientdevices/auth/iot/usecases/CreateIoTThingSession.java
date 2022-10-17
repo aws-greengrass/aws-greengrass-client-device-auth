@@ -57,7 +57,7 @@ public class CreateIoTThingSession
         try {
             certificate = certificateRegistry.getCertificateFromPem(certificatePem);
 
-            if (!certificate.isPresent()) {
+            if (!certificate.isPresent() || !certificate.get().isActive()) {
                 throw new AuthenticationException("Certificate isn't active");
             }
 
