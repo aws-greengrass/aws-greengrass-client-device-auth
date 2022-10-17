@@ -37,8 +37,7 @@ public class Certificate implements AttributeProvider {
 
     public enum Status {
         ACTIVE,
-        UNKNOWN,
-        TRUST_EXPIRED
+        UNKNOWN
     }
 
     private String certificateId;
@@ -131,10 +130,10 @@ public class Certificate implements AttributeProvider {
      * @return certificate status
      */
     public Status getStatus() {
-        if (status == Status.UNKNOWN || isStatusTrusted()) {
+        if (isStatusTrusted()) {
             return status;
         }
-        return Status.TRUST_EXPIRED;
+        return Status.UNKNOWN;
     }
 
     /**

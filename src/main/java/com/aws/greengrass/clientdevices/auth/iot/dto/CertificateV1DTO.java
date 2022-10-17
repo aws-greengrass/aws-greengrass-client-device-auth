@@ -15,8 +15,7 @@ public class CertificateV1DTO {
     //  so that we can safely deserialize from storage
     public enum Status {
         UNKNOWN, // MUST be first!
-        ACTIVE,
-        TRUST_EXPIRED
+        ACTIVE
     }
 
     private String certificateId;
