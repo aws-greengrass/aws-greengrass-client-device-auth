@@ -191,7 +191,7 @@ public class OfflineAuthenticationTest {
 
        Instant anHourLater = now.plusSeconds(60 * 60);
        resetClock.run();
-       mockInstant(anHourLater.toEpochMilli());
+       resetClock = mockInstant(anHourLater.toEpochMilli());
 
        BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
        assertTrue(backgroundRefresh.isRunning(), "background refresh is not running");
@@ -205,6 +205,7 @@ public class OfflineAuthenticationTest {
 
        assertEquals(certA.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
        assertEquals(certB.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+       resetClock.run();
    }
 
     @Test
@@ -226,7 +227,7 @@ public class OfflineAuthenticationTest {
 
         Instant anHourLater = now.plusSeconds(60 * 60);
         resetClock.run();
-        mockInstant(anHourLater.toEpochMilli());
+        resetClock = mockInstant(anHourLater.toEpochMilli());
 
         BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
         assertTrue(backgroundRefresh.isRunning(), "background refresh is not running");
@@ -240,6 +241,7 @@ public class OfflineAuthenticationTest {
 
         Optional<Certificate> certB = certRegistry.getCertificateFromPem(clientDevicePems.get(1));
         assertFalse(certB.isPresent());
+        resetClock.run();
     }
 
 
