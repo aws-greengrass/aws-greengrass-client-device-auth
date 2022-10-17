@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.iot;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.StringLiteralAttribute;
+import lombok.AccessLevel;
 import lombok.Getter;
 import org.bouncycastle.util.encoders.Hex;
 
@@ -40,6 +41,7 @@ public class Certificate implements AttributeProvider {
     }
 
     private String certificateId;
+    @Getter(AccessLevel.NONE)
     private Status status;
     private Instant statusLastUpdated;
 
@@ -88,7 +90,7 @@ public class Certificate implements AttributeProvider {
      * @return true if this certificate is verified and active in IoT Core.
      */
     public boolean isActive() {
-        return status == Status.ACTIVE && isStatusTrusted();
+        return getStatus() == Status.ACTIVE;
     }
 
     /**
@@ -120,6 +122,18 @@ public class Certificate implements AttributeProvider {
     @Override
     public Map<String, DeviceAttribute> getDeviceAttributes() {
         return Collections.singletonMap("CertificateId", new StringLiteralAttribute(getCertificateId()));
+    }
+
+    /**
+     * Returns the trusted status.
+     *
+     * @return certificate status
+     */
+    public Status getStatus() {
+        if (isStatusTrusted()) {
+            return status;
+        }
+        return Status.UNKNOWN;
     }
 
     /**
