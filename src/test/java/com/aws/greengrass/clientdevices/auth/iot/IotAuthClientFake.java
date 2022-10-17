@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * IoT Auth Client Fake allows test writers to set up valid and invalid certificates,
@@ -19,6 +20,7 @@ public class IotAuthClientFake implements IotAuthClient {
     private final Map<String, Set<String>> thingToCerts = new HashMap<>();
     private final Set<String> activeCertIds = new HashSet<>();
     private final Set<String> inactiveCertIds = new HashSet<>();
+    private final Set<String> thingsAttachedToCore = new HashSet<>();
 
     public void activateCert(String certPem) throws InvalidCertificateException {
         Certificate cert = Certificate.fromPem(certPem);
@@ -50,6 +52,14 @@ public class IotAuthClientFake implements IotAuthClient {
         if (thingToCerts.containsKey(thing)) {
             thingToCerts.get(thing).remove(certId);
         }
+    }
+
+    public void attachThingToCore(String thingName) {
+       thingsAttachedToCore.add(thingName);
+    }
+
+    public void detachThingFromCore(String thingName) {
+       thingsAttachedToCore.remove(thingName);
     }
 
     @Override
@@ -92,5 +102,10 @@ public class IotAuthClientFake implements IotAuthClient {
             return thingToCerts.get(thing.getThingName()).contains(certificate.getCertificateId());
         }
         return false;
+    }
+
+    @Override
+    public Stream<Thing> getThingsAssociatedWithCoreDevice() {
+        return thingsAttachedToCore.stream().map(Thing::of);
     }
 }

@@ -46,7 +46,11 @@ public class Certificate implements AttributeProvider {
     private Instant statusLastUpdated;
 
 
-    Certificate(String certificateId) {
+    /**
+     * Builds a new Certificate instance given its id generated from PEM file.
+     * @param certificateId - a certificateId
+     */
+    public Certificate(String certificateId) {
         this.certificateId = certificateId;
         this.status = Status.UNKNOWN;
         this.statusLastUpdated = Instant.EPOCH; // Treat epoch as beginning of time

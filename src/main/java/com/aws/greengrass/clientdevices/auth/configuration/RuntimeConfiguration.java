@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1DTO;
 import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
-import com.aws.greengrass.config.CaseInsensitiveString;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
@@ -19,8 +18,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * Manages the runtime configuration for the plugin. It allows to read and write
@@ -120,24 +117,6 @@ public final class RuntimeConfiguration {
     }
 
     /**
-     * Returns a stream with the thingNames that have a specific certificateId attached.
-     * @param certificateId - A certificateId
-     */
-    public Stream<String> findThingNamesWithCertificateIdAttached(String certificateId) {
-        Topics v1ThingTopics = config.findTopics(THINGS_KEY, THINGS_V1_KEY);
-
-        if (v1ThingTopics == null) {
-            return Stream.empty();
-        }
-
-        Set<CaseInsensitiveString> thingNames = v1ThingTopics.children.keySet();
-
-        return thingNames.stream()
-                .map(CaseInsensitiveString::toString)
-                .filter(name -> v1ThingTopics.find(name, THINGS_CERTIFICATES_KEY, certificateId) != null);
-    }
-
-    /**
      * Store a Thing in the Runtime Configuration.
      *
      * @param thing Thing DTO
@@ -158,22 +137,6 @@ public final class RuntimeConfiguration {
         if (v1ThingNode != null) {
             v1ThingNode.remove();
         }
-    }
-
-    /**
-     * Get all the certificate ids stored under.
-     * |    |---- "clientDeviceCerts":
-     * |          |---- "v1":
-     * |                |---- certificateId:
-     */
-    public String[] getAllCertificateIdsV1() {
-        Topics v1CertTopics = config.findTopics(CERTS_KEY, CERTS_V1_KEY);
-
-        if (v1CertTopics == null) {
-            return new String[]{};
-        }
-
-        return Coerce.toStringArray(v1CertTopics.children.keySet().toArray());
     }
 
     /**

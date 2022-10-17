@@ -201,6 +201,9 @@ public class OfflineAuthenticationTest {
        String thingTwo = "ThingTwo";
        iotAuthClientFake.attachCertificateToThing(thingTwo, clientBPem);
 
+       iotAuthClientFake.attachThingToCore(thingOne);
+       iotAuthClientFake.attachThingToCore(thingTwo);
+
        givenNucleusRunningWithConfig("config.yaml");
 
        Instant now = Instant.now();
@@ -225,7 +228,6 @@ public class OfflineAuthenticationTest {
            put("password", "fizz");
        }});
 
-
        // Check state before refresh of the certificates
        CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
        Certificate ogCertA = certRegistry.getCertificateFromPem(clientAPem).get();
@@ -239,6 +241,9 @@ public class OfflineAuthenticationTest {
        Thing ogThingB = thingRegistry.getOrCreateThing(thingTwo);
        assertEquals(ogThingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(), now.toEpochMilli());
        assertEquals(ogThingB.certificateLastAttachedOn(ogCertB.getCertificateId()).get().toEpochMilli(), now.toEpochMilli());
+
+       // Detach one thing from the core
+       iotAuthClientFake.detachThingFromCore(thingTwo);
 
        // When
        Instant anHourLater = now.plusSeconds(60 * 60);
@@ -256,7 +261,8 @@ public class OfflineAuthenticationTest {
        Certificate certA = certRegistry.getCertificateFromPem(clientAPem).get();
        Certificate certB = certRegistry.getCertificateFromPem(clientBPem).get();
        assertEquals(certA.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
-       assertEquals(certB.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+       // This one should have not been updated with the auto refresh given it is no longer attached to the thing
+       assertEquals(certB.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
 
        // Verify thing certificate attachments got updated after refresh
        Thing thingA = thingRegistry.getOrCreateThing(thingOne);
@@ -265,9 +271,10 @@ public class OfflineAuthenticationTest {
            thingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(),
            anHourLater.toEpochMilli()
        );
+       // This one should have not been updated with the auto refresh given it is no longer attached to the thing
        assertEquals(
            thingB.certificateLastAttachedOn(ogCertB.getCertificateId()).get().toEpochMilli(),
-           anHourLater.toEpochMilli()
+           now.toEpochMilli()
        );
    }
 

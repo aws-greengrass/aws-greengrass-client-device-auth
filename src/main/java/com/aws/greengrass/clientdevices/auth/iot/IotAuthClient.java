@@ -6,17 +6,34 @@
 package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.componentmanager.ClientConfigurationUtils;
+import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Utils;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.retry.RetryMode;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
+import software.amazon.awssdk.services.greengrassv2.GreengrassV2ClientBuilder;
+import software.amazon.awssdk.services.greengrassv2.model.AssociatedClientDevice;
+import software.amazon.awssdk.services.greengrassv2.model.ListClientDevicesAssociatedWithCoreDeviceRequest;
+import software.amazon.awssdk.services.greengrassv2.model.ListClientDevicesAssociatedWithCoreDeviceResponse;
 import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIdentityResponse;
 import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDeviceIoTCertificateAssociationRequest;
 
+import java.net.URI;
 import java.util.Optional;
+import java.util.stream.Stream;
 import javax.inject.Inject;
 
 public interface IotAuthClient {
@@ -25,6 +42,8 @@ public interface IotAuthClient {
     Optional<Certificate> getIotCertificate(String certificatePem) throws InvalidCertificateException;
 
     boolean isThingAttachedToCertificate(Thing thing, Certificate certificate);
+
+    Stream<Thing> getThingsAssociatedWithCoreDevice();
 
     class Default implements IotAuthClient {
         private static final Logger logger = LogManager.getLogger(Default.class);
@@ -122,12 +141,67 @@ public interface IotAuthClient {
             } catch (Exception e) {
                 logger.atError().cause(e).kv("thingName", thing.getThingName())
                         .kv("certificateId", certificate.getCertificateId())
-                        .log("Failed to verify certificate thing association. Check that the core device's IoT policy"
-                                + " grants the greengrass:VerifyClientDeviceIoTCertificateAssociation permission.");
+                        .log("Failed to verify certificate thing association. Check that the core device's "
+                                + "IoT policy grants the greengrass:VerifyClientDeviceIoTCertificateAssociation "
+                                + "permission.");
                 throw new CloudServiceInteractionException(
                         String.format("Failed to verify certificate %s thing %s association",
                                 certificate.getCertificateId(), thing.getThingName()), e);
             }
+        }
+
+        @Override
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        public Stream<Thing> getThingsAssociatedWithCoreDevice() {
+            DeviceConfiguration configuration = clientFactory.getDeviceConfiguration();
+            String thingName = Coerce.toString(configuration.getThingName());
+
+            ListClientDevicesAssociatedWithCoreDeviceRequest request =
+                    ListClientDevicesAssociatedWithCoreDeviceRequest.builder()
+                            .coreDeviceThingName(thingName)
+                            .build();
+
+            try (GreengrassV2Client client = getGGV2Client(configuration)) {
+                ListClientDevicesAssociatedWithCoreDeviceResponse response =
+                        client.listClientDevicesAssociatedWithCoreDevice(request);
+
+                return response.associatedClientDevices().stream()
+                        .map(AssociatedClientDevice::thingName)
+                        .map(Thing::of);
+            }  catch (SdkClientException | AwsServiceException e) {
+                throw new CloudServiceInteractionException("Failed to list things associated with core", e);
+            }
+        }
+
+        // TODO: This should not live here ideally it should be returned by the clientFactory but we
+        //  are adding it here to avoid introducing new changes to the nucleus
+        private GreengrassV2Client getGGV2Client(DeviceConfiguration deviceConfiguration) {
+            ApacheHttpClient.Builder httpClient = ClientConfigurationUtils
+                    .getConfiguredClientBuilder(deviceConfiguration);
+            GreengrassV2ClientBuilder clientBuilder = GreengrassV2Client.builder()
+                    .credentialsProvider(AnonymousCredentialsProvider.create())
+                    .httpClient(httpClient.build())
+                    .overrideConfiguration(
+                            ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build()
+                    );
+
+            String region = Coerce.toString(deviceConfiguration.getAWSRegion());
+
+            if (!Utils.isEmpty(region)) {
+                String greengrassServiceEndpoint = ClientConfigurationUtils
+                        .getGreengrassServiceEndpoint(deviceConfiguration);
+                if (Utils.isEmpty(greengrassServiceEndpoint)) {
+                    logger.atDebug("initialize-greengrass-client").kv("service-region", region).log();
+                    clientBuilder.region(Region.of(region));
+                } else {
+                    logger.atDebug("initialize-greengrass-client")
+                            .kv("service-endpoint", greengrassServiceEndpoint).kv("service-region", region).log();
+                    clientBuilder.endpointOverride(URI.create(greengrassServiceEndpoint));
+                    clientBuilder.region(Region.of(region));
+                }
+            }
+
+            return clientBuilder.build();
         }
     }
 }

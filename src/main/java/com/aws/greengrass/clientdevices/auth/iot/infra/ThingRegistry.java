@@ -13,10 +13,8 @@ import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
 
 import java.time.Instant;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.inject.Inject;
 
 public class ThingRegistry {
@@ -99,17 +97,6 @@ public class ThingRegistry {
     private Thing getThingInternal(String thingName) {
         Optional<ThingV1DTO> thingV1 = runtimeConfig.getThingV1(thingName);
         return thingV1.map(this::dtoToThing).orElse(null);
-    }
-
-
-    /**
-     * Returns a stream of things that have the provided certificateId attached to them.
-     * @param certificateId - a certificateId
-     */
-    public Stream<Thing> getThingsWithCertificatePemAttached(String certificateId) {
-        return runtimeConfig.findThingNamesWithCertificateIdAttached(certificateId)
-                .map(this::getThingInternal)
-                .filter(Objects::nonNull);
     }
 
     private Thing storeThing(Thing thing) {
