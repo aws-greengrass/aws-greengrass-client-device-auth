@@ -25,12 +25,12 @@ public class CertificateRegistry {
     private final Map<Certificate.Status, CertificateV1DTO.Status> domain2dtoStatus = ImmutableMap.of(
             Certificate.Status.ACTIVE, CertificateV1DTO.Status.ACTIVE,
             Certificate.Status.UNKNOWN, CertificateV1DTO.Status.UNKNOWN,
-            Certificate.Status.TRUST_EXPIRED, CertificateV1DTO.Status.INVALID
+            Certificate.Status.TRUST_EXPIRED, CertificateV1DTO.Status.TRUST_EXPIRED
     );
     private final Map<CertificateV1DTO.Status, Certificate.Status> dto2domainStatus = ImmutableMap.of(
             CertificateV1DTO.Status.ACTIVE, Certificate.Status.ACTIVE,
             CertificateV1DTO.Status.UNKNOWN, Certificate.Status.UNKNOWN,
-            CertificateV1DTO.Status.INVALID, Certificate.Status.TRUST_EXPIRED
+            CertificateV1DTO.Status.TRUST_EXPIRED, Certificate.Status.TRUST_EXPIRED
     );
     private static final Logger logger = LogManager.getLogger(CertificateRegistry.class);
 

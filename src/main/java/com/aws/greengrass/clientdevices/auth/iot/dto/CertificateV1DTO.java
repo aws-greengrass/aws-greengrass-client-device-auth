@@ -16,7 +16,7 @@ public class CertificateV1DTO {
     public enum Status {
         UNKNOWN, // MUST be first!
         ACTIVE,
-        INVALID
+        TRUST_EXPIRED
     }
 
     private String certificateId;
