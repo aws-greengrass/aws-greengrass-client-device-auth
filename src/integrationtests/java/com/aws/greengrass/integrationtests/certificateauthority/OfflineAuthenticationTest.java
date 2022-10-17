@@ -50,6 +50,9 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -58,6 +61,7 @@ import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
@@ -174,38 +178,16 @@ public class OfflineAuthenticationTest {
    void GIVEN_storedCertificates_WHEN_refreshEnabled_THEN_storedCertificatesRefreshed() throws
            NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
            InvalidCertificateException, InterruptedException {
-       // Given
-       KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
-       X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
-       KeyPair clientAKeyPair = CertificateStore.newRSAKeyPair(2048);
-       X509Certificate clientACrt = createClientCertificate(
-               rootCA, "AWS IoT Certificate", clientAKeyPair.getPublic(), rootKeyPair.getPrivate());
-       KeyPair clientBKeyPair = CertificateStore.newRSAKeyPair(2048);
-       X509Certificate clientBCrt = createClientCertificate(
-               rootCA, "AWS IoT Certificate", clientBKeyPair.getPublic(), rootKeyPair.getPrivate());
-
-       String clientAPem = CertificateHelper.toPem(clientACrt);
-       iotAuthClientFake.activateCert(clientAPem);
-       String clientBPem = CertificateHelper.toPem(clientBCrt);
-       iotAuthClientFake.activateCert(clientBPem);
-       when(networkStateMock.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
-
-       // When
-       givenNucleusRunningWithConfig("config.yaml");
-
        Instant now = Instant.now();
        Runnable resetClock = mockInstant(now.toEpochMilli());
 
-       // Simulate some client components (like Moquette) verifying some certificates
-       ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
-       api.verifyClientDeviceIdentity(clientAPem);
-       api.verifyClientDeviceIdentity(clientBPem);
+       // Given
+       givenCoreDeviceIsOnline();
+       List<String> clientDevicePems = givenClientDevicesWithCertificates(2);
 
-       CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
-       Certificate ogCertA = certRegistry.getCertificateFromPem(clientAPem).get();
-       Certificate ogCertB = certRegistry.getCertificateFromPem(clientBPem).get();
-       assertEquals(ogCertA.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
-       assertEquals(ogCertB.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
+       // When
+       givenNucleusRunningWithConfig("config.yaml");
+       givenClientDevicesVerifyTheirIdentity(clientDevicePems, now);
 
        Instant anHourLater = now.plusSeconds(60 * 60);
        resetClock.run();
@@ -217,11 +199,100 @@ public class OfflineAuthenticationTest {
        kernel.getConfig().waitConfigUpdateComplete();
 
        // Then
-       Certificate certA = certRegistry.getCertificateFromPem(clientAPem).get();
-       Certificate certB = certRegistry.getCertificateFromPem(clientBPem).get();
+       CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
+       Certificate certA = certRegistry.getCertificateFromPem(clientDevicePems.get(0)).get();
+       Certificate certB = certRegistry.getCertificateFromPem(clientDevicePems.get(1)).get();
 
        assertEquals(certA.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
        assertEquals(certB.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
    }
+
+    @Test
+    void GIVEN_storedCertificates_WHEN_refreshEnabledAndCertificateDelete_THEN_removedCertificateNotRefreshed() throws
+            NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
+            InvalidCertificateException, InterruptedException {
+        Instant now = Instant.now();
+        Runnable resetClock = mockInstant(now.toEpochMilli());
+
+        // Given
+        givenCoreDeviceIsOnline();
+        List<String> clientDevicePems = givenClientDevicesWithCertificates(2);
+        givenNucleusRunningWithConfig("config.yaml");
+        givenClientDevicesVerifyTheirIdentity(clientDevicePems, now);
+
+        // When
+        // Simulate cloud returning a response that tells CDA a certificate is not active anymore
+        iotAuthClientFake.deactivateCert(clientDevicePems.get(1));
+
+        Instant anHourLater = now.plusSeconds(60 * 60);
+        resetClock.run();
+        mockInstant(anHourLater.toEpochMilli());
+
+        BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
+        assertTrue(backgroundRefresh.isRunning(), "background refresh is not running");
+        backgroundRefresh.run(); // Force a run because otherwise it is controlled by a ScheduledExecutorService
+        kernel.getConfig().waitConfigUpdateComplete();
+
+        // Then
+        CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
+        Certificate certA = certRegistry.getCertificateFromPem(clientDevicePems.get(0)).get();
+        assertEquals(certA.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+
+        Optional<Certificate> certB = certRegistry.getCertificateFromPem(clientDevicePems.get(1));
+        assertFalse(certB.isPresent());
+    }
+
+
+    /**
+     * Simulates client devices validating their certificates through the CDA API.
+     * @param clientDevicePems - list of client device certificate PEM.
+     * @param now - An instant in time
+     */
+    private void givenClientDevicesVerifyTheirIdentity(List<String> clientDevicePems, Instant now) throws
+            InvalidCertificateException {
+        // Simulate some client components (like Moquette) verifying some certificates
+        ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
+        CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
+
+        for (String pem : clientDevicePems) {
+            api.verifyClientDeviceIdentity(pem);
+
+            Certificate fromRegistry = certRegistry.getCertificateFromPem(pem).get();
+            assertEquals(fromRegistry.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
+        }
+    }
+
+    /**
+     * Simulates a device connectivity being up.
+     */
+    private void givenCoreDeviceIsOnline() {
+        when(networkStateMock.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
+    }
+
+    /**
+     * Generates a list of client certificate PEMs which represent the certificate client devices (GGADs) provide
+     * to authenticate with CDA.
+     * @param noGGADs - Number of client device certificates to generate
+     */
+    private List<String> givenClientDevicesWithCertificates(int noGGADs)
+            throws NoSuchAlgorithmException, CertificateException,
+            OperatorCreationException, IOException, InvalidCertificateException {
+        KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
+
+        ArrayList<String> pems = new ArrayList<>(noGGADs);
+
+        for (int i = 0; i < noGGADs; i++) {
+            KeyPair clientAKeyPair = CertificateStore.newRSAKeyPair(2048);
+            X509Certificate clientACrt = createClientCertificate(
+                    rootCA, "AWS IoT Certificate", clientAKeyPair.getPublic(), rootKeyPair.getPrivate());
+
+            String clientPem = CertificateHelper.toPem(clientACrt);
+            iotAuthClientFake.activateCert(clientPem);
+            pems.add(clientPem);
+        }
+
+        return pems;
+    }
 
 }

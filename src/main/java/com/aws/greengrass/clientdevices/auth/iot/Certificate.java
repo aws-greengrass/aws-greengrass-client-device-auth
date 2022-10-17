@@ -94,18 +94,6 @@ public class Certificate implements AttributeProvider {
         throw new UnsupportedOperationException("Retrieving certificate PEM currently not supported");
     }
 
-    /**
-     * Determined whether this certificate was updated after another.
-     * @param cert - another Certificate
-     */
-    public boolean wasUpdatedAfter(Certificate cert) {
-        if (statusLastUpdated == null) {
-            return false;
-        }
-
-        return statusLastUpdated.isAfter(cert.getStatusLastUpdated());
-    }
-
     @Override
     public String getNamespace() {
         return NAMESPACE;
