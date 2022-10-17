@@ -52,7 +52,6 @@ class ThingRegistryTest {
         configTopics = Topics.of(new Context(), "config", null);
         registry = new ThingRegistry(mockIotAuthClient, domainEvents, RuntimeConfiguration.from(configTopics));
         mockCertificate = CertificateFake.of("mock-certificateId");
-        mockThing.detachCertificate(mockCertificate.getCertificateId());
     }
 
     @AfterEach

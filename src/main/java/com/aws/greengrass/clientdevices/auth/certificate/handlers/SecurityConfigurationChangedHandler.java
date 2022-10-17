@@ -6,8 +6,8 @@
 package com.aws.greengrass.clientdevices.auth.certificate.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.certificate.events.SecurityConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.events.SecurityConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 

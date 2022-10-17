@@ -7,7 +7,7 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
-import com.aws.greengrass.clientdevices.auth.certificate.events.SecurityConfigurationChanged;
+import com.aws.greengrass.clientdevices.auth.configuration.events.SecurityConfigurationChanged;
 import com.aws.greengrass.config.Topics;
 import lombok.Getter;
 

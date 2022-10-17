@@ -11,8 +11,8 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.operator.OperatorCreationException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,8 +45,8 @@ class CertificateTest {
         validClientCertificatePem = CertificateHelper.toPem(validClientCertificate);
     }
 
-    @AfterEach
-    void afterEach() {
+    @BeforeEach
+    void beforeEach() {
         Certificate.updateMetadataTrustDurationMinutes(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
     }
 
