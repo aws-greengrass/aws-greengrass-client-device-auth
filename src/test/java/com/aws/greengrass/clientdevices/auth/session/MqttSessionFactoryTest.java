@@ -13,7 +13,7 @@ import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
-import com.aws.greengrass.clientdevices.auth.iot.registry.ThingRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.ThingRegistry;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.hamcrest.core.IsNull;
 import org.junit.jupiter.api.Assertions;

@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
+import com.aws.greengrass.clientdevices.auth.configuration.events.SecurityConfigurationChanged;
 import com.aws.greengrass.config.Topics;
 import lombok.Getter;
 
@@ -22,6 +23,8 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
  * <p>
  * Certificate Manager Service uses the following topic structure:
  * |---- configuration
+ * |    |---- security:
+ * |         |---- clientDeviceTrustDurationMinutes: "..."
  * |    |---- performance:
  * |         |---- cloudRequestQueueSize: "..."
  * |         |---- maxConcurrentCloudRequests: "..."
@@ -44,13 +47,18 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
 public final class CDAConfiguration {
 
     private final RuntimeConfiguration runtime;
+    private final SecurityConfiguration security;
     @Getter
     private final CAConfiguration certificateAuthorityConfiguration;
     private final DomainEvents domainEvents;
 
-    private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca) {
+    private CDAConfiguration(DomainEvents domainEvents,
+                             RuntimeConfiguration runtime,
+                             CAConfiguration ca,
+                             SecurityConfiguration security) {
         this.domainEvents = domainEvents;
         this.runtime = runtime;
+        this.security = security;
         this.certificateAuthorityConfiguration = ca;
     }
 
@@ -71,7 +79,8 @@ public final class CDAConfiguration {
         CDAConfiguration newConfig = new CDAConfiguration(
             domainEvents,
             RuntimeConfiguration.from(runtimeTopics),
-            CAConfiguration.from(serviceConfiguration)
+            CAConfiguration.from(serviceConfiguration),
+            SecurityConfiguration.from(serviceConfiguration)
         );
 
         newConfig.triggerChanges(newConfig, existingConfig);
@@ -93,6 +102,9 @@ public final class CDAConfiguration {
         if (hasCAConfigurationChanged(prev)) {
             domainEvents.emit(new CAConfigurationChanged(current.getCertificateAuthorityConfiguration()));
         }
+        if (hasSecurityConfigurationChanged(prev)) {
+            domainEvents.emit(new SecurityConfigurationChanged(current.security));
+        }
     }
 
     public void updateCACertificates(List<String> caCertificates) {
@@ -112,5 +124,12 @@ public final class CDAConfiguration {
 
         CAConfiguration caConfiguration = config.getCertificateAuthorityConfiguration();
         return certificateAuthorityConfiguration.hasChanged(caConfiguration);
+    }
+
+    private boolean hasSecurityConfigurationChanged(CDAConfiguration config) {
+        if (config == null) {
+            return true;
+        }
+        return security.hasChanged(config.security);
     }
 }

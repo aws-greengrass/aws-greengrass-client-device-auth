@@ -13,7 +13,7 @@ import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
-import com.aws.greengrass.clientdevices.auth.iot.registry.ThingRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.ThingRegistry;
 
 import java.util.Map;
 import java.util.Optional;
@@ -56,7 +56,7 @@ public class MqttSessionFactory implements SessionFactory {
     private Session createIotThingSession(MqttCredential mqttCredential) throws AuthenticationException {
         try {
             Optional<Certificate> cert = certificateRegistry.getCertificateFromPem(mqttCredential.certificatePem);
-            if (!cert.isPresent()) {
+            if (!cert.isPresent() || !cert.get().isActive()) {
                 throw new AuthenticationException("Certificate isn't active");
             }
             Thing thing = thingRegistry.getOrCreateThing(mqttCredential.clientId);

@@ -36,8 +36,9 @@ public class CertificateRegistry {
 
     /**
      * Creates a certificate registry.
-     * @param runtimeConfiguration - Runtime configuration
-     * @param pemStore - An instance of ClientCertificateStore
+     *
+     * @param runtimeConfiguration Runtime configuration
+     * @param pemStore An instance of ClientCertificateStore
      */
     @Inject
     public CertificateRegistry(RuntimeConfiguration runtimeConfiguration, ClientCertificateStore pemStore) {

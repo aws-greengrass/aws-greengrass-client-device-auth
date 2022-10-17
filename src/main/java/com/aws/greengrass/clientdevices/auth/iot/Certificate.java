@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.iot;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.StringLiteralAttribute;
+import lombok.AccessLevel;
 import lombok.Getter;
 import org.bouncycastle.util.encoders.Hex;
 
@@ -21,12 +22,18 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 
 @Getter
 public class Certificate implements AttributeProvider {
     public static final String NAMESPACE = "Certificate";
+    private static final AtomicInteger metadataTrustDurationMinutes =
+            new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
 
     public enum Status {
         ACTIVE,
@@ -34,6 +41,7 @@ public class Certificate implements AttributeProvider {
     }
 
     private String certificateId;
+    @Getter(AccessLevel.NONE)
     private Status status;
     private Instant statusLastUpdated;
 
@@ -79,10 +87,10 @@ public class Certificate implements AttributeProvider {
 
     /**
      * Check certificate status.
-     * @return true if this certificate is active in IoT Core.
+     * @return true if this certificate is verified and active in IoT Core.
      */
     public boolean isActive() {
-        return status == Status.ACTIVE;
+        return getStatus() == Status.ACTIVE;
     }
 
     /**
@@ -114,6 +122,32 @@ public class Certificate implements AttributeProvider {
     @Override
     public Map<String, DeviceAttribute> getDeviceAttributes() {
         return Collections.singletonMap("CertificateId", new StringLiteralAttribute(getCertificateId()));
+    }
+
+    /**
+     * Returns the trusted status.
+     *
+     * @return certificate status
+     */
+    public Status getStatus() {
+        if (isStatusTrusted()) {
+            return status;
+        }
+        return Status.UNKNOWN;
+    }
+
+    /**
+     * Updates the duration for which a certificate metadata can be trusted.
+     *
+     * @param newTrustDuration desired trust duration in minutes
+     */
+    public static void updateMetadataTrustDurationMinutes(int newTrustDuration) {
+        metadataTrustDurationMinutes.set(newTrustDuration);
+    }
+
+    private boolean isStatusTrusted() {
+        Instant validTill = statusLastUpdated.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
+        return validTill.isAfter(Instant.now());
     }
 
     private static String computeCertificateId(String certificatePem)
