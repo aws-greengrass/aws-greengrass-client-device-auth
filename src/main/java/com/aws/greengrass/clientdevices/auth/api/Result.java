@@ -27,7 +27,7 @@ public final class Result<T> {
         return ok(null);
     }
 
-    public static <E extends Exception> Result<E> error(E value) {
+    public static <T extends Exception> Result<T> error(T value) {
         return new Result<>(Status.ERROR, value);
     }
 
@@ -38,7 +38,6 @@ public final class Result<T> {
     public static <V> Result<V> warning() {
         return new Result<>(Status.WARNING, null);
     }
-
 
     public T get() {
         return value;
