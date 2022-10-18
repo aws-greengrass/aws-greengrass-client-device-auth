@@ -202,8 +202,8 @@ public class CustomCaConfigurationTest {
                 chainPath.toAbsolutePath(), PEM_BOUNDARY_CERTIFICATE, encodings);
 
         return new HashMap<String, URI>(){{
-            put("privateKey", new URI("file://" + pkPath));
-            put("certificateAuthority", new URI("file://" + chainPath));
+            put("privateKey", pkPath.toUri());
+            put("certificateAuthority", chainPath.toUri());
         }};
     }
 
@@ -312,7 +312,6 @@ public class CustomCaConfigurationTest {
         subscribeToCertificateUpdates(request);
         givenCDAWithCustomCertificateAuthority(uris.get("privateKey"), uris.get("certificateAuthority"));
 
-        // Called 2 times. 1 for initial managed CA and then after the config is changes to use custom CA
         TestHelpers.eventuallyTrue(() -> {
             try {
                 X509Certificate intermediateCA =  credentials.getLeft()[0];
