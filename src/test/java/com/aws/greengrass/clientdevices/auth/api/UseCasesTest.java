@@ -100,7 +100,7 @@ public class UseCasesTest {
     @Test
     void GIVEN_aUseCaseWithExceptions_WHEN_ran_THEN_itThrowsAnException() {
         UseCaseWithExceptions useCase = useCases.get(UseCaseWithExceptions.class);
-        assertTrue(useCase.apply(null).getError() instanceof InvalidConfigurationException);
+        assertTrue(useCase.apply(null).get() instanceof InvalidConfigurationException);
     }
 
     @Test

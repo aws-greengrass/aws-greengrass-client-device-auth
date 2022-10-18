@@ -51,12 +51,7 @@ public class MqttSessionFactory implements SessionFactory {
         CreateIoTThingSession useCase = useCases.get(CreateIoTThingSession.class);
         CreateSessionDTO command = new CreateSessionDTO(mqttCredential.clientId, mqttCredential.certificatePem);
         Result<Session> sessionResult = useCase.apply(command);
-
-        if (sessionResult.isOk()) {
-            return sessionResult.get();
-        }
-
-        throw new AuthenticationException(sessionResult.getError());
+        return sessionResult.get();
     }
 
     private Session createGreengrassComponentSession() {

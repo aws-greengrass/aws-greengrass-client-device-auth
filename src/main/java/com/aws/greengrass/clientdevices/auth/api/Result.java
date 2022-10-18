@@ -10,8 +10,6 @@ public final class Result<T> {
     private final Status status;
     private final T value;
 
-    private Exception err;
-
     private enum Status {
         OK, WARNING, ERROR
     }
@@ -19,12 +17,6 @@ public final class Result<T> {
     private Result(Status status, T value) {
         this.value = value;
         this.status = status;
-    }
-
-    private Result(Status status, T value, Exception e) {
-        this.value = value;
-        this.status = status;
-        this.err = e;
     }
 
     public static <V> Result<V> ok(V value) {
@@ -35,8 +27,8 @@ public final class Result<T> {
         return ok(null);
     }
 
-    public static <T, E extends Exception> Result<T> error(E value) {
-        return new Result<>(Status.ERROR, null, value);
+    public static <T extends Exception> Result<T> error(T value) {
+        return new Result<>(Status.ERROR, value);
     }
 
     public static <E extends Exception> Result<E> warning(E value) {
@@ -47,13 +39,8 @@ public final class Result<T> {
         return new Result<>(Status.WARNING, null);
     }
 
-
     public T get() {
         return value;
-    }
-
-    public Exception getError() {
-        return this.err;
     }
 
     public boolean isError() {

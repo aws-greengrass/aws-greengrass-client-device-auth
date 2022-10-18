@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth.iot.usecases;
 
 import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
-import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
@@ -15,6 +14,8 @@ import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 
 import javax.inject.Inject;
 
@@ -24,6 +25,8 @@ public class VerifyThingAttachedToCertificate
     private final IotAuthClient iotAuthClient;
     private final NetworkState networkState;
     private final ThingRegistry thingRegistry;
+    private static final Logger logger = LogManager.getLogger(VerifyThingAttachedToCertificate.class);
+
 
 
     /**
@@ -42,10 +45,15 @@ public class VerifyThingAttachedToCertificate
     }
 
     private boolean verifyLocally(Thing thing, Certificate certificate) {
+        logger.atInfo().kv("thing", thing.getThingName()).kv("certificate", certificate.getCertificateId())
+                .log("Network down, verifying thing attached to certificate locally");
         return thing.isCertificateAttached(certificate.getCertificateId());
     }
 
     private boolean verifyFromCloud(Thing thing, Certificate certificate) {
+        logger.atInfo().kv("thing", thing.getThingName()).kv("certificate", certificate.getCertificateId())
+                .log("Network up, verifying thing attached to certificate from cloud");
+
         if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
             thing.attachCertificate(certificate.getCertificateId());
             thingRegistry.updateThing(thing);
@@ -68,7 +76,7 @@ public class VerifyThingAttachedToCertificate
      * @param dto - VerifyCertificateAttachedToThingDTO
      */
     @Override
-    public Result<Boolean> apply(VerifyThingAttachedToCertificateDTO dto) throws AuthenticationException {
+    public Result<Boolean> apply(VerifyThingAttachedToCertificateDTO dto) {
         Certificate certificate = dto.getCertificate();
         Thing thing = dto.getThing();
 
