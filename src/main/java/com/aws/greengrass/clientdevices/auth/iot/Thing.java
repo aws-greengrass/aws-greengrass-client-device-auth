@@ -8,10 +8,12 @@ package com.aws.greengrass.clientdevices.auth.iot;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.WildcardSuffixAttribute;
+import com.aws.greengrass.util.Pair;
 import lombok.Getter;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,7 +31,7 @@ import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfig
  * objects as they are needed rather than storing references long term.
  */
 @Getter
-public final class Thing implements AttributeProvider, Cloneable {
+public final class Thing implements AttributeProvider, Cloneable, Trustable {
     public static final String NAMESPACE = "Thing";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
     private static final AtomicInteger metadataTrustDurationMinutes =
@@ -110,7 +112,7 @@ public final class Thing implements AttributeProvider, Cloneable {
      */
     public boolean isCertificateAttached(String certificateId) {
         Instant lastVerified = attachedCertificateIds.get(certificateId);
-        return lastVerified != null && isCertAttachmentTrusted(lastVerified);
+        return lastVerified != null && isTrustedSinceLastVerified(lastVerified);
     }
 
     private Thing(String thingName, Map<String, Instant> certificateIds) {
@@ -155,6 +157,11 @@ public final class Thing implements AttributeProvider, Cloneable {
         return Collections.singletonMap("ThingName", new WildcardSuffixAttribute(thingName));
     }
 
+    @Override
+    public Pair<Integer, TemporalUnit> getTrustDuration() {
+        return new Pair<>(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
+    }
+
     /**
      * Updates the duration for which a certificate attachment can be trusted.
      *
@@ -162,21 +169,5 @@ public final class Thing implements AttributeProvider, Cloneable {
      */
     public static void updateMetadataTrustDurationMinutes(int newTrustDuration) {
         metadataTrustDurationMinutes.set(newTrustDuration);
-    }
-
-    /**
-     * Following opt-in offline auth, verifies the certificate attachment trust.
-     * Metadata trust verification is enabled when configured trust duration is non-zero.
-     * Trust verification is disabled by default.
-     *
-     * @return whether the cert attachment is verified within configured trust duration
-     */
-    private boolean isCertAttachmentTrusted(Instant lastVerified) {
-        int trustDurationMinutes = metadataTrustDurationMinutes.get();
-        if (trustDurationMinutes > 0) {
-            Instant validTill = lastVerified.plus(trustDurationMinutes, ChronoUnit.MINUTES);
-            return validTill.isAfter(Instant.now());
-        }
-        return true;
     }
 }

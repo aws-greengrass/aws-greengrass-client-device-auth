@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.iot;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.StringLiteralAttribute;
+import com.aws.greengrass.util.Pair;
 import lombok.AccessLevel;
 import lombok.Getter;
 import org.bouncycastle.util.encoders.Hex;
@@ -23,6 +24,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,7 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 
 @Getter
-public class Certificate implements AttributeProvider {
+public class Certificate implements AttributeProvider, Trustable {
     public static final String NAMESPACE = "Certificate";
     private static final AtomicInteger metadataTrustDurationMinutes =
             new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
@@ -124,13 +126,18 @@ public class Certificate implements AttributeProvider {
         return Collections.singletonMap("CertificateId", new StringLiteralAttribute(getCertificateId()));
     }
 
+    @Override
+    public Pair<Integer, TemporalUnit> getTrustDuration() {
+        return new Pair<>(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
+    }
+
     /**
      * Returns the trusted status.
      *
      * @return certificate status
      */
     public Status getStatus() {
-        if (isStatusTrusted()) {
+        if (isTrustedSinceLastVerified(statusLastUpdated)) {
             return status;
         }
         return Status.UNKNOWN;
@@ -143,22 +150,6 @@ public class Certificate implements AttributeProvider {
      */
     public static void updateMetadataTrustDurationMinutes(int newTrustDuration) {
         metadataTrustDurationMinutes.set(newTrustDuration);
-    }
-
-    /**
-     * Following opt-in offline auth, verifies the certificate status trust.
-     * Metadata trust verification is enabled when configured trust duration is non-zero.
-     * Trust verification is disabled by default.
-     *
-     * @return whether the status is verified within configured trust duration
-     */
-    private boolean isStatusTrusted() {
-        int trustDurationMinutes = metadataTrustDurationMinutes.get();
-        if (trustDurationMinutes > 0) {
-            Instant validTill = statusLastUpdated.plus(trustDurationMinutes, ChronoUnit.MINUTES);
-            return validTill.isAfter(Instant.now());
-        }
-        return true;
     }
 
     private static String computeCertificateId(String certificatePem)
