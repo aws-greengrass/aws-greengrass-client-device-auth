@@ -31,16 +31,7 @@ public interface Trustable {
             Instant validTill = lastVerified.plus(trustDuration, temporalUnit);
             return validTill.isAfter(Instant.now());
         }
-        return isTrustedByDefault();
-    }
-
-    /**
-     * Indicates whether to trust an entity by default
-     * when no absolute trust duration is configured.
-     *
-     * @return default trust indicator boolean
-     */
-    default boolean isTrustedByDefault() {
+        // trusted by default
         return true;
     }
 }
