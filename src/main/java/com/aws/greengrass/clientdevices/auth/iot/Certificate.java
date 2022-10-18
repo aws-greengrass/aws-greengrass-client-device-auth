@@ -145,9 +145,20 @@ public class Certificate implements AttributeProvider {
         metadataTrustDurationMinutes.set(newTrustDuration);
     }
 
+    /**
+     * Following opt-in offline auth, verifies the certificate status trust.
+     * Metadata trust verification is enabled when configured trust duration is non-zero.
+     * Trust verification is disabled by default.
+     *
+     * @return whether the status is verified within configured trust duration
+     */
     private boolean isStatusTrusted() {
-        Instant validTill = statusLastUpdated.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
-        return validTill.isAfter(Instant.now());
+        int trustDurationMinutes = metadataTrustDurationMinutes.get();
+        if (trustDurationMinutes > 0) {
+            Instant validTill = statusLastUpdated.plus(trustDurationMinutes, ChronoUnit.MINUTES);
+            return validTill.isAfter(Instant.now());
+        }
+        return true;
     }
 
     private static String computeCertificateId(String certificatePem)

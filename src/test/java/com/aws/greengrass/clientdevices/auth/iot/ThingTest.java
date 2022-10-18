@@ -10,9 +10,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.utils.ImmutableMap;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -27,6 +30,10 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class ThingTest {
@@ -37,6 +44,16 @@ public class ThingTest {
     @BeforeEach
     void beforeEach() {
         Thing.updateMetadataTrustDurationMinutes(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
+    }
+
+    private Runnable mockInstant(long expectedMillis) {
+        Clock spyClock = spy(Clock.class);
+        MockedStatic<Clock> clockMock;
+        clockMock = mockStatic(Clock.class, withSettings().defaultAnswer(Mockito.CALLS_REAL_METHODS));
+        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
+        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expectedMillis));
+
+        return clockMock::close;
     }
 
     @Test
@@ -143,11 +160,49 @@ public class ThingTest {
     }
 
     @Test
-    void GIVEN_thingWithExpiredActiveCertificate_WHEN_isCertificateAttached_THEN_returnFalse() {
-        // update trust duration to zero, indicating not to trust any metadata
+    void GIVEN_disabledTrustVerificationAndActiveCertificate_WHEN_isCertificateAttached_THEN_returnTrue() {
+        // update trust duration to zero, indicating disabled trust verification
         Thing.updateMetadataTrustDurationMinutes(0);
         Thing thing = Thing.of(mockThingName);
         thing.attachCertificate(mockCertId);
+        assertTrue(thing.isCertificateAttached(mockCertId));
+    }
+
+    @Test
+    void GIVEN_enabledTrustVerificationAndUnexpiredCertificate_WHEN_isCertificateAttached_THEN_returnTrue() {
+        // update trust duration to non-zero, indicating enabled trust verification
+        Thing.updateMetadataTrustDurationMinutes(5);
+        Instant now = Instant.now();
+        Runnable resetClock = mockInstant(now.toEpochMilli());
+
+        Thing thing = Thing.of(mockThingName);
+        thing.attachCertificate(mockCertId);
+
+        // verify certificate attachment before trust duration has passed
+        resetClock.run();
+        Instant oneMinuteLater = now.plusSeconds(60L);
+        resetClock = mockInstant(oneMinuteLater.toEpochMilli());
+        assertTrue(thing.isCertificateAttached(mockCertId));
+
+        resetClock.run();
+    }
+
+    @Test
+    void GIVEN_enabledTrustVerificationAndTrustExpiredCertificate_WHEN_isCertificateAttached_THEN_returnFalse() {
+        // update trust duration to non-zero, indicating enabled trust verification
+        Thing.updateMetadataTrustDurationMinutes(1);
+        Instant now = Instant.now();
+        Runnable resetClock = mockInstant(now.toEpochMilli());
+
+        Thing thing = Thing.of(mockThingName);
+        thing.attachCertificate(mockCertId);
+
+        // verify certificate attachment after trust duration has passed
+        resetClock.run();
+        Instant anHourLater = now.plusSeconds(60L * 60L);
+        resetClock = mockInstant(anHourLater.toEpochMilli());
         assertFalse(thing.isCertificateAttached(mockCertId));
+
+        resetClock.run();
     }
 }

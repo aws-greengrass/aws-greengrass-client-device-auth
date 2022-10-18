@@ -26,8 +26,9 @@ public final class SecurityConfiguration {
     private static final Logger logger = LogManager.getLogger(SecurityConfiguration.class);
     public static final String SECURITY_TOPIC = "security";
     public static final String CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC = "clientDeviceTrustDurationMinutes";
-    // TODO: change default value to zero (opt-in offline auth)
-    public static final int DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES = 60;
+    // opt-in trust verification: metadata trust verification is enabled when configured trust duration is non-zero
+    // trust verification is disabled by default
+    public static final int DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES = 0;
     public static final int MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES = 0;
 
     private int clientDeviceTrustDurationMinutes;

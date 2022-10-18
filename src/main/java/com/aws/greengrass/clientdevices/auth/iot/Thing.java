@@ -164,8 +164,19 @@ public final class Thing implements AttributeProvider, Cloneable {
         metadataTrustDurationMinutes.set(newTrustDuration);
     }
 
+    /**
+     * Following opt-in offline auth, verifies the certificate attachment trust.
+     * Metadata trust verification is enabled when configured trust duration is non-zero.
+     * Trust verification is disabled by default.
+     *
+     * @return whether the cert attachment is verified within configured trust duration
+     */
     private boolean isCertAttachmentTrusted(Instant lastVerified) {
-        Instant validTill = lastVerified.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
-        return validTill.isAfter(Instant.now());
+        int trustDurationMinutes = metadataTrustDurationMinutes.get();
+        if (trustDurationMinutes > 0) {
+            Instant validTill = lastVerified.plus(trustDurationMinutes, ChronoUnit.MINUTES);
+            return validTill.isAfter(Instant.now());
+        }
+        return true;
     }
 }
