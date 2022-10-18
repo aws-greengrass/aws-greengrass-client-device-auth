@@ -26,9 +26,8 @@ public final class SecurityConfiguration {
     private static final Logger logger = LogManager.getLogger(SecurityConfiguration.class);
     public static final String SECURITY_TOPIC = "security";
     public static final String CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC = "clientDeviceTrustDurationMinutes";
-    // TODO: change default value to zero (opt-in offline auth)
-    public static final int DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES = 60;
-    public static final int MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES = 0;
+    public static final int DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES = 1;
+    public static final int MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES = 1;
 
     private int clientDeviceTrustDurationMinutes;
 
@@ -67,8 +66,7 @@ public final class SecurityConfiguration {
     private static int getClientDeviceTrustDurationMinutes(Topics securityTopics) {
         int configValue = Coerce.toInt(securityTopics.findOrDefault(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES,
                 CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC));
-        // overflown integer
-        if (configValue < 0) {
+        if (configValue < MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES) {
             logger.warn("Illegal value {} for configuration {}. Using minimum value {}",
                     configValue, CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC, MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
             configValue = MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
