@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.configuration;
 
 
+import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -50,21 +51,27 @@ class SecurityConfigurationTest {
 
     @Test
     public void GIVEN_invalidConfiguredTrustDuration_WHEN_getClientDeviceTrustDurationMinutes_THEN_returnsMinimumTrustDuration() {
+        Topic trustDurationTopic = configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC);
         // overflown integer
         int overflown = Integer.MAX_VALUE + 1;
-        configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC).withValue(overflown);
+        trustDurationTopic.withValue(overflown);
         securityConfig = SecurityConfiguration.from(configurationTopics);
         assertThat(securityConfig.getClientDeviceTrustDurationMinutes(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES)));
 
         // integer max value
-        configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC).withValue(Integer.MAX_VALUE);
+        trustDurationTopic.withValue(Integer.MAX_VALUE);
         securityConfig = SecurityConfiguration.from(configurationTopics);
         assertThat(securityConfig.getClientDeviceTrustDurationMinutes(), is(equalTo(Integer.MAX_VALUE)));
 
         String empty = "";
-        configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC).withValue(empty);
+        trustDurationTopic.withValue(empty);
         securityConfig = SecurityConfiguration.from(configurationTopics);
         assertThat(securityConfig.getClientDeviceTrustDurationMinutes(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES)));
+
+        float invalidSDecimal = 0.1f;
+        trustDurationTopic.withValue(invalidSDecimal);
+        securityConfig = SecurityConfiguration.from(configurationTopics);
+        assertThat(securityConfig.getClientDeviceTrustDurationMinutes(), is(equalTo((int) invalidSDecimal)));
     }
 
 }
