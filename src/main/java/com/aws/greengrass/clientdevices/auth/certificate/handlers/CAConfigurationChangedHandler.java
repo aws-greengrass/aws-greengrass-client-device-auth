@@ -59,7 +59,7 @@ public class CAConfigurationChangedHandler implements Consumer<CAConfigurationCh
                 useCases.get(ConfigureManagedCertificateAuthority.class).apply(configuration);
             }
         } catch (UseCaseException e) {
-            logger.error("Failed to configure certificate authority");
+            logger.atError().cause(e).log("Failed to configure certificate authority");
         }
     }
 }
