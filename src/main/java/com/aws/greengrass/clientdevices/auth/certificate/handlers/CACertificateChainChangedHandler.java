@@ -9,6 +9,7 @@ import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CACertificateChainChanged;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.RegisterCertificateAuthorityUseCase;
+import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 
 import java.util.function.Consumer;
 import javax.inject.Inject;
@@ -43,7 +44,10 @@ public class CACertificateChainChangedHandler implements Consumer<CACertificateC
      */
     @Override
     public void accept(CACertificateChainChanged event) {
-        // TODO: Move retry logic from the domain to here, based on the result returned from the useCase
-        useCases.get(RegisterCertificateAuthorityUseCase.class).apply(null);
+        try {
+            useCases.get(RegisterCertificateAuthorityUseCase.class).apply(null);
+        } catch (UseCaseException e) {
+            // TODO: Move retry logic from the domain to here, based on the result returned from the useCase
+        }
     }
 }

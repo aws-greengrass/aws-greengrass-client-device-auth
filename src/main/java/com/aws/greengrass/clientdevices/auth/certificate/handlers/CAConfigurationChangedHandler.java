@@ -11,6 +11,9 @@ import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationC
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureCustomCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.certificate.usecases.ConfigureManagedCertificateAuthority;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
+import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 
 import java.util.function.Consumer;
 import javax.inject.Inject;
@@ -18,6 +21,8 @@ import javax.inject.Inject;
 public class CAConfigurationChangedHandler implements Consumer<CAConfigurationChanged> {
     private final UseCases useCases;
     private final DomainEvents domainEvents;
+    private final Logger logger = LogManager.getLogger(CAConfigurationChangedHandler.class);
+
 
 
     /**
@@ -47,12 +52,15 @@ public class CAConfigurationChangedHandler implements Consumer<CAConfigurationCh
     public void accept(CAConfigurationChanged event)  {
         CAConfiguration configuration = event.getConfiguration();
 
-        if (configuration.isUsingCustomCA()) {
-            useCases.get(ConfigureCustomCertificateAuthority.class).apply(configuration);
-        } else {
-            useCases.get(ConfigureManagedCertificateAuthority.class).apply(configuration);
+        try {
+            if (configuration.isUsingCustomCA()) {
+                useCases.get(ConfigureCustomCertificateAuthority.class).apply(configuration);
+            } else {
+                useCases.get(ConfigureManagedCertificateAuthority.class).apply(configuration);
+            }
+        } catch (UseCaseException e) {
+            logger.error("Failed to configure certificate authority");
         }
-
     }
 }
 

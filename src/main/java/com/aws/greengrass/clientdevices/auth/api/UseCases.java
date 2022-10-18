@@ -13,7 +13,7 @@ public class UseCases {
 
     public interface UseCase<R, D>  {
         @SuppressWarnings("PMD.SignatureDeclareThrowsException")
-        Result<R> apply(D var1) throws Exception;
+        R apply(D var1) throws Exception;
     }
 
     public UseCases() {

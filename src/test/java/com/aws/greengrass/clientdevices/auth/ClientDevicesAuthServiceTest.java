@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
-import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
@@ -19,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
@@ -361,13 +361,11 @@ class ClientDevicesAuthServiceTest {
 
     @Test
     void GIVEN_certificateAuthorityConfiguration_WHEN_itChanges_THEN_CAisConfigured() throws InterruptedException,
-            ServiceLoadException {
+            ServiceLoadException, UseCaseException {
         ArgumentCaptor<CAConfiguration> configurationCaptor = ArgumentCaptor.forClass(CAConfiguration.class);
         UseCases useCasesMock = mock(UseCases.class);
         ConfigureCustomCertificateAuthority customCAUseCase = mock(ConfigureCustomCertificateAuthority.class);
-        when(customCAUseCase.apply(configurationCaptor.capture())).thenReturn(Result.ok());
         ConfigureManagedCertificateAuthority managedCAUseCase = mock(ConfigureManagedCertificateAuthority.class);
-        when(managedCAUseCase.apply(configurationCaptor.capture())).thenReturn(Result.ok());
         when(useCasesMock.get(ConfigureCustomCertificateAuthority.class)).thenReturn(customCAUseCase);
         when(useCasesMock.get(ConfigureManagedCertificateAuthority.class)).thenReturn(managedCAUseCase);
         kernel.getContext().put(UseCases.class, useCasesMock);

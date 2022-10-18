@@ -40,8 +40,8 @@ public class DomainEventsTest {
         AtomicInteger listener1Count = new AtomicInteger(0);
         AtomicInteger listener2Count = new AtomicInteger(0);
 
-        domainEvents.registerListener((e) -> Result.ok(listener1Count.getAndIncrement()), TestEvent.class);
-        domainEvents.registerListener((e) -> Result.ok(listener2Count.getAndIncrement()), TestEvent.class);
+        domainEvents.registerListener((e) -> listener1Count.getAndIncrement(), TestEvent.class);
+        domainEvents.registerListener((e) -> listener2Count.getAndIncrement(), TestEvent.class);
 
         domainEvents.emit(new TestEvent());
 
@@ -54,8 +54,8 @@ public class DomainEventsTest {
         AtomicInteger listener1Count = new AtomicInteger(0);
         AtomicInteger listener2Count = new AtomicInteger(0);
 
-        domainEvents.registerListener((e) -> Result.ok(listener1Count.getAndIncrement()), TestEvent.class);
-        domainEvents.registerListener((e) -> Result.ok(listener2Count.getAndIncrement()), TestEvent2.class);
+        domainEvents.registerListener((e) -> listener1Count.getAndIncrement(), TestEvent.class);
+        domainEvents.registerListener((e) -> listener2Count.getAndIncrement(), TestEvent2.class);
 
         domainEvents.emit(new TestEvent());
 
