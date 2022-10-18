@@ -176,7 +176,6 @@ public class CustomCaConfigurationTest {
                 .withValue(privateKeyUri.toString());
         topics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
                 .withValue(certificateUri.toString());
-
         kernel.getContext().waitForPublishQueueToClear();
     }
 
@@ -215,16 +214,21 @@ public class CustomCaConfigurationTest {
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
-                TestUtils.asyncAssertOnConsumer(eventRef::set, 1);
+                TestUtils.asyncAssertOnConsumer(eventRef::set, 2);
         GetCertificateRequest request = buildCertificateUpdateRequest(
                 GetCertificateRequestOptions.CertificateType.CLIENT, asyncCall.getRight());
 
         givenNucleusRunningWithConfig("config.yaml");
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
         subscribeToCertificateUpdates(request);
+        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
-        asyncCall.getLeft().get(1, TimeUnit.SECONDS);
-        assertTrue(CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, eventRef.get().getCertificate()));
+        asyncCall.getLeft().get(5, TimeUnit.SECONDS);
+        X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
+        assertTrue(
+            CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate),
+            String.format(
+                "Certificate not was not issued by intermediate CA %s", CertificateHelper.toPem(issuedClientCertificate)
+        ));
     }
 
     @Test
@@ -245,22 +249,26 @@ public class CustomCaConfigurationTest {
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
-                TestUtils.asyncAssertOnConsumer(eventRef::set, 1);
+                TestUtils.asyncAssertOnConsumer(eventRef::set, 2);
         GetCertificateRequest request = buildCertificateUpdateRequest(
                 GetCertificateRequestOptions.CertificateType.CLIENT, asyncCall.getRight());
 
         givenNucleusRunningWithConfig("config.yaml");
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
         subscribeToCertificateUpdates(request);
+        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
-        asyncCall.getLeft().get(1, TimeUnit.SECONDS);
+        asyncCall.getLeft().get(5, TimeUnit.SECONDS);
         CertificateUpdateEvent event = eventRef.get();
         X509Certificate[] clientChain = ArrayUtils.addAll(
                 new X509Certificate[]{event.getCertificate()},
                 event.getCaCertificates()
         );
         ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
-        assertTrue(api.verifyClientDeviceIdentity(CertificateHelper.toPem(clientChain)));
+        String pem = CertificateHelper.toPem(clientChain);
+        assertTrue(
+            api.verifyClientDeviceIdentity(pem),
+            String.format("certificate is not a greengrass component certificate %s", pem)
+        );
     }
 
     @Test
@@ -304,6 +312,8 @@ public class CustomCaConfigurationTest {
 
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
+        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
@@ -312,15 +322,16 @@ public class CustomCaConfigurationTest {
                 GetCertificateRequestOptions.CertificateType.SERVER, asyncCall.getRight());
 
         givenNucleusRunningWithConfig("config.yaml");
-        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
-
         subscribeToCertificateUpdates(request);
         givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
-        // Called 2 times. 1 for initial manages CA and then after the config is changes to use custom CA
-        asyncCall.getLeft().get(2, TimeUnit.SECONDS);
+        // Called 2 times. 1 for initial managed CA and then after the config is changes to use custom CA
+        asyncCall.getLeft().get(5, TimeUnit.SECONDS);
         CertificateUpdateEvent event = eventRef.get();
-        assertTrue(CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, event.getCertificate()));
+        X509Certificate issuedClientCertificate = event.getCertificate();
+        assertTrue(
+            CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate), String.format(
+                "Certificate not was not issued by intermediate CA %s", CertificateHelper.toPem(issuedClientCertificate)
+        ));
     }
 }
