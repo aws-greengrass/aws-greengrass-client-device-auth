@@ -25,7 +25,8 @@ import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingExceptio
 
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
@@ -129,8 +130,8 @@ public class BackgroundCertificateRefresh implements Runnable {
             return;
         }
 
-        ThingAssociations associations = getThingsAssociatedWithCoreDevice();
-        refresh(associations);
+        Optional<ThingAssociations> associations = getThingsAssociatedWithCoreDevice();
+        associations.ifPresent(this::refresh);
     }
 
     /**
@@ -138,26 +139,21 @@ public class BackgroundCertificateRefresh implements Runnable {
      * which things are no longer associated with the core device.
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private ThingAssociations getThingsAssociatedWithCoreDevice() {
-        ThingAssociations associations = new ThingAssociations();
+    private Optional<ThingAssociations> getThingsAssociatedWithCoreDevice() {
         RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
                 .initialRetryInterval(Duration.ofSeconds(30)).maxRetryInterval(Duration.ofMinutes(3))
                 .maxAttempt(3)
                 .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class)).build();
 
         try {
-            Set<String> cloudAttachedThingNames =  RetryUtils.runWithRetry(
+            Stream<Thing> cloudThings = RetryUtils.runWithRetry(
                     retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
-                            "get-things-associated-with-core-device", logger)
-                    .map(Thing::getThingName).collect(Collectors.toSet());
+                            "get-things-associated-with-core-device", logger);
 
-            thingRegistry.getAllThings().forEach(thing -> {
-                if (cloudAttachedThingNames.contains(thing.getThingName()))  {
-                    associations.attached(thing);
-                } else {
-                    associations.detached(thing);
-                }
-            });
+            Stream<Thing> localThings = thingRegistry.getAllThings();
+            ThingAssociations associations =  ThingAssociations.create(cloudThings);
+            associations.setLocalThings(localThings);
+            return Optional.of(associations);
         } catch (AccessDeniedException e) {
             logger.atWarn().cause(e).log(
                     "Access denied to list things associated with core device. Please make sure you "
@@ -166,14 +162,21 @@ public class BackgroundCertificateRefresh implements Runnable {
             logger.warn("Failed to get things associated to the core device. Retry will be schedule later");
         }
 
-        return associations;
+        return Optional.empty();
     }
 
     private void refresh(ThingAssociations associations) {
-       associations.getThingAssociations().forEach(this::refreshCertificateThingAttachment);
-       associations.getCertificateAssociations().forEach(this::refreshCertificateValidity);
-       associations.getStaleCertificateAssociations().forEach(certificateRegistry::deleteCertificate);
-       associations.getStaleThingAssociations().forEach(thingRegistry::deleteThing);
+        associations.getThings().forEach(this::refreshCertificateThingAttachment);
+        associations.getStaleThings().forEach(thingRegistry::deleteThing);
+
+        certificateRegistry.getAllCertificates()
+                .forEach(certificate -> {
+            if (associations.isAttachedToThing(certificate)) {
+                refreshCertificateValidity(certificate);
+            } else {
+                certificateRegistry.deleteCertificate(certificate);
+            }
+        });
     }
 
     private void refreshCertificateThingAttachment(Thing thing) {
@@ -200,11 +203,11 @@ public class BackgroundCertificateRefresh implements Runnable {
         });
     }
 
-    private void refreshCertificateValidity(String certificateId) {
-        Optional<String> certPem = pemStore.getPem(certificateId);
+    private void refreshCertificateValidity(Certificate certificate) {
+        Optional<String> certPem = pemStore.getPem(certificate.getCertificateId());
 
         if (!certPem.isPresent()) {
-            logger.atWarn().kv("certificateId", certificateId)
+            logger.atWarn().kv("certificateId", certificate.getCertificateId())
                     .log("Tried to refresh certificate validity but its pem was not found");
             return;
         }
@@ -221,58 +224,48 @@ public class BackgroundCertificateRefresh implements Runnable {
      * Represents which Things are still attached to the core device and which things are no longer attached.
      */
     private static class ThingAssociations {
-        private final Set<Thing> attachedThings = new HashSet<>();
-        private final Set<Thing> detachedThings = new HashSet<>();
-        private final Set<String> attachedCertificateIds = new HashSet<>();
-        private  final Set<String> detachedCertificatesIds = new HashSet<>();
+        private final Set<String> cloudThingNames;
+        private Set<String> attachedCertificateIds;
+        private List<Thing> attachedThings;
+        private List<Thing> detachedThings;
 
-        /**
-         * Marks a thing as attached to the core.
-         * @param thing - A thing
-         */
-        public void attached(Thing thing) {
-            attachedCertificateIds.addAll(thing.getAttachedCertificateIds().keySet());
-            this.attachedThings.add(thing);
+        private ThingAssociations(Set<String> thingNamesAttachedToCore) {
+            this.cloudThingNames = thingNamesAttachedToCore;
         }
 
-        /**
-         * Marks a thing as detached from the core.
-         * @param thing - A thing
-         */
-        public void detached(Thing thing) {
-            detachedCertificatesIds.addAll(thing.getAttachedCertificateIds().keySet());
-            this.detachedThings.add(thing);
+        public static ThingAssociations create(Stream<Thing> thingsAttachedToCore) {
+            return new ThingAssociations(thingsAttachedToCore.map(Thing::getThingName).collect(Collectors.toSet()));
         }
 
         /**
          * Gets a stream of all the things that are still associated to the core.
          */
-        public Stream<Thing> getThingAssociations() {
+        public Stream<Thing> getThings() {
             return attachedThings.stream();
-        }
-
-        /**
-         * Get a stream of all the certificate ids that are still attached to things.
-         */
-        public Stream<String> getCertificateAssociations() {
-            return attachedCertificateIds.stream();
-        }
-
-        /**
-         * Get a stream of all the certificate ids that are no longer associated to any Thing that is associated
-         * to the core device.
-         */
-        public Stream<String> getStaleCertificateAssociations() {
-            // Why this - there might be certificates attached to a thing being removed that are still attached
-            // to another thing. In that situation we don't want to consider them stale
-            return detachedCertificatesIds.stream().filter(id -> !attachedCertificateIds.contains(id));
         }
 
         /**
          * Get a stream of all the things that are no longer associated with the core device.
          */
-        public Stream<Thing> getStaleThingAssociations() {
-            return detachedThings.stream();
+        public Stream<Thing> getStaleThings() {
+           return detachedThings.stream();
+        }
+
+        public boolean isAttachedToThing(Certificate certificate) {
+            return attachedCertificateIds.contains(certificate.getCertificateId());
+        }
+
+        public void setLocalThings(Stream<Thing> localThings) {
+            Map<Boolean, List<Thing>> groups = localThings
+                    .collect(Collectors.partitioningBy(thing -> cloudThingNames.contains(thing.getThingName())));
+
+            this.attachedThings = groups.get(true);
+            this.detachedThings = groups.get(false);
+
+            this.attachedCertificateIds = getThings()
+                    .map(Thing::getAttachedCertificateIds)
+                    .flatMap(certIds -> certIds.keySet().stream())
+                    .collect(Collectors.toSet());
         }
     }
 }

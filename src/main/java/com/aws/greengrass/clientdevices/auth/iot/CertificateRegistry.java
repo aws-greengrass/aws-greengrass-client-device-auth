@@ -17,6 +17,7 @@ import java.security.cert.CertificateException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import javax.inject.Inject;
 
 
@@ -128,5 +129,9 @@ public class CertificateRegistry {
     private CertificateV1DTO certificateToCertificateV1DTO(Certificate cert) {
         return new CertificateV1DTO(cert.getCertificateId(), domain2dtoStatus.get(cert.getStatus()),
                 cert.getStatusLastUpdated().toEpochMilli());
+    }
+
+    public Stream<Certificate> getAllCertificates() {
+        return runtimeConfiguration.getAllCertificatesV1().map(this::certificateV1DTOToCert);
     }
 }

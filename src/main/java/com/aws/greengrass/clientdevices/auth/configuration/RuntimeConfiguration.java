@@ -229,4 +229,23 @@ public final class RuntimeConfiguration {
 
         return v1ThingTopics.children.keySet().stream().map(Coerce::toString).map(this::getThingV1).map(Optional::get);
     }
+
+
+
+    /**
+     * Returns all the stored certificates under.
+     * |    |---- "clientDeviceCerts":
+     * |          |---- "v1":
+     * |                |---- certificateId:
+     */
+    public Stream<CertificateV1DTO> getAllCertificatesV1() {
+        Topics v1CertTopics = config.findTopics(CERTS_KEY, CERTS_V1_KEY);
+
+        if (v1CertTopics == null) {
+            return Stream.empty();
+        }
+
+        return v1CertTopics.children.keySet().stream().map(Coerce::toString).map(this::getCertificateV1)
+                .map(Optional::get);
+    }
 }
