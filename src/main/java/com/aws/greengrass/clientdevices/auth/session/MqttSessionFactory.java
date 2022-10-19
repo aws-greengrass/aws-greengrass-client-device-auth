@@ -6,7 +6,6 @@
 package com.aws.greengrass.clientdevices.auth.session;
 
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
-import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
@@ -50,8 +49,7 @@ public class MqttSessionFactory implements SessionFactory {
         //  refactor this later
         CreateIoTThingSession useCase = useCases.get(CreateIoTThingSession.class);
         CreateSessionDTO command = new CreateSessionDTO(mqttCredential.clientId, mqttCredential.certificatePem);
-        Result<Session> sessionResult = useCase.apply(command);
-        return sessionResult.get();
+        return useCase.apply(command);
     }
 
     private Session createGreengrassComponentSession() {

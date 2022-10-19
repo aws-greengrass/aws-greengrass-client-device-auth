@@ -6,10 +6,10 @@
 package com.aws.greengrass.clientdevices.auth.certificate.usecases;
 
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
-import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
+import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
@@ -41,7 +41,7 @@ public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Vo
     }
 
     @Override
-    public Result apply(CAConfiguration configuration) {
+    public Void apply(CAConfiguration configuration) throws UseCaseException {
         // TODO: We should not be passing the entire configuration just what changed. We are just doing it for
         //  its convenience but eventually syncing the runtime config can be its own use case triggered by events.
 
@@ -58,10 +58,9 @@ public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Vo
             runtimeConfig.updateCAPassphrase(certificateManager.getCaPassPhrase());
             runtimeConfig.updateCACertificates(certificateManager.getCACertificates());
         } catch (IOException | CertificateEncodingException | KeyStoreException e) {
-            logger.atError().cause(e).log("Failed to configure managed CA");
-            return Result.error(e);
+            throw new UseCaseException("Failed to configure managed CA", e);
         }
 
-        return Result.ok();
+        return null;
     }
 }

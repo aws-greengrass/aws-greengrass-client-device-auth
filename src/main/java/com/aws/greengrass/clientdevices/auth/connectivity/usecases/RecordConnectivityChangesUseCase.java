@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.connectivity.usecases;
 
-import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
@@ -33,7 +32,7 @@ public class RecordConnectivityChangesUseCase implements
     }
 
     @Override
-    public Result<RecordConnectivityChangesResponse> apply(RecordConnectivityChangesRequest recordChangesRequest) {
+    public RecordConnectivityChangesResponse apply(RecordConnectivityChangesRequest recordChangesRequest) {
         // TODO: Consider pushing some of this logic to compute diff into the domain. Being able to retrieve
         // connectivity information for a single source may also be useful.
         Set<HostAddress> previousConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
@@ -49,6 +48,6 @@ public class RecordConnectivityChangesUseCase implements
                 .filter((item) -> !newConnectivityInfo.contains(item))
                 .collect(Collectors.toSet());
 
-        return Result.ok(new RecordConnectivityChangesResponse(addedAddresses, removedAddresses));
+        return new RecordConnectivityChangesResponse(addedAddresses, removedAddresses);
     }
 }

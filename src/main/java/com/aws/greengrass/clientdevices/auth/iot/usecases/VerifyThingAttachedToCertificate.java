@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.iot.usecases;
 
-import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
@@ -76,18 +75,18 @@ public class VerifyThingAttachedToCertificate
      * @param dto - VerifyCertificateAttachedToThingDTO
      */
     @Override
-    public Result<Boolean> apply(VerifyThingAttachedToCertificateDTO dto) {
+    public Boolean apply(VerifyThingAttachedToCertificateDTO dto) {
         Certificate certificate = dto.getCertificate();
         Thing thing = dto.getThing();
 
         try {
             if (isNetworkUp()) {
-                return Result.ok(verifyFromCloud(thing, certificate));
+                return verifyFromCloud(thing, certificate);
             }
 
-            return Result.ok(verifyLocally(thing, certificate));
+            return verifyLocally(thing, certificate);
         } catch (CloudServiceInteractionException e) {
-            return Result.ok(false);
+            return false;
         }
     }
 }

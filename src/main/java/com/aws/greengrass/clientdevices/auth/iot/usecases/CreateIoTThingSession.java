@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.iot.usecases;
 
-import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
@@ -50,7 +49,7 @@ public class CreateIoTThingSession
      * @param dto - VerifyCertificateAttachedToThingDTO
      */
     @Override
-    public Result<Session> apply(CreateSessionDTO dto) throws AuthenticationException {
+    public Session apply(CreateSessionDTO dto) throws AuthenticationException {
         String certificatePem = dto.getCertificatePem();
         String thingName = dto.getThingName();
         Optional<Certificate> certificate;
@@ -65,11 +64,11 @@ public class CreateIoTThingSession
             Thing thing = thingRegistry.getOrCreateThing(thingName);
 
             VerifyThingAttachedToCertificate verify = useCases.get(VerifyThingAttachedToCertificate.class);
-            Result<Boolean> thingAttachedResult = verify.apply(
+            Boolean thingAttachedResult = verify.apply(
                     new VerifyThingAttachedToCertificateDTO(thing, certificate.get()));
 
-            if (thingAttachedResult.isOk() && thingAttachedResult.get()) {
-                return Result.ok(new SessionImpl(certificate.get(), thing));
+            if (thingAttachedResult) {
+                return new SessionImpl(certificate.get(), thing);
             }
         } catch (CloudServiceInteractionException | InvalidCertificateException e) {
             throw new AuthenticationException("Failed to verify certificate with cloud", e);
