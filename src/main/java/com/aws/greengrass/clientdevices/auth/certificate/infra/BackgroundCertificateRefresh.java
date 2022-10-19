@@ -159,7 +159,7 @@ public class BackgroundCertificateRefresh implements Runnable {
                 }
             });
         } catch (AccessDeniedException e) {
-            logger.atWarn().log(
+            logger.atWarn().cause(e).log(
                     "Access denied to list things associated with core device. Please make sure you "
                     + "have setup the correct permissions.");
         } catch (Exception e) {
@@ -183,6 +183,10 @@ public class BackgroundCertificateRefresh implements Runnable {
             Optional<String> certPem = pemStore.getPem(certificateId);
 
             if (!certPem.isPresent()) {
+                logger.atWarn()
+                        .kv("certificateId", certificateId)
+                        .kv("thing", thing.getThingName())
+                        .log("Tried to refresh certificate thing attachment but its pem was not found");
                 return;
             }
 
@@ -190,7 +194,7 @@ public class BackgroundCertificateRefresh implements Runnable {
                 Certificate certificate = Certificate.fromPem(certPem.get());
                 useCase.apply(new VerifyThingAttachedToCertificateDTO(thing, certificate));
             } catch (InvalidCertificateException e) {
-                logger.atWarn().kv("thing", thing.getThingName()).kv("certificate", certificateId)
+                logger.atWarn().cause(e).kv("thing", thing.getThingName()).kv("certificate", certificateId)
                         .log("Failed to verify thing attached to certificate");
             }
         });
@@ -200,6 +204,8 @@ public class BackgroundCertificateRefresh implements Runnable {
         Optional<String> certPem = pemStore.getPem(certificateId);
 
         if (!certPem.isPresent()) {
+            logger.atWarn().kv("certificateId", certificateId)
+                    .log("Tried to refresh certificate validity but its pem was not found");
             return;
         }
 
