@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Manages the runtime configuration for the plugin. It allows to read and write
@@ -214,5 +215,18 @@ public final class RuntimeConfiguration {
             }
         }
         return root.lookupTopics(path);
+    }
+
+    /**
+     * Returns all the Things that have been stored.
+     */
+    public Stream<ThingV1DTO> getAllThingsV1() {
+        Topics v1ThingTopics = config.findTopics(THINGS_KEY, THINGS_V1_KEY);
+
+        if (v1ThingTopics == null) {
+            return Stream.empty();
+        }
+
+        return v1ThingTopics.children.keySet().stream().map(Coerce::toString).map(this::getThingV1).map(Optional::get);
     }
 }

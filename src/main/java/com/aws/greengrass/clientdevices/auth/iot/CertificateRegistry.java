@@ -107,7 +107,16 @@ public class CertificateRegistry {
      * @param certificate certificate to remove
      */
     public void deleteCertificate(Certificate certificate) {
-        runtimeConfiguration.removeCertificateV1(certificate.getCertificateId());
+        deleteCertificate(certificate.getCertificateId());
+    }
+
+    /**
+     * Deletes a certificate from the repository provided its id.
+     *
+     * @param certificateId - certificateId of the certificate to remove
+     */
+    public void deleteCertificate(String certificateId) {
+        runtimeConfiguration.removeCertificateV1(certificateId);
     }
 
     private Certificate certificateV1DTOToCert(CertificateV1DTO dto) {

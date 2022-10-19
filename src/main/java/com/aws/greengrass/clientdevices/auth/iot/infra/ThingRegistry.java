@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.inject.Inject;
 
 public class ThingRegistry {
@@ -105,6 +106,22 @@ public class ThingRegistry {
         return thing;
     }
 
+    /**
+     * Gets all the things stored in the registry.
+     */
+    public Stream<Thing> getAllThings() {
+        return runtimeConfig.getAllThingsV1().map(this::dtoToThing);
+    }
+
+    /**
+     * Deletes a thing from the repository.
+     *
+     * @param thing thing to remove
+     */
+    public void deleteThing(Thing thing) {
+        runtimeConfig.removeThingV1(thing.getThingName());
+    }
+
     private Thing dtoToThing(ThingV1DTO dto) {
         Map<String, Instant> certIds = dto.getCertificates().entrySet().stream()
                 .collect(Collectors.toMap(
@@ -122,5 +139,4 @@ public class ThingRegistry {
                 ));
         return new ThingV1DTO(thing.getThingName(), certIds);
     }
-
 }

@@ -82,6 +82,10 @@ public class ClientCertificateStore {
      * @param certificateId - The id of a Certificate
      */
     public Optional<String> getPem(String certificateId) {
+        if (certificateId == null) {
+            return Optional.empty();
+        }
+
         try {
             X509Certificate cert = (X509Certificate) keyStore.getCertificate(certificateId);
 

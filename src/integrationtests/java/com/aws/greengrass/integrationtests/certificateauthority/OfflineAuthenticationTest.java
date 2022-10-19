@@ -54,6 +54,7 @@ import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -62,6 +63,8 @@ import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
@@ -258,24 +261,21 @@ public class OfflineAuthenticationTest {
        // Then
 
        // Verify certificates updated after refresh
-       Certificate certA = certRegistry.getCertificateFromPem(clientAPem).get();
-       Certificate certB = certRegistry.getCertificateFromPem(clientBPem).get();
-       assertEquals(certA.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
-       // This one should have not been updated with the auto refresh given it is no longer attached to the thing
-       assertEquals(certB.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
+       Optional<Certificate> certA = certRegistry.getCertificateFromPem(clientAPem);
+       Optional<Certificate> certB = certRegistry.getCertificateFromPem(clientBPem);
+       assertEquals(certA.get().getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+       // Given certB was only attached to thingB and thingB got detached it is deleted from the registry.
+       assertFalse(certB.isPresent());
 
        // Verify thing certificate attachments got updated after refresh
-       Thing thingA = thingRegistry.getOrCreateThing(thingOne);
-       Thing thingB = thingRegistry.getOrCreateThing(thingTwo);
+       Thing thingA = thingRegistry.getThing(thingOne);
+       Thing thingB = thingRegistry.getThing(thingTwo);
        assertEquals(
            thingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(),
            anHourLater.toEpochMilli()
        );
-       // This one should have not been updated with the auto refresh given it is no longer attached to the thing
-       assertEquals(
-           thingB.certificateLastAttachedOn(ogCertB.getCertificateId()).get().toEpochMilli(),
-           now.toEpochMilli()
-       );
+       // This one should have been removed given it is no longer attached
+       assertNull(thingB);
    }
 
 }

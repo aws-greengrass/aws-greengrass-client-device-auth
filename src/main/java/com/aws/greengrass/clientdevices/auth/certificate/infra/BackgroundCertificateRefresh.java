@@ -8,6 +8,8 @@ package com.aws.greengrass.clientdevices.auth.certificate.infra;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
+import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
@@ -16,7 +18,6 @@ import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyThingAttachedToCertificate;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.RetryUtils;
 import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
@@ -25,36 +26,38 @@ import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingExceptio
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.inject.Inject;
 
 /**
- * Periodically calls the VerifyIotCertificate to update the
- * locally cached certificates on a cadence.
+ * Periodically updates the certificates and its relationships to things
+ * (whether they are still attached or not to a thing) to keep them in sync with the cloud.
  */
 public class BackgroundCertificateRefresh implements Runnable {
     private final UseCases useCases;
     private final NetworkState networkState;
-    private static final int DEFAULT_INTERVAL_SECONDS = 60 * 60; // 1H
+    private static final int DEFAULT_INTERVAL_SECONDS = 60 * 60 * 24; // Once a day
     private static final Logger logger = LogManager.getLogger(BackgroundCertificateRefresh.class);
     private final ClientCertificateStore pemStore;
     private final ThingRegistry thingRegistry;
     private final IotAuthClient iotAuthClient;
+    private final CertificateRegistry certificateRegistry;
 
     private ScheduledFuture<?> scheduledFuture = null;
     private final ScheduledThreadPoolExecutor scheduler;
 
 
     /**
-     * Creates an instance of the BackgroundCertificateRefresh.A
+     * Creates an instance of the BackgroundCertificateRefresh.
      * @param scheduler - A ScheduledThreadPoolExecutor
      * @param thingRegistry - A thingRegistry
+     * @param certificateRegistry - A certificateRegistry
      * @param iotAuthClient - A client to interact with the IotCore
      * @param networkState - A network state
      * @param pemStore -  Store for the client certificates
@@ -62,15 +65,13 @@ public class BackgroundCertificateRefresh implements Runnable {
      */
     @Inject
     public BackgroundCertificateRefresh(
-            ScheduledThreadPoolExecutor scheduler,
-            ThingRegistry thingRegistry,
-            NetworkState networkState,
-            ClientCertificateStore pemStore,
-            IotAuthClient iotAuthClient,
+            ScheduledThreadPoolExecutor scheduler, ThingRegistry thingRegistry, NetworkState networkState,
+            CertificateRegistry certificateRegistry, ClientCertificateStore pemStore, IotAuthClient iotAuthClient,
             UseCases useCases) {
         this.scheduler = scheduler;
         this.thingRegistry = thingRegistry;
         this.networkState = networkState;
+        this.certificateRegistry = certificateRegistry;
         this.pemStore = pemStore;
         this.iotAuthClient = iotAuthClient;
         this.useCases = useCases;
@@ -128,69 +129,144 @@ public class BackgroundCertificateRefresh implements Runnable {
             return;
         }
 
-        Consumer<Thing> consumer = refresh();
-
-        getThingsAssociatedWithCoreDevice()
-                .map(Thing::getThingName)
-                .map(thingRegistry::getThing)
-                .filter(Objects::nonNull)
-                .forEach(consumer);
+        ThingAssociations associations = getThingsAssociatedWithCoreDevice();
+        refresh(associations);
     }
 
+    /**
+     * Returns ThingAssociations which has information about what Things are associated with the core device and
+     * which things are no longer associated with the core device.
+     */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private Stream<Thing> getThingsAssociatedWithCoreDevice() {
+    private ThingAssociations getThingsAssociatedWithCoreDevice() {
+        ThingAssociations associations = new ThingAssociations();
         RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
                 .initialRetryInterval(Duration.ofSeconds(30)).maxRetryInterval(Duration.ofMinutes(3))
                 .maxAttempt(3)
                 .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class)).build();
 
         try {
-            return RetryUtils.runWithRetry(retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
-                    "get-things-associated-with-core-device", logger);
+            Set<String> cloudAttachedThingNames =  RetryUtils.runWithRetry(
+                    retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
+                            "get-things-associated-with-core-device", logger)
+                    .map(Thing::getThingName).collect(Collectors.toSet());
+
+            thingRegistry.getAllThings().forEach(thing -> {
+                if (cloudAttachedThingNames.contains(thing.getThingName()))  {
+                    associations.attached(thing);
+                } else {
+                    associations.detached(thing);
+                }
+            });
         } catch (AccessDeniedException e) {
-            logger.atDebug().log(
+            logger.atWarn().log(
                     "Access denied to list things associated with core device. Please make sure you "
                     + "have setup the correct permissions.");
         } catch (Exception e) {
             logger.warn("Failed to get things associated to the core device. Retry will be schedule later");
         }
 
-        return Stream.empty();
+        return associations;
     }
 
-    private Consumer<Thing> refresh() {
-        Set<String> alreadyRefreshed = new HashSet<>();
-
-       return (Thing thing) -> {
-           Set<String> certificateIds = thing.getAttachedCertificateIds().keySet();
-           // Update thing certificate attachments
-           certificateIds.stream()
-                   .map(certificateId -> new VerifyThingAttachedToCertificateDTO(thing, new Certificate(certificateId)))
-                   .forEach(this::refreshCertificateThingAttachment);
-
-           // Update the certificate validity for certificates that have not been updated
-           certificateIds.stream()
-                   .filter((certificateId) -> !alreadyRefreshed.contains(certificateId))
-                   .map((certificateId) -> new Pair<>(certificateId, pemStore.getPem(certificateId)))
-                   .filter(pair -> pair.getRight().isPresent())
-                   .forEach(pair -> {
-                       this.refreshCertificateValidity(pair.getRight().get());
-                       alreadyRefreshed.add(pair.getLeft());
-                   });
-       };
+    private void refresh(ThingAssociations associations) {
+       associations.getThingAssociations().forEach(this::refreshCertificateThingAttachment);
+       associations.getCertificateAssociations().forEach(this::refreshCertificateValidity);
+       associations.getStaleCertificateAssociations().forEach(certificateRegistry::deleteCertificate);
+       associations.getStaleThingAssociations().forEach(thingRegistry::deleteThing);
     }
 
-    private void refreshCertificateThingAttachment(VerifyThingAttachedToCertificateDTO dto) {
+    private void refreshCertificateThingAttachment(Thing thing) {
         VerifyThingAttachedToCertificate useCase = useCases.get(VerifyThingAttachedToCertificate.class);
-        useCase.apply(dto);
+
+        thing.getAttachedCertificateIds().keySet().forEach(certificateId -> {
+            Optional<String> certPem = pemStore.getPem(certificateId);
+
+            if (!certPem.isPresent()) {
+                return;
+            }
+
+            try {
+                Certificate certificate = Certificate.fromPem(certPem.get());
+                useCase.apply(new VerifyThingAttachedToCertificateDTO(thing, certificate));
+            } catch (InvalidCertificateException e) {
+                logger.atWarn().kv("thing", thing.getThingName()).kv("certificate", certificateId)
+                        .log("Failed to verify thing attached to certificate");
+            }
+        });
     }
 
-    private void refreshCertificateValidity(String pem) {
+    private void refreshCertificateValidity(String certificateId) {
+        Optional<String> certPem = pemStore.getPem(certificateId);
+
+        if (!certPem.isPresent()) {
+            return;
+        }
+
         VerifyIotCertificate useCase = useCases.get(VerifyIotCertificate.class);
-        useCase.apply(pem);
+        useCase.apply(certPem.get());
     }
 
     private boolean isNetworkDown() {
         return networkState.getConnectionStateFromMqtt() == NetworkState.ConnectionState.NETWORK_DOWN;
+    }
+
+    /**
+     * Represents which Things are still attached to the core device and which things are no longer attached.
+     */
+    private static class ThingAssociations {
+        private final Set<Thing> attachedThings = new HashSet<>();
+        private final Set<Thing> detachedThings = new HashSet<>();
+        private final Set<String> attachedCertificateIds = new HashSet<>();
+        private  final Set<String> detachedCertificatesIds = new HashSet<>();
+
+        /**
+         * Marks a thing as attached to the core.
+         * @param thing - A thing
+         */
+        public void attached(Thing thing) {
+            attachedCertificateIds.addAll(thing.getAttachedCertificateIds().keySet());
+            this.attachedThings.add(thing);
+        }
+
+        /**
+         * Marks a thing as detached from the core.
+         * @param thing - A thing
+         */
+        public void detached(Thing thing) {
+            detachedCertificatesIds.addAll(thing.getAttachedCertificateIds().keySet());
+            this.detachedThings.add(thing);
+        }
+
+        /**
+         * Gets a stream of all the things that are still associated to the core.
+         */
+        public Stream<Thing> getThingAssociations() {
+            return attachedThings.stream();
+        }
+
+        /**
+         * Get a stream of all the certificate ids that are still attached to things.
+         */
+        public Stream<String> getCertificateAssociations() {
+            return attachedCertificateIds.stream();
+        }
+
+        /**
+         * Get a stream of all the certificate ids that are no longer associated to any Thing that is associated
+         * to the core device.
+         */
+        public Stream<String> getStaleCertificateAssociations() {
+            // Why this - there might be certificates attached to a thing being removed that are still attached
+            // to another thing. In that situation we don't want to consider them stale
+            return detachedCertificatesIds.stream().filter(id -> !attachedCertificateIds.contains(id));
+        }
+
+        /**
+         * Get a stream of all the things that are no longer associated with the core device.
+         */
+        public Stream<Thing> getStaleThingAssociations() {
+            return detachedThings.stream();
+        }
     }
 }
