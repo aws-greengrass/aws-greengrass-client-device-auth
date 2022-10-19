@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.iot.usecases;
 
-import com.aws.greengrass.clientdevices.auth.api.Result;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
@@ -46,7 +45,7 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
     }
 
     @Override
-    public Result<Boolean> apply(String certificatePem) {
+    public Boolean apply(String certificatePem) {
         // If we think we have network connectivity, then opportunistically go to the
         // cloud for verification.
         // If the local registry doesn't have information about the certificate, or if
@@ -67,7 +66,7 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
             logger.atWarn()
                     .kv("certificatePem", certificatePem)
                     .log("Unable to process certificate", e);
-            return Result.ok(false);
+            return false;
         }
 
         // Information from the cloud is authoritative - update local registry if it is available
@@ -86,7 +85,7 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
                 .kv(VERIFICATION_SOURCE, verificationSource)
                 .log(cert.isActive() ? "Certificate is active" : "Certificate is not active");
 
-        return Result.ok(cert.isActive());
+        return cert.isActive();
     }
 
     private boolean isNetworkUp() {

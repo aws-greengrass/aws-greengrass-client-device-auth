@@ -52,8 +52,7 @@ public class ClientDevicesAuthServiceApi {
         if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
             return true;
         } else {
-            Result<Boolean> result = useCases.get(VerifyIotCertificate.class).apply(certificatePem);
-            return result.isOk() && result.get();
+            return useCases.get(VerifyIotCertificate.class).apply(certificatePem);
         }
     }
 

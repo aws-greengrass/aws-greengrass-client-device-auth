@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,11 +18,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Map;
 
+import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,6 +33,11 @@ public class ThingTest {
     private static final String mockThingName = "mock-thing";
     private static final String mockCertId = "mock-cert-id";
     private static Map<String, Instant> mockCertIdMap = ImmutableMap.of(mockCertId, Instant.now());
+
+    @BeforeEach
+    void beforeEach() {
+        Thing.updateMetadataTrustDurationMinutes(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
+    }
 
     @Test
     void GIVEN_validThingName_WHEN_Thing_THEN_objectIsCreated() {
@@ -125,5 +133,21 @@ public class ThingTest {
         assertThat(Thing_SingleCert, not(equalTo(Thing_SingleCert_newer)));
         assertThat(Thing_CertA, not(equalTo(Thing_CertB)));
         assertThat(Thing_MultiCert, equalTo(Thing_MultiCert_copy));
+    }
+
+    @Test
+    void GIVEN_thingWithValidActiveCertificate_WHEN_isCertificateAttached_THEN_returnTrue() {
+        Thing thing = Thing.of(mockThingName);
+        thing.attachCertificate(mockCertId);
+        assertTrue(thing.isCertificateAttached(mockCertId));
+    }
+
+    @Test
+    void GIVEN_thingWithExpiredActiveCertificate_WHEN_isCertificateAttached_THEN_returnFalse() {
+        // update trust duration to zero, indicating not to trust any metadata
+        Thing.updateMetadataTrustDurationMinutes(0);
+        Thing thing = Thing.of(mockThingName);
+        thing.attachCertificate(mockCertId);
+        assertFalse(thing.isCertificateAttached(mockCertId));
     }
 }

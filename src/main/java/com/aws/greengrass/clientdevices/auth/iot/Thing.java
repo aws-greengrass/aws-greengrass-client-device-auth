@@ -11,12 +11,16 @@ import com.aws.greengrass.clientdevices.auth.session.attribute.WildcardSuffixAtt
 import lombok.Getter;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+
+import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 
 /**
  * This is a versioned representation of an IoT Thing. It is **NOT** updated
@@ -28,6 +32,8 @@ import java.util.regex.Pattern;
 public final class Thing implements AttributeProvider, Cloneable {
     public static final String NAMESPACE = "Thing";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
+    private static final AtomicInteger metadataTrustDurationMinutes =
+            new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
 
     private final String thingName;
     // map of certificate ID to the time this certificate was known to be attached to the Thing
@@ -103,7 +109,8 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @return whether the given certificate is attached
      */
     public boolean isCertificateAttached(String certificateId) {
-        return attachedCertificateIds.containsKey(certificateId);
+        Instant lastVerified = attachedCertificateIds.get(certificateId);
+        return lastVerified != null && isCertAttachmentTrusted(lastVerified);
     }
 
     private Thing(String thingName, Map<String, Instant> certificateIds) {
@@ -146,5 +153,19 @@ public final class Thing implements AttributeProvider, Cloneable {
     @Override
     public Map<String, DeviceAttribute> getDeviceAttributes() {
         return Collections.singletonMap("ThingName", new WildcardSuffixAttribute(thingName));
+    }
+
+    /**
+     * Updates the duration for which a certificate attachment can be trusted.
+     *
+     * @param newTrustDuration desired trust duration in minutes
+     */
+    public static void updateMetadataTrustDurationMinutes(int newTrustDuration) {
+        metadataTrustDurationMinutes.set(newTrustDuration);
+    }
+
+    private boolean isCertAttachmentTrusted(Instant lastVerified) {
+        Instant validTill = lastVerified.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
+        return validTill.isAfter(Instant.now());
     }
 }

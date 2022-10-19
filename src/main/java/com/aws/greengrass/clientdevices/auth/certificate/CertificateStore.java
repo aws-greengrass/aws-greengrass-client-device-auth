@@ -243,6 +243,9 @@ public class CertificateStore {
         this.caCertificateChain = caCertificateChain;
         caPrivateKey = (PrivateKey) privateKey;
 
+        logger.atInfo()
+                .kv("subject", caCertificateChain[0].getSubjectX500Principal())
+                .log("Configured new certificate authority");
         eventEmitter.emit(new CACertificateChainChanged(caCertificateChain));
     }
 

@@ -3,13 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.iot.registry;
+package com.aws.greengrass.clientdevices.auth.iot.infra;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
-import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
-import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
@@ -21,22 +18,17 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 public class ThingRegistry {
-    private final IotAuthClient iotAuthClient;
     private final DomainEvents domainEvents;
     private final RuntimeConfiguration runtimeConfig;
 
     /**
      * Construct Thing registry.
      *
-     * @param iotAuthClient IoT auth client
      * @param domainEvents Domain events
      * @param runtimeConfig Runtime configuration store
      */
     @Inject
-    public ThingRegistry(IotAuthClient iotAuthClient,
-                         DomainEvents domainEvents,
-                         RuntimeConfiguration runtimeConfig) {
-        this.iotAuthClient = iotAuthClient;
+    public ThingRegistry(DomainEvents domainEvents, RuntimeConfiguration runtimeConfig) {
         this.domainEvents = domainEvents;
         this.runtimeConfig = runtimeConfig;
     }
@@ -111,32 +103,6 @@ public class ThingRegistry {
         runtimeConfig.putThing(thingToDto(thing));
         domainEvents.emit(new ThingUpdated(thing.getThingName(), 0)); // TODO: remove from event
         return thing;
-    }
-
-    /**
-     * Returns whether the Thing is associated to the given IoT Certificate.
-     * Returns valid locally registered result when IoT Core cannot be reached.
-     *
-     * @param thing IoT Thing
-     * @param certificate IoT Certificate
-     * @return whether thing is attached to the certificate
-     * @throws CloudServiceInteractionException when thing <-> certificate association cannot be verified
-     */
-    public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
-        // If we have a local cache hit, then return true. Else, go to cloud
-        if (thing.isCertificateAttached(certificate.getCertificateId())) {
-            return true;
-        }
-
-        if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
-            thing.attachCertificate(certificate.getCertificateId());
-            updateThing(thing);
-            return true;
-        } else {
-            thing.detachCertificate(certificate.getCertificateId());
-            updateThing(thing);
-            return false;
-        }
     }
 
     private Thing dtoToThing(ThingV1DTO dto) {

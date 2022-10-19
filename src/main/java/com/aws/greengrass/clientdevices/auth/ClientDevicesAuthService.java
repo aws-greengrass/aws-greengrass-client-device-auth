@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CACertificateChainChangedHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CAConfigurationChangedHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRotationHandler;
+import com.aws.greengrass.clientdevices.auth.certificate.handlers.SecurityConfigurationChangedHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
@@ -133,6 +134,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CACertificateChainChangedHandler.class).listen();
         context.get(CAConfigurationChangedHandler.class).listen();
         context.get(CertificateRotationHandler.class).listen();
+        context.get(SecurityConfigurationChangedHandler.class).listen();
     }
 
     private void subscribeToConfigChanges() {

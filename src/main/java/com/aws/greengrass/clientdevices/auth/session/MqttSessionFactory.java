@@ -6,38 +6,29 @@
 package com.aws.greengrass.clientdevices.auth.session;
 
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
+import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
-import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
-import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
-import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
-import com.aws.greengrass.clientdevices.auth.iot.Thing;
-import com.aws.greengrass.clientdevices.auth.iot.registry.ThingRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.dto.CreateSessionDTO;
+import com.aws.greengrass.clientdevices.auth.iot.usecases.CreateIoTThingSession;
 
 import java.util.Map;
-import java.util.Optional;
 import javax.inject.Inject;
 
 public class MqttSessionFactory implements SessionFactory {
     private final DeviceAuthClient deviceAuthClient;
-    private final CertificateRegistry certificateRegistry;
-    private final ThingRegistry thingRegistry;
+    private final UseCases useCases;
 
     /**
      * Constructor.
      *
      * @param deviceAuthClient    Device auth client
-     * @param certificateRegistry device Certificate registry
-     * @param thingRegistry       thing registry
+     * @param useCases       useCases
      */
     @Inject
-    public MqttSessionFactory(DeviceAuthClient deviceAuthClient,
-                              CertificateRegistry certificateRegistry,
-                              ThingRegistry thingRegistry) {
+    public MqttSessionFactory(DeviceAuthClient deviceAuthClient, UseCases useCases) {
         this.deviceAuthClient = deviceAuthClient;
-        this.certificateRegistry = certificateRegistry;
-        this.thingRegistry = thingRegistry;
+        this.useCases = useCases;
     }
 
     @Override
@@ -54,19 +45,11 @@ public class MqttSessionFactory implements SessionFactory {
     }
 
     private Session createIotThingSession(MqttCredential mqttCredential) throws AuthenticationException {
-        try {
-            Optional<Certificate> cert = certificateRegistry.getCertificateFromPem(mqttCredential.certificatePem);
-            if (!cert.isPresent()) {
-                throw new AuthenticationException("Certificate isn't active");
-            }
-            Thing thing = thingRegistry.getOrCreateThing(mqttCredential.clientId);
-            if (!thingRegistry.isThingAttachedToCertificate(thing, cert.get())) {
-                throw new AuthenticationException("unable to authenticate device");
-            }
-            return new SessionImpl(cert.get(), thing);
-        } catch (CloudServiceInteractionException | InvalidCertificateException e) {
-            throw new AuthenticationException("Failed to verify certificate with cloud", e);
-        }
+        // NOTE: We should remove  calling this useCase from here, but for now it serves its purpose. We will
+        //  refactor this later
+        CreateIoTThingSession useCase = useCases.get(CreateIoTThingSession.class);
+        CreateSessionDTO command = new CreateSessionDTO(mqttCredential.clientId, mqttCredential.certificatePem);
+        return useCase.apply(command);
     }
 
     private Session createGreengrassComponentSession() {
