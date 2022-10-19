@@ -109,6 +109,7 @@ public class CertificateRegistry {
      */
     public void deleteCertificate(Certificate certificate) {
         deleteCertificate(certificate.getCertificateId());
+        pemStore.removePem(certificate.getCertificateId());
     }
 
     /**

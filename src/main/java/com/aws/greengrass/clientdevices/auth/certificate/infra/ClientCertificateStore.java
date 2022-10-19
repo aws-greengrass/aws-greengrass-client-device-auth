@@ -6,6 +6,8 @@
 package com.aws.greengrass.clientdevices.auth.certificate.infra;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -20,12 +22,16 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Optional;
 
+
 /**
  * A KeyStore for client certificates. When a client device provides their certificate we store it
  * in this store it so that later we can refresh it later on using the cloud API.
  */
 public class ClientCertificateStore {
     private final KeyStore keyStore;
+    private static final Logger logger = LogManager.getLogger(ClientCertificateStore.class);
+
+
 
     /**
      * Create a certificate store for tests.
@@ -74,6 +80,18 @@ public class ClientCertificateStore {
         InputStream targetStream = new ByteArrayInputStream(certificatePem.getBytes());
         Certificate cert = cf.generateCertificate(targetStream);
         keyStore.setCertificateEntry(certificateId, cert);
+    }
+
+    /**
+     * Removes the PEM for a certificateId alias.
+     * @param certificateId - a certificate id
+     */
+    public void removePem(String certificateId) {
+        try {
+            keyStore.deleteEntry(certificateId);
+        } catch (KeyStoreException e) {
+            logger.atError().cause(e).kv("certificateId", certificateId).log("Failed to remove certificate PEM");
+        }
     }
 
     /**

@@ -48,6 +48,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -131,6 +132,7 @@ public class BackgroundCertificateRefreshTest {
         Certificate certA = Certificate.fromPem(certificateAPem);
         certificateRegistry.getOrCreateCertificate(certificateAPem);
         String certificateBPem = CertificateHelper.toPem(clientCerts.get(1));
+        Certificate certB = Certificate.fromPem(certificateBPem);
         certificateRegistry.getOrCreateCertificate(certificateBPem);
 
         thingRegistry.createThing(thingOne.getThingName());
@@ -148,9 +150,10 @@ public class BackgroundCertificateRefreshTest {
         // Then
         assertNotNull(thingRegistry.getThing(thingOne.getThingName()));
         assertNull(thingRegistry.getThing(thingTwo.getThingName()));
-
         assertTrue(certificateRegistry.getCertificateFromPem(certificateAPem).isPresent());
+        assertEquals(pemStore.getPem(certA.getCertificateId()).get(), certificateAPem);
         assertFalse(certificateRegistry.getCertificateFromPem(certificateBPem).isPresent());
+        assertFalse(pemStore.getPem(certB.getCertificateId()).isPresent());
     }
 
 
@@ -184,8 +187,8 @@ public class BackgroundCertificateRefreshTest {
         // Then
         assertNotNull(thingRegistry.getThing(thingOne.getThingName()));
         assertNull(thingRegistry.getThing(thingTwo.getThingName()));
-
         assertTrue(certificateRegistry.getCertificateFromPem(certificateAPem).isPresent());
+        assertEquals(pemStore.getPem(certA.getCertificateId()).get(), certificateAPem);
     }
 
 }
