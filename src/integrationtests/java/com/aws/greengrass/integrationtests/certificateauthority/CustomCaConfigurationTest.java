@@ -39,6 +39,7 @@ import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -195,6 +196,7 @@ public class CustomCaConfigurationTest {
         api.subscribeToCertificateUpdates(request);
     }
 
+    @Disabled("TODO - fix flaky test")
     @Test
     void Given_CustomCAConfiguration_WHEN_issuingAClientCertificate_THEN_itsSignedByCustomCA() throws
             CertificateException, URISyntaxException, CertificateGenerationException, ExecutionException,
@@ -231,6 +233,7 @@ public class CustomCaConfigurationTest {
         ));
     }
 
+    @Disabled("TODO - fix flaky test")
     @Test
     void GIVEN_CustomCAConfiguration_WHEN_whenGeneratingClientCerts_THEN_GGComponentIsVerified() throws
             NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
@@ -271,6 +274,7 @@ public class CustomCaConfigurationTest {
         );
     }
 
+    @Disabled("TODO - fix flaky test")
     @Test
     void GIVEN_customCAConfigurationWithACAChain_WHEN_registeringCAWithIotCore_THEN_highestTrustCAUploaded() throws
             CertificateChainLoadingException, KeyLoadingException, CertificateException, NoSuchAlgorithmException,
@@ -298,6 +302,7 @@ public class CustomCaConfigurationTest {
         assertEquals(lastRequest.coreDeviceCertificates(), expectedPem);
     }
 
+    @Disabled("TODO - fix flaky test")
     @Test
     void GIVEN_managedCAConfiguration_WHEN_updatedToCustomCAConfiguration_THEN_serverCertificatesAreRotated() throws
             InterruptedException, CertificateGenerationException, CertificateException, NoSuchAlgorithmException,
