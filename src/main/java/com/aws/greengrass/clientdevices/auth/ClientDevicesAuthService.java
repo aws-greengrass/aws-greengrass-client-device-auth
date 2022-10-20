@@ -114,6 +114,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.put(RuntimeConfiguration.class, RuntimeConfiguration.from(getRuntimeConfig()));
         NetworkState networkState = context.get(NetworkState.class);
         networkState.registerHandler(context.get(CISShadowMonitor.class));
+        networkState.registerHandler(context.get(BackgroundCertificateRefresh.class));
         context.get(BackgroundCertificateRefresh.class).start();
 
         // Initialize IPC thread pool

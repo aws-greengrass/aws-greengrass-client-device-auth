@@ -24,6 +24,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.InternalServerExce
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +54,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
     private ScheduledFuture<?> scheduledFuture = null;
     private final ScheduledThreadPoolExecutor scheduler;
+    private Instant nextRun;
 
 
     /**
@@ -95,7 +97,6 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
            return;
         }
 
-        networkState.registerHandler(this);
         logger.info("Starting background refresh of client certificates every {} seconds", intervalSeconds);
         scheduledFuture =
             scheduler.scheduleAtFixedRate(this, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
@@ -131,6 +132,14 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             return;
         }
 
+        if (!canRun()) {
+            logger.info("Certificates where refreshed recently - retrying later");
+            return;
+        }
+
+        // Why the -10? This is just to avoid a scenario where the scheduler triggers it and the current time
+        // is not exactly after DEFAULT_INTERVAL_SECONDS because this variable gets set a few ms after run is called
+        nextRun = Instant.now().plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS - 10));
         Optional<ThingAssociations> associations = getThingsAssociatedWithCoreDevice();
         associations.ifPresent(this::refresh);
     }
@@ -146,6 +155,14 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             logger.atInfo("Network back up - refreshing certificates");
             run();
         }
+    }
+
+    private boolean canRun() {
+        if (nextRun == null) {
+            return true;
+        }
+
+        return Instant.now().isAfter(nextRun);
     }
 
     /**
