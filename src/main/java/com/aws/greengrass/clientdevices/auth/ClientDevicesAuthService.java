@@ -113,8 +113,10 @@ public class ClientDevicesAuthService extends PluginService {
         // Infra setup
         context.put(RuntimeConfiguration.class, RuntimeConfiguration.from(getRuntimeConfig()));
         NetworkState networkState = context.get(NetworkState.class);
+        BackgroundCertificateRefresh certRefresh = context.get(BackgroundCertificateRefresh.class);
         networkState.registerHandler(context.get(CISShadowMonitor.class));
-        context.get(BackgroundCertificateRefresh.class).start();
+        networkState.registerHandler(certRefresh);
+        certRefresh.start();
 
         // Initialize IPC thread pool
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
