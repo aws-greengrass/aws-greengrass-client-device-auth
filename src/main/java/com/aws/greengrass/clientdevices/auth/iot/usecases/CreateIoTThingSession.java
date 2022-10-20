@@ -28,6 +28,7 @@ public class CreateIoTThingSession
     private final UseCases useCases;
 
 
+
     /**
      * Verify a certificate with IoT Core.
      *
@@ -76,5 +77,4 @@ public class CreateIoTThingSession
 
         throw new AuthenticationException("Failed to verify certificate with attached to thing");
     }
-
 }

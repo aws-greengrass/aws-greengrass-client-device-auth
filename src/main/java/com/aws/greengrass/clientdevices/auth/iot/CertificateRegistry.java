@@ -17,6 +17,7 @@ import java.security.cert.CertificateException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import javax.inject.Inject;
 
 
@@ -102,19 +103,26 @@ public class CertificateRegistry {
     }
 
     /**
-     * Returns the PEMs that are stored for all the certificate ids that are being tracked.
-     */
-    public String[] getAllCertificateIds() {
-        return runtimeConfiguration.getAllCertificateIdsV1();
-    }
-
-    /**
      * Deletes a certificate from the repository.
      *
      * @param certificate certificate to remove
      */
     public void deleteCertificate(Certificate certificate) {
-        runtimeConfiguration.removeCertificateV1(certificate.getCertificateId());
+        deleteCertificate(certificate.getCertificateId());
+    }
+
+    /**
+     * Deletes a certificate from the repository provided its id.
+     *
+     * @param certificateId - certificateId of the certificate to remove
+     */
+    public void deleteCertificate(String certificateId) {
+        runtimeConfiguration.removeCertificateV1(certificateId);
+        try {
+            pemStore.removePem(certificateId);
+        } catch (KeyStoreException e) {
+            logger.atWarn().cause(e).kv("certificate", certificateId).log("Failed to remove PEM for certificate");
+        }
     }
 
     private Certificate certificateV1DTOToCert(CertificateV1DTO dto) {
@@ -126,5 +134,9 @@ public class CertificateRegistry {
     private CertificateV1DTO certificateToCertificateV1DTO(Certificate cert) {
         return new CertificateV1DTO(cert.getCertificateId(), domain2dtoStatus.get(cert.getStatus()),
                 cert.getStatusLastUpdated().toEpochMilli());
+    }
+
+    public Stream<Certificate> getAllCertificates() {
+        return runtimeConfiguration.getAllCertificatesV1().map(this::certificateV1DTOToCert);
     }
 }
