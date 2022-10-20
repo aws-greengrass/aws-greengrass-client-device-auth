@@ -118,7 +118,11 @@ public class CertificateRegistry {
      */
     public void deleteCertificate(String certificateId) {
         runtimeConfiguration.removeCertificateV1(certificateId);
-        pemStore.removePem(certificateId);
+        try {
+            pemStore.removePem(certificateId);
+        } catch (KeyStoreException e) {
+            logger.atWarn().cause(e).kv("certificate", certificateId).log("Failed to remove PEM for certificate");
+        }
     }
 
     private Certificate certificateV1DTOToCert(CertificateV1DTO dto) {

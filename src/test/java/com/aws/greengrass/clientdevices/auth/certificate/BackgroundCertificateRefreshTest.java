@@ -156,7 +156,6 @@ public class BackgroundCertificateRefreshTest {
         assertFalse(pemStore.getPem(certB.getCertificateId()).isPresent());
     }
 
-
     @Test
     void GIVEN_certsAndThings_WHEN_certificateAssociatedToMoreThanOneThing_THEN_itDoesNotGetRemoved() throws
             NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,

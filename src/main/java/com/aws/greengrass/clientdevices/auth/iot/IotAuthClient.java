@@ -16,9 +16,8 @@ import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.IotSdkClientFactory;
 import com.aws.greengrass.util.RegionUtils;
 import com.aws.greengrass.util.Utils;
-import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import com.aws.greengrass.util.exceptions.InvalidEnvironmentStageException;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
@@ -145,9 +144,8 @@ public interface IotAuthClient {
             } catch (Exception e) {
                 logger.atError().cause(e).kv("thingName", thing.getThingName())
                         .kv("certificateId", certificate.getCertificateId())
-                        .log("Failed to verify certificate thing association. Check that the core device's "
-                                + "IoT policy grants the greengrass:VerifyClientDeviceIoTCertificateAssociation "
-                                + "permission.");
+                        .log("Failed to verify certificate thing association. Check that the core device's IoT policy"
+                                + " grants the greengrass:VerifyClientDeviceIoTCertificateAssociation permission");
                 throw new CloudServiceInteractionException(
                         String.format("Failed to verify certificate %s thing %s association",
                                 certificate.getCertificateId(), thing.getThingName()), e);
@@ -155,6 +153,7 @@ public interface IotAuthClient {
         }
 
         @Override
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         public Stream<Thing> getThingsAssociatedWithCoreDevice() {
             DeviceConfiguration configuration = clientFactory.getDeviceConfiguration();
             String thingName = Coerce.toString(configuration.getThingName());
@@ -171,14 +170,18 @@ public interface IotAuthClient {
                 return response.associatedClientDevices().stream()
                         .map(AssociatedClientDevice::thingName)
                         .map(Thing::of);
-            }  catch (SdkClientException | AwsServiceException e) {
-                throw new CloudServiceInteractionException("Failed to list things associated with core", e);
+            } catch (Exception e) {
+                logger.atError().cause(e).kv("thing", thingName).log(
+                        "Failed to list client devices associated to the core. Check that the core device's IoT"
+                                + "policy grants the greengrass:ListClientDevicesAssociatedWithCoreDevice permission");
+                throw new CloudServiceInteractionException(
+                        String.format("Failed to list things attached to core %s", thingName), e);
             }
         }
 
         // TODO: This should not live here ideally it should be returned by the clientFactory but we
         //  are adding it here to avoid introducing new changes to the nucleus
-        private GreengrassV2Client getGGV2Client(DeviceConfiguration deviceConfiguration) {
+        private GreengrassV2Client getGGV2Client(DeviceConfiguration deviceConfiguration)  {
             ApacheHttpClient.Builder httpClient = ClientConfigurationUtils
                     .getConfiguredClientBuilder(deviceConfiguration);
 
@@ -189,11 +192,19 @@ public interface IotAuthClient {
                     .overrideConfiguration(
                             ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build());
 
-            if (!Utils.isEmpty(awsRegion)) {
+            if (Utils.isEmpty(awsRegion)) {
+                return clientBuilder.build();
+            }
+
+            clientBuilder.region(Region.of(awsRegion));
+
+            try {
+                String environment = Coerce.toString(deviceConfiguration.getEnvironmentStage());
                 String greengrassServiceEndpoint = RegionUtils.getGreengrassControlPlaneEndpoint(
-                        awsRegion,  IotSdkClientFactory.EnvironmentStage.PROD);
+                        awsRegion, IotSdkClientFactory.EnvironmentStage.fromString(environment));
                 clientBuilder.endpointOverride(URI.create(greengrassServiceEndpoint));
-                clientBuilder.region(Region.of(awsRegion));
+            } catch (InvalidEnvironmentStageException e) {
+                logger.atError().cause(e).log("Failed to configure greengrass service endpoint");
             }
 
             return clientBuilder.build();

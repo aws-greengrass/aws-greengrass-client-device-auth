@@ -6,8 +6,6 @@
 package com.aws.greengrass.clientdevices.auth.certificate.infra;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
-import com.aws.greengrass.logging.api.Logger;
-import com.aws.greengrass.logging.impl.LogManager;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -29,8 +27,6 @@ import java.util.Optional;
  */
 public class ClientCertificateStore {
     private final KeyStore keyStore;
-    private static final Logger logger = LogManager.getLogger(ClientCertificateStore.class);
-
 
 
     /**
@@ -85,13 +81,10 @@ public class ClientCertificateStore {
     /**
      * Removes the PEM for a certificateId alias.
      * @param certificateId - a certificate id
+     * @throws KeyStoreException - if the keystore has not been initialized, or if the entry cannot be removed.
      */
-    public void removePem(String certificateId) {
-        try {
-            keyStore.deleteEntry(certificateId);
-        } catch (KeyStoreException e) {
-            logger.atError().cause(e).kv("certificateId", certificateId).log("Failed to remove certificate PEM");
-        }
+    public void removePem(String certificateId) throws KeyStoreException {
+        keyStore.deleteEntry(certificateId);
     }
 
     /**

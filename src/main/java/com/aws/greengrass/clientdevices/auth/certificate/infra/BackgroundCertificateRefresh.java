@@ -154,7 +154,7 @@ public class BackgroundCertificateRefresh implements Runnable {
             return Optional.of(associations);
         } catch (Exception e) {
             logger.atWarn().cause(e).log(
-                    "Failed to get things associated to the core device. Retry will be schedule later");
+                    "Failed to get things associated to the core device. Retry will be scheduled later");
         }
 
         return Optional.empty();
