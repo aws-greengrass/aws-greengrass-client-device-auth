@@ -159,7 +159,8 @@ public class BackgroundCertificateRefresh implements Runnable {
                     "Access denied to list things associated with core device. Please make sure you "
                     + "have setup the correct permissions.");
         } catch (Exception e) {
-            logger.warn("Failed to get things associated to the core device. Retry will be schedule later");
+            logger.atWarn().cause(e).log(
+                    "Failed to get things associated to the core device. Retry will be schedule later");
         }
 
         return Optional.empty();

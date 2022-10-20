@@ -12,6 +12,8 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import com.aws.greengrass.util.IotSdkClientFactory;
+import com.aws.greengrass.util.RegionUtils;
 import com.aws.greengrass.util.Utils;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
@@ -178,27 +180,19 @@ public interface IotAuthClient {
         private GreengrassV2Client getGGV2Client(DeviceConfiguration deviceConfiguration) {
             ApacheHttpClient.Builder httpClient = ClientConfigurationUtils
                     .getConfiguredClientBuilder(deviceConfiguration);
+
+            String awsRegion = Coerce.toString(deviceConfiguration.getAWSRegion());
             GreengrassV2ClientBuilder clientBuilder = GreengrassV2Client.builder()
                     .credentialsProvider(AnonymousCredentialsProvider.create())
                     .httpClient(httpClient.build())
                     .overrideConfiguration(
-                            ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build()
-                    );
+                            ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build());
 
-            String region = Coerce.toString(deviceConfiguration.getAWSRegion());
-
-            if (!Utils.isEmpty(region)) {
-                String greengrassServiceEndpoint = ClientConfigurationUtils
-                        .getGreengrassServiceEndpoint(deviceConfiguration);
-                if (Utils.isEmpty(greengrassServiceEndpoint)) {
-                    logger.atDebug("initialize-greengrass-client").kv("service-region", region).log();
-                    clientBuilder.region(Region.of(region));
-                } else {
-                    logger.atDebug("initialize-greengrass-client")
-                            .kv("service-endpoint", greengrassServiceEndpoint).kv("service-region", region).log();
-                    clientBuilder.endpointOverride(URI.create(greengrassServiceEndpoint));
-                    clientBuilder.region(Region.of(region));
-                }
+            if (!Utils.isEmpty(awsRegion)) {
+                String greengrassServiceEndpoint = RegionUtils.getGreengrassControlPlaneEndpoint(
+                        awsRegion,  IotSdkClientFactory.EnvironmentStage.PROD);
+                clientBuilder.endpointOverride(URI.create(greengrassServiceEndpoint));
+                clientBuilder.region(Region.of(awsRegion));
             }
 
             return clientBuilder.build();
