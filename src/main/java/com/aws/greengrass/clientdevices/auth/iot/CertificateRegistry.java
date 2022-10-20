@@ -109,7 +109,6 @@ public class CertificateRegistry {
      */
     public void deleteCertificate(Certificate certificate) {
         deleteCertificate(certificate.getCertificateId());
-        pemStore.removePem(certificate.getCertificateId());
     }
 
     /**
@@ -119,6 +118,7 @@ public class CertificateRegistry {
      */
     public void deleteCertificate(String certificateId) {
         runtimeConfiguration.removeCertificateV1(certificateId);
+        pemStore.removePem(certificateId);
     }
 
     private Certificate certificateV1DTOToCert(CertificateV1DTO dto) {

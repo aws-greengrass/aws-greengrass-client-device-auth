@@ -10,12 +10,12 @@ import com.aws.greengrass.componentmanager.ClientConfigurationUtils;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.tes.LazyCredentialProvider;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.IotSdkClientFactory;
 import com.aws.greengrass.util.RegionUtils;
 import com.aws.greengrass.util.Utils;
-import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.exception.SdkClientException;
@@ -52,6 +52,7 @@ public interface IotAuthClient {
         private static final String CERTPEM_KEY = "certificatePem";
 
         private final GreengrassServiceClientFactory clientFactory;
+        private final LazyCredentialProvider lazyCredentialProvider;
 
         /**
          * Default IotAuthClient constructor.
@@ -59,8 +60,9 @@ public interface IotAuthClient {
          * @param clientFactory greengrass cloud service client factory
          */
         @Inject
-        Default(GreengrassServiceClientFactory clientFactory) {
+        Default(GreengrassServiceClientFactory clientFactory, LazyCredentialProvider lazyCredentialProvider) {
             this.clientFactory = clientFactory;
+            this.lazyCredentialProvider = lazyCredentialProvider;
         }
 
         @Override
@@ -153,7 +155,6 @@ public interface IotAuthClient {
         }
 
         @Override
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         public Stream<Thing> getThingsAssociatedWithCoreDevice() {
             DeviceConfiguration configuration = clientFactory.getDeviceConfiguration();
             String thingName = Coerce.toString(configuration.getThingName());
@@ -183,8 +184,8 @@ public interface IotAuthClient {
 
             String awsRegion = Coerce.toString(deviceConfiguration.getAWSRegion());
             GreengrassV2ClientBuilder clientBuilder = GreengrassV2Client.builder()
-                    .credentialsProvider(AnonymousCredentialsProvider.create())
                     .httpClient(httpClient.build())
+                    .credentialsProvider(lazyCredentialProvider)
                     .overrideConfiguration(
                             ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build());
 

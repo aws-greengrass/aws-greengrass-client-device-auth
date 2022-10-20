@@ -19,7 +19,6 @@ import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyThingAttachedToC
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.RetryUtils;
-import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
@@ -97,7 +96,6 @@ public class BackgroundCertificateRefresh implements Runnable {
         logger.info("Starting background refresh of client certificates every {} seconds", intervalSeconds);
         scheduledFuture =
             scheduler.scheduleAtFixedRate(this, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
-
     }
 
     /**
@@ -154,10 +152,6 @@ public class BackgroundCertificateRefresh implements Runnable {
             ThingAssociations associations =  ThingAssociations.create(cloudThings);
             associations.setLocalThings(localThings);
             return Optional.of(associations);
-        } catch (AccessDeniedException e) {
-            logger.atWarn().cause(e).log(
-                    "Access denied to list things associated with core device. Please make sure you "
-                    + "have setup the correct permissions.");
         } catch (Exception e) {
             logger.atWarn().cause(e).log(
                     "Failed to get things associated to the core device. Retry will be schedule later");
