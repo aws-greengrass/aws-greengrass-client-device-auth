@@ -20,12 +20,14 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Optional;
 
+
 /**
  * A KeyStore for client certificates. When a client device provides their certificate we store it
  * in this store it so that later we can refresh it later on using the cloud API.
  */
 public class ClientCertificateStore {
     private final KeyStore keyStore;
+
 
     /**
      * Create a certificate store for tests.
@@ -77,11 +79,24 @@ public class ClientCertificateStore {
     }
 
     /**
+     * Removes the PEM for a certificateId alias.
+     * @param certificateId - a certificate id
+     * @throws KeyStoreException - if the keystore has not been initialized, or if the entry cannot be removed.
+     */
+    public void removePem(String certificateId) throws KeyStoreException {
+        keyStore.deleteEntry(certificateId);
+    }
+
+    /**
      * Returns the PEM for a certificate.
      *
      * @param certificateId - The id of a Certificate
      */
     public Optional<String> getPem(String certificateId) {
+        if (certificateId == null) {
+            return Optional.empty();
+        }
+
         try {
             X509Certificate cert = (X509Certificate) keyStore.getCertificate(certificateId);
 
