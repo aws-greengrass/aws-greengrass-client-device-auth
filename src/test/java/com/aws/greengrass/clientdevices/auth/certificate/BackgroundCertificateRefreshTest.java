@@ -54,6 +54,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class BackgroundCertificateRefreshTest {
@@ -94,9 +97,9 @@ public class BackgroundCertificateRefreshTest {
         configurationTopics.getContext().put(VerifyIotCertificate.class, verifyIotCertificateMock);
         useCases.init(configurationTopics.getContext());
 
-        backgroundRefresh = new BackgroundCertificateRefresh(
+        backgroundRefresh = spy(new BackgroundCertificateRefresh(
                 schedulerMock, thingRegistry, networkStateMock, 
-                certificateRegistry, pemStore, iotAuthClientFake, useCases);
+                certificateRegistry, pemStore, iotAuthClientFake, useCases));
     }
 
     @AfterEach
@@ -158,8 +161,7 @@ public class BackgroundCertificateRefreshTest {
 
     @Test
     void GIVEN_certsAndThings_WHEN_certificateAssociatedToMoreThanOneThing_THEN_itDoesNotGetRemoved() throws
-            NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
-            InvalidCertificateException {
+        Exception{
         // Given
         Thing thingOne = Thing.of("ThingOne");
         Thing thingTwo = Thing.of("ThingTwo");
@@ -190,4 +192,15 @@ public class BackgroundCertificateRefreshTest {
         assertEquals(pemStore.getPem(certA.getCertificateId()).get(), certificateAPem);
     }
 
+    @Test
+    void GIVEN_networkWasDown_WHEN_networkUp_THEN_backgroundTaskTriggered() throws Exception {
+        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_DOWN);
+        verify(backgroundRefresh, times(0)).run();
+        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_UP);
+        verify(backgroundRefresh, times(1)).run();
+        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_DOWN);
+        verify(backgroundRefresh, times(1)).run();
+        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_UP);
+        verify(backgroundRefresh, times(2)).run();
+    }
 }

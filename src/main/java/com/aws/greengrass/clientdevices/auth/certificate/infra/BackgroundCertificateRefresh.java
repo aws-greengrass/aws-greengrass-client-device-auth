@@ -19,6 +19,7 @@ import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyThingAttachedToC
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.RetryUtils;
+import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
@@ -31,6 +32,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.inject.Inject;
@@ -39,7 +41,7 @@ import javax.inject.Inject;
  * Periodically updates the certificates and its relationships to things
  * (whether they are still attached or not to a thing) to keep them in sync with the cloud.
  */
-public class BackgroundCertificateRefresh implements Runnable {
+public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkState.ConnectionState> {
     private final UseCases useCases;
     private final NetworkState networkState;
     private static final int DEFAULT_INTERVAL_SECONDS = 60 * 60 * 24; // Once a day
@@ -93,6 +95,7 @@ public class BackgroundCertificateRefresh implements Runnable {
            return;
         }
 
+        networkState.registerHandler(this);
         logger.info("Starting background refresh of client certificates every {} seconds", intervalSeconds);
         scheduledFuture =
             scheduler.scheduleAtFixedRate(this, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
@@ -132,6 +135,19 @@ public class BackgroundCertificateRefresh implements Runnable {
         associations.ifPresent(this::refresh);
     }
 
+
+    /**
+     * Handler to react to network changes.
+     * @param connectionState - A network state
+     */
+    @Override
+    public void accept(NetworkState.ConnectionState connectionState) {
+        if (connectionState == NetworkState.ConnectionState.NETWORK_UP) {
+            logger.atInfo("Network back up - refreshing certificates");
+            run();
+        }
+    }
+
     /**
      * Returns ThingAssociations which has information about what Things are associated with the core device and
      * which things are no longer associated with the core device.
@@ -146,15 +162,19 @@ public class BackgroundCertificateRefresh implements Runnable {
         try {
             Stream<Thing> cloudThings = RetryUtils.runWithRetry(
                     retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
-                            "get-things-associated-with-core-device", logger);
+                    "get-things-associated-with-core-device", logger);
 
             Stream<Thing> localThings = thingRegistry.getAllThings();
-            ThingAssociations associations =  ThingAssociations.create(cloudThings);
+            ThingAssociations associations = ThingAssociations.create(cloudThings);
             associations.setLocalThings(localThings);
             return Optional.of(associations);
+        } catch (AccessDeniedException e) {
+            logger.atInfo().cause(e).log(
+                "Did not refresh local certificates. To enable certificate refresh add a policy to the core device"
+                        + "that grants the greengrass:ListClientDevicesAssociatedWithCoreDevice permission");
         } catch (Exception e) {
             logger.atWarn().cause(e).log(
-                    "Failed to get things associated to the core device. Retry will be scheduled later");
+                "Failed to get things associated to the core device. Retry will be scheduled later");
         }
 
         return Optional.empty();
