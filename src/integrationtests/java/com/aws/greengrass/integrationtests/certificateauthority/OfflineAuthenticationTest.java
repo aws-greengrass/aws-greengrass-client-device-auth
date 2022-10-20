@@ -42,6 +42,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.ScopedMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 
@@ -91,6 +92,7 @@ public class OfflineAuthenticationTest {
     Path rootDir;
     private Kernel kernel;
     private IotAuthClientFake iotAuthClientFake;
+    private Optional<MockedStatic<Clock>> clockMock;
 
 
     @BeforeEach
@@ -116,22 +118,25 @@ public class OfflineAuthenticationTest {
         iotAuthClientFake = new IotAuthClientFake();
         kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
 
+        clockMock = Optional.empty();
         lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
     }
 
     @AfterEach
     void cleanup() {
+        this.clockMock.ifPresent(ScopedMock::close);
         kernel.shutdown();
     }
 
-    private Runnable mockInstant(long expected) {
+    @SuppressWarnings("PMD.CloseResource")
+    private void mockInstant(long expected) {
+        this.clockMock.ifPresent(ScopedMock::close);
         Clock spyClock = spy(Clock.class);
         MockedStatic<Clock> clockMock;
         clockMock = mockStatic(Clock.class);
         clockMock.when(Clock::systemUTC).thenReturn(spyClock);
         when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
-
-        return clockMock::close;
+        this.clockMock = Optional.of(clockMock);
     }
 
     private void givenNucleusRunningWithConfig(String configFileName) throws InterruptedException {
@@ -210,7 +215,7 @@ public class OfflineAuthenticationTest {
        givenNucleusRunningWithConfig("config.yaml");
 
        Instant now = Instant.now();
-       Runnable resetClock = mockInstant(now.toEpochMilli());
+       mockInstant(now.toEpochMilli());
        ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
 
        // Simulate some client components (like Moquette) verifying some certificates
@@ -250,7 +255,6 @@ public class OfflineAuthenticationTest {
 
        // When
        Instant anHourLater = now.plusSeconds(60 * 60);
-       resetClock.run();
        mockInstant(anHourLater.toEpochMilli());
 
        BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
