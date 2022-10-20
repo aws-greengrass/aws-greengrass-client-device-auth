@@ -88,6 +88,7 @@ public class OfflineAuthenticationTest {
     Path rootDir;
     private Kernel kernel;
     private IotAuthClientFake iotAuthClientFake;
+    private MockedStatic<Clock> clockMock;
 
 
     @BeforeEach
@@ -118,17 +119,24 @@ public class OfflineAuthenticationTest {
 
     @AfterEach
     void cleanup() {
+        if (this.clockMock != null) {
+            this.clockMock.close();
+        }
         kernel.shutdown();
     }
 
-    private Runnable mockInstant(long expected) {
+    private void mockInstant(long expected) {
+        if (this.clockMock != null) {
+            this.clockMock.close();
+        }
+
         Clock spyClock = spy(Clock.class);
         MockedStatic<Clock> clockMock;
         clockMock = mockStatic(Clock.class);
         clockMock.when(Clock::systemUTC).thenReturn(spyClock);
         when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
 
-        return clockMock::close;
+        this.clockMock = clockMock;
     }
 
     private void givenNucleusRunningWithConfig(String configFileName) throws InterruptedException {
@@ -179,7 +187,7 @@ public class OfflineAuthenticationTest {
            NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
            InvalidCertificateException, InterruptedException {
        Instant now = Instant.now();
-       Runnable resetClock = mockInstant(now.toEpochMilli());
+       mockInstant(now.toEpochMilli());
 
        // Given
        givenCoreDeviceIsOnline();
@@ -190,8 +198,7 @@ public class OfflineAuthenticationTest {
        givenClientDevicesVerifyTheirIdentity(clientDevicePems, now);
 
        Instant anHourLater = now.plusSeconds(60 * 60);
-       resetClock.run();
-       resetClock = mockInstant(anHourLater.toEpochMilli());
+       mockInstant(anHourLater.toEpochMilli());
 
        BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
        assertTrue(backgroundRefresh.isRunning(), "background refresh is not running");
@@ -205,7 +212,6 @@ public class OfflineAuthenticationTest {
 
        assertEquals(certA.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
        assertEquals(certB.getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
-       resetClock.run();
    }
 
     @Test
@@ -213,7 +219,7 @@ public class OfflineAuthenticationTest {
             NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
             InvalidCertificateException, InterruptedException {
         Instant now = Instant.now();
-        Runnable resetClock = mockInstant(now.toEpochMilli());
+        mockInstant(now.toEpochMilli());
 
         // Given
         givenCoreDeviceIsOnline();
@@ -226,8 +232,7 @@ public class OfflineAuthenticationTest {
         iotAuthClientFake.deactivateCert(clientDevicePems.get(1));
 
         Instant anHourLater = now.plusSeconds(60 * 60);
-        resetClock.run();
-        resetClock = mockInstant(anHourLater.toEpochMilli());
+        mockInstant(anHourLater.toEpochMilli());
 
         BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
         assertTrue(backgroundRefresh.isRunning(), "background refresh is not running");
@@ -241,7 +246,6 @@ public class OfflineAuthenticationTest {
 
         Optional<Certificate> certB = certRegistry.getCertificateFromPem(clientDevicePems.get(1));
         assertFalse(certB.isPresent());
-        resetClock.run();
     }
 
 
