@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -54,7 +55,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
     private ScheduledFuture<?> scheduledFuture = null;
     private final ScheduledThreadPoolExecutor scheduler;
-    private Instant nextRun;
+    private final AtomicReference<Instant> nextRun = new AtomicReference<>();
 
 
     /**
@@ -126,20 +127,18 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      * Runs verifyIotCertificate useCase for all the registered client certificate PEMs.
      */
     @Override
-    public void run() {
+    public synchronized void run() {
         if (isNetworkDown()) {
             logger.debug("Network is down - not refreshing certificates");
             return;
         }
 
         if (!canRun()) {
-            logger.info("Certificates where refreshed recently - retrying later");
+            logger.info("Certificates were refreshed recently - retrying later");
             return;
         }
 
-        // Why the -10? This is just to avoid a scenario where the scheduler triggers it and the current time
-        // is not exactly after DEFAULT_INTERVAL_SECONDS because this variable gets set a few ms after run is called
-        nextRun = Instant.now().plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS - 10));
+        nextRun.set(Instant.now().plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS)));
         Optional<ThingAssociations> associations = getThingsAssociatedWithCoreDevice();
         associations.ifPresent(this::refresh);
     }
@@ -158,11 +157,12 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     }
 
     private boolean canRun() {
-        if (nextRun == null) {
+        if (nextRun.get() == null) {
             return true;
         }
 
-        return Instant.now().isAfter(nextRun);
+        Instant now = Instant.now();
+        return now.compareTo(nextRun.get()) >= 0;
     }
 
     /**

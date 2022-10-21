@@ -242,4 +242,52 @@ public class BackgroundCertificateRefreshTest {
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(2)).getThingsAssociatedWithCoreDevice();
     }
+
+    @Test
+    void GIVEN_triggeredByMultipleThreads_WHEN_called_THEN_itShouldOnlyRunOnceForThatTimeWindow()
+            throws InterruptedException {
+       Thread t1 = new Thread(() -> { backgroundRefresh.run(); });
+       Thread t2 = new Thread(() -> { backgroundRefresh.run(); });
+       t1.start();
+       t2.start();
+       t1.join();
+       t2.join();
+
+        verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
+    }
+
+    @Test
+    void GIVEN_triggeredInDifferentInstants_WHEN_triggeredExactlyOneDayLater_THEN_itShouldRunAgain() {
+        Instant now = Instant.now();
+        mockInstant(now.toEpochMilli());
+
+        backgroundRefresh.run();
+
+        Instant aDayLater = now.plus(Duration.ofHours(24));
+        mockInstant(aDayLater.toEpochMilli());
+
+        backgroundRefresh.run();
+        verify(iotAuthClientFake, times(2)).getThingsAssociatedWithCoreDevice();
+    }
+
+    @Test
+    void GIVEN_scheduler_WHEN_triggeredOnceADay_THEN_itShouldRunAtLeastOnceEveryDay() {
+        Instant now = Instant.now();
+        mockInstant(now.toEpochMilli());
+
+        backgroundRefresh.run();
+        verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
+
+        Instant alMostADayLater = now.plus(Duration.ofHours(24)).minus(Duration.ofSeconds(10));
+        mockInstant(alMostADayLater.toEpochMilli());
+
+        backgroundRefresh.run();
+        verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
+
+        Instant aFullDayLater = now.plus(Duration.ofHours(24));
+        mockInstant(aFullDayLater.toEpochMilli());
+
+        backgroundRefresh.run();
+        verify(iotAuthClientFake, times(2)).getThingsAssociatedWithCoreDevice();
+    }
 }
