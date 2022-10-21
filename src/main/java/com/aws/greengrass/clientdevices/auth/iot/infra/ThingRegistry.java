@@ -91,7 +91,7 @@ public class ThingRegistry {
             return thing;
         }
 
-        Thing newThing = Thing.of(thing.getThingName(), thing.getAttachedCertificateIds());
+        Thing newThing = Thing.of(thing.getThingName(), thing.getAttachedCertificateIds(), Thing.Source.LOCAL);
         return storeThing(newThing);
     }
 
@@ -128,7 +128,7 @@ public class ThingRegistry {
                         Map.Entry::getKey,
                         entry -> Instant.ofEpochMilli(entry.getValue())
                 ));
-        return Thing.of(dto.getThingName(), certIds);
+        return Thing.of(dto.getThingName(), certIds, Thing.Source.LOCAL);
     }
 
     private ThingV1DTO thingToDto(Thing thing) {

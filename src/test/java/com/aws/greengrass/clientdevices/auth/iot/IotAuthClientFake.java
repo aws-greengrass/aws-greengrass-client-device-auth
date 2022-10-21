@@ -106,6 +106,6 @@ public class IotAuthClientFake implements IotAuthClient {
 
     @Override
     public Stream<Thing> getThingsAssociatedWithCoreDevice() {
-        return thingsAttachedToCore.stream().map(Thing::of);
+        return thingsAttachedToCore.stream().map(thing -> Thing.of(thing, Thing.Source.CLOUD));
     }
 }

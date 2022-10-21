@@ -18,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyThingAttachedToCertificate;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.RetryUtils;
 import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
@@ -26,8 +27,8 @@ import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingExceptio
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
@@ -144,7 +145,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             return;
         }
 
-        Optional<ThingAssociations> associations = getThingsAssociatedWithCoreDevice();
+        Optional<Stream<Thing>> associations = getThingsAssociatedWithCoreDevice();
         associations.ifPresent(a -> {
             this.refresh(a);
             lastRan.set(Instant.now());
@@ -188,7 +189,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      * which things are no longer associated with the core device.
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private Optional<ThingAssociations> getThingsAssociatedWithCoreDevice() {
+    private Optional<Stream<Thing>> getThingsAssociatedWithCoreDevice() {
         RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
                 .initialRetryInterval(Duration.ofSeconds(30)).maxRetryInterval(Duration.ofMinutes(3))
                 .maxAttempt(3)
@@ -199,10 +200,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
                     retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
                     "get-things-associated-with-core-device", logger);
 
-            Stream<Thing> localThings = thingRegistry.getAllThings();
-            ThingAssociations associations = ThingAssociations.create(cloudThings);
-            associations.setLocalThings(localThings);
-            return Optional.of(associations);
+            return Optional.of(cloudThings);
         } catch (AccessDeniedException e) {
             logger.atInfo().log(
                 "Did not refresh local certificates. To enable certificate refresh add a policy to the core device"
@@ -215,24 +213,45 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         return Optional.empty();
     }
 
-    private void refresh(ThingAssociations associations) {
-        associations.getThings().forEach(this::refreshCertificateThingAttachment);
-        associations.getStaleThings().forEach(thingRegistry::deleteThing);
+    private void refresh(Stream<Thing> thingsAttachedToCore) {
+        Pair<Set<String>, Consumer<Thing>> refreshCertificates = refreshCertificateValidity();
 
-        certificateRegistry.getAllCertificates().forEach(certificate -> {
-            if (associations.isAttachedToThing(certificate)) {
-                refreshCertificateValidity(certificate);
-            } else {
-                certificateRegistry.deleteCertificate(certificate);
-            }
-        });
+        Set<String> attachedThingNames = thingsAttachedToCore
+                // Refresh the thing certificate attachments
+                .peek(this::refreshCertificateAttachments)
+                // Load the thing from the local store after their certificates have been updated.
+                .map(thing -> thingRegistry.getThing(thing.getThingName()))
+                // Skip the things that could not be found or for which the refresh failed
+                .filter(Objects::nonNull)
+                // Refresh the validity of all the certificates attached to the things
+                .peek(refreshCertificates.getRight())
+                // Get the names of the valid things that should still be in the registries
+                .map(Thing::getThingName)
+                // Wait for the stream to finish processing, collect all the valid attached things
+                .collect(Collectors.toSet());
+
+        // Clean up the registries by providing the names of the things that should still be attached and
+        // the ids of the certificates that are still attached to a thing.
+        cleanUpRegistries(attachedThingNames, refreshCertificates.getLeft());
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private void refreshCertificateThingAttachment(Thing thing) {
-        VerifyThingAttachedToCertificate useCase = useCases.get(VerifyThingAttachedToCertificate.class);
+    private void refreshCertificateAttachments(Thing thing) {
+        AtomicReference<Thing> thingWithCerts = new AtomicReference<>(thing);
 
-        thing.getAttachedCertificateIds().keySet().forEach(certificateId -> {
+        if (thingWithCerts.get().getSource() != Thing.Source.LOCAL) {
+            thingWithCerts.set(thingRegistry.getThing(thing.getThingName()));
+        }
+
+        if (thingWithCerts.get() == null) {
+            logger.atInfo().kv("thingName", thing.getThingName())
+                    .log("No local version found for thing. Not refreshing thing certificate attachments");
+            return;
+        }
+
+        Set<String> thingCertificateIds = thingWithCerts.get().getAttachedCertificateIds().keySet();
+
+        thingCertificateIds.forEach(certificateId -> {
             Optional<String> certPem = pemStore.getPem(certificateId);
 
             if (!certPem.isPresent()) {
@@ -245,83 +264,66 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
             try {
                 Certificate certificate = Certificate.fromPem(certPem.get());
-                useCase.apply(new VerifyThingAttachedToCertificateDTO(thing, certificate));
+                useCases.get(VerifyThingAttachedToCertificate.class).apply(
+                        new VerifyThingAttachedToCertificateDTO(thingWithCerts.get(), certificate));
             } catch (InvalidCertificateException | RuntimeException e) {
-                logger.atWarn().cause(e).kv("thing", thing.getThingName()).kv("certificate", certificateId)
-                        .log("Failed to verify thing attached to certificate");
+                logger.atWarn().cause(e).kv("thingName", thing.getThingName()).kv("certificate", certificateId)
+                        .log("Failed to verify thing certificate - certificate pem is invalid");
             }
         });
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private void refreshCertificateValidity(Certificate certificate) {
-        Optional<String> certPem = pemStore.getPem(certificate.getCertificateId());
+    private Pair<Set<String>, Consumer<Thing>> refreshCertificateValidity() {
+        Set<String> alreadyRefreshed = new HashSet<>();
+        VerifyIotCertificate verifyCertificate = useCases.get(VerifyIotCertificate.class);
 
-        if (!certPem.isPresent()) {
-            logger.atWarn().kv("certificateId", certificate.getCertificateId())
-                    .log("Tried to refresh certificate validity but its pem was not found");
-            return;
-        }
+        Consumer<Thing> callback = (Thing thing) -> {
+            Set<String> thingCertificateIds = thing.getAttachedCertificateIds().keySet();
 
-        VerifyIotCertificate useCase = useCases.get(VerifyIotCertificate.class);
-        try {
-            useCase.apply(certPem.get());
-        } catch (RuntimeException e) {
-            logger.atWarn().cause(e).kv("certificateId", certificate.getCertificateId())
-                    .log("Failed to verify certificate validity");
-        }
+            thingCertificateIds.forEach(certificateId -> {
+
+                if (alreadyRefreshed.contains(certificateId)) {
+                    return;
+                }
+
+                Optional<String> certPem = pemStore.getPem(certificateId);
+
+                if (!certPem.isPresent()) {
+                    logger.atWarn()
+                            .kv("certificateId", certificateId)
+                            .kv("thing", thing.getThingName())
+                            .log("Tried to refresh certificate validity but its pem was not found");
+                    return;
+                }
+
+                alreadyRefreshed.add(certificateId);
+                try {
+                    verifyCertificate.apply(certPem.get());
+                } catch (RuntimeException e) {
+                logger.atWarn().cause(e)
+                        .log("Failed to verify certificate validity");
+            }
+            });
+        };
+
+        return new Pair<>(alreadyRefreshed, callback);
+    }
+
+    private void cleanUpRegistries(Set<String> attachedThings, Set<String> certificatesAttachedToThings) {
+        Stream<Thing> localThings = thingRegistry.getAllThings();
+        Stream<Certificate> localCerts = certificateRegistry.getAllCertificates();
+
+        localThings
+                .filter(thing -> !attachedThings.contains(thing.getThingName()))
+                .forEach(thingRegistry::deleteThing);
+
+        localCerts
+                .filter(certificate -> !certificatesAttachedToThings.contains(certificate.getCertificateId()))
+                .forEach(certificateRegistry::deleteCertificate);
     }
 
     private boolean isNetworkDown() {
         return networkState.getConnectionStateFromMqtt() == NetworkState.ConnectionState.NETWORK_DOWN;
-    }
-
-    /**
-     * Represents which Things are still attached to the core device and which things are no longer attached.
-     */
-    private static class ThingAssociations {
-        private final Set<String> cloudThingNames;
-        private Set<String> attachedCertificateIds;
-        private List<Thing> attachedThings;
-        private List<Thing> detachedThings;
-
-        private ThingAssociations(Set<String> thingNamesAttachedToCore) {
-            this.cloudThingNames = thingNamesAttachedToCore;
-        }
-
-        public static ThingAssociations create(Stream<Thing> thingsAttachedToCore) {
-            return new ThingAssociations(thingsAttachedToCore.map(Thing::getThingName).collect(Collectors.toSet()));
-        }
-
-        /**
-         * Gets a stream of all the things that are still associated to the core.
-         */
-        public Stream<Thing> getThings() {
-            return attachedThings.stream();
-        }
-
-        /**
-         * Get a stream of all the things that are no longer associated with the core device.
-         */
-        public Stream<Thing> getStaleThings() {
-           return detachedThings.stream();
-        }
-
-        public boolean isAttachedToThing(Certificate certificate) {
-            return attachedCertificateIds.contains(certificate.getCertificateId());
-        }
-
-        public void setLocalThings(Stream<Thing> localThings) {
-            Map<Boolean, List<Thing>> groups = localThings
-                    .collect(Collectors.partitioningBy(thing -> cloudThingNames.contains(thing.getThingName())));
-
-            this.attachedThings = groups.get(true);
-            this.detachedThings = groups.get(false);
-
-            this.attachedCertificateIds = getThings()
-                    .map(Thing::getAttachedCertificateIds)
-                    .flatMap(certIds -> certIds.keySet().stream())
-                    .collect(Collectors.toSet());
-        }
     }
 }
