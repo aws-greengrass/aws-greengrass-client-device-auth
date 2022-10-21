@@ -146,7 +146,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
         Optional<ThingAssociations> associations = getThingsAssociatedWithCoreDevice();
         associations.ifPresent(a -> {
-            refresh(a);
+            this.refresh(a);
             lastRan.set(Instant.now());
         });
         this.scheduleNextRun();
@@ -157,7 +157,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
         Instant now = Instant.now();
         nextScheduledRun.set(now.plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS)));
-        Duration duration = Duration.between(nextScheduledRun.get(), now);
+        Duration duration = Duration.between(now, nextScheduledRun.get());
 
         scheduledFuture = scheduler.schedule(this, duration.getSeconds(), TimeUnit.SECONDS);
     }
@@ -219,8 +219,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         associations.getThings().forEach(this::refreshCertificateThingAttachment);
         associations.getStaleThings().forEach(thingRegistry::deleteThing);
 
-        certificateRegistry.getAllCertificates()
-                .forEach(certificate -> {
+        certificateRegistry.getAllCertificates().forEach(certificate -> {
             if (associations.isAttachedToThing(certificate)) {
                 refreshCertificateValidity(certificate);
             } else {
