@@ -153,7 +153,6 @@ public interface IotAuthClient {
         }
 
         @Override
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         public Stream<Thing> getThingsAssociatedWithCoreDevice() {
             DeviceConfiguration configuration = clientFactory.getDeviceConfiguration();
             String thingName = Coerce.toString(configuration.getThingName());
@@ -170,9 +169,6 @@ public interface IotAuthClient {
                 return response.associatedClientDevices().stream()
                         .map(AssociatedClientDevice::thingName)
                         .map(Thing::of);
-            } catch (Exception e) {
-                throw new CloudServiceInteractionException(
-                        String.format("Failed to list things attached to core %s", thingName), e);
             }
         }
 

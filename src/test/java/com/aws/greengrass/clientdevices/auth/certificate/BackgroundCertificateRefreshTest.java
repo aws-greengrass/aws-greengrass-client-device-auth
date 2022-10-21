@@ -10,7 +10,6 @@ import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
-import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
@@ -33,12 +32,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.ScopedMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
+import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 
 import java.io.IOException;
 import java.security.KeyPair;
@@ -56,7 +55,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 
-import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -229,13 +227,9 @@ public class BackgroundCertificateRefreshTest {
     }
 
     @Test
-    void GIVEN_deviceOnline_WHEN_iotCoreCallFails_THEN_itShouldRetryAgainWhenCalled(
-            ExtensionContext context) {
-        ignoreExceptionOfType(context, CloudServiceInteractionException.class);
-
-        when(networkStateMock.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
-        when(iotAuthClientFake.getThingsAssociatedWithCoreDevice()).thenThrow(
-                new CloudServiceInteractionException("Whoops something went wrong"));
+    void GIVEN_deviceOnline_WHEN_iotCoreCallFails_THEN_itShouldRetryAgainWhenCalled() {
+        AccessDeniedException accessDeniedException = AccessDeniedException.builder().build();
+        when(iotAuthClientFake.getThingsAssociatedWithCoreDevice()).thenThrow(accessDeniedException);
 
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();

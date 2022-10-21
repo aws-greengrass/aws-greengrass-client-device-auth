@@ -152,7 +152,6 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     @Override
     public void accept(NetworkState.ConnectionState connectionState) {
         if (connectionState == NetworkState.ConnectionState.NETWORK_UP) {
-            logger.atInfo("Network back up - refreshing certificates");
             run();
         }
     }
@@ -186,17 +185,13 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             ThingAssociations associations = ThingAssociations.create(cloudThings);
             associations.setLocalThings(localThings);
             return Optional.of(associations);
+        } catch (AccessDeniedException e) {
+            logger.atInfo().log(
+                "Did not refresh local certificates. To enable certificate refresh add a policy to the core device"
+                        + " that grants the greengrass:ListClientDevicesAssociatedWithCoreDevice permission");
         } catch (Exception e) {
-            // We can't explicitly catch this given we always throw a CloudServiceInteractionException, hence we do
-            // have to check it here
-            if (e.getCause() instanceof AccessDeniedException) {
-                logger.atInfo().log(
-                    "Did not refresh local certificates. To enable certificate refresh add a policy to the core device"
-                            + " that grants the greengrass:ListClientDevicesAssociatedWithCoreDevice permission");
-            } else {
-                logger.atWarn().cause(e).log(
-                        "Failed to get things associated to the core device. Retry will be scheduled later");
-            }
+            logger.atWarn().cause(e).log(
+                    "Failed to get things associated to the core device. Retry will be scheduled later");
         }
 
         return Optional.empty();
