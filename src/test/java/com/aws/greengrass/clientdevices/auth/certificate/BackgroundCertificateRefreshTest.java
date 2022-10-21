@@ -62,6 +62,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -284,23 +285,70 @@ public class BackgroundCertificateRefreshTest {
     }
 
     @Test
-    void GIVEN_scheduler_WHEN_triggeredOnceADay_THEN_itShouldRunAtLeastOnceEveryDay() {
+    void GIVEN_scheduler_WHEN_runWithConnectivityIssues_THEN_itShouldRunEvery24H() {
+        // Service get started on boot-up
         Instant now = Instant.now();
         mockInstant(now.toEpochMilli());
+        backgroundRefresh.start();
+        assertEquals(now.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());
+        verify(backgroundRefresh, times(0)).run();
 
-        backgroundRefresh.run();
+        // Network goes down and back up some time later
+        Instant twelveHoursLater = Instant.now();
+        mockInstant(twelveHoursLater.toEpochMilli());
+        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_UP);
+        verify(backgroundRefresh, times(1)).run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
+        assertEquals(twelveHoursLater.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());
+        assertEquals(twelveHoursLater, backgroundRefresh.getLastRan());
 
-        Instant alMostADayLater = now.plus(Duration.ofHours(24)).minus(Duration.ofSeconds(10));
-        mockInstant(alMostADayLater.toEpochMilli());
-
+        // Something calls the task directly 12 hours after the last ran
+        Instant twelveHoursAfterLastSuccess = backgroundRefresh.getLastRan().plus(Duration.ofHours(12));
+        mockInstant(twelveHoursAfterLastSuccess.toEpochMilli());
         backgroundRefresh.run();
+        verify(backgroundRefresh, times(2)).run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
+        assertEquals(twelveHoursLater.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());
+        assertEquals(twelveHoursLater, backgroundRefresh.getLastRan());
 
-        Instant aFullDayLater = now.plus(Duration.ofHours(24));
-        mockInstant(aFullDayLater.toEpochMilli());
-
+        // The scheduler runs
+        Instant timeOfNextScheduledRun = backgroundRefresh.getNextScheduledRun();
+        mockInstant(timeOfNextScheduledRun.toEpochMilli());
         backgroundRefresh.run();
+        verify(backgroundRefresh, times(3)).run();
         verify(iotAuthClientFake, times(2)).getThingsAssociatedWithCoreDevice();
+        assertEquals(timeOfNextScheduledRun.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());
+        assertEquals(timeOfNextScheduledRun, backgroundRefresh.getLastRan());
+    }
+
+    @Test
+    void GIVEN_scheduler_WHEN_runWithNetworkFailures_THEN_itShouldRunEvery24H() {
+        // Service get started on boot-up
+        Instant now = Instant.now();
+        mockInstant(now.toEpochMilli());
+        backgroundRefresh.start();
+        assertEquals(now.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());
+        verify(backgroundRefresh, times(0)).run();
+
+        // Time of next run fails
+        AccessDeniedException err = AccessDeniedException.builder().build();
+        when(iotAuthClientFake.getThingsAssociatedWithCoreDevice()).thenThrow(err);
+        Instant timeOfNextScheduledRun = backgroundRefresh.getNextScheduledRun();
+        mockInstant(timeOfNextScheduledRun.toEpochMilli());
+        backgroundRefresh.run();
+        verify(backgroundRefresh, times(1)).run();
+        verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
+        assertEquals(timeOfNextScheduledRun.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());
+        assertNull(backgroundRefresh.getLastRan());
+
+        // Network goes down and back up again, but this time the error goes away
+        Instant twelveHoursAfterExecution = timeOfNextScheduledRun.plus(Duration.ofHours(12));
+        mockInstant(twelveHoursAfterExecution.toEpochMilli());
+        reset(iotAuthClientFake); // <- We are removing the error here
+        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_UP);
+        verify(backgroundRefresh, times(2)).run();
+        verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
+        assertEquals(twelveHoursAfterExecution.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());
+        assertEquals(twelveHoursAfterExecution, backgroundRefresh.getLastRan());
     }
 }

@@ -55,7 +55,8 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
     private ScheduledFuture<?> scheduledFuture = null;
     private final ScheduledThreadPoolExecutor scheduler;
-    private final AtomicReference<Instant> nextRun = new AtomicReference<>();
+    private final AtomicReference<Instant> nextScheduledRun = new AtomicReference<>();
+    private final AtomicReference<Instant> lastRan = new AtomicReference<>();
 
 
     /**
@@ -86,21 +87,12 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      * Start running the task every DEFAULT_INTERVAL_SECONDS.
      */
     public void start() {
-        start(DEFAULT_INTERVAL_SECONDS);
-    }
-
-    /**
-     * Start running the task on every intervalSeconds.
-     * @param intervalSeconds - frequency for this task to run
-     */
-    public void start(int intervalSeconds) {
         if (scheduledFuture != null) {
-           return;
+            return;
         }
 
-        logger.info("Starting background refresh of client certificates every {} seconds", intervalSeconds);
-        scheduledFuture =
-            scheduler.scheduleAtFixedRate(this, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
+        logger.info("Starting background refresh of client certificates every {} seconds", DEFAULT_INTERVAL_SECONDS);
+        scheduleNextRun();
     }
 
     /**
@@ -124,6 +116,21 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     }
 
     /**
+     * Returns the next Instant the task is scheduled to run. This will change based on whether the device goes offline
+     * or not but the guarantee is that it is scheduled to run 24h after the last successful run.
+     */
+    public Instant getNextScheduledRun() {
+       return nextScheduledRun.get();
+    }
+
+    /**
+     * Returns the last Instant the task ran successfully.
+     */
+    public Instant getLastRan() {
+        return lastRan.get();
+    }
+
+    /**
      * Runs verifyIotCertificate useCase for all the registered client certificate PEMs.
      */
     @Override
@@ -139,9 +146,20 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
         Optional<ThingAssociations> associations = getThingsAssociatedWithCoreDevice();
         associations.ifPresent(a -> {
-            this.refresh(a);
-            nextRun.set(Instant.now().plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS)));
+            refresh(a);
+            lastRan.set(Instant.now());
         });
+        this.scheduleNextRun();
+    }
+
+    private void scheduleNextRun() {
+        stop();
+
+        Instant now = Instant.now();
+        nextScheduledRun.set(now.plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS)));
+        Duration duration = Duration.between(nextScheduledRun.get(), now);
+
+        scheduledFuture = scheduler.schedule(this, duration.getSeconds(), TimeUnit.SECONDS);
     }
 
 
@@ -157,12 +175,12 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     }
 
     private boolean canRun() {
-        if (nextRun.get() == null) {
+        if (lastRan.get() == null) {
             return true;
         }
 
         Instant now = Instant.now();
-        return now.equals(nextRun.get()) || now.isAfter(nextRun.get());
+        return now.equals(nextScheduledRun.get()) || now.isAfter(nextScheduledRun.get());
     }
 
     /**
