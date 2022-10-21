@@ -11,10 +11,13 @@ import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
 public final class NetworkState {
+    private final ExecutorService executorService;
+
     public enum ConnectionState {
         NETWORK_UP,
         NETWORK_DOWN,
@@ -41,12 +44,14 @@ public final class NetworkState {
 
     /**
      * Represents the current network state.
-     * @param mqttClient   MqttClient wrapper.
+     * @param mqttClient      MqttClient wrapper.
+     * @param executorService Executor service used to dispatch connection state change events.
      */
     @Inject
-    public NetworkState(MqttClient mqttClient) {
+    public NetworkState(MqttClient mqttClient, ExecutorService executorService) {
         this.mqttClient = mqttClient;
         mqttClient.addToCallbackEvents(onConnect, callbacks);
+        this.executorService = executorService;
     }
 
     public void registerHandler(Consumer<ConnectionState> networkChangeHandler) {
@@ -83,7 +88,7 @@ public final class NetworkState {
     private void emitNetworkUp() {
         if (isRunning()) {
             for (Consumer<ConnectionState> handler : handlers) {
-                handler.accept(ConnectionState.NETWORK_UP);
+                executorService.submit(() -> handler.accept(ConnectionState.NETWORK_UP));
             }
         }
     }
@@ -91,7 +96,7 @@ public final class NetworkState {
     private void emitNetworkDown() {
         if (isRunning()) {
             for (Consumer<ConnectionState> handler : handlers) {
-                handler.accept(ConnectionState.NETWORK_DOWN);
+                executorService.submit(() -> handler.accept(ConnectionState.NETWORK_DOWN));
             }
         }
     }
