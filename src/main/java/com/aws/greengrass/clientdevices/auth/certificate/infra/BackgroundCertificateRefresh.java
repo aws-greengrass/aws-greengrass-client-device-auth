@@ -134,13 +134,14 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         }
 
         if (!canRun()) {
-            logger.info("Certificates were refreshed recently - retrying later");
             return;
         }
 
-        nextRun.set(Instant.now().plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS)));
         Optional<ThingAssociations> associations = getThingsAssociatedWithCoreDevice();
-        associations.ifPresent(this::refresh);
+        associations.ifPresent(a -> {
+            this.refresh(a);
+            nextRun.set(Instant.now().plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS)));
+        });
     }
 
 
@@ -162,7 +163,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         }
 
         Instant now = Instant.now();
-        return now.compareTo(nextRun.get()) >= 0;
+        return now.equals(nextRun.get()) || now.isAfter(nextRun.get());
     }
 
     /**
@@ -185,13 +186,17 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             ThingAssociations associations = ThingAssociations.create(cloudThings);
             associations.setLocalThings(localThings);
             return Optional.of(associations);
-        } catch (AccessDeniedException e) {
-            logger.atInfo().cause(e).log(
-                "Did not refresh local certificates. To enable certificate refresh add a policy to the core device"
-                        + "that grants the greengrass:ListClientDevicesAssociatedWithCoreDevice permission");
         } catch (Exception e) {
-            logger.atWarn().cause(e).log(
-                "Failed to get things associated to the core device. Retry will be scheduled later");
+            // We can't explicitly catch this given we always throw a CloudServiceInteractionException, hence we do
+            // have to check it here
+            if (e.getCause() instanceof AccessDeniedException) {
+                logger.atInfo().log(
+                    "Did not refresh local certificates. To enable certificate refresh add a policy to the core device"
+                            + " that grants the greengrass:ListClientDevicesAssociatedWithCoreDevice permission");
+            } else {
+                logger.atWarn().cause(e).log(
+                        "Failed to get things associated to the core device. Retry will be scheduled later");
+            }
         }
 
         return Optional.empty();
