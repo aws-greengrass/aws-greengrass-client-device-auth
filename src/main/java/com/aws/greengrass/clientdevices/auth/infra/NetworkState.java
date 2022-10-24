@@ -11,10 +11,13 @@ import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
 public final class NetworkState {
+    private final ExecutorService executorService;
+
     public enum ConnectionState {
         NETWORK_UP,
         NETWORK_DOWN,
@@ -41,12 +44,14 @@ public final class NetworkState {
 
     /**
      * Represents the current network state.
-     * @param mqttClient   MqttClient wrapper.
+     * @param mqttClient      MqttClient wrapper.
+     * @param executorService Executor service used to dispatch connection state change events.
      */
     @Inject
-    public NetworkState(MqttClient mqttClient) {
+    public NetworkState(MqttClient mqttClient, ExecutorService executorService) {
         this.mqttClient = mqttClient;
         mqttClient.addToCallbackEvents(onConnect, callbacks);
+        this.executorService = executorService;
     }
 
     public void registerHandler(Consumer<ConnectionState> networkChangeHandler) {
@@ -54,21 +59,16 @@ public final class NetworkState {
     }
 
     /**
-     * Returns the believed Greengrass connection state using the MQTT
-     * connection as a proxy indicator.
+     * Returns the current state of the Greengrass MQTT connection.
      * </p>
-     * NETWORK_UP and NETWORK_DOWN are really euphemisms for whether there is
-     * a network route to IoT Core. With that out of the way, understand that
-     * the information returned by this method is squishy, at best. The only
-     * way to know for sure if a network call will succeed is to try it.
+     * The idea here is to use the Greengrass MQTT connection as a proxy for
+     * whether we think the core device is online. This may be useful in latency
+     * sensitive situation where we'd like to avoid making a network call if we
+     * think it will time out.
      * </p>
-     * You can consider using this method in latency sensitive situations to
-     * decide if an HTTP call should be attempted now or queued as a background
-     * task, but you shouldn't require a NETWORK_UP response before at least
-     * trying. Assume the response could be wrong, and give yourself a way
-     * to recover in case this never returns NETWORK_UP.
-     * </p>
-     * In other words, this is a footgun. Treat it as such.
+     * Note that this is not a perfect indicator. Assume the response could be
+     * wrong and make sure your code will function in case this never returns
+     * NETWORK_UP.
      *
      * @return Connection state enum
      */
@@ -82,17 +82,21 @@ public final class NetworkState {
 
     private void emitNetworkUp() {
         if (isRunning()) {
-            for (Consumer<ConnectionState> handler : handlers) {
-                handler.accept(ConnectionState.NETWORK_UP);
-            }
+            executorService.submit(() -> {
+                for (Consumer<ConnectionState> handler : handlers) {
+                    handler.accept(ConnectionState.NETWORK_UP);
+                }
+            });
         }
     }
 
     private void emitNetworkDown() {
         if (isRunning()) {
-            for (Consumer<ConnectionState> handler : handlers) {
-                handler.accept(ConnectionState.NETWORK_DOWN);
-            }
+            executorService.submit(() -> {
+                for (Consumer<ConnectionState> handler : handlers) {
+                    handler.accept(ConnectionState.NETWORK_DOWN);
+                }
+            });
         }
     }
 
