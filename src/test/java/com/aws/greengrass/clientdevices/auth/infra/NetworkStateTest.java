@@ -61,7 +61,7 @@ public class NetworkStateTest {
 
     @ParameterizedTest
     @MethodSource("provideNetworkEventsAndExpectedState")
-    void assertNetworkDomainEventOnNetworkEvent(
+    void GIVEN_subscriptionToNetworkChanges_WHEN_connectionStateChanges_THEN_networkEventTriggeredOnSeparateThread(
             Callable<NetworkState.ConnectionState> triggerNetworkChangeAndGetExpectedConnectionState) throws Exception {
         // GIVEN
         CountDownLatch cdl = new CountDownLatch(1);
