@@ -20,7 +20,8 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.RetryUtils;
-import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
+import software.amazon.awssdk.services.greengrassv2.model.AccessDeniedException;
+import software.amazon.awssdk.services.greengrassv2.model.AssociatedClientDevice;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
@@ -28,6 +29,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -163,7 +165,6 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         scheduledFuture = scheduler.schedule(this, duration.getSeconds(), TimeUnit.SECONDS);
     }
 
-
     /**
      * Handler to react to network changes.
      * @param connectionState - A network state
@@ -196,9 +197,13 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
                 .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class)).build();
 
         try {
-            Stream<Thing> cloudThings = RetryUtils.runWithRetry(
+            Stream<List<AssociatedClientDevice>> cloudAssociatedDevices = RetryUtils.runWithRetry(
                     retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
-                    "get-things-associated-with-core-device", logger);
+                            "get-things-associated-with-core-device", logger);
+
+            Stream<Thing> cloudThings = cloudAssociatedDevices.flatMap(List::stream)
+                        .map(AssociatedClientDevice::thingName)
+                        .map(name -> Thing.of(name, Thing.Source.CLOUD));
 
             return Optional.of(cloudThings);
         } catch (AccessDeniedException e) {
@@ -239,14 +244,14 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     private void refreshCertificateAttachments(Thing thing) {
         AtomicReference<Thing> thingWithCerts = new AtomicReference<>(thing);
 
-        if (thingWithCerts.get().getSource() != Thing.Source.LOCAL) {
-            thingWithCerts.set(thingRegistry.getThing(thing.getThingName()));
-        }
-
         if (thingWithCerts.get() == null) {
-            logger.atInfo().kv("thingName", thing.getThingName())
+            logger.atDebug().kv("thingName", thing.getThingName())
                     .log("No local version found for thing. Not refreshing thing certificate attachments");
             return;
+        }
+
+        if (thingWithCerts.get().getSource() != Thing.Source.LOCAL) {
+            thingWithCerts.set(thingRegistry.getThing(thing.getThingName()));
         }
 
         Set<String> thingCertificateIds = thingWithCerts.get().getAttachedCertificateIds().keySet();
@@ -273,6 +278,11 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         });
     }
 
+    /**
+     * Closure around a Consumer that refreshes all the certificates attached to a thing. It records the certificates
+     * that have already been refreshed to avoid refreshing them again if they are attached to another thing and allows
+     * the enclosed value to be returned ba accessing the pair.getLeft()
+     */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private Pair<Set<String>, Consumer<Thing>> refreshCertificateValidity() {
         Set<String> alreadyRefreshed = new HashSet<>();

@@ -56,6 +56,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.function.Supplier;
 
 import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 
@@ -157,8 +158,10 @@ public class BackgroundCertificateRefreshTest {
             NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
             InvalidCertificateException {
         // Given
-        Thing thingOne = Thing.of("ThingOne");
-        Thing thingTwo = Thing.of("ThingTwo");
+        Supplier<String> thingOneName = () -> "ThingOne";
+        Thing thingOne = Thing.of(thingOneName.get());
+        Supplier<String> thingTwoName = () -> "ThingTwo";
+        Thing thingTwo = Thing.of(thingTwoName.get());
         List<X509Certificate> clientCerts = generateClientCerts(2);
 
         String certificateAPem = CertificateHelper.toPem(clientCerts.get(0));
@@ -175,7 +178,7 @@ public class BackgroundCertificateRefreshTest {
         thingOne.attachCertificate(certA.getCertificateId());
         thingRegistry.updateThing(thingOne);
 
-        iotAuthClientFake.attachThingToCore(thingOne.getThingName());
+        iotAuthClientFake.attachThingToCore(thingOneName);
 
         // When
         backgroundRefresh.run();
@@ -193,8 +196,10 @@ public class BackgroundCertificateRefreshTest {
     void GIVEN_certsAndThings_WHEN_certificateAssociatedToMoreThanOneThing_THEN_itDoesNotGetRemoved() throws
         Exception{
         // Given
-        Thing thingOne = Thing.of("ThingOne");
-        Thing thingTwo = Thing.of("ThingTwo");
+        Supplier<String> thingOneName = () -> "ThingOne";
+        Thing thingOne = Thing.of(thingOneName.get());
+        Supplier<String> thingTwoName = () -> "ThingTwo";
+        Thing thingTwo = Thing.of(thingTwoName.get());
         List<X509Certificate> clientCerts = generateClientCerts(1);
 
         String certificateAPem = CertificateHelper.toPem(clientCerts.get(0));
@@ -210,7 +215,7 @@ public class BackgroundCertificateRefreshTest {
         thingTwo.attachCertificate(certA.getCertificateId());
         thingRegistry.updateThing(thingTwo);
 
-        iotAuthClientFake.attachThingToCore(thingOne.getThingName());
+        iotAuthClientFake.attachThingToCore(thingOneName);
 
         // When
         backgroundRefresh.run();
@@ -233,7 +238,8 @@ public class BackgroundCertificateRefreshTest {
     }
 
     @Test
-    void GIVEN_deviceOnline_WHEN_iotCoreCallFails_THEN_itShouldRetryAgainWhenCalled() {
+    void GIVEN_deviceOnline_WHEN_iotCoreCallFails_THEN_itShouldRetryAgainWhenCalled(ExtensionContext context) {
+        ignoreExceptionOfType(context, AccessDeniedException.class);
         AccessDeniedException accessDeniedException = AccessDeniedException.builder().build();
         when(iotAuthClientFake.getThingsAssociatedWithCoreDevice()).thenThrow(accessDeniedException);
 
@@ -294,8 +300,10 @@ public class BackgroundCertificateRefreshTest {
             ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, CloudServiceInteractionException.class);
         // Given
-        Thing thingOne = Thing.of("ThingOne");
-        Thing thingTwo = Thing.of("ThingTwo");
+        Supplier<String> thingOneName = () -> "ThingOne";
+        Thing thingOne = Thing.of(thingOneName.get());
+        Supplier<String> thingTwoName = () -> "ThingTwo";
+        Thing thingTwo = Thing.of(thingTwoName.get());
         List<X509Certificate> clientCerts = generateClientCerts(2);
 
         String certificateAPem = CertificateHelper.toPem(clientCerts.get(0));
@@ -313,8 +321,8 @@ public class BackgroundCertificateRefreshTest {
         thingTwo.attachCertificate(certB.getCertificateId());
         thingRegistry.updateThing(thingTwo);
 
-        iotAuthClientFake.attachThingToCore(thingOne.getThingName());
-        iotAuthClientFake.attachThingToCore(thingTwo.getThingName());
+        iotAuthClientFake.attachThingToCore(thingOneName);
+        iotAuthClientFake.attachThingToCore(thingTwoName);
 
         Instant now = Instant.now();
         mockInstant(now.toEpochMilli());
@@ -373,7 +381,8 @@ public class BackgroundCertificateRefreshTest {
     }
 
     @Test
-    void GIVEN_scheduler_WHEN_runWithNetworkFailures_THEN_itShouldRunEvery24H() {
+    void GIVEN_scheduler_WHEN_runWithNetworkFailures_THEN_itShouldRunEvery24H(ExtensionContext context) {
+        ignoreExceptionOfType(context, AccessDeniedException.class);
         // Service get started on boot-up
         Instant now = Instant.now();
         mockInstant(now.toEpochMilli());
