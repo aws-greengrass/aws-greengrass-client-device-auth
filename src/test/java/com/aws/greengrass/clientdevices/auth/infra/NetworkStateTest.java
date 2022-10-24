@@ -10,20 +10,24 @@ import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -37,9 +41,9 @@ public class NetworkStateTest {
     @Mock
     MqttClient mqttClient;
     @Captor
-    ArgumentCaptor<CallbackEventManager.OnConnectCallback> onConnectCaptor;
+    static ArgumentCaptor<CallbackEventManager.OnConnectCallback> onConnectCaptor;
     @Captor
-    ArgumentCaptor<MqttClientConnectionEvents> connectionEventsArgumentCaptor;
+    static ArgumentCaptor<MqttClientConnectionEvents> connectionEventsArgumentCaptor;
     private ForkJoinPool fjp = new ForkJoinPool();
     private NetworkState networkState;
 
@@ -55,8 +59,11 @@ public class NetworkStateTest {
         fjp.shutdown();
     }
 
-    void assertNetworkDomainEventOnNetworkEvent(Runnable networkEvent, NetworkState.ConnectionState expectedState)
-            throws InterruptedException {
+    @ParameterizedTest
+    @MethodSource("provideNetworkEventsAndExpectedState")
+    void assertNetworkDomainEventOnNetworkEvent(
+            Callable<NetworkState.ConnectionState> triggerNetworkChangeAndGetExpectedConnectionState) throws Exception {
+        // GIVEN
         CountDownLatch cdl = new CountDownLatch(1);
         AtomicLong callbackThreadId = new AtomicLong();
         AtomicReference<NetworkState.ConnectionState> connState = new AtomicReference<>();
@@ -69,8 +76,10 @@ public class NetworkStateTest {
         };
         networkState.registerHandler(networkStateConsumer);
 
-        networkEvent.run();
+        // WHEN
+        NetworkState.ConnectionState expectedState = triggerNetworkChangeAndGetExpectedConnectionState.call();
 
+        // THEN
         // Assert that NETWORK_UP event was emitted, and that it was emitted in a separate thread.
         // We're checking this because network change events are triggered in a CRT thread, which
         // we should not ever block
@@ -79,25 +88,20 @@ public class NetworkStateTest {
         assertThat(connState.get(), is(expectedState));
     }
 
-    @Test
-    void GIVEN_networkStateChange_WHEN_onConnectCallback_THEN_networkUpEventEmitted() throws InterruptedException {
-        assertNetworkDomainEventOnNetworkEvent(() -> onConnectCaptor.getValue().onConnect(true),
-                NetworkState.ConnectionState.NETWORK_UP);
-    }
-
-    @Test
-    void GIVEN_networkStateChange_WHEN_connectionResumedCallback_THEN_networkUpEventEmitted()
-            throws InterruptedException {
-        assertNetworkDomainEventOnNetworkEvent(
-                () -> connectionEventsArgumentCaptor.getValue().onConnectionResumed(true),
-                NetworkState.ConnectionState.NETWORK_UP);
-    }
-
-    @Test
-    void GIVEN_networkStateChange_WHEN_connectionInterruptedCallback_THEN_networkDownEventEmitted()
-            throws InterruptedException {
-        assertNetworkDomainEventOnNetworkEvent(
-                () -> connectionEventsArgumentCaptor.getValue().onConnectionInterrupted(0),
-                NetworkState.ConnectionState.NETWORK_DOWN);
+    private static Stream<Arguments> provideNetworkEventsAndExpectedState() {
+        return Stream.of(
+                Arguments.arguments((Callable< NetworkState.ConnectionState>)() -> {
+                    onConnectCaptor.getValue().onConnect(true);
+                    return NetworkState.ConnectionState.NETWORK_UP;
+                }),
+                Arguments.arguments((Callable< NetworkState.ConnectionState>)() -> {
+                    connectionEventsArgumentCaptor.getValue().onConnectionResumed(true);
+                    return NetworkState.ConnectionState.NETWORK_UP;
+                }),
+                Arguments.arguments((Callable< NetworkState.ConnectionState>)() -> {
+                    connectionEventsArgumentCaptor.getValue().onConnectionInterrupted(0);
+                    return NetworkState.ConnectionState.NETWORK_DOWN;
+                })
+        );
     }
 }
