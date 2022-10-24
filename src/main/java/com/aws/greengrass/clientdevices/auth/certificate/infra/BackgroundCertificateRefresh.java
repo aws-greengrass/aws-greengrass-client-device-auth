@@ -228,6 +228,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         });
     }
 
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void refreshCertificateThingAttachment(Thing thing) {
         VerifyThingAttachedToCertificate useCase = useCases.get(VerifyThingAttachedToCertificate.class);
 
@@ -245,13 +246,14 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             try {
                 Certificate certificate = Certificate.fromPem(certPem.get());
                 useCase.apply(new VerifyThingAttachedToCertificateDTO(thing, certificate));
-            } catch (InvalidCertificateException e) {
+            } catch (InvalidCertificateException | RuntimeException e) {
                 logger.atWarn().cause(e).kv("thing", thing.getThingName()).kv("certificate", certificateId)
                         .log("Failed to verify thing attached to certificate");
             }
         });
     }
 
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void refreshCertificateValidity(Certificate certificate) {
         Optional<String> certPem = pemStore.getPem(certificate.getCertificateId());
 
@@ -262,7 +264,12 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         }
 
         VerifyIotCertificate useCase = useCases.get(VerifyIotCertificate.class);
-        useCase.apply(certPem.get());
+        try {
+            useCase.apply(certPem.get());
+        } catch (RuntimeException e) {
+            logger.atWarn().cause(e).kv("certificateId", certificate.getCertificateId())
+                    .log("Failed to verify certificate validity");
+        }
     }
 
     private boolean isNetworkDown() {

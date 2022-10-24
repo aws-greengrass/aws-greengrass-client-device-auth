@@ -10,6 +10,7 @@ import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
+import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
@@ -17,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
+import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyThingAttachedToCertificate;
@@ -32,6 +34,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.ScopedMock;
@@ -55,6 +59,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 
+import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -282,6 +287,52 @@ public class BackgroundCertificateRefreshTest {
 
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(2)).getThingsAssociatedWithCoreDevice();
+    }
+
+    @Test
+    void GIVEN_cloudFailure_WHEN_verifyingAThingCertificateAttachment_THEN_refreshTaskShouldStillRun(
+            ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, CloudServiceInteractionException.class);
+        // Given
+        Thing thingOne = Thing.of("ThingOne");
+        Thing thingTwo = Thing.of("ThingTwo");
+        List<X509Certificate> clientCerts = generateClientCerts(2);
+
+        String certificateAPem = CertificateHelper.toPem(clientCerts.get(0));
+        Certificate certA = Certificate.fromPem(certificateAPem);
+        certificateRegistry.getOrCreateCertificate(certificateAPem);
+        String certificateBPem = CertificateHelper.toPem(clientCerts.get(1));
+        Certificate certB = Certificate.fromPem(certificateBPem);
+        certificateRegistry.getOrCreateCertificate(certificateBPem);
+
+        thingRegistry.createThing(thingOne.getThingName());
+        thingRegistry.createThing(thingTwo.getThingName());
+
+        thingOne.attachCertificate(certA.getCertificateId());
+        thingRegistry.updateThing(thingOne);
+        thingTwo.attachCertificate(certB.getCertificateId());
+        thingRegistry.updateThing(thingTwo);
+
+        iotAuthClientFake.attachThingToCore(thingOne.getThingName());
+        iotAuthClientFake.attachThingToCore(thingTwo.getThingName());
+
+        Instant now = Instant.now();
+        mockInstant(now.toEpochMilli());
+
+        // When
+        // Fail when verifying thingOne attachment to certA
+        ArgumentCaptor<VerifyThingAttachedToCertificateDTO> doCaptor =
+                ArgumentCaptor.forClass(VerifyThingAttachedToCertificateDTO.class);
+
+        when(verifyThingAttachedToCertificateMock.apply(doCaptor.capture()))
+                .thenThrow(new CloudServiceInteractionException("Failed to verify association"))
+                .thenReturn(true);
+        assertNull(backgroundRefresh.getLastRan());
+        backgroundRefresh.run();
+
+        // Then
+        assertEquals(backgroundRefresh.getNextScheduledRun(), now.plus(Duration.ofHours(24)));
+        assertEquals(backgroundRefresh.getLastRan(), now);
     }
 
     @Test
