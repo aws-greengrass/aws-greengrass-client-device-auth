@@ -40,11 +40,6 @@ public final class Thing implements AttributeProvider, Cloneable {
     // map of certificate ID to the time this certificate was known to be attached to the Thing
     private final Map<String, Instant> attachedCertificateIds;
     private boolean modified = false;
-    private final Source source;
-
-    public enum Source {
-        LOCAL, CLOUD, UNSET;
-    }
 
     /**
      * Create a new Thing.
@@ -53,7 +48,7 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @throws IllegalArgumentException If the given ThingName contains illegal characters
      */
     public static Thing of(String thingName) {
-        return Thing.of(thingName, null, Source.UNSET);
+        return Thing.of(thingName, null);
     }
 
     /**
@@ -64,38 +59,15 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @throws IllegalArgumentException If the given ThingName contains illegal characters
      */
     public static Thing of(String thingName, Map<String, Instant> certificateIds) {
-        return new Thing(thingName, certificateIds, Source.UNSET);
-    }
-
-    /**
-     * Create a new Thing.
-     *
-     * @param thingName      AWS IoT ThingName
-     * @param source        Source of creation
-     * @throws IllegalArgumentException If the given ThingName contains illegal characters
-     */
-    public static Thing of(String thingName, Source source) {
-        return new Thing(thingName, null, source);
-    }
-
-    /**
-     * Create a new Thing.
-     *
-     * @param thingName      AWS IoT ThingName
-     * @param certificateIds Attached certificate IDs
-     * @param source        Source of creation
-     * @throws IllegalArgumentException If the given ThingName contains illegal characters
-     */
-    public static Thing of(String thingName, Map<String, Instant> certificateIds, Source source) {
         if (!Pattern.matches(thingNamePattern, thingName)) {
             throw new IllegalArgumentException("Invalid thing name. The thing name must match \"[a-zA-Z0-9\\-_:]+\".");
         }
-        return new Thing(thingName, certificateIds, source);
+        return new Thing(thingName, certificateIds);
     }
 
     @Override
     public Thing clone() {
-        Thing newThing = Thing.of(getThingName(), getAttachedCertificateIds(), getSource());
+        Thing newThing = Thing.of(getThingName(), getAttachedCertificateIds());
         newThing.modified = modified;
         return newThing;
     }
@@ -156,9 +128,8 @@ public final class Thing implements AttributeProvider, Cloneable {
         return lastVerified != null && isCertAttachmentTrusted(lastVerified);
     }
 
-    private Thing(String thingName, Map<String, Instant> certificateIds, Source source) {
+    private Thing(String thingName, Map<String, Instant> certificateIds) {
         this.thingName = thingName;
-        this.source = source;
         if (certificateIds == null) {
             this.attachedCertificateIds = new ConcurrentHashMap<>();
         } else {

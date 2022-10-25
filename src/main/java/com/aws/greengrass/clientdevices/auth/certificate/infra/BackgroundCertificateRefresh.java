@@ -9,7 +9,6 @@ import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
-import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
@@ -18,7 +17,6 @@ import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyThingAttachedToCertificate;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.RetryUtils;
 import software.amazon.awssdk.services.greengrassv2.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2.model.AssociatedClientDevice;
@@ -28,6 +26,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingExceptio
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -147,9 +146,9 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             return;
         }
 
-        Optional<Stream<Thing>> associations = getThingsAssociatedWithCoreDevice();
-        associations.ifPresent(a -> {
-            this.refresh(a);
+        Optional<Set<String>> thingNamesAssociatedWithCore = getThingsAssociatedWithCoreDevice();
+        thingNamesAssociatedWithCore.ifPresent(thingNames -> {
+            this.refresh(thingNames);
             lastRan.set(Instant.now());
         });
         this.scheduleNextRun();
@@ -190,7 +189,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      * which things are no longer associated with the core device.
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private Optional<Stream<Thing>> getThingsAssociatedWithCoreDevice() {
+    private Optional<Set<String>> getThingsAssociatedWithCoreDevice() {
         RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
                 .initialRetryInterval(Duration.ofSeconds(30)).maxRetryInterval(Duration.ofMinutes(3))
                 .maxAttempt(3)
@@ -201,9 +200,9 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
                     retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
                             "get-things-associated-with-core-device", logger);
 
-            Stream<Thing> cloudThings = cloudAssociatedDevices.flatMap(List::stream)
+            Set<String> cloudThings = cloudAssociatedDevices.flatMap(List::stream)
                         .map(AssociatedClientDevice::thingName)
-                        .map(name -> Thing.of(name, Thing.Source.CLOUD));
+                    .collect(Collectors.toSet());
 
             return Optional.of(cloudThings);
         } catch (AccessDeniedException e) {
@@ -218,106 +217,64 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         return Optional.empty();
     }
 
-    private void refresh(Stream<Thing> thingsAttachedToCore) {
-        Pair<Set<String>, Consumer<Thing>> refreshCertificates = refreshCertificateValidity();
+    private void refresh(Set<String> thingNamesAttachedToCore) {
+        Set<String> certificatesAttachedToThings = new HashSet<>();
 
-        Set<String> attachedThingNames = thingsAttachedToCore
-                // Refresh the thing certificate attachments
-                .peek(this::refreshCertificateAttachments)
-                // Load the thing from the local store after their certificates have been updated.
-                .map(thing -> thingRegistry.getThing(thing.getThingName()))
-                // Skip the things that could not be found or for which the refresh failed
-                .filter(Objects::nonNull)
-                // Refresh the validity of all the certificates attached to the things
-                .peek(refreshCertificates.getRight())
-                // Get the names of the valid things that should still be in the registries
-                .map(Thing::getThingName)
-                // Wait for the stream to finish processing, collect all the valid attached things
-                .collect(Collectors.toSet());
+        for (String thingName : thingNamesAttachedToCore) {
+            Set<String> certificateIdAttachedToThing = this.refreshCertificateAttachments(thingName);
+            certificatesAttachedToThings.addAll(certificateIdAttachedToThing);
+        }
+
+        for (String certificateId: certificatesAttachedToThings) {
+            this.refreshCertificateValidity(certificateId);
+        }
 
         // Clean up the registries by providing the names of the things that should still be attached and
         // the ids of the certificates that are still attached to a thing.
-        cleanUpRegistries(attachedThingNames, refreshCertificates.getLeft());
+        cleanUpRegistries(thingNamesAttachedToCore, certificatesAttachedToThings);
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private void refreshCertificateAttachments(Thing thing) {
-        AtomicReference<Thing> thingWithCerts = new AtomicReference<>(thing);
+    private Set<String> refreshCertificateAttachments(String thingName) {
+        Thing thing = thingRegistry.getThing(thingName);
 
-        if (thingWithCerts.get() == null) {
-            logger.atDebug().kv("thingName", thing.getThingName())
+        if (Objects.isNull(thing)) {
+            logger.atDebug().kv("thingName", thingName)
                     .log("No local version found for thing. Not refreshing thing certificate attachments");
-            return;
+            return Collections.emptySet();
         }
 
-        if (thingWithCerts.get().getSource() != Thing.Source.LOCAL) {
-            thingWithCerts.set(thingRegistry.getThing(thing.getThingName()));
-        }
+        Set<String> thingCertificateIds = thing.getAttachedCertificateIds().keySet();
 
-        Set<String> thingCertificateIds = thingWithCerts.get().getAttachedCertificateIds().keySet();
-
-        thingCertificateIds.forEach(certificateId -> {
-            Optional<String> certPem = pemStore.getPem(certificateId);
-
-            if (!certPem.isPresent()) {
-                logger.atWarn()
-                        .kv("certificateId", certificateId)
-                        .kv("thing", thing.getThingName())
-                        .log("Tried to refresh certificate thing attachment but its pem was not found");
-                return;
-            }
-
+        for (String certificateId: thingCertificateIds) {
             try {
-                Certificate certificate = Certificate.fromPem(certPem.get());
                 useCases.get(VerifyThingAttachedToCertificate.class).apply(
-                        new VerifyThingAttachedToCertificateDTO(thingWithCerts.get(), certificate));
-            } catch (InvalidCertificateException | RuntimeException e) {
+                        new VerifyThingAttachedToCertificateDTO(thingName, certificateId));
+            } catch (RuntimeException e) {
                 logger.atWarn().cause(e).kv("thingName", thing.getThingName()).kv("certificate", certificateId)
                         .log("Failed to verify thing certificate - certificate pem is invalid");
             }
-        });
+        }
+
+        return thingCertificateIds;
     }
 
-    /**
-     * Closure around a Consumer that refreshes all the certificates attached to a thing. It records the certificates
-     * that have already been refreshed to avoid refreshing them again if they are attached to another thing and allows
-     * the enclosed value to be returned ba accessing the pair.getLeft()
-     */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private Pair<Set<String>, Consumer<Thing>> refreshCertificateValidity() {
-        Set<String> alreadyRefreshed = new HashSet<>();
-        VerifyIotCertificate verifyCertificate = useCases.get(VerifyIotCertificate.class);
+    private void refreshCertificateValidity(String certificateId) {
+        Optional<String> certPem = pemStore.getPem(certificateId);
 
-        Consumer<Thing> callback = (Thing thing) -> {
-            Set<String> thingCertificateIds = thing.getAttachedCertificateIds().keySet();
+        if (!certPem.isPresent()) {
+            logger.atWarn()
+                    .kv("certificateId", certificateId)
+                    .log("Tried to refresh certificate validity but its pem was not found");
+            return;
+        }
 
-            thingCertificateIds.forEach(certificateId -> {
-
-                if (alreadyRefreshed.contains(certificateId)) {
-                    return;
-                }
-
-                Optional<String> certPem = pemStore.getPem(certificateId);
-
-                if (!certPem.isPresent()) {
-                    logger.atWarn()
-                            .kv("certificateId", certificateId)
-                            .kv("thing", thing.getThingName())
-                            .log("Tried to refresh certificate validity but its pem was not found");
-                    return;
-                }
-
-                alreadyRefreshed.add(certificateId);
-                try {
-                    verifyCertificate.apply(certPem.get());
-                } catch (RuntimeException e) {
-                logger.atWarn().cause(e)
-                        .log("Failed to verify certificate validity");
-            }
-            });
-        };
-
-        return new Pair<>(alreadyRefreshed, callback);
+        try {
+            useCases.get(VerifyIotCertificate.class).apply(certPem.get());
+        } catch (RuntimeException e) {
+            logger.atWarn().kv("certificateId", certificateId).cause(e).log("Failed to verify certificate validity");
+        }
     }
 
     private void cleanUpRegistries(Set<String> attachedThings, Set<String> certificatesAttachedToThings) {

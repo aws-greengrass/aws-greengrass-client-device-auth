@@ -35,6 +35,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.VerifyClientDevice
 
 import java.net.URI;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 import javax.inject.Inject;
@@ -45,6 +46,9 @@ public interface IotAuthClient {
     Optional<Certificate> getIotCertificate(String certificatePem) throws InvalidCertificateException;
 
     boolean isThingAttachedToCertificate(Thing thing, Certificate certificate);
+
+    boolean isThingAttachedToCertificate(Thing thing, String certificateId);
+
 
     Stream<List<AssociatedClientDevice>> getThingsAssociatedWithCoreDevice();
 
@@ -119,38 +123,46 @@ public interface IotAuthClient {
         }
 
         @Override
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
+            if (Objects.isNull(certificate)) {
+                return false;
+            }
+            return isThingAttachedToCertificate(thing, certificate.getCertificateId());
+        }
+
+        @Override
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        public boolean isThingAttachedToCertificate(Thing thing, String certificateId) {
             if (thing == null || Utils.isEmpty(thing.getThingName())) {
                 throw new IllegalArgumentException("No thing name available to validate");
             }
 
-            if (certificate == null || Utils.isEmpty(certificate.getCertificateId())) {
+            if (certificateId == null || Utils.isEmpty(certificateId)) {
                 throw new IllegalArgumentException("No IoT certificate ID available to validate");
             }
 
             VerifyClientDeviceIoTCertificateAssociationRequest request =
                     VerifyClientDeviceIoTCertificateAssociationRequest.builder()
                             .clientDeviceThingName(thing.getThingName())
-                            .clientDeviceCertificateId(certificate.getCertificateId()).build();
+                            .clientDeviceCertificateId(certificateId).build();
             try {
                 clientFactory.getGreengrassV2DataClient().verifyClientDeviceIoTCertificateAssociation(request);
                 logger.atDebug().kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificate.getCertificateId()).log("Thing is attached to certificate");
+                        .kv("certificateId", certificateId).log("Thing is attached to certificate");
                 return true;
             } catch (ValidationException | ResourceNotFoundException e) {
                 logger.atDebug().cause(e).kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificate.getCertificateId())
+                        .kv("certificateId", certificateId)
                         .log("Thing is not attached to certificate");
                 return false;
             } catch (Exception e) {
                 logger.atError().cause(e).kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificate.getCertificateId())
+                        .kv("certificateId", certificateId)
                         .log("Failed to verify certificate thing association. Check that the core device's IoT policy"
                                 + " grants the greengrass:VerifyClientDeviceIoTCertificateAssociation permission");
                 throw new CloudServiceInteractionException(
                         String.format("Failed to verify certificate %s thing %s association",
-                                certificate.getCertificateId(), thing.getThingName()), e);
+                                certificateId, thing.getThingName()), e);
             }
         }
 
