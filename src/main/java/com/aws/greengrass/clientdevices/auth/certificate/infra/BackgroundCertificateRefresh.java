@@ -19,10 +19,12 @@ import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyThingAttachedToC
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.RetryUtils;
+import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +33,8 @@ import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.inject.Inject;
@@ -39,7 +43,7 @@ import javax.inject.Inject;
  * Periodically updates the certificates and its relationships to things
  * (whether they are still attached or not to a thing) to keep them in sync with the cloud.
  */
-public class BackgroundCertificateRefresh implements Runnable {
+public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkState.ConnectionState> {
     private final UseCases useCases;
     private final NetworkState networkState;
     private static final int DEFAULT_INTERVAL_SECONDS = 60 * 60 * 24; // Once a day
@@ -51,6 +55,8 @@ public class BackgroundCertificateRefresh implements Runnable {
 
     private ScheduledFuture<?> scheduledFuture = null;
     private final ScheduledThreadPoolExecutor scheduler;
+    private final AtomicReference<Instant> nextScheduledRun = new AtomicReference<>();
+    private final AtomicReference<Instant> lastRan = new AtomicReference<>();
 
 
     /**
@@ -81,21 +87,12 @@ public class BackgroundCertificateRefresh implements Runnable {
      * Start running the task every DEFAULT_INTERVAL_SECONDS.
      */
     public void start() {
-        start(DEFAULT_INTERVAL_SECONDS);
-    }
-
-    /**
-     * Start running the task on every intervalSeconds.
-     * @param intervalSeconds - frequency for this task to run
-     */
-    public void start(int intervalSeconds) {
         if (scheduledFuture != null) {
-           return;
+            return;
         }
 
-        logger.info("Starting background refresh of client certificates every {} seconds", intervalSeconds);
-        scheduledFuture =
-            scheduler.scheduleAtFixedRate(this, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
+        logger.info("Starting background refresh of client certificates every {} seconds", DEFAULT_INTERVAL_SECONDS);
+        scheduleNextRun();
     }
 
     /**
@@ -119,17 +116,71 @@ public class BackgroundCertificateRefresh implements Runnable {
     }
 
     /**
+     * Returns the next Instant the task is scheduled to run. This will change based on whether the device goes offline
+     * or not but the guarantee is that it is scheduled to run 24h after the last successful run.
+     */
+    public Instant getNextScheduledRun() {
+       return nextScheduledRun.get();
+    }
+
+    /**
+     * Returns the last Instant the task ran successfully.
+     */
+    public Instant getLastRan() {
+        return lastRan.get();
+    }
+
+    /**
      * Runs verifyIotCertificate useCase for all the registered client certificate PEMs.
      */
     @Override
-    public void run() {
+    public synchronized void run() {
         if (isNetworkDown()) {
             logger.debug("Network is down - not refreshing certificates");
             return;
         }
 
+        if (!canRun()) {
+            return;
+        }
+
         Optional<ThingAssociations> associations = getThingsAssociatedWithCoreDevice();
-        associations.ifPresent(this::refresh);
+        associations.ifPresent(a -> {
+            this.refresh(a);
+            lastRan.set(Instant.now());
+        });
+        this.scheduleNextRun();
+    }
+
+    private void scheduleNextRun() {
+        stop();
+
+        Instant now = Instant.now();
+        nextScheduledRun.set(now.plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS)));
+        Duration duration = Duration.between(now, nextScheduledRun.get());
+
+        scheduledFuture = scheduler.schedule(this, duration.getSeconds(), TimeUnit.SECONDS);
+    }
+
+
+    /**
+     * Handler to react to network changes.
+     * @param connectionState - A network state
+     */
+    @Override
+    public void accept(NetworkState.ConnectionState connectionState) {
+        if (connectionState == NetworkState.ConnectionState.NETWORK_UP) {
+            run();
+        }
+    }
+
+    private boolean canRun() {
+        if (lastRan.get() == null) {
+            return true;
+        }
+
+        Instant now = Instant.now();
+        return now.equals(nextScheduledRun.get()) || now.isAfter(nextScheduledRun.get());
     }
 
     /**
@@ -146,12 +197,16 @@ public class BackgroundCertificateRefresh implements Runnable {
         try {
             Stream<Thing> cloudThings = RetryUtils.runWithRetry(
                     retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
-                            "get-things-associated-with-core-device", logger);
+                    "get-things-associated-with-core-device", logger);
 
             Stream<Thing> localThings = thingRegistry.getAllThings();
-            ThingAssociations associations =  ThingAssociations.create(cloudThings);
+            ThingAssociations associations = ThingAssociations.create(cloudThings);
             associations.setLocalThings(localThings);
             return Optional.of(associations);
+        } catch (AccessDeniedException e) {
+            logger.atInfo().log(
+                "Did not refresh local certificates. To enable certificate refresh add a policy to the core device"
+                        + " that grants the greengrass:ListClientDevicesAssociatedWithCoreDevice permission");
         } catch (Exception e) {
             logger.atWarn().cause(e).log(
                     "Failed to get things associated to the core device. Retry will be scheduled later");
@@ -164,8 +219,7 @@ public class BackgroundCertificateRefresh implements Runnable {
         associations.getThings().forEach(this::refreshCertificateThingAttachment);
         associations.getStaleThings().forEach(thingRegistry::deleteThing);
 
-        certificateRegistry.getAllCertificates()
-                .forEach(certificate -> {
+        certificateRegistry.getAllCertificates().forEach(certificate -> {
             if (associations.isAttachedToThing(certificate)) {
                 refreshCertificateValidity(certificate);
             } else {
@@ -174,6 +228,7 @@ public class BackgroundCertificateRefresh implements Runnable {
         });
     }
 
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void refreshCertificateThingAttachment(Thing thing) {
         VerifyThingAttachedToCertificate useCase = useCases.get(VerifyThingAttachedToCertificate.class);
 
@@ -191,13 +246,14 @@ public class BackgroundCertificateRefresh implements Runnable {
             try {
                 Certificate certificate = Certificate.fromPem(certPem.get());
                 useCase.apply(new VerifyThingAttachedToCertificateDTO(thing, certificate));
-            } catch (InvalidCertificateException e) {
+            } catch (InvalidCertificateException | RuntimeException e) {
                 logger.atWarn().cause(e).kv("thing", thing.getThingName()).kv("certificate", certificateId)
                         .log("Failed to verify thing attached to certificate");
             }
         });
     }
 
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void refreshCertificateValidity(Certificate certificate) {
         Optional<String> certPem = pemStore.getPem(certificate.getCertificateId());
 
@@ -208,7 +264,12 @@ public class BackgroundCertificateRefresh implements Runnable {
         }
 
         VerifyIotCertificate useCase = useCases.get(VerifyIotCertificate.class);
-        useCase.apply(certPem.get());
+        try {
+            useCase.apply(certPem.get());
+        } catch (RuntimeException e) {
+            logger.atWarn().cause(e).kv("certificateId", certificate.getCertificateId())
+                    .log("Failed to verify certificate validity");
+        }
     }
 
     private boolean isNetworkDown() {

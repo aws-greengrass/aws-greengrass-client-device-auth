@@ -153,7 +153,6 @@ public interface IotAuthClient {
         }
 
         @Override
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         public Stream<Thing> getThingsAssociatedWithCoreDevice() {
             DeviceConfiguration configuration = clientFactory.getDeviceConfiguration();
             String thingName = Coerce.toString(configuration.getThingName());
@@ -170,12 +169,6 @@ public interface IotAuthClient {
                 return response.associatedClientDevices().stream()
                         .map(AssociatedClientDevice::thingName)
                         .map(Thing::of);
-            } catch (Exception e) {
-                logger.atError().cause(e).kv("thing", thingName).log(
-                        "Failed to list client devices associated to the core. Check that the core device's IoT"
-                                + "policy grants the greengrass:ListClientDevicesAssociatedWithCoreDevice permission");
-                throw new CloudServiceInteractionException(
-                        String.format("Failed to list things attached to core %s", thingName), e);
             }
         }
 
