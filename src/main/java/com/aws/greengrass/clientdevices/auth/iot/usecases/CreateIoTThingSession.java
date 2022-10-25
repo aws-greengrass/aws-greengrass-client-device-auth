@@ -66,7 +66,7 @@ public class CreateIoTThingSession
 
             VerifyThingAttachedToCertificate verify = useCases.get(VerifyThingAttachedToCertificate.class);
             Boolean thingAttachedResult = verify.apply(
-                    new VerifyThingAttachedToCertificateDTO(thing, certificate.get()));
+                    new VerifyThingAttachedToCertificateDTO(thingName, certificate.get().getCertificateId()));
 
             if (thingAttachedResult) {
                 return new SessionImpl(certificate.get(), thing);

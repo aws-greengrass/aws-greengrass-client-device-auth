@@ -5,11 +5,23 @@
 
 package com.aws.greengrass.clientdevices.auth.iot;
 
+import software.amazon.awssdk.core.pagination.sync.PaginatedResponsesIterator;
+import software.amazon.awssdk.core.pagination.sync.SdkIterable;
+import software.amazon.awssdk.core.pagination.sync.SyncPageFetcher;
+import software.amazon.awssdk.services.greengrassv2.model.AssociatedClientDevice;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /**
@@ -17,10 +29,10 @@ import java.util.stream.Stream;
  * as well as Thing <-> certificate attachments without needing to manage mocks.
  */
 public class IotAuthClientFake implements IotAuthClient {
+    private final List<Supplier<String>> thingsAttachedToCore = new ArrayList<>();
     private final Map<String, Set<String>> thingToCerts = new HashMap<>();
     private final Set<String> activeCertIds = new HashSet<>();
     private final Set<String> inactiveCertIds = new HashSet<>();
-    private final Set<String> thingsAttachedToCore = new HashSet<>();
 
     public void activateCert(String certPem) throws InvalidCertificateException {
         Certificate cert = Certificate.fromPem(certPem);
@@ -52,14 +64,6 @@ public class IotAuthClientFake implements IotAuthClient {
         if (thingToCerts.containsKey(thing)) {
             thingToCerts.get(thing).remove(certId);
         }
-    }
-
-    public void attachThingToCore(String thingName) {
-       thingsAttachedToCore.add(thingName);
-    }
-
-    public void detachThingFromCore(String thingName) {
-       thingsAttachedToCore.remove(thingName);
     }
 
     @Override
@@ -98,14 +102,84 @@ public class IotAuthClientFake implements IotAuthClient {
 
     @Override
     public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
+        if (Objects.isNull(certificate)) {
+            return false;
+        }
+        return isThingAttachedToCertificate(thing, certificate.getCertificateId());
+    }
+
+    @Override
+    public boolean isThingAttachedToCertificate(Thing thing, String certificateId) {
         if (thingToCerts.containsKey(thing.getThingName())) {
-            return thingToCerts.get(thing.getThingName()).contains(certificate.getCertificateId());
+            return thingToCerts.get(thing.getThingName()).contains(certificateId);
         }
         return false;
     }
 
+
+    public void attachThingToCore(Supplier<String> thingName) {
+        thingsAttachedToCore.add(thingName);
+    }
+
+    public void detachThingFromCore(Supplier<String> thingName) {
+        thingsAttachedToCore.remove(thingName);
+    }
+
     @Override
-    public Stream<Thing> getThingsAssociatedWithCoreDevice() {
-        return thingsAttachedToCore.stream().map(Thing::of);
+    public Stream<List<AssociatedClientDevice>> getThingsAssociatedWithCoreDevice() {
+        ThingsAttachedToCorePaginator paginator = new ThingsAttachedToCorePaginator(
+                new ListClientDevicesAssociatedWithCoreDeviceResponseFetcher(this.thingsAttachedToCore));
+
+        return paginator.stream();
+    }
+
+    /**
+     *  Returns 1 AssociatedClientDevice per page.
+     */
+    private static class ThingsAttachedToCorePaginator implements SdkIterable<List<AssociatedClientDevice>> {
+        private final SyncPageFetcher<List<AssociatedClientDevice>> syncPageFetcher;
+
+        public ThingsAttachedToCorePaginator(SyncPageFetcher<List<AssociatedClientDevice>> syncPageFetcher) {
+            this.syncPageFetcher = syncPageFetcher;
+        }
+
+        @Override
+        public Iterator<List<AssociatedClientDevice>> iterator() {
+            return PaginatedResponsesIterator.builder().nextPageFetcher(this.syncPageFetcher).build();
+        }
+    }
+
+    private static class ListClientDevicesAssociatedWithCoreDeviceResponseFetcher
+            implements SyncPageFetcher<List<AssociatedClientDevice>> {
+        private final List<Supplier<String>> thingsAttachedToCore;
+        private int currentPage;
+
+
+        public ListClientDevicesAssociatedWithCoreDeviceResponseFetcher(List<Supplier<String>> thingsAttachedToCore) {
+            this.thingsAttachedToCore = thingsAttachedToCore;
+            this.currentPage = 0;
+        }
+
+        @Override
+        public boolean hasNextPage(List<AssociatedClientDevice> previousPage) {
+            if (thingsAttachedToCore.isEmpty()) {
+                return false;
+            }
+
+            return currentPage < thingsAttachedToCore.size();
+        }
+
+        @Override
+        public List<AssociatedClientDevice> nextPage(List<AssociatedClientDevice> previousPage) {
+            if (hasNextPage(previousPage)) {
+                Thing toReturn = Thing.of(thingsAttachedToCore.get(currentPage).get());
+                AssociatedClientDevice device = AssociatedClientDevice.builder()
+                        .associationTimestamp(Instant.now()).thingName(toReturn.getThingName()).build();
+                currentPage++;
+                return Collections.singletonList(device);
+            }
+
+            return Collections.emptyList();
+        }
     }
 }

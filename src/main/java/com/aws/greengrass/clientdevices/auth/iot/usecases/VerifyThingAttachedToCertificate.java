@@ -8,7 +8,6 @@ package com.aws.greengrass.clientdevices.auth.iot.usecases;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
@@ -16,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
+import java.util.Objects;
 import javax.inject.Inject;
 
 
@@ -43,23 +43,23 @@ public class VerifyThingAttachedToCertificate
         this.networkState = networkState;
     }
 
-    private boolean verifyLocally(Thing thing, Certificate certificate) {
-        logger.atInfo().kv("thing", thing.getThingName()).kv("certificate", certificate.getCertificateId())
+    private boolean verifyLocally(Thing thing, String certificateId) {
+        logger.atInfo().kv("thing", thing.getThingName()).kv("certificate", certificateId)
                 .log("Network down, verifying thing attached to certificate locally");
-        return thing.isCertificateAttached(certificate.getCertificateId());
+        return thing.isCertificateAttached(certificateId);
     }
 
-    private boolean verifyFromCloud(Thing thing, Certificate certificate) {
-        logger.atInfo().kv("thing", thing.getThingName()).kv("certificate", certificate.getCertificateId())
+    private boolean verifyFromCloud(Thing thing, String certificateId) {
+        logger.atInfo().kv("thing", thing.getThingName()).kv("certificate", certificateId)
                 .log("Network up, verifying thing attached to certificate from cloud");
 
-        if (iotAuthClient.isThingAttachedToCertificate(thing, certificate)) {
-            thing.attachCertificate(certificate.getCertificateId());
+        if (iotAuthClient.isThingAttachedToCertificate(thing, certificateId)) {
+            thing.attachCertificate(certificateId);
             thingRegistry.updateThing(thing);
             return true;
         }
 
-        thing.detachCertificate(certificate.getCertificateId());
+        thing.detachCertificate(certificateId);
         thingRegistry.updateThing(thing);
         return false;
     }
@@ -76,15 +76,18 @@ public class VerifyThingAttachedToCertificate
      */
     @Override
     public Boolean apply(VerifyThingAttachedToCertificateDTO dto) {
-        Certificate certificate = dto.getCertificate();
-        Thing thing = dto.getThing();
+        Thing thing = thingRegistry.getThing(dto.getThingName());
+
+        if (Objects.isNull(thing)) {
+            return false;
+        }
 
         try {
             if (isNetworkUp()) {
-                return verifyFromCloud(thing, certificate);
+                return verifyFromCloud(thing, dto.getCertificateId());
             }
 
-            return verifyLocally(thing, certificate);
+            return verifyLocally(thing, dto.getCertificateId());
         } catch (CloudServiceInteractionException e) {
             return false;
         }

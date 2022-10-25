@@ -52,6 +52,7 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
@@ -194,10 +195,10 @@ public class OfflineAuthenticationTest {
        String clientBPem = CertificateHelper.toPem(clientBCrt);
        iotAuthClientFake.activateCert(clientBPem);
        when(networkStateMock.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
-       String thingOne = "ThingOne";
-       iotAuthClientFake.attachCertificateToThing(thingOne, clientAPem);
-       String thingTwo = "ThingTwo";
-       iotAuthClientFake.attachCertificateToThing(thingTwo, clientBPem);
+       Supplier<String> thingOne =  () -> "ThingOne";
+       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientAPem);
+       Supplier<String> thingTwo = () -> "ThingTwo";
+       iotAuthClientFake.attachCertificateToThing(thingTwo.get(), clientBPem);
 
        iotAuthClientFake.attachThingToCore(thingOne);
        iotAuthClientFake.attachThingToCore(thingTwo);
@@ -214,13 +215,13 @@ public class OfflineAuthenticationTest {
 
        // Simulate a client connecting and generating a session
        api.getClientDeviceAuthToken("mqtt",   new HashMap<String, String>() {{
-           put("clientId", thingOne);
+           put("clientId", thingOne.get());
            put("certificatePem", clientAPem);
            put("username", "foo");
            put("password", "bar");
        }});
        api.getClientDeviceAuthToken("mqtt", new HashMap<String, String>() {{
-           put("clientId", thingTwo);
+           put("clientId", thingTwo.get());
            put("certificatePem", clientBPem);
            put("username", "baz");
            put("password", "fizz");
@@ -235,8 +236,8 @@ public class OfflineAuthenticationTest {
 
        // Check state before refresh of thing attachments
        ThingRegistry thingRegistry = kernel.getContext().get(ThingRegistry.class);
-       Thing ogThingA = thingRegistry.getOrCreateThing(thingOne);
-       Thing ogThingB = thingRegistry.getOrCreateThing(thingTwo);
+       Thing ogThingA = thingRegistry.getOrCreateThing(thingOne.get());
+       Thing ogThingB = thingRegistry.getOrCreateThing(thingTwo.get());
        assertEquals(ogThingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(), now.toEpochMilli());
        assertEquals(ogThingB.certificateLastAttachedOn(ogCertB.getCertificateId()).get().toEpochMilli(), now.toEpochMilli());
 
@@ -262,8 +263,8 @@ public class OfflineAuthenticationTest {
        assertFalse(certB.isPresent());
 
        // Verify thing certificate attachments got updated after refresh
-       Thing thingA = thingRegistry.getThing(thingOne);
-       Thing thingB = thingRegistry.getThing(thingTwo);
+       Thing thingA = thingRegistry.getThing(thingOne.get());
+       Thing thingB = thingRegistry.getThing(thingTwo.get());
        assertEquals(
            thingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(),
            anHourLater.toEpochMilli()
