@@ -15,7 +15,6 @@ import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.security.exceptions.KeyLoadingException;
 import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
-import com.aws.greengrass.util.Digest;
 import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.FileSystemPermission;
 import com.aws.greengrass.util.platforms.Platform;
@@ -57,7 +56,6 @@ public class CertificateStore {
     private static final long   DEFAULT_CA_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
     private static final String DEFAULT_CA_CN = "Greengrass Core CA";
     private static final String CA_KEY_ALIAS = "CA";
-    private static final String DEVICE_CERTIFICATE_DIR = "devices";
     private static final String DEFAULT_KEYSTORE_FILENAME = "ca.jks";
     private static final String DEFAULT_CA_CERTIFICATE_FILENAME = "ca.pem";
 
@@ -265,29 +263,6 @@ public class CertificateStore {
         setCaKeyAndCertificateChain(CertificateHelper.ProviderType.DEFAULT, privateKey, certificates);
     }
 
-
-    public String loadDeviceCertificate(String certificateId) throws IOException {
-        return loadCertificatePem(certificateIdToPath(certificateId));
-    }
-
-    /**
-     * Store device certificate if not present.
-     *
-     * @param certificateId  Certificate ID
-     * @param certificatePem Certificate PEM
-     * @throws IOException   if unable to write certificate to disk
-     */
-    public void storeDeviceCertificateIfNotPresent(String certificateId, String certificatePem) throws IOException {
-        Path filePath = certificateIdToPath(certificateId);
-        if (!Files.exists(filePath)) {
-            saveCertificatePem(certificateIdToPath(certificateId), certificatePem);
-        }
-    }
-
-    Path certificateIdToPath(String certificateId) {
-        return workPath.resolve(DEVICE_CERTIFICATE_DIR).resolve(certificateId + ".pem");
-    }
-
     private void createAndStoreDefaultKeyStore(CAType caType) throws KeyStoreException {
         KeyPair kp;
 
@@ -418,10 +393,6 @@ public class CertificateStore {
                 EncryptionUtils.encodeToPem(CertificateHelper.PEM_BOUNDARY_CERTIFICATE,caCert.getEncoded()));
     }
 
-    private String loadCertificatePem(Path filePath) throws IOException {
-        return new String(Files.readAllBytes(filePath));
-    }
-
     private void saveCertificatePem(Path filePath, String certificatePem) throws IOException {
         Files.createDirectories(filePath.getParent());
         try (OutputStream writeStream = Files.newOutputStream(filePath)) {
@@ -449,21 +420,5 @@ public class CertificateStore {
     // Map random byte into ASCII space
     static char byteToAsciiCharacter(byte randomByte) {
         return (char) ((randomByte & 0x7F) % ('~' - ' ') + ' ');
-    }
-
-    /**
-     * Compute certificate hash.
-     *
-     * @param certificatePem certificate pem
-     * @return certificate hash
-     * @throws RuntimeException if no algorithm to compute the hash
-     */
-    public static String computeCertificatePemHash(String certificatePem) {
-        try {
-            return Digest.calculateWithUrlEncoderNoPadding(certificatePem);
-        } catch (NoSuchAlgorithmException e) {
-            //the exception shouldn't happen, even happens it's valid runtime exception case that should report bug
-            throw new RuntimeException("Can't compute hash of certificate", e);
-        }
     }
 }
