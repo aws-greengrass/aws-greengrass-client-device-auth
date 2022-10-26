@@ -5,20 +5,15 @@
 
 package com.aws.greengrass.clientdevices.auth.certificate.infra;
 
-import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
+import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
+import com.aws.greengrass.lifecyclemanager.Kernel;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Optional;
+import javax.inject.Inject;
 
 
 /**
@@ -26,28 +21,23 @@ import java.util.Optional;
  * in this store it so that later we can refresh it later on using the cloud API.
  */
 public class ClientCertificateStore {
-    private final KeyStore keyStore;
+    private static final String DEVICE_CERTIFICATE_DIR = "devices";
+    private final Path workPath;
 
+    // TODO: ideally we'd remove this, but right now our service init is somewhat fragile
+    //  so directly extracting the plugin work dir from the Kernel is easiest
+    @Inject
+    public ClientCertificateStore(Kernel kernel) throws IOException {
+        this(kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME));
+    }
 
     /**
      * Create a certificate store for tests.
      *
-     * @throws  KeyStoreException - If fails to create or load key store
+     * @param   workPath Component work path to store certificate store
      */
-    public ClientCertificateStore() throws KeyStoreException {
-        this.keyStore = createStore();
-    }
-
-    private KeyStore createStore() throws KeyStoreException {
-        KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-
-        try {
-            ks.load(null, null);
-        } catch (IOException | NoSuchAlgorithmException | CertificateException e) {
-            throw new KeyStoreException("unable to load client keystore", e);
-        }
-
-        return ks;
+    public ClientCertificateStore(Path workPath) {
+        this.workPath = workPath;
     }
 
     /**
@@ -55,36 +45,29 @@ public class ClientCertificateStore {
      * @param certificateId - The id of the stored certificate.
      */
     public boolean exists(String certificateId) {
-        try {
-            return keyStore.isCertificateEntry(certificateId);
-        } catch (KeyStoreException e) {
-            return false;
-        }
+        Path filePath = certificateIdToPath(certificateId);
+        return Files.exists(filePath);
     }
-
 
     /**
      * Stores the PEM for a certificate.
      * @param certificateId - A Certificate ID
      * @param certificatePem - The Pem string of the certificate
      *
-     * @throws CertificateException - If fails generate certificate from PEM
-     * @throws KeyStoreException - If fails to store the key store into disk
+     * @throws IOException - If fails to write PEM
      */
-    public void storePem(String certificateId, String certificatePem) throws CertificateException, KeyStoreException {
-        CertificateFactory cf = CertificateFactory.getInstance("X.509");
-        InputStream targetStream = new ByteArrayInputStream(certificatePem.getBytes());
-        Certificate cert = cf.generateCertificate(targetStream);
-        keyStore.setCertificateEntry(certificateId, cert);
+    public void storePem(String certificateId, String certificatePem) throws IOException {
+        saveCertificatePem(certificateIdToPath(certificateId), certificatePem);
     }
 
     /**
      * Removes the PEM for a certificateId alias.
      * @param certificateId - a certificate id
-     * @throws KeyStoreException - if the keystore has not been initialized, or if the entry cannot be removed.
+     * @throws IOException - if the certificate cannot be removed.
      */
-    public void removePem(String certificateId) throws KeyStoreException {
-        keyStore.deleteEntry(certificateId);
+    public void removePem(String certificateId) throws IOException {
+        Path certPath = certificateIdToPath(certificateId);
+        Files.deleteIfExists(certPath);
     }
 
     /**
@@ -93,20 +76,32 @@ public class ClientCertificateStore {
      * @param certificateId - The id of a Certificate
      */
     public Optional<String> getPem(String certificateId) {
-        if (certificateId == null) {
+        if (!exists(certificateId)) {
             return Optional.empty();
         }
 
         try {
-            X509Certificate cert = (X509Certificate) keyStore.getCertificate(certificateId);
-
-            if (cert == null) {
-                return Optional.empty();
-            }
-
-            return Optional.of(CertificateHelper.toPem(cert));
-        } catch (KeyStoreException | CertificateEncodingException | IOException e) {
+            return Optional.of(loadDeviceCertificate(certificateId));
+        } catch (IOException e) {
+            // TODO: This was existing logic. Empty optional should be reserved for the case
+            //  where no cert is present. This should throw.
             return Optional.empty();
         }
+    }
+
+    private void saveCertificatePem(Path filePath, String certificatePem) throws IOException {
+        Files.createDirectories(filePath.getParent());
+        try (OutputStream writeStream = Files.newOutputStream(filePath)) {
+            writeStream.write(certificatePem.getBytes());
+        }
+    }
+
+    private Path certificateIdToPath(String certificateId) {
+        return workPath.resolve(DEVICE_CERTIFICATE_DIR).resolve(certificateId + ".pem");
+    }
+
+    public String loadDeviceCertificate(String certificateId) throws IOException {
+        Path certPath = certificateIdToPath(certificateId);
+        return new String(Files.readAllBytes(certPath));
     }
 }

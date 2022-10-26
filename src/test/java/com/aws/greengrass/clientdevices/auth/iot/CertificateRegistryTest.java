@@ -19,9 +19,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -43,6 +45,8 @@ class CertificateRegistryTest {
 
     private Topics configTopic;
     private CertificateRegistry registry;
+    @TempDir
+    Path workDir;
 
     @BeforeAll
     static void beforeAll()
@@ -60,7 +64,7 @@ class CertificateRegistryTest {
     @BeforeEach
     void beforeEach() throws KeyStoreException {
         configTopic = Topics.of(new Context(), "config", null);
-        ClientCertificateStore store = new ClientCertificateStore();
+        ClientCertificateStore store = new ClientCertificateStore(workDir);
         registry = new CertificateRegistry(RuntimeConfiguration.from(configTopic), store);
     }
 

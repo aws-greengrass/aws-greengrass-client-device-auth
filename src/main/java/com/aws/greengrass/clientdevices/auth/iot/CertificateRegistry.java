@@ -12,8 +12,7 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import software.amazon.awssdk.utils.ImmutableMap;
 
-import java.security.KeyStoreException;
-import java.security.cert.CertificateException;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -79,7 +78,7 @@ public class CertificateRegistry {
         if (!pemStore.exists(newCert.getCertificateId())) {
             try {
                 this.pemStore.storePem(newCert.getCertificateId(), certificatePem);
-            } catch (CertificateException | KeyStoreException e) {
+            } catch (IOException e) {
                 logger.atWarn().kv("certificateId", newCert.getCertificateId())
                         .log("Failed to store certificate pem");
             }
@@ -120,7 +119,7 @@ public class CertificateRegistry {
         runtimeConfiguration.removeCertificateV1(certificateId);
         try {
             pemStore.removePem(certificateId);
-        } catch (KeyStoreException e) {
+        } catch (IOException e) {
             logger.atWarn().cause(e).kv("certificate", certificateId).log("Failed to remove PEM for certificate");
         }
     }
