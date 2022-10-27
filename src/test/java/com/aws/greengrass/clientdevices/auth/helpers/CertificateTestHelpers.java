@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.helpers;
 
 import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.Pair;
+import com.aws.greengrass.util.Utils;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.BCStyle;
@@ -228,7 +229,7 @@ public final class CertificateTestHelpers {
         File file = filePath.toFile();
 
         if (!Files.exists(filePath)) {
-            file = createFile(filePath);
+            Utils.createPaths(filePath.getParent());
         }
 
         try (FileWriter fw = new FileWriter(file, true)) {
@@ -236,19 +237,5 @@ public final class CertificateTestHelpers {
                 fw.write(EncryptionUtils.encodeToPem(boundary, encoding));
             }
         }
-    }
-
-    /**
-     * Creates a clean file and the directories where that file will be located from a Path.
-     *
-     * @param filePath path to a file
-     * @throws IOException
-     */
-    private static File createFile(Path filePath) throws IOException {
-        File file = filePath.toFile();
-        file.getParentFile().mkdirs();
-        file.delete();
-        file.createNewFile();
-        return file;
     }
 }
