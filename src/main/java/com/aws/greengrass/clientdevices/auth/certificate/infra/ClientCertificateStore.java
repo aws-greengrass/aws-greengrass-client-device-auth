@@ -6,7 +6,8 @@
 package com.aws.greengrass.clientdevices.auth.certificate.infra;
 
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
-import com.aws.greengrass.lifecyclemanager.Kernel;
+import com.aws.greengrass.util.NucleusPaths;
+import com.aws.greengrass.util.Utils;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -21,14 +22,14 @@ import javax.inject.Inject;
  * in this store it so that later we can refresh it later on using the cloud API.
  */
 public class ClientCertificateStore {
-    private static final String DEVICE_CERTIFICATE_DIR = "devices";
+    private static final String CLIENTS_DIRECTORY = "clients";
     private final Path workPath;
 
     // TODO: ideally we'd remove this, but right now our service init is somewhat fragile
-    //  so directly extracting the plugin work dir from the Kernel is easiest
+    //  so directly extracting the plugin work dir from NucleusPaths is easiest
     @Inject
-    public ClientCertificateStore(Kernel kernel) throws IOException {
-        this(kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME));
+    public ClientCertificateStore(NucleusPaths paths) throws IOException {
+        this(paths.workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME));
     }
 
     /**
@@ -90,17 +91,17 @@ public class ClientCertificateStore {
     }
 
     private void saveCertificatePem(Path filePath, String certificatePem) throws IOException {
-        Files.createDirectories(filePath.getParent());
+        Utils.createPaths(filePath.getParent());
         try (OutputStream writeStream = Files.newOutputStream(filePath)) {
             writeStream.write(certificatePem.getBytes());
         }
     }
 
     private Path certificateIdToPath(String certificateId) {
-        return workPath.resolve(DEVICE_CERTIFICATE_DIR).resolve(certificateId + ".pem");
+        return workPath.resolve(CLIENTS_DIRECTORY).resolve(certificateId + ".pem");
     }
 
-    public String loadDeviceCertificate(String certificateId) throws IOException {
+    private String loadDeviceCertificate(String certificateId) throws IOException {
         Path certPath = certificateIdToPath(certificateId);
         return new String(Files.readAllBytes(certPath));
     }
