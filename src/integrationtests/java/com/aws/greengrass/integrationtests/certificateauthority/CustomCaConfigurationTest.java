@@ -19,6 +19,7 @@ import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateChainLoadingException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
+import com.aws.greengrass.clientdevices.auth.helpers.TestHelpers;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.config.Topics;
@@ -31,7 +32,6 @@ import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.security.exceptions.KeyLoadingException;
 import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Pair;
 import org.apache.commons.lang3.ArrayUtils;
@@ -39,7 +39,6 @@ import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -60,11 +59,9 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -75,7 +72,6 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
@@ -196,11 +192,10 @@ public class CustomCaConfigurationTest {
         api.subscribeToCertificateUpdates(request);
     }
 
-    @Disabled("TODO - fix flaky test")
     @Test
     void Given_CustomCAConfiguration_WHEN_issuingAClientCertificate_THEN_itsSignedByCustomCA() throws
             CertificateException, URISyntaxException, CertificateGenerationException, ExecutionException,
-            InterruptedException, TimeoutException, ServiceLoadException, NoSuchAlgorithmException,
+            InterruptedException, ServiceLoadException, NoSuchAlgorithmException,
             OperatorCreationException, IOException, KeyLoadingException, ServiceUnavailableException,
             CertificateChainLoadingException {
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
@@ -215,31 +210,29 @@ public class CustomCaConfigurationTest {
         doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
-        Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
-                TestUtils.asyncAssertOnConsumer(eventRef::set, 2);
         GetCertificateRequest request = buildCertificateUpdateRequest(
-                GetCertificateRequestOptions.CertificateType.CLIENT, asyncCall.getRight());
+                GetCertificateRequestOptions.CertificateType.CLIENT, eventRef::set);
 
         givenNucleusRunningWithConfig("config.yaml");
         subscribeToCertificateUpdates(request);
         givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
-        asyncCall.getLeft().get(5, TimeUnit.SECONDS);
-        X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
-        assertTrue(
-            CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate),
-            String.format(
-                "Certificate not was not issued by intermediate CA %s", CertificateHelper.toPem(issuedClientCertificate)
-        ));
+        TestHelpers.eventuallyTrue(() -> {
+            try {
+                X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
+                return CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate);
+            } catch (CertificateException e) {
+                return  false;
+            }
+        });
     }
 
-    @Disabled("TODO - fix flaky test")
     @Test
     void GIVEN_CustomCAConfiguration_WHEN_whenGeneratingClientCerts_THEN_GGComponentIsVerified() throws
             NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
             URISyntaxException, KeyLoadingException, ServiceUnavailableException,
-            CertificateChainLoadingException, CertificateGenerationException, ExecutionException, InterruptedException,
-            TimeoutException, ServiceLoadException {
+            CertificateChainLoadingException, CertificateGenerationException, InterruptedException,
+            ServiceLoadException {
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         KeyPair[] certificateKeys = credentials.getRight();
@@ -251,16 +244,23 @@ public class CustomCaConfigurationTest {
         doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
-        Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
-                TestUtils.asyncAssertOnConsumer(eventRef::set, 2);
         GetCertificateRequest request = buildCertificateUpdateRequest(
-                GetCertificateRequestOptions.CertificateType.CLIENT, asyncCall.getRight());
+                GetCertificateRequestOptions.CertificateType.CLIENT, eventRef::set);
 
         givenNucleusRunningWithConfig("config.yaml");
         subscribeToCertificateUpdates(request);
         givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
-        asyncCall.getLeft().get(5, TimeUnit.SECONDS);
+        TestHelpers.eventuallyTrue(() -> {
+            try {
+                X509Certificate intermediateCA =  chain[0];
+                X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
+                return CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate);
+            } catch (CertificateException e) {
+                return  false;
+            }
+        });
+
         CertificateUpdateEvent event = eventRef.get();
         X509Certificate[] clientChain = ArrayUtils.addAll(
                 new X509Certificate[]{event.getCertificate()},
@@ -274,12 +274,12 @@ public class CustomCaConfigurationTest {
         );
     }
 
-    @Disabled("TODO - fix flaky test")
     @Test
     void GIVEN_customCAConfigurationWithACAChain_WHEN_registeringCAWithIotCore_THEN_highestTrustCAUploaded() throws
             CertificateChainLoadingException, KeyLoadingException, CertificateException, NoSuchAlgorithmException,
             URISyntaxException, ServiceUnavailableException, OperatorCreationException, IOException,
             ServiceLoadException, InterruptedException {
+        // Given
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         KeyPair[] certificateKeys = credentials.getRight();
@@ -290,6 +290,7 @@ public class CustomCaConfigurationTest {
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
         doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
+        // When
         givenNucleusRunningWithConfig("config.yaml");
         givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
@@ -297,21 +298,22 @@ public class CustomCaConfigurationTest {
                 ArgumentCaptor.forClass(PutCertificateAuthoritiesRequest.class);
         verify(client, atLeastOnce()).putCertificateAuthorities(requestCaptor.capture());
 
-        List<String> expectedPem = Collections.singletonList(CertificateHelper.toPem(chain[chain.length - 1]));
-        PutCertificateAuthoritiesRequest lastRequest = requestCaptor.getValue();
-        assertEquals(lastRequest.coreDeviceCertificates(), expectedPem);
+        // Then
+        X509Certificate rootCa = chain[chain.length - 1];
+        List<String> expectedPem = Collections.singletonList(CertificateHelper.toPem(rootCa));
+        TestHelpers.eventuallyTrue(() -> {
+            PutCertificateAuthoritiesRequest lastRequest = requestCaptor.getValue();
+            return lastRequest.coreDeviceCertificates().equals(expectedPem);
+        });
     }
 
-    @Disabled("TODO - fix flaky test")
     @Test
     void GIVEN_managedCAConfiguration_WHEN_updatedToCustomCAConfiguration_THEN_serverCertificatesAreRotated() throws
             InterruptedException, CertificateGenerationException, CertificateException, NoSuchAlgorithmException,
             OperatorCreationException, IOException, URISyntaxException, KeyLoadingException,
-            ServiceUnavailableException, CertificateChainLoadingException, ServiceLoadException, ExecutionException,
-            TimeoutException {
+            ServiceUnavailableException, CertificateChainLoadingException, ServiceLoadException {
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
-        X509Certificate intermediateCA =  chain[0];
         KeyPair[] certificateKeys = credentials.getRight();
         KeyPair intermediateKeyPair = certificateKeys[0];
 
@@ -321,22 +323,21 @@ public class CustomCaConfigurationTest {
         doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
-        Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
-                TestUtils.asyncAssertOnConsumer(eventRef::set, 2);
         GetCertificateRequest request = buildCertificateUpdateRequest(
-                GetCertificateRequestOptions.CertificateType.SERVER, asyncCall.getRight());
+                GetCertificateRequestOptions.CertificateType.SERVER, eventRef::set);
 
         givenNucleusRunningWithConfig("config.yaml");
         subscribeToCertificateUpdates(request);
         givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
 
-        // Called 2 times. 1 for initial managed CA and then after the config is changes to use custom CA
-        asyncCall.getLeft().get(5, TimeUnit.SECONDS);
-        CertificateUpdateEvent event = eventRef.get();
-        X509Certificate issuedClientCertificate = event.getCertificate();
-        assertTrue(
-            CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate), String.format(
-                "Certificate not was not issued by intermediate CA %s", CertificateHelper.toPem(issuedClientCertificate)
-        ));
+        TestHelpers.eventuallyTrue(() -> {
+            try {
+                X509Certificate intermediateCA =  chain[0];
+                X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
+                return CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate);
+            } catch (CertificateException e) {
+                return  false;
+            }
+        });
     }
 }
