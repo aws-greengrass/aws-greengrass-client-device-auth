@@ -35,6 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -44,8 +45,8 @@ import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.security.KeyPair;
-import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -95,17 +96,19 @@ public class BackgroundCertificateRefreshTest {
     private ClientCertificateStore pemStore;
     private BackgroundCertificateRefresh backgroundRefresh;
     private Optional<MockedStatic<Clock>> clockMock;
+    @TempDir
+    Path workDir;
 
 
     @BeforeEach
-    void setup() throws DeviceConfigurationException, KeyStoreException {
+    void setup() throws DeviceConfigurationException {
         iotAuthClientFake = spy(new IotAuthClientFake());
         lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
 
         DomainEvents domainEvents =  new DomainEvents();
         configurationTopics = Topics.of(new Context(), "config", null);
         RuntimeConfiguration runtimeConfiguration = RuntimeConfiguration.from(configurationTopics);
-        pemStore = new ClientCertificateStore();
+        pemStore = new ClientCertificateStore(workDir);
         certificateRegistry = new CertificateRegistry(runtimeConfiguration, pemStore);
         thingRegistry = new ThingRegistry(domainEvents, runtimeConfiguration);
 

@@ -11,7 +11,6 @@ import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,7 +19,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
@@ -164,59 +162,5 @@ public class CertificateStoreTest {
             assertThat(CertificateStore.byteToAsciiCharacter(c), greaterThanOrEqualTo(' '));
             assertThat(CertificateStore.byteToAsciiCharacter(c), lessThanOrEqualTo('~'));
         }
-    }
-
-    @Test
-    public void Test_certificateIdToPath_returns_path_inside_work_path() {
-        Path certPath = certificateStore.certificateIdToPath("certId");
-        Assertions.assertTrue(certPath.toAbsolutePath().startsWith(tmpPath.toAbsolutePath()));
-    }
-
-    @Test
-    public void Test_certificateIdToPath_returns_unique_path_for_two_certificate_ids() {
-        Path certPath1 = certificateStore.certificateIdToPath("certId1");
-        Path certPath2 = certificateStore.certificateIdToPath("certId2");
-        Assertions.assertNotEquals(certPath1, certPath2);
-    }
-
-    @Test
-    public void Test_storeDeviceCertificateIfNotPresent_writes_certificate_to_work_directory() throws IOException {
-        String certId = "certId";
-        String expectedCert = "key_contents";
-        certificateStore.storeDeviceCertificateIfNotPresent(certId, expectedCert);
-
-        String actualCert = new String(Files.readAllBytes(certificateStore.certificateIdToPath(certId)));
-        Assertions.assertEquals(expectedCert, actualCert);
-    }
-
-    @Test
-    public void Test_storeDeviceCertificateIfNotPresent_does_not_overwrite_existing_certificate() throws IOException {
-        String certId = "certId";
-        String expectedCert = "key_contents";
-        String secondCert = "should_not_be_written";
-        certificateStore.storeDeviceCertificateIfNotPresent(certId, expectedCert);
-        certificateStore.storeDeviceCertificateIfNotPresent(certId, secondCert);
-
-        String actualCert = new String(Files.readAllBytes(certificateStore.certificateIdToPath(certId)));
-        Assertions.assertEquals(expectedCert, actualCert);
-    }
-
-    @Test
-    public void Test_loadDeviceCertificate_throws_if_no_certificate_present() {
-        String certId = "certId";
-        Assertions.assertThrows(IOException.class, () -> certificateStore.loadDeviceCertificate(certId));
-    }
-
-    @Test
-    public void Test_loadDeviceCertificate_loads_device_certificate_if_present() throws IOException {
-        String certId = "certId";
-        String expectedContents = "certContents";
-
-        Path certPath = certificateStore.certificateIdToPath(certId);
-        Files.createDirectories(certPath.getParent());
-        Files.write(certPath, expectedContents.getBytes());
-
-        String actualContents = certificateStore.loadDeviceCertificate(certId);
-        Assertions.assertEquals(expectedContents, actualContents);
     }
 }
