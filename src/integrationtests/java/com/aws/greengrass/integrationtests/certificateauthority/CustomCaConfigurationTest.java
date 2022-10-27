@@ -16,7 +16,6 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
-import com.aws.greengrass.clientdevices.auth.exception.CertificateChainLoadingException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.helpers.TestHelpers;
@@ -29,8 +28,6 @@ import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.security.SecurityService;
-import com.aws.greengrass.security.exceptions.KeyLoadingException;
-import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Pair;
@@ -49,9 +46,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuthoritiesRequest;
 
-import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
@@ -60,7 +55,6 @@ import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -194,10 +188,7 @@ public class CustomCaConfigurationTest {
 
     @Test
     void Given_CustomCAConfiguration_WHEN_issuingAClientCertificate_THEN_itsSignedByCustomCA() throws
-            CertificateException, URISyntaxException, CertificateGenerationException, ExecutionException,
-            InterruptedException, ServiceLoadException, NoSuchAlgorithmException,
-            OperatorCreationException, IOException, KeyLoadingException, ServiceUnavailableException,
-            CertificateChainLoadingException {
+            Exception {
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         X509Certificate intermediateCA = chain[0];
@@ -229,10 +220,7 @@ public class CustomCaConfigurationTest {
 
     @Test
     void GIVEN_CustomCAConfiguration_WHEN_whenGeneratingClientCerts_THEN_GGComponentIsVerified() throws
-            NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
-            URISyntaxException, KeyLoadingException, ServiceUnavailableException,
-            CertificateChainLoadingException, CertificateGenerationException, InterruptedException,
-            ServiceLoadException {
+            Exception {
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         KeyPair[] certificateKeys = credentials.getRight();
@@ -276,9 +264,7 @@ public class CustomCaConfigurationTest {
 
     @Test
     void GIVEN_customCAConfigurationWithACAChain_WHEN_registeringCAWithIotCore_THEN_highestTrustCAUploaded() throws
-            CertificateChainLoadingException, KeyLoadingException, CertificateException, NoSuchAlgorithmException,
-            URISyntaxException, ServiceUnavailableException, OperatorCreationException, IOException,
-            ServiceLoadException, InterruptedException {
+            Exception {
         // Given
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
@@ -309,9 +295,7 @@ public class CustomCaConfigurationTest {
 
     @Test
     void GIVEN_managedCAConfiguration_WHEN_updatedToCustomCAConfiguration_THEN_serverCertificatesAreRotated() throws
-            InterruptedException, CertificateGenerationException, CertificateException, NoSuchAlgorithmException,
-            OperatorCreationException, IOException, URISyntaxException, KeyLoadingException,
-            ServiceUnavailableException, CertificateChainLoadingException, ServiceLoadException {
+           Exception {
         Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
         X509Certificate[] chain = credentials.getLeft();
         KeyPair[] certificateKeys = credentials.getRight();
