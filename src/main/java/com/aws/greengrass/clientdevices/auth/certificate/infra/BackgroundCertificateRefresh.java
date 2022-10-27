@@ -23,6 +23,7 @@ import software.amazon.awssdk.services.greengrassv2.model.AssociatedClientDevice
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -261,12 +262,21 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void refreshCertificateValidity(String certificateId) {
-        Optional<String> certPem = pemStore.getPem(certificateId);
+        Optional<String> certPem = null;
+
+        try {
+            certPem = pemStore.getPem(certificateId);
+        } catch (IOException e) {
+            logger.atWarn().cause(e)
+                    .kv("certificateId", certificateId)
+                    .log("Unable to load certificate. Certificate validity information will not be refreshed");
+            return;
+        }
 
         if (!certPem.isPresent()) {
             logger.atWarn()
                     .kv("certificateId", certificateId)
-                    .log("Tried to refresh certificate validity but its pem was not found");
+                    .log("Attempted to refresh certificate validity but its pem was not found");
             return;
         }
 

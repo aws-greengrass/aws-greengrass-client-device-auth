@@ -75,19 +75,14 @@ public class ClientCertificateStore {
      * Returns the PEM for a certificate.
      *
      * @param certificateId - The id of a Certificate
+     * @throws IOException - if the certificate exists but cannot be loaded
      */
-    public Optional<String> getPem(String certificateId) {
+    public Optional<String> getPem(String certificateId) throws IOException {
         if (!exists(certificateId)) {
             return Optional.empty();
         }
 
-        try {
-            return Optional.of(loadDeviceCertificate(certificateId));
-        } catch (IOException e) {
-            // TODO: This was existing logic. Empty optional should be reserved for the case
-            //  where no cert is present. This should throw.
-            return Optional.empty();
-        }
+        return Optional.of(loadDeviceCertificate(certificateId));
     }
 
     private void saveCertificatePem(Path filePath, String certificatePem) throws IOException {
