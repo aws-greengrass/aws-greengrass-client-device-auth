@@ -5,7 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth.helpers;
 
+import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.Pair;
+import com.aws.greengrass.util.Utils;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.BCStyle;
@@ -26,8 +28,12 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import software.amazon.awssdk.utils.ImmutableMap;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
@@ -214,6 +220,22 @@ public final class CertificateTestHelpers {
             return true;
         } catch (CertPathValidatorException | InvalidAlgorithmParameterException | NoSuchAlgorithmException  e) {
             return false;
+        }
+    }
+
+    @SuppressWarnings("PMD.AvoidFileStream")
+    public static void writeToPath(Path filePath, String boundary, List<byte[]> encodings)
+            throws IOException {
+        File file = filePath.toFile();
+
+        if (!Files.exists(filePath)) {
+            Utils.createPaths(filePath.getParent());
+        }
+
+        try (FileWriter fw = new FileWriter(file, true)) {
+            for (byte[] encoding : encodings) {
+                fw.write(EncryptionUtils.encodeToPem(boundary, encoding));
+            }
         }
     }
 }

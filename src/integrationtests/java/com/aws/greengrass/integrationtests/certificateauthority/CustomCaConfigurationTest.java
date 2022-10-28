@@ -8,7 +8,6 @@ package com.aws.greengrass.integrationtests.certificateauthority;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
-import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
@@ -27,8 +26,8 @@ import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
-import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Pair;
 import org.apache.commons.lang3.ArrayUtils;
@@ -46,19 +45,31 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuthoritiesRequest;
 
+import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper.PEM_BOUNDARY_CERTIFICATE;
+import static com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper.PEM_BOUNDARY_PRIVATE_KEY;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_PRIVATE_KEY_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC;
@@ -68,16 +79,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CustomCaConfigurationTest {
-    @Mock
-    SecurityService securityServiceMock;
     @Mock
     private GreengrassServiceClientFactory clientFactory;
     @Mock
@@ -91,7 +97,6 @@ public class CustomCaConfigurationTest {
     @TempDir
     Path rootDir;
     private Kernel kernel;
-    private CertificateStore certificateStoreSpy;
     private IotAuthClientFake iotAuthClientFake;
 
 
@@ -104,18 +109,12 @@ public class CustomCaConfigurationTest {
         kernel = new Kernel();
 
         kernel.getContext().put(GroupManager.class, groupManager);
-        kernel.getContext().put(SecurityService.class, securityServiceMock);
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitorMock);
         kernel.getContext().put(CISShadowMonitor.class, cisShadowMonitorMock);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
-        DomainEvents domainEvents =  new DomainEvents();
         iotAuthClientFake = new IotAuthClientFake();
-        certificateStoreSpy = spy(new CertificateStore(rootDir, domainEvents , securityServiceMock));
-
         kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
-        kernel.getContext().put(DomainEvents.class, domainEvents);
-        kernel.getContext().put(CertificateStore.class, certificateStoreSpy);
 
         lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
     }
@@ -140,7 +139,7 @@ public class CustomCaConfigurationTest {
         assertThat(authServiceRunning.await(30L, TimeUnit.SECONDS), is(true));
     }
 
-    private static Pair<X509Certificate[], KeyPair[]> givenRootAndIntermediateCA() throws NoSuchAlgorithmException,
+    private static Pair<X509Certificate[], PrivateKey> givenRootAndIntermediateCA() throws NoSuchAlgorithmException,
             CertificateException,
             OperatorCreationException, CertIOException {
         KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
@@ -151,8 +150,8 @@ public class CustomCaConfigurationTest {
                 rootCA, "intermediate", intermediateKeyPair.getPublic(), rootKeyPair.getPrivate());
 
         return new Pair<>(
-                new X509Certificate[]{intermediateCA, rootCA},
-                new KeyPair[]{intermediateKeyPair, rootKeyPair}
+            new X509Certificate[]{intermediateCA, rootCA},
+            intermediateKeyPair.getPrivate()
         );
     }
 
@@ -186,31 +185,50 @@ public class CustomCaConfigurationTest {
         api.subscribeToCertificateUpdates(request);
     }
 
+    private Map<String, URI> givenCAStoredOnFilesystem(PrivateKey pk, X509Certificate... chain) throws IOException,
+            CertificateEncodingException, URISyntaxException {
+        Path pkPath = rootDir.resolve("private.key").toAbsolutePath();
+        CertificateTestHelpers.writeToPath(
+                pkPath, PEM_BOUNDARY_PRIVATE_KEY, Collections.singletonList(pk.getEncoded()));
+
+        List<byte[]> encodings = new ArrayList<>();
+        for (X509Certificate x509Certificate : chain) {
+            byte[] encoded = x509Certificate.getEncoded();
+            encodings.add(encoded);
+        }
+
+        Path chainPath = rootDir.resolve("certificate.pem").toAbsolutePath();
+        CertificateTestHelpers.writeToPath(
+                chainPath.toAbsolutePath(), PEM_BOUNDARY_CERTIFICATE, encodings);
+
+        return new HashMap<String, URI>(){{
+            put("privateKey", pkPath.toUri());
+            put("certificateAuthority", chainPath.toUri());
+        }};
+    }
+
     @Test
     void Given_CustomCAConfiguration_WHEN_issuingAClientCertificate_THEN_itsSignedByCustomCA() throws
-            Exception {
-        Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
-        X509Certificate[] chain = credentials.getLeft();
-        X509Certificate intermediateCA = chain[0];
-        KeyPair[] certificateKeys = credentials.getRight();
-        KeyPair intermediateKeyPair = certificateKeys[0];
-
-        URI privateKeyUri = new URI("file:///private.key");
-        URI certificateUri = new URI("file:///certificate.pem");
-        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
+            CertificateException, URISyntaxException, CertificateGenerationException, ExecutionException,
+            InterruptedException, TimeoutException, ServiceLoadException, NoSuchAlgorithmException,
+            OperatorCreationException, IOException {
+        Pair<X509Certificate[], PrivateKey> credentials = givenRootAndIntermediateCA();
+        Map<String, URI> uris = givenCAStoredOnFilesystem(credentials.getRight(), credentials.getLeft());
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
+        Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
+                TestUtils.asyncAssertOnConsumer(eventRef::set, 2);
         GetCertificateRequest request = buildCertificateUpdateRequest(
-                GetCertificateRequestOptions.CertificateType.CLIENT, eventRef::set);
+                GetCertificateRequestOptions.CertificateType.CLIENT, asyncCall.getRight());
 
         givenNucleusRunningWithConfig("config.yaml");
         subscribeToCertificateUpdates(request);
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        givenCDAWithCustomCertificateAuthority(uris.get("privateKey"), uris.get("certificateAuthority"));
 
         TestHelpers.eventuallyTrue(() -> {
             try {
                 X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
+                X509Certificate intermediateCA = credentials.getLeft()[0];
                 return CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate);
             } catch (CertificateException e) {
                 return  false;
@@ -221,15 +239,8 @@ public class CustomCaConfigurationTest {
     @Test
     void GIVEN_CustomCAConfiguration_WHEN_whenGeneratingClientCerts_THEN_GGComponentIsVerified() throws
             Exception {
-        Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
-        X509Certificate[] chain = credentials.getLeft();
-        KeyPair[] certificateKeys = credentials.getRight();
-        KeyPair intermediateKeyPair = certificateKeys[0];
-
-        URI privateKeyUri = new URI("file:///private.key");
-        URI certificateUri = new URI("file:///certificate.pem");
-        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
+        Pair<X509Certificate[], PrivateKey> credentials = givenRootAndIntermediateCA();
+        Map<String, URI> uris = givenCAStoredOnFilesystem(credentials.getRight(), credentials.getLeft());
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         GetCertificateRequest request = buildCertificateUpdateRequest(
@@ -237,11 +248,12 @@ public class CustomCaConfigurationTest {
 
         givenNucleusRunningWithConfig("config.yaml");
         subscribeToCertificateUpdates(request);
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        givenCDAWithCustomCertificateAuthority(uris.get("privateKey"), uris.get("certificateAuthority"));
+
 
         TestHelpers.eventuallyTrue(() -> {
             try {
-                X509Certificate intermediateCA =  chain[0];
+                X509Certificate intermediateCA =  credentials.getLeft()[0];
                 X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
                 return CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate);
             } catch (CertificateException e) {
@@ -264,27 +276,18 @@ public class CustomCaConfigurationTest {
 
     @Test
     void GIVEN_customCAConfigurationWithACAChain_WHEN_registeringCAWithIotCore_THEN_highestTrustCAUploaded() throws
-            Exception {
-        // Given
-        Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
-        X509Certificate[] chain = credentials.getLeft();
-        KeyPair[] certificateKeys = credentials.getRight();
-        KeyPair intermediateKeyPair = certificateKeys[0];
+        Exception {
+        Pair<X509Certificate[], PrivateKey> credentials = givenRootAndIntermediateCA();
+        Map<String, URI> uris = givenCAStoredOnFilesystem( credentials.getRight(), credentials.getLeft());
 
-        URI privateKeyUri = new URI("file:///private.key");
-        URI certificateUri = new URI("file:///certificate.pem");
-        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
-
-        // When
         givenNucleusRunningWithConfig("config.yaml");
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        givenCDAWithCustomCertificateAuthority(uris.get("privateKey"), uris.get("certificateAuthority"));
 
         ArgumentCaptor<PutCertificateAuthoritiesRequest> requestCaptor =
                 ArgumentCaptor.forClass(PutCertificateAuthoritiesRequest.class);
         verify(client, atLeastOnce()).putCertificateAuthorities(requestCaptor.capture());
 
-        // Then
+        X509Certificate[] chain = credentials.getLeft();
         X509Certificate rootCa = chain[chain.length - 1];
         List<String> expectedPem = Collections.singletonList(CertificateHelper.toPem(rootCa));
         TestHelpers.eventuallyTrue(() -> {
@@ -295,28 +298,23 @@ public class CustomCaConfigurationTest {
 
     @Test
     void GIVEN_managedCAConfiguration_WHEN_updatedToCustomCAConfiguration_THEN_serverCertificatesAreRotated() throws
-           Exception {
-        Pair<X509Certificate[], KeyPair[]> credentials = givenRootAndIntermediateCA();
-        X509Certificate[] chain = credentials.getLeft();
-        KeyPair[] certificateKeys = credentials.getRight();
-        KeyPair intermediateKeyPair = certificateKeys[0];
-
-        URI privateKeyUri = new URI("file:///private.key");
-        URI certificateUri = new URI("file:///certificate.pem");
-        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
-        doReturn(chain).when(certificateStoreSpy).loadCaCertificateChain(privateKeyUri, certificateUri);
+            Exception{
+        Pair<X509Certificate[], PrivateKey> credentials = givenRootAndIntermediateCA();
+        Map<String, URI> uris = givenCAStoredOnFilesystem(credentials.getRight(), credentials.getLeft());
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
+        Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> asyncCall =
+                TestUtils.asyncAssertOnConsumer(eventRef::set, 2);
         GetCertificateRequest request = buildCertificateUpdateRequest(
-                GetCertificateRequestOptions.CertificateType.SERVER, eventRef::set);
+                GetCertificateRequestOptions.CertificateType.SERVER, asyncCall.getRight());
 
         givenNucleusRunningWithConfig("config.yaml");
         subscribeToCertificateUpdates(request);
-        givenCDAWithCustomCertificateAuthority(privateKeyUri, certificateUri);
+        givenCDAWithCustomCertificateAuthority(uris.get("privateKey"), uris.get("certificateAuthority"));
 
         TestHelpers.eventuallyTrue(() -> {
             try {
-                X509Certificate intermediateCA =  chain[0];
+                X509Certificate intermediateCA =  credentials.getLeft()[0];
                 X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
                 return CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate);
             } catch (CertificateException e) {
