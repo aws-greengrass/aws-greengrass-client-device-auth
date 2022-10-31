@@ -89,7 +89,7 @@ public class VerifyThingAttachedToCertificate
 
             return verifyLocally(thing, dto.getCertificateId());
         } catch (CloudServiceInteractionException e) {
-            return false;
+            return verifyLocally(thing, dto.getCertificateId());
         }
     }
 }
