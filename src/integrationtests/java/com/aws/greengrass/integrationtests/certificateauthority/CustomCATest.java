@@ -281,8 +281,8 @@ public class CustomCATest {
 
                 @Override
                 public boolean onStreamError(Throwable error) {
-                                                            return false;
-                                                                         }
+                    return false;
+                }
 
                 @Override
                 public void onStreamClosed() {
@@ -502,10 +502,5 @@ public class CustomCATest {
                 }
             });
         }
-
-
-
-
-
     }
 }
