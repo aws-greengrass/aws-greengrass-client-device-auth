@@ -13,6 +13,7 @@ import java.util.function.Consumer;
 
 public class NetworkStateFake implements NetworkStateProvider {
     private final List<Consumer<ConnectionState>> handlers = new ArrayList<>();
+    private NetworkStateProvider.ConnectionState connectionState;
 
     @Override
     public void registerHandler(Consumer<ConnectionState> networkChangeHandler) {
@@ -21,6 +22,20 @@ public class NetworkStateFake implements NetworkStateProvider {
 
     @Override
     public ConnectionState getConnectionState() {
-        return null;
+        return this.connectionState;
+    }
+
+    public void goOnline() {
+        this.connectionState = ConnectionState.NETWORK_UP;
+        emit();
+    }
+
+    public void goOffline() {
+        this.connectionState = ConnectionState.NETWORK_DOWN;
+        emit();
+    }
+
+    private void emit() {
+        handlers.forEach((handler) -> {handler.accept(connectionState);});
     }
 }
