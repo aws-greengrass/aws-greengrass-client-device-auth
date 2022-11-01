@@ -15,12 +15,14 @@ import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificate
 import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
+import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
+import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.dependency.State;
@@ -48,7 +50,9 @@ import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -60,7 +64,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
@@ -81,13 +87,12 @@ public class OfflineAuthenticationTest {
     CISShadowMonitor cisShadowMonitorMock;
     @Mock
     private GreengrassV2DataClient client;
-    @Mock
-    private NetworkStateProvider.Default networkStateMock;
     @TempDir
     Path rootDir;
     private Kernel kernel;
     private IotAuthClientFake iotAuthClientFake;
     private Optional<MockedStatic<Clock>> clockMock;
+    private NetworkStateFake network;
 
 
     @BeforeEach
@@ -97,7 +102,8 @@ public class OfflineAuthenticationTest {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
-        kernel.getContext().put(NetworkStateProvider.class, networkStateMock);
+        network = new NetworkStateFake();
+        kernel.getContext().put(NetworkStateProvider.class, network);
         kernel.getContext().put(GroupManager.class, groupManager);
         kernel.getContext().put(SecurityService.class, securityServiceMock);
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitorMock);
@@ -134,7 +140,7 @@ public class OfflineAuthenticationTest {
         this.clockMock = Optional.of(clockMock);
     }
 
-    private void givenNucleusRunningWithConfig(String configFileName) throws InterruptedException {
+    private void runNucleusWithConfig(String configFileName) throws InterruptedException {
         CountDownLatch authServiceRunning = new CountDownLatch(1);
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
@@ -148,20 +154,44 @@ public class OfflineAuthenticationTest {
         assertThat(authServiceRunning.await(30L, TimeUnit.SECONDS), is(true));
     }
 
+    private List<X509Certificate> createClientCertificates(int amount) throws Exception {
+        KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
+
+        List<X509Certificate> clientCertificates = new ArrayList<>();
+
+        for (int i = 0; i < amount; i++) {
+            KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
+
+            clientCertificates.add(createClientCertificate(
+                    rootCA, "AWS IoT Certificate", clientKeyPair.getPublic(), rootKeyPair.getPrivate()));
+        }
+
+        return clientCertificates;
+    }
+
+    private String connectToCore(String thingName, String certificatePem) throws AuthenticationException {
+        ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
+        // Simulate some client components (like Moquette) verifying some certificates
+        api.verifyClientDeviceIdentity(certificatePem);
+        // Simulate a client connecting and generating a session
+        return api.getClientDeviceAuthToken("mqtt",   new HashMap<String, String>() {{
+            put("clientId", thingName);
+            put("certificatePem", certificatePem);
+            put("username", "foo");
+            put("password", "bar");
+        }});
+    }
+
     @Test
     void GIVEN_clientDevice_WHEN_verifyingItsIdentity_THEN_pemStored(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
-
         // Given
-        KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
-        X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
-        KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
-        X509Certificate clientCert = createClientCertificate(
-                rootCA, "AWS IoT Certificate", clientKeyPair.getPublic(), rootKeyPair.getPrivate());
+        List<X509Certificate> clientCertificates = createClientCertificates(1);
 
-        String clientCertPem = CertificateHelper.toPem(clientCert);
+        String clientCertPem = CertificateHelper.toPem(clientCertificates.get(0));
         iotAuthClientFake.activateCert(clientCertPem);
-        givenNucleusRunningWithConfig("config.yaml");
+        runNucleusWithConfig("config.yaml");
 
         // When
        ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
@@ -182,54 +212,28 @@ public class OfflineAuthenticationTest {
            throws Exception {
         ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
        // Given
-
-       // Generate some credentials for the fake client devices
-       KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
-       X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
-       KeyPair clientAKeyPair = CertificateStore.newRSAKeyPair(2048);
-       X509Certificate clientACrt = createClientCertificate(
-               rootCA, "AWS IoT Certificate", clientAKeyPair.getPublic(), rootKeyPair.getPrivate());
-       KeyPair clientBKeyPair = CertificateStore.newRSAKeyPair(2048);
-       X509Certificate clientBCrt = createClientCertificate(
-               rootCA, "AWS IoT Certificate", clientBKeyPair.getPublic(), rootKeyPair.getPrivate());
+       List<X509Certificate> clientCertificates = createClientCertificates(2);
 
        // Configure the IotClientFake
-       String clientAPem = CertificateHelper.toPem(clientACrt);
+       String clientAPem = CertificateHelper.toPem(clientCertificates.get(0));
        iotAuthClientFake.activateCert(clientAPem);
-       String clientBPem = CertificateHelper.toPem(clientBCrt);
+       String clientBPem = CertificateHelper.toPem(clientCertificates.get(1));
        iotAuthClientFake.activateCert(clientBPem);
-       when(networkStateMock.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
        Supplier<String> thingOne =  () -> "ThingOne";
        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientAPem);
        Supplier<String> thingTwo = () -> "ThingTwo";
        iotAuthClientFake.attachCertificateToThing(thingTwo.get(), clientBPem);
-
        iotAuthClientFake.attachThingToCore(thingOne);
        iotAuthClientFake.attachThingToCore(thingTwo);
 
-       givenNucleusRunningWithConfig("config.yaml");
+       network.goOnline();
+       runNucleusWithConfig("config.yaml");
 
        Instant now = Instant.now();
        mockInstant(now.toEpochMilli());
-       ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
 
-       // Simulate some client components (like Moquette) verifying some certificates
-       api.verifyClientDeviceIdentity(clientAPem);
-       api.verifyClientDeviceIdentity(clientBPem);
-
-       // Simulate a client connecting and generating a session
-       api.getClientDeviceAuthToken("mqtt",   new HashMap<String, String>() {{
-           put("clientId", thingOne.get());
-           put("certificatePem", clientAPem);
-           put("username", "foo");
-           put("password", "bar");
-       }});
-       api.getClientDeviceAuthToken("mqtt", new HashMap<String, String>() {{
-           put("clientId", thingTwo.get());
-           put("certificatePem", clientBPem);
-           put("username", "baz");
-           put("password", "fizz");
-       }});
+       connectToCore(thingOne.get(), clientAPem);
+       connectToCore(thingTwo.get(), clientBPem);
 
        // Check state before refresh of the certificates
        CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
@@ -276,4 +280,33 @@ public class OfflineAuthenticationTest {
        // This one should have been removed given it is no longer attached
        assertNull(thingB);
    }
+
+   @Test
+    void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertificateRevoked_THEN_backOnlineAndClientRejected(
+            ExtensionContext context) throws Exception {
+       ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
+       // Given
+       network.goOnline();
+
+       // Configure the things attached to the core
+       List<X509Certificate> clientCertificates = createClientCertificates(1);
+       String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+       Supplier<String> thingOne =  () -> "ThingOne";
+       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+       iotAuthClientFake.attachThingToCore(thingOne);
+       iotAuthClientFake.activateCert(clientPem);
+
+       runNucleusWithConfig("config.yaml");
+       assertNotNull(connectToCore(thingOne.get(), clientPem));
+
+       // When
+       network.goOffline();
+       iotAuthClientFake.deactivateCert(clientPem); // Revoked
+       assertNotNull(connectToCore(thingOne.get(), clientPem));
+
+       // Then
+       network.goOnline();
+       assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
+   }
+
 }
