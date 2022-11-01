@@ -37,6 +37,7 @@ import org.mockito.MockedStatic;
 import org.mockito.ScopedMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
@@ -155,7 +156,7 @@ public class OfflineAuthenticationTest {
 
     @Test
     void GIVEN_clientDevice_WHEN_verifyingItsIdentity_THEN_pemStored(ExtensionContext context) throws Exception {
-        ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
+        ignoreExceptionOfType(context, NoSuchFileException.class);
         // Given
         List<X509Certificate> clientCertificates = createClientCertificates(1);
 
@@ -180,7 +181,7 @@ public class OfflineAuthenticationTest {
    @Test
    void GIVEN_storedCertificates_WHEN_refreshEnabled_THEN_storedCertificatesRefreshed(ExtensionContext context)
            throws Exception {
-        ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
+        ignoreExceptionOfType(context, NoSuchFileException.class);
        // Given
        List<X509Certificate> clientCertificates = createClientCertificates(2);
 
@@ -252,9 +253,34 @@ public class OfflineAuthenticationTest {
    }
 
    @Test
+   void GIVEN_clientConnectsWhileOnline_WHEN_offline_THEN_clientCanConnect(ExtensionContext context) throws Exception {
+       ignoreExceptionOfType(context, NoSuchFileException.class);
+
+       // Given
+       network.goOnline();
+
+       // Configure the things attached to the core
+       List<X509Certificate> clientCertificates = createClientCertificates(1);
+       String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+       Supplier<String> thingOne =  () -> "ThingOne";
+       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+       iotAuthClientFake.attachThingToCore(thingOne);
+       iotAuthClientFake.activateCert(clientPem);
+
+       runNucleusWithConfig("config.yaml");
+       assertNotNull(connectToCore(thingOne.get(), clientPem));
+
+       // When
+       network.goOffline();
+
+       // Then
+       assertNotNull(connectToCore(thingOne.get(), clientPem));
+   }
+
+   @Test
     void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertificateRevoked_THEN_backOnlineAndClientRejected(
             ExtensionContext context) throws Exception {
-       ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
+       ignoreExceptionOfType(context, NoSuchFileException.class);
        // Given
        network.goOnline();
 
@@ -278,5 +304,4 @@ public class OfflineAuthenticationTest {
        network.goOnline();
        assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
    }
-
 }
