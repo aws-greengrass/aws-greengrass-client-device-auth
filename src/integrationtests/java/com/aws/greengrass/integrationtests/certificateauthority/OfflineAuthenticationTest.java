@@ -8,13 +8,10 @@ package com.aws.greengrass.integrationtests.certificateauthority;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
-import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
-import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
@@ -26,12 +23,9 @@ import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.dependency.State;
-import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
-import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import com.aws.greengrass.util.GreengrassServiceClientFactory;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,12 +33,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.ScopedMock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
@@ -68,25 +61,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class OfflineAuthenticationTest {
-    @Mock
-    SecurityService securityServiceMock;
-    @Mock
-    private GreengrassServiceClientFactory clientFactory;
-    @Mock
-    private GroupManager groupManager;
-    @Mock
-    CertificateExpiryMonitor certExpiryMonitorMock;
-    @Mock
-    CISShadowMonitor cisShadowMonitorMock;
-    @Mock
-    private GreengrassV2DataClient client;
     @TempDir
     Path rootDir;
     private Kernel kernel;
@@ -96,7 +76,7 @@ public class OfflineAuthenticationTest {
 
 
     @BeforeEach
-    void setup(ExtensionContext context) throws DeviceConfigurationException {
+    void setup(ExtensionContext context) {
         ignoreExceptionOfType(context, SpoolerStoreException.class);
 
         // Set this property for kernel to scan its own classpath to find plugins
@@ -104,23 +84,14 @@ public class OfflineAuthenticationTest {
         kernel = new Kernel();
         network = new NetworkStateFake();
         kernel.getContext().put(NetworkStateProvider.class, network);
-        kernel.getContext().put(GroupManager.class, groupManager);
-        kernel.getContext().put(SecurityService.class, securityServiceMock);
-        kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitorMock);
-        kernel.getContext().put(CISShadowMonitor.class, cisShadowMonitorMock);
-        kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
 
         DomainEvents domainEvents =  new DomainEvents();
-        CertificateStore certificateStore = new CertificateStore(rootDir, domainEvents , securityServiceMock);
-
         kernel.getContext().put(DomainEvents.class, domainEvents);
-        kernel.getContext().put(CertificateStore.class, certificateStore);
 
         iotAuthClientFake = new IotAuthClientFake();
         kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
 
         clockMock = Optional.empty();
-        lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
     }
 
     @AfterEach
@@ -185,7 +156,7 @@ public class OfflineAuthenticationTest {
 
     @Test
     void GIVEN_clientDevice_WHEN_verifyingItsIdentity_THEN_pemStored(ExtensionContext context) throws Exception {
-        ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
+        ignoreExceptionOfType(context, NoSuchFileException.class);
         // Given
         List<X509Certificate> clientCertificates = createClientCertificates(1);
 
@@ -210,7 +181,7 @@ public class OfflineAuthenticationTest {
    @Test
    void GIVEN_storedCertificates_WHEN_refreshEnabled_THEN_storedCertificatesRefreshed(ExtensionContext context)
            throws Exception {
-        ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
+        ignoreExceptionOfType(context, NoSuchFileException.class);
        // Given
        List<X509Certificate> clientCertificates = createClientCertificates(2);
 
@@ -282,9 +253,34 @@ public class OfflineAuthenticationTest {
    }
 
    @Test
+   void GIVEN_clientConnectsWhileOnline_WHEN_offline_THEN_clientCanConnect(ExtensionContext context) throws Exception {
+       ignoreExceptionOfType(context, NoSuchFileException.class);
+
+       // Given
+       network.goOnline();
+
+       // Configure the things attached to the core
+       List<X509Certificate> clientCertificates = createClientCertificates(1);
+       String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+       Supplier<String> thingOne =  () -> "ThingOne";
+       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+       iotAuthClientFake.attachThingToCore(thingOne);
+       iotAuthClientFake.activateCert(clientPem);
+
+       runNucleusWithConfig("config.yaml");
+       assertNotNull(connectToCore(thingOne.get(), clientPem));
+
+       // When
+       network.goOffline();
+
+       // Then
+       assertNotNull(connectToCore(thingOne.get(), clientPem));
+   }
+
+   @Test
     void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertificateRevoked_THEN_backOnlineAndClientRejected(
             ExtensionContext context) throws Exception {
-       ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
+       ignoreExceptionOfType(context, NoSuchFileException.class);
        // Given
        network.goOnline();
 
@@ -308,5 +304,4 @@ public class OfflineAuthenticationTest {
        network.goOnline();
        assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
    }
-
 }
