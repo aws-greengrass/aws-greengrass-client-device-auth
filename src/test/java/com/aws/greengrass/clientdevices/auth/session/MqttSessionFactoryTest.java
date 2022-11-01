@@ -9,7 +9,6 @@ import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
@@ -52,7 +51,7 @@ public class MqttSessionFactoryTest {
     @Mock
     private ThingRegistry mockThingRegistry;
     @Mock
-    private NetworkState mockNetworkState;
+    private NetworkStateProvider.Default mockNetworkState;
     @Mock
     private IotAuthClient iotAuthClientMock;
     private MqttSessionFactory mqttSessionFactory;
@@ -74,6 +73,7 @@ public class MqttSessionFactoryTest {
                 new CreateIoTThingSession(mockThingRegistry, mockCertificateRegistry, useCases);
         VerifyThingAttachedToCertificate verifyThingAttachedToCertificate =
                 new VerifyThingAttachedToCertificate(iotAuthClientMock, mockThingRegistry, mockNetworkState);
+        context.put(NetworkStateProvider.class, mockNetworkState);
         context.put(CreateIoTThingSession.class, createIoTThingSession);
         context.put(VerifyThingAttachedToCertificate.class, verifyThingAttachedToCertificate);
         mqttSessionFactory = new MqttSessionFactory(mockDeviceAuthClient, useCases);

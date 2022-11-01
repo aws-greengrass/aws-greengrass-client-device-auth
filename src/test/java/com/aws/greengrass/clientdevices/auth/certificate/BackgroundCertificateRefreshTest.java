@@ -12,7 +12,6 @@ import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificate
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
-import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
@@ -83,7 +82,7 @@ public class BackgroundCertificateRefreshTest {
     @Mock
     private GreengrassV2DataClient client;
     @Mock
-    private NetworkState networkStateMock;
+    private NetworkStateProvider.Default networkStateMock;
     @Mock
     private ScheduledThreadPoolExecutor schedulerMock;
     @Mock

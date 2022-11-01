@@ -6,7 +6,6 @@
 package com.aws.greengrass.clientdevices.auth.iot.usecases;
 
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
-import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
@@ -27,7 +26,7 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
 
     private final IotAuthClient iotAuthClient;
     private final CertificateRegistry certificateRegistry;
-    private final NetworkState networkState;
+    private final NetworkStateProvider networkState;
 
 
     /**
@@ -39,7 +38,7 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
      */
     @Inject
     public VerifyIotCertificate(IotAuthClient iotAuthClient, CertificateRegistry certificateRegistry,
-                                NetworkState networkState) {
+                                NetworkStateProvider networkState) {
         this.iotAuthClient = iotAuthClient;
         this.certificateRegistry = certificateRegistry;
         this.networkState = networkState;

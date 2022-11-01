@@ -45,12 +45,12 @@ public class NetworkStateTest {
     @Captor
     static ArgumentCaptor<MqttClientConnectionEvents> connectionEventsArgumentCaptor;
     private ForkJoinPool fjp = new ForkJoinPool();
-    private NetworkState networkState;
+    private NetworkStateProvider.Default networkState;
 
     @BeforeEach
     void beforeEach() {
         fjp = new ForkJoinPool();
-        networkState = new NetworkState(mqttClient, fjp);
+        networkState = new NetworkStateProvider.Default(mqttClient, fjp);
         verify(mqttClient).addToCallbackEvents(onConnectCaptor.capture(), connectionEventsArgumentCaptor.capture());
     }
 

@@ -16,7 +16,6 @@ import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertifi
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
-import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
@@ -83,7 +82,7 @@ public class OfflineAuthenticationTest {
     @Mock
     private GreengrassV2DataClient client;
     @Mock
-    private NetworkState networkStateMock;
+    private NetworkStateProvider.Default networkStateMock;
     @TempDir
     Path rootDir;
     private Kernel kernel;
@@ -98,7 +97,7 @@ public class OfflineAuthenticationTest {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
-        kernel.getContext().put(NetworkState.class, networkStateMock);
+        kernel.getContext().put(NetworkStateProvider.class, networkStateMock);
         kernel.getContext().put(GroupManager.class, groupManager);
         kernel.getContext().put(SecurityService.class, securityServiceMock);
         kernel.getContext().put(CertificateExpiryMonitor.class, certExpiryMonitorMock);
@@ -273,15 +272,4 @@ public class OfflineAuthenticationTest {
        // This one should have been removed given it is no longer attached
        assertNull(thingB);
    }
-
-   @Test
-    void GIVEN_clientConnectsWhileOnline_WHEN_goesOfflineAndCertRevoked_THEN_backOnlineAndClientShouldNotConnect() {
-        // Given
-
-
-       // When
-
-       // Then
-   }
-
 }

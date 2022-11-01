@@ -6,7 +6,6 @@
 package com.aws.greengrass.clientdevices.auth.certificate.infra;
 
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
-import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
@@ -49,7 +48,7 @@ import javax.inject.Inject;
  */
 public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkStateProvider.ConnectionState> {
     private final UseCases useCases;
-    private final NetworkState networkState;
+    private final NetworkStateProvider networkState;
     private static final int DEFAULT_INTERVAL_SECONDS = 60 * 60 * 24; // Once a day
     private static final Logger logger = LogManager.getLogger(BackgroundCertificateRefresh.class);
     private final ClientCertificateStore pemStore;
@@ -75,7 +74,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      */
     @Inject
     public BackgroundCertificateRefresh(
-            ScheduledThreadPoolExecutor scheduler, ThingRegistry thingRegistry, NetworkState networkState,
+            ScheduledThreadPoolExecutor scheduler, ThingRegistry thingRegistry, NetworkStateProvider networkState,
             CertificateRegistry certificateRegistry, ClientCertificateStore pemStore, IotAuthClient iotAuthClient,
             UseCases useCases) {
         this.scheduler = scheduler;
