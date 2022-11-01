@@ -9,7 +9,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
-import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
@@ -38,7 +38,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class VerifyThingAttachedToCertificateTest {
     @Mock
-    private NetworkState mockNetworkState;
+    private NetworkStateProvider.Default mockNetworkState;
     @Mock
     private ThingRegistry mockThingRegistry;
     private IotAuthClientFake iotAuthClientFake;
@@ -61,7 +61,7 @@ class VerifyThingAttachedToCertificateTest {
         VerifyThingAttachedToCertificateDTO dto =
                 new VerifyThingAttachedToCertificateDTO(thing.getThingName(), thingCertificate.getCertificateId());
 
-        when(mockNetworkState.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
+        when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockThingRegistry.getThing(thing.getThingName())).thenReturn(thing);
 
         // positive result
@@ -83,7 +83,7 @@ class VerifyThingAttachedToCertificateTest {
         VerifyThingAttachedToCertificateDTO dto =
                 new VerifyThingAttachedToCertificateDTO(thing.getThingName(), thingCertificate.getCertificateId());
 
-        when(mockNetworkState.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_DOWN);
+        when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_DOWN);
         when(mockThingRegistry.getThing(thing.getThingName())).thenReturn(thing);
 
         // positive result
@@ -112,7 +112,7 @@ class VerifyThingAttachedToCertificateTest {
         VerifyThingAttachedToCertificate verifyThingAttachedToCertificate =
                 new VerifyThingAttachedToCertificate(mockIotAuthClient, mockThingRegistry, mockNetworkState);
 
-        when(mockNetworkState.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
+        when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockThingRegistry.getThing(thing.getThingName())).thenReturn(thing);
 
         // positive result

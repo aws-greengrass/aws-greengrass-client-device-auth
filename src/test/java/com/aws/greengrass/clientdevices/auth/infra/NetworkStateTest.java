@@ -45,12 +45,12 @@ public class NetworkStateTest {
     @Captor
     static ArgumentCaptor<MqttClientConnectionEvents> connectionEventsArgumentCaptor;
     private ForkJoinPool fjp = new ForkJoinPool();
-    private NetworkState networkState;
+    private NetworkStateProvider.Default networkState;
 
     @BeforeEach
     void beforeEach() {
         fjp = new ForkJoinPool();
-        networkState = new NetworkState(mqttClient, fjp);
+        networkState = new NetworkStateProvider.Default(mqttClient, fjp);
         verify(mqttClient).addToCallbackEvents(onConnectCaptor.capture(), connectionEventsArgumentCaptor.capture());
     }
 
@@ -62,14 +62,15 @@ public class NetworkStateTest {
     @ParameterizedTest
     @MethodSource("provideNetworkEventsAndExpectedState")
     void GIVEN_subscriptionToNetworkChanges_WHEN_connectionStateChanges_THEN_networkEventTriggeredOnSeparateThread(
-            Callable<NetworkState.ConnectionState> triggerNetworkChangeAndGetExpectedConnectionState) throws Exception {
+            Callable<NetworkStateProvider.ConnectionState> triggerNetworkChangeAndGetExpectedConnectionState)
+            throws Exception {
         // GIVEN
         CountDownLatch cdl = new CountDownLatch(1);
         AtomicLong callbackThreadId = new AtomicLong();
-        AtomicReference<NetworkState.ConnectionState> connState = new AtomicReference<>();
+        AtomicReference<NetworkStateProvider.ConnectionState> connState = new AtomicReference<>();
         long curThreadId = Thread.currentThread().getId();
 
-        Consumer<NetworkState.ConnectionState> networkStateConsumer = (state) -> {
+        Consumer<NetworkStateProvider.ConnectionState> networkStateConsumer = (state) -> {
             connState.set(state);
             callbackThreadId.set(Thread.currentThread().getId());
             cdl.countDown();
@@ -77,7 +78,7 @@ public class NetworkStateTest {
         networkState.registerHandler(networkStateConsumer);
 
         // WHEN
-        NetworkState.ConnectionState expectedState = triggerNetworkChangeAndGetExpectedConnectionState.call();
+        NetworkStateProvider.ConnectionState expectedState = triggerNetworkChangeAndGetExpectedConnectionState.call();
 
         // THEN
         // Assert that NETWORK_UP event was emitted, and that it was emitted in a separate thread.
@@ -92,17 +93,17 @@ public class NetworkStateTest {
     @SuppressWarnings("PMD.UnusedPrivateMethod")
     private static Stream<Arguments> provideNetworkEventsAndExpectedState() {
         return Stream.of(
-            Arguments.arguments((Callable<NetworkState.ConnectionState>)() -> {
+            Arguments.arguments((Callable<NetworkStateProvider.ConnectionState>)() -> {
                 onConnectCaptor.getValue().onConnect(true);
-                return NetworkState.ConnectionState.NETWORK_UP;
+                return NetworkStateProvider.ConnectionState.NETWORK_UP;
             }),
-            Arguments.arguments((Callable<NetworkState.ConnectionState>)() -> {
+            Arguments.arguments((Callable<NetworkStateProvider.ConnectionState>)() -> {
                 connectionEventsArgumentCaptor.getValue().onConnectionResumed(true);
-                return NetworkState.ConnectionState.NETWORK_UP;
+                return NetworkStateProvider.ConnectionState.NETWORK_UP;
             }),
-            Arguments.arguments((Callable<NetworkState.ConnectionState>)() -> {
+            Arguments.arguments((Callable<NetworkStateProvider.ConnectionState>)() -> {
                 connectionEventsArgumentCaptor.getValue().onConnectionInterrupted(0);
-                return NetworkState.ConnectionState.NETWORK_DOWN;
+                return NetworkStateProvider.ConnectionState.NETWORK_DOWN;
             })
         );
     }

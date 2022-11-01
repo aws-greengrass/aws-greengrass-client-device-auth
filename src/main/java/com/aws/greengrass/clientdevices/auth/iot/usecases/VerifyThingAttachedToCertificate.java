@@ -7,7 +7,7 @@ package com.aws.greengrass.clientdevices.auth.iot.usecases;
 
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
@@ -22,7 +22,7 @@ import javax.inject.Inject;
 public class VerifyThingAttachedToCertificate
         implements UseCases.UseCase<Boolean, VerifyThingAttachedToCertificateDTO> {
     private final IotAuthClient iotAuthClient;
-    private final NetworkState networkState;
+    private final NetworkStateProvider networkState;
     private final ThingRegistry thingRegistry;
     private static final Logger logger = LogManager.getLogger(VerifyThingAttachedToCertificate.class);
 
@@ -37,7 +37,7 @@ public class VerifyThingAttachedToCertificate
      */
     @Inject
     public VerifyThingAttachedToCertificate(IotAuthClient iotAuthClient, ThingRegistry thingRegistry,
-                                  NetworkState networkState) {
+                                            NetworkStateProvider networkState) {
         this.iotAuthClient = iotAuthClient;
         this.thingRegistry = thingRegistry;
         this.networkState = networkState;
@@ -65,7 +65,7 @@ public class VerifyThingAttachedToCertificate
     }
 
     private boolean isNetworkUp() {
-        return networkState.getConnectionStateFromMqtt() == NetworkState.ConnectionState.NETWORK_UP;
+        return networkState.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_UP;
     }
 
     /**
