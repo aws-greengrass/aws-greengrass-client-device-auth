@@ -334,4 +334,32 @@ public class OfflineAuthenticationTest {
        network.goOnline();
        assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
    }
+
+    @Test
+    void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertDetachedFromThing_THEN_backOnlineAndClientRejected(
+            ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, NoSuchFileException.class);
+        // Given
+        network.goOnline();
+
+        // Configure the things attached to the core
+        List<X509Certificate> clientCertificates = createClientCertificates(1);
+        String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+        Supplier<String> thingOne =  () -> "ThingOne";
+        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+        iotAuthClientFake.attachThingToCore(thingOne);
+        iotAuthClientFake.activateCert(clientPem);
+
+        runNucleusWithConfig("config.yaml");
+        assertNotNull(connectToCore(thingOne.get(), clientPem));
+
+        // When
+        network.goOffline();
+        iotAuthClientFake.detachCertificateFromThing(thingOne.get(), clientPem);  // Detached
+        assertNotNull(connectToCore(thingOne.get(), clientPem));
+
+        // Then
+        network.goOnline();
+        assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
+    }
 }
