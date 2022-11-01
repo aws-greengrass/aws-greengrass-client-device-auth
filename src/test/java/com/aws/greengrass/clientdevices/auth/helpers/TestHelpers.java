@@ -38,6 +38,7 @@ public final class TestHelpers {
 
             Thread.sleep(pollingIntervalMillis);
         }
-        return false;
+
+       throw new AssertionError("Condition was not eventually true");
     }
 }
