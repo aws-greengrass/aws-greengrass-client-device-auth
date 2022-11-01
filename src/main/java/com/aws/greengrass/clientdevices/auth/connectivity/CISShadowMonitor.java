@@ -7,7 +7,7 @@ package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -47,7 +47,7 @@ import java.util.function.Consumer;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
-public class CISShadowMonitor implements Consumer<NetworkState.ConnectionState> {
+public class CISShadowMonitor implements Consumer<NetworkStateProvider.ConnectionState> {
     private static final Logger LOGGER = LogManager.getLogger(CISShadowMonitor.class);
     private static final String CIS_SHADOW_SUFFIX = "-gci";
     private static final String VERSION = "version";
@@ -300,8 +300,8 @@ public class CISShadowMonitor implements Consumer<NetworkState.ConnectionState> 
     }
 
     @Override
-    public void accept(NetworkState.ConnectionState state) {
-        if (state == NetworkState.ConnectionState.NETWORK_UP) {
+    public void accept(NetworkStateProvider.ConnectionState state) {
+        if (state == NetworkStateProvider.ConnectionState.NETWORK_UP) {
             publishToGetCISShadowTopic();
         }
     }

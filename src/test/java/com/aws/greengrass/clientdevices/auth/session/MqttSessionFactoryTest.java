@@ -10,6 +10,7 @@ import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
@@ -86,7 +87,7 @@ public class MqttSessionFactoryTest {
     @Test
     void GIVEN_credentialsWithUnknownClientId_WHEN_createSession_THEN_throwsAuthenticationException()
             throws InvalidCertificateException {
-        when(mockNetworkState.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
+        when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockCertificateRegistry.getCertificateFromPem(any()))
                 .thenReturn(Optional.of(CertificateFake.activeCertificate()));
         when(mockThingRegistry.getThing(any())).thenReturn(Thing.of("clientId"));
@@ -108,7 +109,7 @@ public class MqttSessionFactoryTest {
     @Test
     void GIVEN_credentialsWithCertificate_WHEN_createSession_AND_cloudError_THEN_throwsAuthenticationException()
             throws InvalidCertificateException {
-        when(mockNetworkState.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
+        when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockCertificateRegistry.getCertificateFromPem(any()))
                 .thenReturn(Optional.of(CertificateFake.activeCertificate()));
         when(mockThingRegistry.getThing(any())).thenReturn(Thing.of("clientId"));
@@ -122,7 +123,7 @@ public class MqttSessionFactoryTest {
     @Test
     void GIVEN_credentialsWithValidClientId_WHEN_createSession_THEN_returnsSession()
             throws AuthenticationException, InvalidCertificateException {
-        when(mockNetworkState.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
+        when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockThingRegistry.getOrCreateThing("clientId")).thenReturn(Thing.of("clientId"));
         when(mockThingRegistry.getThing(any())).thenReturn(Thing.of("clientId"));
         when(mockCertificateRegistry.getCertificateFromPem(any()))

@@ -7,7 +7,7 @@ package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.Utils;
@@ -160,7 +160,7 @@ public class CISShadowMonitorTest {
         assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
 
         // simulate a reconnect
-        cisShadowMonitor.accept(NetworkState.ConnectionState.NETWORK_UP);
+        cisShadowMonitor.accept(NetworkStateProvider.ConnectionState.NETWORK_UP);
 
         verifyCertsRotatedWhenConnectivityChanges();
     }

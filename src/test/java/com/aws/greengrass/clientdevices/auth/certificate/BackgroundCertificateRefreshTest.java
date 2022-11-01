@@ -13,6 +13,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
@@ -232,11 +233,11 @@ public class BackgroundCertificateRefreshTest {
 
     @Test
     void GIVEN_networkWasDown_WHEN_networkUp_THEN_backgroundTaskTriggered() {
-        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_DOWN);
+        backgroundRefresh.accept(NetworkStateProvider.ConnectionState.NETWORK_DOWN);
         verify(backgroundRefresh, times(0)).run();
-        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_UP);
+        backgroundRefresh.accept(NetworkStateProvider.ConnectionState.NETWORK_UP);
         verify(backgroundRefresh, times(1)).run();
-        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_DOWN);
+        backgroundRefresh.accept(NetworkStateProvider.ConnectionState.NETWORK_DOWN);
         verify(backgroundRefresh, times(1)).run();
     }
 
@@ -358,7 +359,7 @@ public class BackgroundCertificateRefreshTest {
         // Network goes down and back up some time later
         Instant twelveHoursLater = Instant.now();
         mockInstant(twelveHoursLater.toEpochMilli());
-        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_UP);
+        backgroundRefresh.accept(NetworkStateProvider.ConnectionState.NETWORK_UP);
         verify(backgroundRefresh, times(1)).run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
         assertEquals(twelveHoursLater.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());
@@ -408,7 +409,7 @@ public class BackgroundCertificateRefreshTest {
         Instant twelveHoursAfterExecution = timeOfNextScheduledRun.plus(Duration.ofHours(12));
         mockInstant(twelveHoursAfterExecution.toEpochMilli());
         reset(iotAuthClientFake); // <- We are removing the error here
-        backgroundRefresh.accept(NetworkState.ConnectionState.NETWORK_UP);
+        backgroundRefresh.accept(NetworkStateProvider.ConnectionState.NETWORK_UP);
         verify(backgroundRefresh, times(2)).run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
         assertEquals(twelveHoursAfterExecution.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());

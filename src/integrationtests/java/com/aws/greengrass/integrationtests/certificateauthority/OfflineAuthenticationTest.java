@@ -17,6 +17,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
@@ -194,7 +195,7 @@ public class OfflineAuthenticationTest {
        iotAuthClientFake.activateCert(clientAPem);
        String clientBPem = CertificateHelper.toPem(clientBCrt);
        iotAuthClientFake.activateCert(clientBPem);
-       when(networkStateMock.getConnectionStateFromMqtt()).thenReturn(NetworkState.ConnectionState.NETWORK_UP);
+       when(networkStateMock.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
        Supplier<String> thingOne =  () -> "ThingOne";
        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientAPem);
        Supplier<String> thingTwo = () -> "ThingTwo";
@@ -271,6 +272,16 @@ public class OfflineAuthenticationTest {
        );
        // This one should have been removed given it is no longer attached
        assertNull(thingB);
+   }
+
+   @Test
+    void GIVEN_clientConnectsWhileOnline_WHEN_goesOfflineAndCertRevoked_THEN_backOnlineAndClientShouldNotConnect() {
+        // Given
+
+
+       // When
+
+       // Then
    }
 
 }

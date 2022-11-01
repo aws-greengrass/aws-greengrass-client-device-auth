@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.iot.usecases;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
@@ -65,7 +66,7 @@ public class VerifyThingAttachedToCertificate
     }
 
     private boolean isNetworkUp() {
-        return networkState.getConnectionStateFromMqtt() == NetworkState.ConnectionState.NETWORK_UP;
+        return networkState.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_UP;
     }
 
     /**

@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.certificate.infra;
 
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkState;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
@@ -46,7 +47,7 @@ import javax.inject.Inject;
  * Periodically updates the certificates and its relationships to things
  * (whether they are still attached or not to a thing) to keep them in sync with the cloud.
  */
-public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkState.ConnectionState> {
+public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkStateProvider.ConnectionState> {
     private final UseCases useCases;
     private final NetworkState networkState;
     private static final int DEFAULT_INTERVAL_SECONDS = 60 * 60 * 24; // Once a day
@@ -170,8 +171,8 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      * @param connectionState - A network state
      */
     @Override
-    public void accept(NetworkState.ConnectionState connectionState) {
-        if (connectionState == NetworkState.ConnectionState.NETWORK_UP) {
+    public void accept(NetworkStateProvider.ConnectionState connectionState) {
+        if (connectionState == NetworkStateProvider.ConnectionState.NETWORK_UP) {
             run();
         }
     }
@@ -301,6 +302,6 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     }
 
     private boolean isNetworkDown() {
-        return networkState.getConnectionStateFromMqtt() == NetworkState.ConnectionState.NETWORK_DOWN;
+        return networkState.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_DOWN;
     }
 }

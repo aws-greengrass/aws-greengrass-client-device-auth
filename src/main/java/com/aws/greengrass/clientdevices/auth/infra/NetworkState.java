@@ -15,16 +15,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
-public final class NetworkState {
+public final class NetworkState implements NetworkStateProvider {
     private final ExecutorService executorService;
 
-    public enum ConnectionState {
-        NETWORK_UP,
-        NETWORK_DOWN,
-    }
-
     private final MqttClient mqttClient;
-    private final List<Consumer<ConnectionState>> handlers = new ArrayList<>();
+    private final List<Consumer<NetworkStateProvider.ConnectionState>> handlers = new ArrayList<>();
 
     private final CallbackEventManager.OnConnectCallback onConnect = curSessionPresent -> {
         emitNetworkUp();
@@ -54,7 +49,8 @@ public final class NetworkState {
         this.executorService = executorService;
     }
 
-    public void registerHandler(Consumer<ConnectionState> networkChangeHandler) {
+    @Override
+    public void registerHandler(Consumer<NetworkStateProvider.ConnectionState> networkChangeHandler) {
         handlers.add(networkChangeHandler);
     }
 
@@ -72,19 +68,20 @@ public final class NetworkState {
      *
      * @return Connection state enum
      */
-    public ConnectionState getConnectionStateFromMqtt() {
+    @Override
+    public NetworkStateProvider.ConnectionState getConnectionState() {
         if (mqttClient.connected()) {
-            return ConnectionState.NETWORK_UP;
+            return NetworkStateProvider.ConnectionState.NETWORK_UP;
         } else {
-            return ConnectionState.NETWORK_DOWN;
+            return NetworkStateProvider.ConnectionState.NETWORK_DOWN;
         }
     }
 
     private void emitNetworkUp() {
         if (isRunning()) {
             executorService.submit(() -> {
-                for (Consumer<ConnectionState> handler : handlers) {
-                    handler.accept(ConnectionState.NETWORK_UP);
+                for (Consumer<NetworkStateProvider.ConnectionState> handler : handlers) {
+                    handler.accept(NetworkStateProvider.ConnectionState.NETWORK_UP);
                 }
             });
         }
@@ -93,8 +90,8 @@ public final class NetworkState {
     private void emitNetworkDown() {
         if (isRunning()) {
             executorService.submit(() -> {
-                for (Consumer<ConnectionState> handler : handlers) {
-                    handler.accept(ConnectionState.NETWORK_DOWN);
+                for (Consumer<NetworkStateProvider.ConnectionState> handler : handlers) {
+                    handler.accept(NetworkStateProvider.ConnectionState.NETWORK_DOWN);
                 }
             });
         }
