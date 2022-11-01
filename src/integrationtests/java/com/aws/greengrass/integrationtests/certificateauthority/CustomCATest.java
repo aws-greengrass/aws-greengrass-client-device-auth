@@ -7,6 +7,7 @@ package com.aws.greengrass.integrationtests.certificateauthority;
 
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
+
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
@@ -23,6 +24,7 @@ import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
+import com.aws.greengrass.integrationtests.ipc.IPCTestUtils;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
@@ -41,11 +43,19 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCClient;
+import software.amazon.awssdk.aws.greengrass.model.CertificateOptions;
+import software.amazon.awssdk.aws.greengrass.model.CertificateType;
+import software.amazon.awssdk.aws.greengrass.model.CertificateUpdate;
+import software.amazon.awssdk.aws.greengrass.model.SubscribeToCertificateUpdatesRequest;
+import software.amazon.awssdk.eventstreamrpc.EventStreamRPCConnection;
+import software.amazon.awssdk.eventstreamrpc.StreamResponseHandler;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 import software.amazon.awssdk.services.greengrassv2data.model.PutCertificateAuthoritiesRequest;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
@@ -59,6 +69,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -231,7 +242,7 @@ public class CustomCATest {
         });
     }
 
-    private Map<String, URI> givenCAStoredOnFilesystem(PrivateKey pk, X509Certificate... chain) throws IOException,
+    private Map<String, URI> storeCAOnFileSystem(PrivateKey pk, X509Certificate... chain) throws IOException,
             CertificateEncodingException {
         Path pkPath = rootDir.resolve("private.key").toAbsolutePath();
         CertificateTestHelpers.writeToPath(
@@ -253,11 +264,37 @@ public class CustomCATest {
         }};
     }
 
+    private void ipcSubscribeToCertificateAuthorityUpdates(
+            EventStreamRPCConnection connection, Consumer<CertificateUpdate> consumer) throws Exception {
+
+        GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
+        SubscribeToCertificateUpdatesRequest request = new SubscribeToCertificateUpdatesRequest();
+        request.setCertificateOptions(new CertificateOptions().withCertificateType(CertificateType.SERVER));
+
+        ipcClient.subscribeToCertificateUpdates(request,
+            Optional.of(new StreamResponseHandler<software.amazon.awssdk.aws.greengrass.model.CertificateUpdateEvent>() {
+                @Override
+                public void onStreamEvent(
+                        software.amazon.awssdk.aws.greengrass.model.CertificateUpdateEvent certificateUpdateEvent) {
+                    consumer.accept(certificateUpdateEvent.getCertificateUpdate());
+                }
+
+                @Override
+                public boolean onStreamError(Throwable error) {
+                    return false;
+                }
+
+                @Override
+                public void onStreamClosed() {
+                }
+        })).getResponse().get(10, TimeUnit.SECONDS);
+    }
+
     @Test
     void Given_customCAConfigurationWithCaChain_WHEN_issuingAClientCertificate_THEN_itsSignedByIntermediateCa() throws
            Exception {
         Pair<X509Certificate[], PrivateKey> credentials = givenRootAndIntermediateCA();
-        Map<String, URI> uris = givenCAStoredOnFilesystem(credentials.getRight(), credentials.getLeft());
+        Map<String, URI> uris = storeCAOnFileSystem(credentials.getRight(), credentials.getLeft());
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         GetCertificateRequest request = buildCertificateUpdateRequest(
@@ -269,6 +306,10 @@ public class CustomCATest {
 
         TestHelpers.eventuallyTrue(() -> {
             try {
+                if (eventRef.get() == null) {
+                    return false;
+                }
+
                 X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
                 X509Certificate intermediateCA = credentials.getLeft()[0];
                 return CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate);
@@ -283,7 +324,7 @@ public class CustomCATest {
         Exception {
         Pair<X509Certificate, PrivateKey> credentials = givenRootCA();
         X509Certificate rootCA = credentials.getLeft();
-        Map<String, URI> uris = givenCAStoredOnFilesystem(credentials.getRight(), rootCA);
+        Map<String, URI> uris = storeCAOnFileSystem(credentials.getRight(), rootCA);
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         GetCertificateRequest request = buildCertificateUpdateRequest(
@@ -295,6 +336,10 @@ public class CustomCATest {
 
         TestHelpers.eventuallyTrue(() -> {
             try {
+                if (eventRef.get() == null) {
+                    return false;
+                }
+
                 X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
                 return CertificateTestHelpers.wasCertificateIssuedBy(rootCA, issuedClientCertificate);
             } catch (CertificateException e) {
@@ -307,7 +352,7 @@ public class CustomCATest {
     void GIVEN_CustomCAConfiguration_WHEN_whenGeneratingClientCerts_THEN_GGComponentIsVerified() throws
             Exception {
         Pair<X509Certificate[], PrivateKey> credentials = givenRootAndIntermediateCA();
-        Map<String, URI> uris = givenCAStoredOnFilesystem(credentials.getRight(), credentials.getLeft());
+        Map<String, URI> uris = storeCAOnFileSystem(credentials.getRight(), credentials.getLeft());
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         GetCertificateRequest request = buildCertificateUpdateRequest(
@@ -320,6 +365,10 @@ public class CustomCATest {
 
         TestHelpers.eventuallyTrue(() -> {
             try {
+                if (eventRef.get() == null) {
+                    return false;
+                }
+
                 X509Certificate intermediateCA =  credentials.getLeft()[0];
                 X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
                 return CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate);
@@ -345,7 +394,7 @@ public class CustomCATest {
     void GIVEN_customCAConfigurationWithACAChain_WHEN_registeringCAWithIotCore_THEN_highestTrustCAUploaded() throws
         Exception {
         Pair<X509Certificate[], PrivateKey> credentials = givenRootAndIntermediateCA();
-        Map<String, URI> uris = givenCAStoredOnFilesystem( credentials.getRight(), credentials.getLeft());
+        Map<String, URI> uris = storeCAOnFileSystem( credentials.getRight(), credentials.getLeft());
 
         runNucleusWithConfig("config.yaml");
         configureCustomCertificateAuthorityConfiguration(uris.get("privateKey"), uris.get("certificateAuthority"));
@@ -367,7 +416,7 @@ public class CustomCATest {
     void GIVEN_managedCAConfiguration_WHEN_updatedToCustomCAConfiguration_THEN_serverCertificatesAreRotated() throws
             Exception{
         Pair<X509Certificate[], PrivateKey> credentials = givenRootAndIntermediateCA();
-        Map<String, URI> uris = givenCAStoredOnFilesystem(credentials.getRight(), credentials.getLeft());
+        Map<String, URI> uris = storeCAOnFileSystem(credentials.getRight(), credentials.getLeft());
 
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
         GetCertificateRequest request = buildCertificateUpdateRequest(
@@ -379,6 +428,10 @@ public class CustomCATest {
 
         TestHelpers.eventuallyTrue(() -> {
             try {
+                if (eventRef.get() == null) {
+                    return false;
+                }
+
                 X509Certificate intermediateCA =  credentials.getLeft()[0];
                 X509Certificate issuedClientCertificate = eventRef.get().getCertificate();
                 return CertificateTestHelpers.wasCertificateIssuedBy(intermediateCA, issuedClientCertificate);
@@ -392,7 +445,7 @@ public class CustomCATest {
     void GIVEN_customCAConfiguration_WHEN_updatedToManagedCAConfiguration_THEN_serverCertificatesAreRotated() throws
             Exception{
         Pair<X509Certificate, PrivateKey> credentials = givenRootCA();
-        Map<String, URI> uris = givenCAStoredOnFilesystem(credentials.getRight(), credentials.getLeft());
+        Map<String, URI> uris = storeCAOnFileSystem(credentials.getRight(), credentials.getLeft());
 
         // Given
         runNucleusWithConfig("config.yaml");
@@ -412,5 +465,42 @@ public class CustomCATest {
                 "CN=Greengrass Core CA,L=Seattle,ST=Washington,OU=Amazon Web Services,O=Amazon.com Inc.,C=US");
         assertEquals(managedCA.getIssuerX500Principal().getName(),
                 "CN=Greengrass Core CA,L=Seattle,ST=Washington,OU=Amazon Web Services,O=Amazon.com Inc.,C=US");
+    }
+
+    @Test
+    void GIVEN_ipcSubscriptionToCAChanges_WHEN_customCaConfigured_THEN_ipcSubscriberReceivesRotatedCert(
+            ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, NoSuchFileException.class);
+        // Given
+        Pair<X509Certificate, PrivateKey> credentials = givenRootCA();
+        Map<String, URI> uris = storeCAOnFileSystem(credentials.getRight(), credentials.getLeft());
+
+        runNucleusWithConfig("cda.yaml");
+        AtomicReference<CertificateUpdate> eventRef = new AtomicReference<>();
+
+        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
+                "BrokerSubscribingToCertUpdates")) {
+            ipcSubscribeToCertificateAuthorityUpdates(connection, eventRef::set);
+
+            // When
+            configureCustomCertificateAuthorityConfiguration(uris.get("privateKey"), uris.get("certificateAuthority"));
+            waitForCertificateAuthorityToBe(credentials.getLeft());
+
+            // Then
+            TestHelpers.eventuallyTrue(() -> {
+                try {
+                    if (eventRef.get() == null) {
+                        return false;
+                    }
+
+                    X509Certificate issuedClientCertificate = CertificateTestHelpers.loadX509Certificate(
+                            eventRef.get().getCertificate()).get(0);
+                    X509Certificate rootCA = credentials.getLeft();
+                    return CertificateTestHelpers.wasCertificateIssuedBy(rootCA, issuedClientCertificate);
+                } catch (CertificateException | IOException e) {
+                    return  false;
+                }
+            });
+        }
     }
 }

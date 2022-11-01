@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.helpers;
 import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.Utils;
+import org.apache.commons.io.IOUtils;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.BCStyle;
@@ -31,6 +32,7 @@ import software.amazon.awssdk.utils.ImmutableMap;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -51,7 +53,9 @@ import java.security.cert.PKIXParameters;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -220,6 +224,17 @@ public final class CertificateTestHelpers {
             return true;
         } catch (CertPathValidatorException | InvalidAlgorithmParameterException | NoSuchAlgorithmException  e) {
             return false;
+        }
+    }
+
+    public static List<X509Certificate> loadX509Certificate(String pem)
+            throws IOException, CertificateException {
+
+        try (InputStream targetStream = IOUtils.toInputStream(pem)) {
+            CertificateFactory factory = CertificateFactory.getInstance("X.509");
+
+            return new ArrayList<>(
+                    (Collection<? extends X509Certificate>) factory.generateCertificates(targetStream));
         }
     }
 

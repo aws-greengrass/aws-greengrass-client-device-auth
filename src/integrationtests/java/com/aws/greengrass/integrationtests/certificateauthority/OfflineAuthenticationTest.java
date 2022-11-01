@@ -149,7 +149,9 @@ public class OfflineAuthenticationTest {
     }
 
     @Test
-    void GIVEN_clientDevice_WHEN_verifyingItsIdentity_THEN_pemStored() throws Exception {
+    void GIVEN_clientDevice_WHEN_verifyingItsIdentity_THEN_pemStored(ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
+
         // Given
         KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
         X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
@@ -176,7 +178,9 @@ public class OfflineAuthenticationTest {
     }
 
    @Test
-   void GIVEN_storedCertificates_WHEN_refreshEnabled_THEN_storedCertificatesRefreshed() throws Exception {
+   void GIVEN_storedCertificates_WHEN_refreshEnabled_THEN_storedCertificatesRefreshed(ExtensionContext context)
+           throws Exception {
+        ignoreExceptionOfType(context, java.nio.file.NoSuchFileException.class);
        // Given
 
        // Generate some credentials for the fake client devices
