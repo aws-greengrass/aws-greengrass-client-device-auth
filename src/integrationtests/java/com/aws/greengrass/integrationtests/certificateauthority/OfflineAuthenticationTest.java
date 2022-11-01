@@ -17,6 +17,7 @@ import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
@@ -27,6 +28,7 @@ import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 
+import com.aws.greengrass.util.NucleusPaths;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +39,9 @@ import org.mockito.MockedStatic;
 import org.mockito.ScopedMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.KeyPair;
@@ -152,6 +157,17 @@ public class OfflineAuthenticationTest {
             put("username", "foo");
             put("password", "bar");
         }});
+    }
+
+    private void corruptStoredClientCertificate(String pem) throws InvalidCertificateException, IOException {
+        NucleusPaths paths = kernel.getNucleusPaths();
+        Path workPath = paths.workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME);
+        Certificate cert = Certificate.fromPem(pem);
+        Path pemFilePath = workPath.resolve("clients").resolve(cert.getCertificateId() + ".pem");
+
+        try (OutputStream writeStream = Files.newOutputStream(pemFilePath)) {
+            writeStream.write("I am evil :)".getBytes());
+        }
     }
 
     @Test
@@ -361,5 +377,34 @@ public class OfflineAuthenticationTest {
         // Then
         network.goOnline();
         assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
+    }
+
+    @Test
+    void GIVEN_clientConnectsWhileOnline_WHEN_storedPemIsCorrupted_THEN_clientCanStillConnectOnlineOrOffline(
+            ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, NoSuchFileException.class);
+        ignoreExceptionOfType(context, InvalidCertificateException.class);
+        // Given
+        network.goOnline();
+
+        // Configure the things attached to the core
+        List<X509Certificate> clientCertificates = createClientCertificates(1);
+        String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+        Supplier<String> thingOne =  () -> "ThingOne";
+        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+        iotAuthClientFake.attachThingToCore(thingOne);
+        iotAuthClientFake.activateCert(clientPem);
+
+        runNucleusWithConfig("config.yaml");
+        connectToCore(thingOne.get(), clientPem);
+
+        // When
+        corruptStoredClientCertificate(clientPem);
+
+        // Then
+        network.goOffline();
+        assertNotNull(connectToCore(thingOne.get(), clientPem));
+        network.goOnline();
+        assertNotNull(connectToCore(thingOne.get(), clientPem));
     }
 }
