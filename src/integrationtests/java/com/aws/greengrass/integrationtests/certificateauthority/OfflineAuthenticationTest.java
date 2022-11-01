@@ -278,6 +278,36 @@ public class OfflineAuthenticationTest {
    }
 
    @Test
+   void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndTtlExpired_THEN_clientCanNotConnect(ExtensionContext context)
+           throws Exception {
+       ignoreExceptionOfType(context, NoSuchFileException.class);
+
+       // Given
+       network.goOnline();
+       Instant now = Instant.now();
+       mockInstant(now.toEpochMilli());
+
+       // Configure the things attached to the core
+       List<X509Certificate> clientCertificates = createClientCertificates(1);
+       String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+       Supplier<String> thingOne =  () -> "ThingOne";
+       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+       iotAuthClientFake.attachThingToCore(thingOne);
+       iotAuthClientFake.activateCert(clientPem);
+
+       runNucleusWithConfig("config.yaml");
+       assertNotNull(connectToCore(thingOne.get(), clientPem));
+
+       // When
+       network.goOffline();
+       Instant twoMinutesLater = now.plusSeconds(2 * 60); // Default expiry is 1 minute
+       mockInstant(twoMinutesLater.toEpochMilli());
+
+       // Then
+       assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
+   }
+
+   @Test
     void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertificateRevoked_THEN_backOnlineAndClientRejected(
             ExtensionContext context) throws Exception {
        ignoreExceptionOfType(context, NoSuchFileException.class);
