@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,7 +46,7 @@ public class IotAuthClientTest {
     private IotAuthClient.Default iotAuthClient;
 
     @Mock
-    private GreengrassServiceClientFactory clientFactory;
+    private GreengrassClientFactory clientFactory;
 
     @Mock
     private GreengrassV2DataClient client;
@@ -66,7 +65,7 @@ public class IotAuthClientTest {
 
     @BeforeEach
     void beforeEach() {
-        lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(client);
+        lenient().when(clientFactory.getGGV2DataClient()).thenReturn(client);
     }
 
     @Test
