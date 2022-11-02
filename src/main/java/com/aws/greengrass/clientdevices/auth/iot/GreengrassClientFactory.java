@@ -76,8 +76,11 @@ public class GreengrassClientFactory {
             return clientBuilder.build();
         }
         clientBuilder.region(Region.of(awsRegion));
-        getGreengrassServiceEndpoint(deviceConfiguration, awsRegion)
-                .ifPresent(endpoint -> clientBuilder.endpointOverride(URI.create(endpoint)));
+        getEnvStage(deviceConfiguration)
+                .ifPresent(stage -> {
+                    String endpoint = RegionUtils.getGreengrassControlPlaneEndpoint(awsRegion, stage);
+                    clientBuilder.endpointOverride(URI.create(endpoint));
+                });
 
         return clientBuilder.build();
     }
@@ -105,9 +108,8 @@ public class GreengrassClientFactory {
             return clientBuilder.build();
         }
         clientBuilder.region(Region.of(awsRegion));
-        getGreengrassServiceEndpoint(deviceConfiguration, awsRegion)
-                .ifPresent(endpoint -> clientBuilder.endpointOverride(URI.create(endpoint)));
-
+        String ggServiceEndpoint = ClientConfigurationUtils.getGreengrassServiceEndpoint(deviceConfiguration);
+        clientBuilder.endpointOverride(URI.create(ggServiceEndpoint));
         return clientBuilder.build();
     }
 
@@ -120,15 +122,12 @@ public class GreengrassClientFactory {
         return greengrassServiceClientFactory.getDeviceConfiguration();
     }
 
-    private Optional<String> getGreengrassServiceEndpoint(DeviceConfiguration deviceConfiguration,
-                                                          String awsRegion) {
+    private Optional<IotSdkClientFactory.EnvironmentStage> getEnvStage(DeviceConfiguration deviceConfiguration) {
         try {
             String environment = Coerce.toString(deviceConfiguration.getEnvironmentStage());
-            String endpoint = RegionUtils.getGreengrassControlPlaneEndpoint(
-                    awsRegion, IotSdkClientFactory.EnvironmentStage.fromString(environment));
-            return Optional.ofNullable(endpoint);
+            return Optional.ofNullable(IotSdkClientFactory.EnvironmentStage.fromString(environment));
         } catch (InvalidEnvironmentStageException e) {
-            logger.atError().cause(e).log("Failed to configure greengrass service endpoint for GG v2 client");
+            logger.atError().cause(e).log("Failed to retrieve Greengrass environment stage");
         }
         return Optional.empty();
     }
