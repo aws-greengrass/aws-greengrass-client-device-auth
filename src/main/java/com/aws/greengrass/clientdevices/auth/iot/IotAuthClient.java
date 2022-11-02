@@ -11,7 +11,6 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.tes.LazyCredentialProvider;
 import com.aws.greengrass.util.Coerce;
-import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.IotSdkClientFactory;
 import com.aws.greengrass.util.ProxyUtils;
 import com.aws.greengrass.util.RegionUtils;
@@ -56,22 +55,22 @@ public interface IotAuthClient {
         private static final Logger logger = LogManager.getLogger(Default.class);
         private static final String CERTPEM_KEY = "certificatePem";
 
-        private final GreengrassServiceClientFactory clientFactory;
+        private final DeviceConfiguration deviceConfiguration;
         private final GreengrassV2DataClientFactory ggV2DataClientFactory;
         private final LazyCredentialProvider lazyCredentialProvider;
 
         /**
          * Default IotAuthClient constructor.
          *
-         * @param clientFactory greengrass cloud service client factory
+         * @param deviceConfiguration greengrass core device configuration
          * @param ggV2DataClientFactory greengrass v2 data client factory
          * @param lazyCredentialProvider credetial provider for the GG client
          */
         @Inject
-        Default(GreengrassServiceClientFactory clientFactory,
+        Default(DeviceConfiguration deviceConfiguration,
                 GreengrassV2DataClientFactory ggV2DataClientFactory,
                 LazyCredentialProvider lazyCredentialProvider) {
-            this.clientFactory = clientFactory;
+            this.deviceConfiguration = deviceConfiguration;
             this.ggV2DataClientFactory = ggV2DataClientFactory;
             this.lazyCredentialProvider = lazyCredentialProvider;
         }
@@ -173,15 +172,14 @@ public interface IotAuthClient {
 
         @Override
         public Stream<List<AssociatedClientDevice>> getThingsAssociatedWithCoreDevice() {
-            DeviceConfiguration configuration = clientFactory.getDeviceConfiguration();
-            String thingName = Coerce.toString(configuration.getThingName());
+            String thingName = Coerce.toString(deviceConfiguration.getThingName());
 
             ListClientDevicesAssociatedWithCoreDeviceRequest request =
                     ListClientDevicesAssociatedWithCoreDeviceRequest.builder()
                             .coreDeviceThingName(thingName)
                             .build();
 
-            try (GreengrassV2Client client = getGGV2Client(configuration)) {
+            try (GreengrassV2Client client = getGGV2Client()) {
                 ListClientDevicesAssociatedWithCoreDeviceIterable responses =
                         client.listClientDevicesAssociatedWithCoreDevicePaginator(request);
 
@@ -192,7 +190,7 @@ public interface IotAuthClient {
 
         // TODO: This should not live here ideally it should be returned by the clientFactory but we
         //  are adding it here to avoid introducing new changes to the nucleus
-        private GreengrassV2Client getGGV2Client(DeviceConfiguration deviceConfiguration)  {
+        private GreengrassV2Client getGGV2Client()  {
             String awsRegion = Coerce.toString(deviceConfiguration.getAWSRegion());
             GreengrassV2ClientBuilder clientBuilder = GreengrassV2Client.builder()
                     .httpClient(ProxyUtils.getSdkHttpClient())

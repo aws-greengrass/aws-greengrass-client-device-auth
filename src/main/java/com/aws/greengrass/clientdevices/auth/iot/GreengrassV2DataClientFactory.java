@@ -7,8 +7,8 @@ package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.componentmanager.ClientConfigurationUtils;
 import com.aws.greengrass.deployment.DeviceConfiguration;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.util.Coerce;
-import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Utils;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
@@ -27,16 +27,16 @@ import javax.inject.Inject;
  * but for now its upto the consumer of the clients to maintain their lifecycle.
  */
 public class GreengrassV2DataClientFactory {
-    private final GreengrassServiceClientFactory greengrassServiceClientFactory;
+    private final DeviceConfiguration deviceConfiguration;
 
     /**
      * Construct Greengrass Client Factory.
      *
-     * @param greengrassServiceClientFactory GG Service Client Factory to retrieve the latest device-config
+     * @param deviceConfiguration GG Core Device Configuration
      */
     @Inject
-    public GreengrassV2DataClientFactory(GreengrassServiceClientFactory greengrassServiceClientFactory) {
-        this.greengrassServiceClientFactory = greengrassServiceClientFactory;
+    public GreengrassV2DataClientFactory(DeviceConfiguration deviceConfiguration) {
+        this.deviceConfiguration = deviceConfiguration;
     }
 
     /**
@@ -45,9 +45,9 @@ public class GreengrassV2DataClientFactory {
      * The Nucleus provided V2DataClient has a built in retry policy which cannot be overridden.
      *
      * @return GreengrassV2DataClient
+     * @throws DeviceConfigurationException if configured AWS region is empty
      */
-    public GreengrassV2DataClient getClient()  {
-        DeviceConfiguration deviceConfiguration = greengrassServiceClientFactory.getDeviceConfiguration();
+    public GreengrassV2DataClient getClient() throws DeviceConfigurationException {
         String awsRegion = getAwsRegion(deviceConfiguration);
         String ggServiceEndpoint = ClientConfigurationUtils.getGreengrassServiceEndpoint(deviceConfiguration);
         ApacheHttpClient.Builder httpClient = ClientConfigurationUtils
@@ -64,11 +64,10 @@ public class GreengrassV2DataClientFactory {
         return clientBuilder.build();
     }
 
-    private String getAwsRegion(DeviceConfiguration deviceConfiguration) {
+    private String getAwsRegion(DeviceConfiguration deviceConfiguration) throws DeviceConfigurationException {
         String awsRegion = Coerce.toString(deviceConfiguration.getAWSRegion());
         if (Utils.isEmpty(awsRegion)) {
-            throw new RuntimeException("Failed to retrieve Greengrass service endpoint. "
-                    + "AWS region cannot be empty.");
+            throw new DeviceConfigurationException("AWS region cannot be empty");
         }
         return awsRegion;
     }
