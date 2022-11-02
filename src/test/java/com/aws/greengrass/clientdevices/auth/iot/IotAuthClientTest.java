@@ -46,7 +46,7 @@ public class IotAuthClientTest {
     private IotAuthClient.Default iotAuthClient;
 
     @Mock
-    private GreengrassClientFactory clientFactory;
+    private GreengrassV2DataClientFactory ggV2DataClientFactory;
 
     @Mock
     private GreengrassV2DataClient client;
@@ -65,7 +65,7 @@ public class IotAuthClientTest {
 
     @BeforeEach
     void beforeEach() {
-        lenient().when(clientFactory.getGGV2DataClient()).thenReturn(client);
+        lenient().when(ggV2DataClientFactory.getClient()).thenReturn(client);
     }
 
     @Test
