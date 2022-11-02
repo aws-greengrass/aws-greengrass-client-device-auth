@@ -62,6 +62,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -407,6 +408,7 @@ public class OfflineAuthenticationTest {
         // Assert cert pem is corrupted
         ClientCertificateStore pemStore = kernel.getContext().get(ClientCertificateStore.class);
         String storeCertificatePem = pemStore.getPem(certificate.getCertificateId()).get();
+        assertNotEquals(clientPem, storeCertificatePem);
         assertThrows(InvalidCertificateException.class, () -> Certificate.fromPem(storeCertificatePem));
 
         // Assert that authenticating offline or online is not affected
