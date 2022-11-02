@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.helpers;
 
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.Utils;
@@ -225,6 +226,22 @@ public final class CertificateTestHelpers {
         } catch (CertPathValidatorException | InvalidAlgorithmParameterException | NoSuchAlgorithmException  e) {
             return false;
         }
+    }
+
+    public static List<X509Certificate> createClientCertificates(int amount) throws Exception {
+        KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
+
+        List<X509Certificate> clientCertificates = new ArrayList<>();
+
+        for (int i = 0; i < amount; i++) {
+            KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
+
+            clientCertificates.add(createClientCertificate(
+                    rootCA, "AWS IoT Certificate", clientKeyPair.getPublic(), rootKeyPair.getPrivate()));
+        }
+
+        return clientCertificates;
     }
 
     public static List<X509Certificate> loadX509Certificate(String pem)
