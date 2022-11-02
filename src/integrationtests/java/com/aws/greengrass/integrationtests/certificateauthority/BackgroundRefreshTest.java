@@ -9,15 +9,19 @@ import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
+import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
+import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
+import com.aws.greengrass.clientdevices.auth.iot.Thing;
+import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
@@ -53,8 +57,9 @@ import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mockStatic;
@@ -62,7 +67,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
-public class OfflineAuthenticationTest {
+public class BackgroundRefreshTest {
     @TempDir
     Path rootDir;
     private Kernel kernel;
@@ -146,175 +151,130 @@ public class OfflineAuthenticationTest {
     }
 
     @Test
-    void GIVEN_clientDevice_WHEN_verifyingItsIdentity_THEN_pemStored(ExtensionContext context) throws Exception {
+    void GIVEN_storedCertificates_WHEN_refreshEnabled_THEN_storedCertificatesRefreshed(ExtensionContext context)
+            throws Exception {
         ignoreExceptionOfType(context, NoSuchFileException.class);
         // Given
-        List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
+        List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(2);
 
-        String clientCertPem = CertificateHelper.toPem(clientCertificates.get(0));
-        iotAuthClientFake.activateCert(clientCertPem);
-        runNucleusWithConfig("config.yaml");
-
-        // When
-       ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
-       boolean verifyResult = api.verifyClientDeviceIdentity(clientCertPem);
-
-       // Then
-       assertTrue(verifyResult);
-
-       String clientCertId = Certificate.fromPem(clientCertPem).getCertificateId();
-       ClientCertificateStore store = kernel.getContext().get(ClientCertificateStore.class);
-       String storedPem = store.getPem(clientCertId).get();
-
-       assertEquals(storedPem, clientCertPem);
-    }
-
-   @Test
-   void GIVEN_clientConnectsWhileOnline_WHEN_offline_THEN_clientCanConnect(ExtensionContext context) throws Exception {
-       ignoreExceptionOfType(context, NoSuchFileException.class);
-
-       // Given
-       network.goOnline();
-
-       // Configure the things attached to the core
-       List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
-       String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
-       Supplier<String> thingOne =  () -> "ThingOne";
-       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
-       iotAuthClientFake.attachThingToCore(thingOne);
-       iotAuthClientFake.activateCert(clientPem);
-
-       runNucleusWithConfig("config.yaml");
-       assertNotNull(connectToCore(thingOne.get(), clientPem));
-
-       // When
-       network.goOffline();
-
-       // Then
-       assertNotNull(connectToCore(thingOne.get(), clientPem));
-   }
-
-   @Test
-   void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndTtlExpired_THEN_clientCanNotConnect(ExtensionContext context)
-           throws Exception {
-       ignoreExceptionOfType(context, NoSuchFileException.class);
-
-       // Given
-       network.goOnline();
-       Instant now = Instant.now();
-       mockInstant(now.toEpochMilli());
-
-       // Configure the things attached to the core
-       List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
-       String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
-       Supplier<String> thingOne =  () -> "ThingOne";
-       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
-       iotAuthClientFake.attachThingToCore(thingOne);
-       iotAuthClientFake.activateCert(clientPem);
-
-       runNucleusWithConfig("config.yaml");
-       assertNotNull(connectToCore(thingOne.get(), clientPem));
-
-       // When
-       network.goOffline();
-       Instant twoMinutesLater = now.plusSeconds(2 * 60); // Default expiry is 1 minute
-       mockInstant(twoMinutesLater.toEpochMilli());
-
-       // Then
-       assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
-   }
-
-   @Test
-    void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertificateRevoked_THEN_backOnlineAndClientRejected(
-            ExtensionContext context) throws Exception {
-       ignoreExceptionOfType(context, NoSuchFileException.class);
-       // Given
-       network.goOnline();
-
-       // Configure the things attached to the core
-       List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
-       String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
-       Supplier<String> thingOne =  () -> "ThingOne";
-       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
-       iotAuthClientFake.attachThingToCore(thingOne);
-       iotAuthClientFake.activateCert(clientPem);
-
-       runNucleusWithConfig("config.yaml");
-       assertNotNull(connectToCore(thingOne.get(), clientPem));
-
-       // When
-       network.goOffline();
-       iotAuthClientFake.deactivateCert(clientPem); // Revoked
-       assertNotNull(connectToCore(thingOne.get(), clientPem));
-
-       // Then
-       network.goOnline();
-       assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
-   }
-
-    @Test
-    void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertDetachedFromThing_THEN_backOnlineAndClientRejected(
-            ExtensionContext context) throws Exception {
-        ignoreExceptionOfType(context, NoSuchFileException.class);
-        // Given
-        network.goOnline();
-
-        // Configure the things attached to the core
-        List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
-        String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+        // Configure the IotClientFake
+        String clientAPem = CertificateHelper.toPem(clientCertificates.get(0));
+        String clientBPem = CertificateHelper.toPem(clientCertificates.get(1));
         Supplier<String> thingOne =  () -> "ThingOne";
-        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+        Supplier<String> thingTwo = () -> "ThingTwo";
+        iotAuthClientFake.activateCert(clientAPem);
+        iotAuthClientFake.activateCert(clientBPem);
+        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientAPem);
+        iotAuthClientFake.attachCertificateToThing(thingTwo.get(), clientBPem);
         iotAuthClientFake.attachThingToCore(thingOne);
-        iotAuthClientFake.activateCert(clientPem);
+        iotAuthClientFake.attachThingToCore(thingTwo);
 
+        network.goOnline();
         runNucleusWithConfig("config.yaml");
-        assertNotNull(connectToCore(thingOne.get(), clientPem));
+
+        Instant now = Instant.now();
+        mockInstant(now.toEpochMilli());
+
+        connectToCore(thingOne.get(), clientAPem);
+        connectToCore(thingTwo.get(), clientBPem);
+
+        // Check state before refresh of the certificates
+        CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
+        Certificate ogCertA = certRegistry.getCertificateFromPem(clientAPem).get();
+        Certificate ogCertB = certRegistry.getCertificateFromPem(clientBPem).get();
+        assertEquals(ogCertA.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
+        assertEquals(ogCertB.getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
+
+        // Check state before refresh of thing attachments
+        ThingRegistry thingRegistry = kernel.getContext().get(ThingRegistry.class);
+        Thing ogThingA = thingRegistry.getOrCreateThing(thingOne.get());
+        Thing ogThingB = thingRegistry.getOrCreateThing(thingTwo.get());
+        assertEquals(ogThingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(), now.toEpochMilli());
+        assertEquals(ogThingB.certificateLastAttachedOn(ogCertB.getCertificateId()).get().toEpochMilli(), now.toEpochMilli());
+
+        // Detach one thing from the core
+        iotAuthClientFake.detachThingFromCore(thingTwo);
 
         // When
-        network.goOffline();
-        iotAuthClientFake.detachCertificateFromThing(thingOne.get(), clientPem);  // Detached
-        assertNotNull(connectToCore(thingOne.get(), clientPem));
+        Instant anHourLater = now.plusSeconds(60 * 60);
+        mockInstant(anHourLater.toEpochMilli());
+
+        BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
+        assertTrue(backgroundRefresh.isRunning(), "background refresh is not running");
+        backgroundRefresh.run(); // Force a run because otherwise it is controlled by a ScheduledExecutorService
+        kernel.getConfig().waitConfigUpdateComplete();
 
         // Then
-        network.goOnline();
-        assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
+
+        // Verify certificates updated after refresh
+        Optional<Certificate> certA = certRegistry.getCertificateFromPem(clientAPem);
+        Optional<Certificate> certB = certRegistry.getCertificateFromPem(clientBPem);
+        assertEquals(certA.get().getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+        // Given certB was only attached to thingB and thingB got detached it is deleted from the registry.
+        assertFalse(certB.isPresent());
+
+        // Verify thing certificate attachments got updated after refresh
+        Thing thingA = thingRegistry.getThing(thingOne.get());
+        Thing thingB = thingRegistry.getThing(thingTwo.get());
+        assertEquals(
+                thingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(),
+                anHourLater.toEpochMilli()
+        );
+        // This one should have been removed given it is no longer attached
+        assertNull(thingB);
     }
 
     @Test
-    void GIVEN_clientConnectsWhileOnline_WHEN_storedPemIsCorrupted_THEN_clientCanStillConnectOnlineOrOffline(
+    void GIVEN_storedCertificatesAndRefreshEnabled_WHEN_oneStorePemCorrupted_THEN_notCorruptedCertsRefresh(
             ExtensionContext context) throws Exception {
-        ignoreExceptionOfType(context, NoSuchFileException.class);
         ignoreExceptionOfType(context, InvalidCertificateException.class);
+        ignoreExceptionOfType(context, NoSuchFileException.class);
         // Given
-        network.goOnline();
+        List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(2);
 
-        // Configure the things attached to the core
-        List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
-        String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
-        Certificate certificate = Certificate.fromPem(clientPem);
+        // Configure the IotClientFake
+        String clientAPem = CertificateHelper.toPem(clientCertificates.get(0));
+        String clientBPem = CertificateHelper.toPem(clientCertificates.get(1));
         Supplier<String> thingOne =  () -> "ThingOne";
-        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+        Supplier<String> thingTwo = () -> "ThingTwo";
+        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientAPem);
+        iotAuthClientFake.attachCertificateToThing(thingTwo.get(), clientBPem);
         iotAuthClientFake.attachThingToCore(thingOne);
-        iotAuthClientFake.activateCert(clientPem);
+        iotAuthClientFake.attachThingToCore(thingTwo);
+        iotAuthClientFake.activateCert(clientAPem);
+        iotAuthClientFake.activateCert(clientBPem);
 
+        network.goOnline();
         runNucleusWithConfig("config.yaml");
-        connectToCore(thingOne.get(), clientPem);
+
+        BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
+        Instant now = Instant.now();
+        mockInstant(now.toEpochMilli());
+
+        connectToCore(thingOne.get(), clientAPem);
+        connectToCore(thingTwo.get(), clientBPem);
 
         // When
-        corruptStoredClientCertificate(clientPem);
+        Instant anHourLater = now.plusSeconds(60 * 60);
+        mockInstant(anHourLater.toEpochMilli());
+
+        corruptStoredClientCertificate(clientBPem);
+        backgroundRefresh.run();
 
         // Then
 
-        // Assert cert pem is corrupted
+        // Assert clientBPem is corrupted
         ClientCertificateStore pemStore = kernel.getContext().get(ClientCertificateStore.class);
-        String storeCertificatePem = pemStore.getPem(certificate.getCertificateId()).get();
-        assertNotEquals(clientPem, storeCertificatePem);
+        String storeCertificatePem = pemStore.getPem(Certificate.fromPem(clientBPem).getCertificateId()).get();
+        assertNotEquals(clientBPem, storeCertificatePem);
         assertThrows(InvalidCertificateException.class, () -> Certificate.fromPem(storeCertificatePem));
 
-        // Assert that authenticating offline or online is not affected
-        network.goOffline();
-        assertNotNull(connectToCore(thingOne.get(), clientPem));
-        network.goOnline();
-        assertNotNull(connectToCore(thingOne.get(), clientPem));
+        CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
+        Optional<Certificate> certA = certRegistry.getCertificateFromPem(clientAPem);
+        Optional<Certificate> certB = certRegistry.getCertificateFromPem(clientBPem);
+        assertEquals(certA.get().getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+        // certB didn't get updated
+        assertEquals(certB.get().getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
     }
+
 }
