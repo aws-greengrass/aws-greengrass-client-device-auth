@@ -6,7 +6,6 @@
 package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.componentmanager.ClientConfigurationUtils;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -14,12 +13,12 @@ import com.aws.greengrass.tes.LazyCredentialProvider;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.IotSdkClientFactory;
+import com.aws.greengrass.util.ProxyUtils;
 import com.aws.greengrass.util.RegionUtils;
 import com.aws.greengrass.util.Utils;
 import com.aws.greengrass.util.exceptions.InvalidEnvironmentStageException;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.retry.RetryMode;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2ClientBuilder;
@@ -194,12 +193,9 @@ public interface IotAuthClient {
         // TODO: This should not live here ideally it should be returned by the clientFactory but we
         //  are adding it here to avoid introducing new changes to the nucleus
         private GreengrassV2Client getGGV2Client(DeviceConfiguration deviceConfiguration)  {
-            ApacheHttpClient.Builder httpClient = ClientConfigurationUtils
-                    .getConfiguredClientBuilder(deviceConfiguration);
-
             String awsRegion = Coerce.toString(deviceConfiguration.getAWSRegion());
             GreengrassV2ClientBuilder clientBuilder = GreengrassV2Client.builder()
-                    .httpClient(httpClient.build())
+                    .httpClient(ProxyUtils.getSdkHttpClient())
                     .credentialsProvider(lazyCredentialProvider)
                     .overrideConfiguration(
                             ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build());
