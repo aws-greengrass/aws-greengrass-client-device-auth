@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.deployment.DeviceConfiguration;
+import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.tes.LazyCredentialProvider;
@@ -91,6 +92,11 @@ public interface IotAuthClient {
                 logger.atWarn().cause(e).kv(CERTPEM_KEY, certificatePem)
                         .log("Certificate doesn't exist or isn't active");
                 return Optional.empty();
+            } catch (DeviceConfigurationException e) {
+                logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
+                        .log("Failed to construct GG v2 Data client. "
+                                + "Check that the core device configuration is valid");
+                throw new CloudServiceInteractionException("Failed to construct GG v2 Data client", e);
             } catch (Exception e) {
                 logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
                         .log("Failed to verify client device identity with cloud. Check that the core device's IoT "
@@ -115,6 +121,11 @@ public interface IotAuthClient {
                 logger.atWarn().cause(e).kv(CERTPEM_KEY, certificatePem)
                         .log("Certificate doesn't exist or isn't active");
                 cert.setStatus(Certificate.Status.UNKNOWN);
+            } catch (DeviceConfigurationException e) {
+                logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
+                        .log("Failed to construct GG v2 Data client. "
+                                + "Check that the core device configuration is valid");
+                return Optional.empty();
             } catch (Exception e) {
                 // TODO: don't log at error level for network failures
                 logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
@@ -135,7 +146,7 @@ public interface IotAuthClient {
         }
 
         @Override
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidDuplicateLiterals"})
         public boolean isThingAttachedToCertificate(Thing thing, String certificateId) {
             if (thing == null || Utils.isEmpty(thing.getThingName())) {
                 throw new IllegalArgumentException("No thing name available to validate");
@@ -159,6 +170,11 @@ public interface IotAuthClient {
                         .kv("certificateId", certificateId)
                         .log("Thing is not attached to certificate");
                 return false;
+            } catch (DeviceConfigurationException e) {
+                logger.atError().cause(e).kv("thingName", thing.getThingName())
+                        .log("Failed to construct GG v2 Data client. "
+                                + "Check that the core device configuration is valid");
+                throw new CloudServiceInteractionException("Failed to construct GG v2 Data client", e);
             } catch (Exception e) {
                 logger.atError().cause(e).kv("thingName", thing.getThingName())
                         .kv("certificateId", certificateId)
