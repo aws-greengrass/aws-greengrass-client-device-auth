@@ -41,7 +41,7 @@ public class GreengrassClientFactory {
     private final LazyCredentialProvider lazyCredentialProvider;
 
     /**
-     * Construct GG V2 Data Client Factory.
+     * Construct Greengrass Client Factory.
      *
      * @param greengrassServiceClientFactory GG Service Client Factory to retrieve the latest device-config
      * @param lazyCredentialProvider Credential provider for the client
