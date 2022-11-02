@@ -8,7 +8,6 @@ package com.aws.greengrass.clientdevices.auth.session;
 
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +34,7 @@ class SessionManagerTest {
     private static final String CREDENTIAL_TYPE = "mqtt";
     private static final int MOCK_SESSION_CAPACITY = 10;
 
+    private SessionCreator sessionCreator;
     private SessionManager sessionManager;
     @Mock
     private MqttSessionFactory mockSessionFactory;
@@ -66,17 +66,12 @@ class SessionManagerTest {
     @BeforeEach
     void beforeEach() throws AuthenticationException {
         lenient().when(mockSessionConfig.getSessionCapacity()).thenReturn(MOCK_SESSION_CAPACITY);
-        sessionManager = new SessionManager();
-        sessionManager.setSessionConfig(mockSessionConfig);
-        SessionCreator.registerSessionFactory(CREDENTIAL_TYPE, mockSessionFactory);
+        sessionCreator = new SessionCreator();
+        sessionManager = new SessionManager(sessionCreator, mockSessionConfig);
+        sessionCreator.registerSessionFactory(CREDENTIAL_TYPE, mockSessionFactory);
         lenient().when(mockSessionFactory.createSession(credentialMap)).thenReturn(mockSession);
         lenient().when(mockSessionFactory.createSession(credentialMap2)).thenReturn(mockSession2);
         lenient().when(mockSessionFactory.createSession(invalidCredentialMap)).thenThrow(new AuthenticationException(""));
-    }
-
-    @AfterEach
-    void afterEach() {
-        SessionCreator.unregisterSessionFactory(CREDENTIAL_TYPE);
     }
 
     @Test
@@ -111,7 +106,7 @@ class SessionManagerTest {
     }
 
     @Test
-    void GIVEN_validDeviceCredentials_WHEN_createSession_beyond_capacity_THEN_passes_evicting_eldest_session()
+    void GIVEN_maxOpenSessions_WHEN_createSession_THEN_oldestSessionIsEvicted()
             throws AuthenticationException {
         reset(mockSessionConfig);
         reset(mockSessionFactory);
@@ -150,10 +145,8 @@ class SessionManagerTest {
         when(mockSessionFactory.createSession(credentialMap3)).thenReturn(mockSession3);
         when(mockSessionFactory.createSession(credentialMap4)).thenReturn(mockSession4);
 
-        int mockSessionCapacity = 3;
-        when(mockSessionConfig.getSessionCapacity()).thenReturn(mockSessionCapacity);
-        SessionManager sessionManager = new SessionManager();
-        sessionManager.setSessionConfig(mockSessionConfig);
+        int sessionCapacity = 3;
+        when(mockSessionConfig.getSessionCapacity()).thenReturn(sessionCapacity);
 
         // fill session cache to its capacity
         String id1 = sessionManager.createSession(CREDENTIAL_TYPE, credentialMap1);

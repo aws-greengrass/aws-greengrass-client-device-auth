@@ -15,13 +15,14 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import javax.inject.Inject;
 
-/**
- * Singleton class for managing AuthN and AuthZ sessions.
- */
 public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
     private static final String SESSION_ID = "SessionId";
+
+    private final SessionCreator sessionCreator;
+    private final SessionConfig sessionConfig;
 
     // Thread-safe LRU Session Cache that evicts the eldest entry (based on access order) upon reaching its size.
     // TODO: Support time-based cache eviction (Session timeout) and Session deduping.
@@ -40,7 +41,11 @@ public class SessionManager {
                 }
             });
 
-    private SessionConfig sessionConfig;
+    @Inject
+    public SessionManager(SessionCreator sessionCreator, SessionConfig sessionConfig) {
+        this.sessionCreator = sessionCreator;
+        this.sessionConfig = sessionConfig;
+    }
 
     /**
      * Looks up a session by id.
@@ -62,7 +67,7 @@ public class SessionManager {
      */
     public String createSession(String credentialType, Map<String, String> credentialMap)
             throws AuthenticationException {
-        Session session = SessionCreator.createSession(credentialType, credentialMap);
+        Session session = sessionCreator.createSession(credentialType, credentialMap);
         return addSessionInternal(session);
     }
 
@@ -74,15 +79,6 @@ public class SessionManager {
     public void closeSession(String sessionId) {
         logger.atDebug().kv(SESSION_ID, sessionId).log("Closing session");
         closeSessionInternal(sessionId);
-    }
-
-    /**
-     * Session configuration setter.
-     *
-     * @param sessionConfig session configuration
-     */
-    public void setSessionConfig(SessionConfig sessionConfig) {
-        this.sessionConfig = sessionConfig;
     }
 
     private synchronized void closeSessionInternal(String sessionId) {

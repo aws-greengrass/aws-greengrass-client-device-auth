@@ -23,7 +23,6 @@ import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
-import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.clientdevices.auth.util.ResizableLinkedBlockingQueue;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topics;
@@ -95,6 +94,7 @@ public class ClientDevicesAuthService extends PluginService {
         initializeInfrastructure();
         initializeHandlers();
         subscribeToConfigChanges();
+        initializeIpc();
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {
@@ -128,14 +128,44 @@ public class ClientDevicesAuthService extends PluginService {
 
     private void initializeHandlers() {
         // Register auth session handlers
-        context.get(SessionManager.class).setSessionConfig(new SessionConfig(getConfig()));
-        SessionCreator.registerSessionFactory("mqtt", context.get(MqttSessionFactory.class));
+        context.put(SessionConfig.class, new SessionConfig(getConfig()));
+        context.get(SessionCreator.class).registerSessionFactory("mqtt", context.get(MqttSessionFactory.class));
 
         // Register domain event handlers
         context.get(CACertificateChainChangedHandler.class).listen();
         context.get(CAConfigurationChangedHandler.class).listen();
         context.get(CertificateRotationHandler.class).listen();
         context.get(SecurityConfigurationChangedHandler.class).listen();
+    }
+
+    private void initializeIpc() {
+        AuthorizationHandler authorizationHandler = context.get(AuthorizationHandler.class);
+        try {
+            authorizationHandler.registerComponent(this.getName(),
+                    new HashSet<>(Arrays.asList(SUBSCRIBE_TO_CERTIFICATE_UPDATES,
+                            VERIFY_CLIENT_DEVICE_IDENTITY,
+                            GET_CLIENT_DEVICE_AUTH_TOKEN,
+                            AUTHORIZE_CLIENT_DEVICE_ACTION)));
+        } catch (com.aws.greengrass.authorization.exceptions.AuthorizationException e) {
+            logger.atError("initialize-cda-service-authorization-error", e)
+                    .log("Failed to initialize the client device auth service with the Authorization module.");
+        }
+
+        GreengrassCoreIPCService greengrassCoreIPCService = context.get(GreengrassCoreIPCService.class);
+        ClientDevicesAuthServiceApi serviceApi = context.get(ClientDevicesAuthServiceApi.class);
+        CertificateManager certificateManager = context.get(CertificateManager.class);
+
+        greengrassCoreIPCService.setSubscribeToCertificateUpdatesHandler(context ->
+                new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
+        greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
+                new VerifyClientDeviceIdentityOperationHandler(context, serviceApi,
+                        authorizationHandler, cloudCallThreadPool));
+        greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
+                new GetClientDeviceAuthTokenOperationHandler(context, serviceApi, authorizationHandler,
+                        cloudCallThreadPool));
+        greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
+                new AuthorizeClientDeviceActionOperationHandler(context, serviceApi,
+                        authorizationHandler));
     }
 
     private void subscribeToConfigChanges() {
@@ -198,38 +228,6 @@ public class ClientDevicesAuthService extends PluginService {
         super.shutdown();
         context.get(CertificateManager.class).stopMonitors();
         context.get(BackgroundCertificateRefresh.class).stop();
-    }
-
-    @Override
-    public void postInject() {
-        super.postInject();
-        AuthorizationHandler authorizationHandler = context.get(AuthorizationHandler.class);
-        try {
-            authorizationHandler.registerComponent(this.getName(),
-                    new HashSet<>(Arrays.asList(SUBSCRIBE_TO_CERTIFICATE_UPDATES,
-                            VERIFY_CLIENT_DEVICE_IDENTITY,
-                            GET_CLIENT_DEVICE_AUTH_TOKEN,
-                            AUTHORIZE_CLIENT_DEVICE_ACTION)));
-        } catch (com.aws.greengrass.authorization.exceptions.AuthorizationException e) {
-            logger.atError("initialize-cda-service-authorization-error", e)
-                    .log("Failed to initialize the client device auth service with the Authorization module.");
-        }
-
-        GreengrassCoreIPCService greengrassCoreIPCService = context.get(GreengrassCoreIPCService.class);
-        ClientDevicesAuthServiceApi serviceApi = context.get(ClientDevicesAuthServiceApi.class);
-        CertificateManager certificateManager = context.get(CertificateManager.class);
-
-        greengrassCoreIPCService.setSubscribeToCertificateUpdatesHandler(context ->
-                new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
-        greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
-                new VerifyClientDeviceIdentityOperationHandler(context, serviceApi,
-                        authorizationHandler, cloudCallThreadPool));
-        greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
-                new GetClientDeviceAuthTokenOperationHandler(context, serviceApi, authorizationHandler,
-                        cloudCallThreadPool));
-        greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
-                new AuthorizeClientDeviceActionOperationHandler(context, serviceApi,
-                        authorizationHandler));
     }
 
     public CertificateManager getCertificateManager() {
