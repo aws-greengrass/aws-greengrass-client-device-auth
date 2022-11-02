@@ -390,6 +390,7 @@ public class OfflineAuthenticationTest {
         // Configure the things attached to the core
         List<X509Certificate> clientCertificates = createClientCertificates(1);
         String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+        Certificate certificate = Certificate.fromPem(clientPem);
         Supplier<String> thingOne =  () -> "ThingOne";
         iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
         iotAuthClientFake.attachThingToCore(thingOne);
@@ -402,6 +403,13 @@ public class OfflineAuthenticationTest {
         corruptStoredClientCertificate(clientPem);
 
         // Then
+
+        // Assert cert pem is corrupted
+        ClientCertificateStore pemStore = kernel.getContext().get(ClientCertificateStore.class);
+        String storeCertificatePem = pemStore.getPem(certificate.getCertificateId()).get();
+        assertThrows(InvalidCertificateException.class, () -> Certificate.fromPem(storeCertificatePem));
+
+        // Assert that authenticating offline or online is not affected
         network.goOffline();
         assertNotNull(connectToCore(thingOne.get(), clientPem));
         network.goOnline();
