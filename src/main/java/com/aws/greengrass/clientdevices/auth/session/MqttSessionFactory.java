@@ -22,8 +22,8 @@ public class MqttSessionFactory implements SessionFactory {
     /**
      * Constructor.
      *
-     * @param deviceAuthClient    Device auth client
-     * @param useCases       useCases
+     * @param deviceAuthClient Device auth client
+     * @param useCases         useCases
      */
     @Inject
     public MqttSessionFactory(DeviceAuthClient deviceAuthClient, UseCases useCases) {

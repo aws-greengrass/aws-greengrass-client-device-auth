@@ -18,8 +18,8 @@ import javax.inject.Inject;
 
 
 /**
- * A KeyStore for client certificates. When a client device provides their certificate we store it
- * in this store it so that later we can refresh it later on using the cloud API.
+ * A KeyStore for client certificates. When a client device provides their certificate we store it in this store it so
+ * that later we can refresh it later on using the cloud API.
  */
 public class ClientCertificateStore {
     private static final String CLIENTS_DIRECTORY = "clients";
@@ -35,7 +35,7 @@ public class ClientCertificateStore {
     /**
      * Create a certificate store for tests.
      *
-     * @param   workPath Component work path to store certificate store
+     * @param workPath Component work path to store certificate store
      */
     public ClientCertificateStore(Path workPath) {
         this.workPath = workPath;
@@ -43,6 +43,7 @@ public class ClientCertificateStore {
 
     /**
      * Checks if there is a certificate PEM already stored for a certificateId.
+     *
      * @param certificateId - The id of the stored certificate.
      */
     public boolean exists(String certificateId) {
@@ -52,9 +53,9 @@ public class ClientCertificateStore {
 
     /**
      * Stores the PEM for a certificate.
-     * @param certificateId - A Certificate ID
-     * @param certificatePem - The Pem string of the certificate
      *
+     * @param certificateId  - A Certificate ID
+     * @param certificatePem - The Pem string of the certificate
      * @throws IOException - If fails to write PEM
      */
     public void storePem(String certificateId, String certificatePem) throws IOException {
@@ -63,6 +64,7 @@ public class ClientCertificateStore {
 
     /**
      * Removes the PEM for a certificateId alias.
+     *
      * @param certificateId - a certificate id
      * @throws IOException - if the certificate cannot be removed.
      */

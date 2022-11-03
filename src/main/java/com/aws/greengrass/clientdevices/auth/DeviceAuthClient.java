@@ -123,11 +123,8 @@ public class DeviceAuthClient {
      * @throws AuthorizationException if session is invalid
      */
     public boolean canDevicePerform(AuthorizationRequest request) throws AuthorizationException {
-        logger.atDebug()
-                .kv("sessionId", request.getSessionId())
-                .kv("action", request.getOperation())
-                .kv("resource", request.getResource())
-                .log("Processing authorization request");
+        logger.atDebug().kv("sessionId", request.getSessionId()).kv("action", request.getOperation())
+                .kv("resource", request.getResource()).log("Processing authorization request");
 
         // TODO: Remove this workaround
         if (request.getSessionId().equals(ALLOW_ALL_SESSION)) {
@@ -136,8 +133,7 @@ public class DeviceAuthClient {
 
         Session session = sessionManager.findSession(request.getSessionId());
         if (session == null) {
-            throw new InvalidSessionException(
-                    String.format("Invalid session ID (%s)", request.getSessionId()));
+            throw new InvalidSessionException(String.format("Invalid session ID (%s)", request.getSessionId()));
         }
         // Allow all operations from internal components
         // Keep the workaround above (ALLOW_ALL_SESSION) for Moquette since it is using the older session management

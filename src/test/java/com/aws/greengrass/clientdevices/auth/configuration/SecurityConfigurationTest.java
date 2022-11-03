@@ -51,12 +51,14 @@ class SecurityConfigurationTest {
 
     @Test
     public void GIVEN_invalidConfiguredTrustDuration_WHEN_getClientDeviceTrustDurationMinutes_THEN_returnsMinimumTrustDuration() {
-        Topic trustDurationConfig = configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC);
+        Topic trustDurationConfig =
+                configurationTopics.lookup(SECURITY_TOPIC, CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC);
         // overflown integer
         int overflown = Integer.MAX_VALUE + 1;
         trustDurationConfig.withValue(overflown);
         securityConfig = SecurityConfiguration.from(configurationTopics);
-        assertThat(securityConfig.getClientDeviceTrustDurationMinutes(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES)));
+        assertThat(securityConfig.getClientDeviceTrustDurationMinutes(),
+                is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES)));
 
         // integer max value
         trustDurationConfig.withValue(Integer.MAX_VALUE);
@@ -66,12 +68,14 @@ class SecurityConfigurationTest {
         // zero value (or anything less than minimum)
         trustDurationConfig.withValue(0);
         securityConfig = SecurityConfiguration.from(configurationTopics);
-        assertThat(securityConfig.getClientDeviceTrustDurationMinutes(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES)));
+        assertThat(securityConfig.getClientDeviceTrustDurationMinutes(),
+                is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES)));
 
         String empty = "";
         trustDurationConfig.withValue(empty);
         securityConfig = SecurityConfiguration.from(configurationTopics);
-        assertThat(securityConfig.getClientDeviceTrustDurationMinutes(), is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES)));
+        assertThat(securityConfig.getClientDeviceTrustDurationMinutes(),
+                is(equalTo(MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES)));
     }
 
 }

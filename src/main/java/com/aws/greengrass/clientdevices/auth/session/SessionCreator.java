@@ -40,7 +40,7 @@ public class SessionCreator {
         SessionFactory sessionFactory = SessionFactorySingleton.INSTANCE.factoryMap.get(credentialType);
         if (sessionFactory == null) {
             logger.atWarn().kv("credentialType", credentialType)
-                .log("no registered handler to process device credentials");
+                    .log("no registered handler to process device credentials");
             throw new IllegalArgumentException("unknown credential type");
         }
         return sessionFactory.createSession(credentialMap);

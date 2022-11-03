@@ -16,9 +16,10 @@ public class SessionImpl extends ConcurrentHashMap<String, AttributeProvider> im
 
     /**
      * Create a Session from a list of attribute providers.
+     *
      * @param providers list of attribute providers
      */
-    public SessionImpl(AttributeProvider...providers) {
+    public SessionImpl(AttributeProvider... providers) {
         super();
         for (AttributeProvider provider : providers) {
             this.put(provider.getNamespace(), provider);

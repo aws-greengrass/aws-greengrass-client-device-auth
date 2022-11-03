@@ -56,12 +56,10 @@ public class GetClientDeviceAuthTokenOperationHandler
      * @param authorizationHandler        authorization handler
      * @param cloudCallThreadPool         executor to run the call to the cloud asynchronously
      */
-    public GetClientDeviceAuthTokenOperationHandler(
-            OperationContinuationHandlerContext context,
-            ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
-            AuthorizationHandler authorizationHandler,
-            ExecutorService cloudCallThreadPool
-    ) {
+    public GetClientDeviceAuthTokenOperationHandler(OperationContinuationHandlerContext context,
+                                                    ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
+                                                    AuthorizationHandler authorizationHandler,
+                                                    ExecutorService cloudCallThreadPool) {
 
         super(context);
         serviceName = context.getAuthenticationData().getIdentityLabel();
@@ -96,19 +94,17 @@ public class GetClientDeviceAuthTokenOperationHandler
             }
             Map<String, String> credentialMap = mapOfMqttCredential(request.getCredential());
             try {
-                String sessionId = clientDevicesAuthServiceApi.getClientDeviceAuthToken(MQTT_CREDENTIAL_TYPE,
-                        credentialMap);
+                String sessionId =
+                        clientDevicesAuthServiceApi.getClientDeviceAuthToken(MQTT_CREDENTIAL_TYPE, credentialMap);
                 GetClientDeviceAuthTokenResponse response = new GetClientDeviceAuthTokenResponse();
                 return response.withClientDeviceAuthToken(sessionId);
             } catch (AuthenticationException e) {
                 logger.atError().cause(e).log("Unable to authenticate the client device with the given credentials");
-                throw new InvalidCredentialError(
-                        "Unable to authenticate the client device with the given credentials."
-                                + " Check Greengrass log for details.");
+                throw new InvalidCredentialError("Unable to authenticate the client device with the given credentials."
+                        + " Check Greengrass log for details.");
             } catch (Exception e) {
                 logger.atError().cause(e).log("Unable to get client device auth token from the session");
-                throw new ServiceError(
-                        "Getting client device auth token failed. Check Greengrass log for details.");
+                throw new ServiceError("Getting client device auth token failed. Check Greengrass log for details.");
             }
         });
     }
@@ -135,10 +131,7 @@ public class GetClientDeviceAuthTokenOperationHandler
 
     private void doAuthorizationForClientDevAuthToken() throws AuthorizationException {
         authorizationHandler.isAuthorized(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME,
-                Permission.builder()
-                        .principal(serviceName)
-                        .operation(GET_CLIENT_DEVICE_AUTH_TOKEN)
-                        .resource("*")
+                Permission.builder().principal(serviceName).operation(GET_CLIENT_DEVICE_AUTH_TOKEN).resource("*")
                         .build());
     }
 

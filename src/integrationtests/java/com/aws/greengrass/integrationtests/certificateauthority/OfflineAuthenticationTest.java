@@ -81,7 +81,7 @@ public class OfflineAuthenticationTest {
         network = new NetworkStateFake();
         kernel.getContext().put(NetworkStateProvider.class, network);
 
-        DomainEvents domainEvents =  new DomainEvents();
+        DomainEvents domainEvents = new DomainEvents();
         kernel.getContext().put(DomainEvents.class, domainEvents);
 
         iotAuthClientFake = new IotAuthClientFake();
@@ -112,8 +112,8 @@ public class OfflineAuthenticationTest {
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
-            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName()) && service.getState()
-                    .equals(State.RUNNING)) {
+            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName())
+                    && service.getState().equals(State.RUNNING)) {
                 authServiceRunning.countDown();
             }
         });
@@ -126,7 +126,7 @@ public class OfflineAuthenticationTest {
         // Simulate some client components (like Moquette) verifying some certificates
         api.verifyClientDeviceIdentity(certificatePem);
         // Simulate a client connecting and generating a session
-        return api.getClientDeviceAuthToken("mqtt",   new HashMap<String, String>() {{
+        return api.getClientDeviceAuthToken("mqtt", new HashMap<String, String>() {{
             put("clientId", thingName);
             put("certificatePem", certificatePem);
             put("username", "foo");
@@ -156,101 +156,105 @@ public class OfflineAuthenticationTest {
         runNucleusWithConfig("config.yaml");
 
         // When
-       ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
-       boolean verifyResult = api.verifyClientDeviceIdentity(clientCertPem);
+        ClientDevicesAuthServiceApi api = kernel.getContext().get(ClientDevicesAuthServiceApi.class);
+        boolean verifyResult = api.verifyClientDeviceIdentity(clientCertPem);
 
-       // Then
-       assertTrue(verifyResult);
+        // Then
+        assertTrue(verifyResult);
 
-       String clientCertId = Certificate.fromPem(clientCertPem).getCertificateId();
-       ClientCertificateStore store = kernel.getContext().get(ClientCertificateStore.class);
-       String storedPem = store.getPem(clientCertId).get();
+        String clientCertId = Certificate.fromPem(clientCertPem).getCertificateId();
+        ClientCertificateStore store = kernel.getContext().get(ClientCertificateStore.class);
+        String storedPem = store.getPem(clientCertId).get();
 
-       assertEquals(storedPem, clientCertPem);
+        assertEquals(storedPem, clientCertPem);
     }
 
-   @Test
-   void GIVEN_clientConnectsWhileOnline_WHEN_offline_THEN_clientCanConnect(ExtensionContext context) throws Exception {
-       ignoreExceptionOfType(context, NoSuchFileException.class);
+    @Test
+    void GIVEN_clientConnectsWhileOnline_WHEN_offline_THEN_clientCanConnect(ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, NoSuchFileException.class);
 
-       // Given
-       network.goOnline();
+        // Given
+        network.goOnline();
 
-       // Configure the things attached to the core
-       List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
-       String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
-       Supplier<String> thingOne =  () -> "ThingOne";
-       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
-       iotAuthClientFake.attachThingToCore(thingOne);
-       iotAuthClientFake.activateCert(clientPem);
+        // Configure the things attached to the core
+        List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
+        String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+        Supplier<String> thingOne = () -> "ThingOne";
+        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+        iotAuthClientFake.attachThingToCore(thingOne);
+        iotAuthClientFake.activateCert(clientPem);
 
-       runNucleusWithConfig("config.yaml");
-       assertNotNull(connectToCore(thingOne.get(), clientPem));
+        runNucleusWithConfig("config.yaml");
+        assertNotNull(connectToCore(thingOne.get(), clientPem));
 
-       // When
-       network.goOffline();
+        // When
+        network.goOffline();
 
-       // Then
-       assertNotNull(connectToCore(thingOne.get(), clientPem));
-   }
+        // Then
+        assertNotNull(connectToCore(thingOne.get(), clientPem));
+    }
 
-   @Test
-   void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndTtlExpired_THEN_clientCanNotConnect(ExtensionContext context)
-           throws Exception {
-       ignoreExceptionOfType(context, NoSuchFileException.class);
+    @Test
+    void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndTtlExpired_THEN_clientCanNotConnect(ExtensionContext context)
+            throws Exception {
+        ignoreExceptionOfType(context, NoSuchFileException.class);
 
-       // Given
-       network.goOnline();
-       Instant now = Instant.now();
-       mockInstant(now.toEpochMilli());
+        // Given
+        network.goOnline();
+        Instant now = Instant.now();
+        mockInstant(now.toEpochMilli());
 
-       // Configure the things attached to the core
-       List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
-       String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
-       Supplier<String> thingOne =  () -> "ThingOne";
-       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
-       iotAuthClientFake.attachThingToCore(thingOne);
-       iotAuthClientFake.activateCert(clientPem);
+        // Configure the things attached to the core
+        List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
+        String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+        Supplier<String> thingOne = () -> "ThingOne";
+        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+        iotAuthClientFake.attachThingToCore(thingOne);
+        iotAuthClientFake.activateCert(clientPem);
 
-       runNucleusWithConfig("config.yaml");
-       assertNotNull(connectToCore(thingOne.get(), clientPem));
+        runNucleusWithConfig("config.yaml");
+        assertNotNull(connectToCore(thingOne.get(), clientPem));
 
-       // When
-       network.goOffline();
-       Instant twoMinutesLater = now.plusSeconds(2 * 60); // Default expiry is 1 minute
-       mockInstant(twoMinutesLater.toEpochMilli());
+        // When
+        network.goOffline();
+        Instant twoMinutesLater = now.plusSeconds(2 * 60); // Default expiry is 1 minute
+        mockInstant(twoMinutesLater.toEpochMilli());
 
-       // Then
-       assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
-   }
+        // Then
+        assertThrows(AuthenticationException.class, () -> {
+            connectToCore(thingOne.get(), clientPem);
+        });
+    }
 
-   @Test
+    @Test
     void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertificateRevoked_THEN_backOnlineAndClientRejected(
             ExtensionContext context) throws Exception {
-       ignoreExceptionOfType(context, NoSuchFileException.class);
-       // Given
-       network.goOnline();
+        ignoreExceptionOfType(context, NoSuchFileException.class);
+        // Given
+        network.goOnline();
 
-       // Configure the things attached to the core
-       List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
-       String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
-       Supplier<String> thingOne =  () -> "ThingOne";
-       iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
-       iotAuthClientFake.attachThingToCore(thingOne);
-       iotAuthClientFake.activateCert(clientPem);
+        // Configure the things attached to the core
+        List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
+        String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
+        Supplier<String> thingOne = () -> "ThingOne";
+        iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
+        iotAuthClientFake.attachThingToCore(thingOne);
+        iotAuthClientFake.activateCert(clientPem);
 
-       runNucleusWithConfig("config.yaml");
-       assertNotNull(connectToCore(thingOne.get(), clientPem));
+        runNucleusWithConfig("config.yaml");
+        assertNotNull(connectToCore(thingOne.get(), clientPem));
 
-       // When
-       network.goOffline();
-       iotAuthClientFake.deactivateCert(clientPem); // Revoked
-       assertNotNull(connectToCore(thingOne.get(), clientPem));
+        // When
+        network.goOffline();
+        iotAuthClientFake.deactivateCert(clientPem); // Revoked
+        assertNotNull(connectToCore(thingOne.get(), clientPem));
 
-       // Then
-       network.goOnline();
-       assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
-   }
+        // Then
+        network.goOnline();
+        assertThrows(AuthenticationException.class, () -> {
+            connectToCore(thingOne.get(), clientPem);
+        });
+    }
 
     @Test
     void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertDetachedFromThing_THEN_backOnlineAndClientRejected(
@@ -262,7 +266,7 @@ public class OfflineAuthenticationTest {
         // Configure the things attached to the core
         List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
         String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
-        Supplier<String> thingOne =  () -> "ThingOne";
+        Supplier<String> thingOne = () -> "ThingOne";
         iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
         iotAuthClientFake.attachThingToCore(thingOne);
         iotAuthClientFake.activateCert(clientPem);
@@ -277,7 +281,9 @@ public class OfflineAuthenticationTest {
 
         // Then
         network.goOnline();
-        assertThrows(AuthenticationException.class, () -> {connectToCore(thingOne.get(), clientPem);});
+        assertThrows(AuthenticationException.class, () -> {
+            connectToCore(thingOne.get(), clientPem);
+        });
     }
 
     @Test
@@ -292,7 +298,7 @@ public class OfflineAuthenticationTest {
         List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
         String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
         Certificate certificate = Certificate.fromPem(clientPem);
-        Supplier<String> thingOne =  () -> "ThingOne";
+        Supplier<String> thingOne = () -> "ThingOne";
         iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientPem);
         iotAuthClientFake.attachThingToCore(thingOne);
         iotAuthClientFake.activateCert(clientPem);

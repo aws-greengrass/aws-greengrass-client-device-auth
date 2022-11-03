@@ -104,8 +104,8 @@ class GetClientDeviceAuthTokenTest {
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         listener = (GreengrassService service, State was, State newState) -> {
-            if (service.getName().equals(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME) &&
-                    service.getState().equals(expectedServiceState)) {
+            if (service.getName().equals(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
+                    && service.getState().equals(expectedServiceState)) {
                 authServiceRunning.countDown();
             }
         };
@@ -125,23 +125,19 @@ class GetClientDeviceAuthTokenTest {
     void GIVEN_brokerWithValidCredentials_WHEN_GetClientDeviceAuthToken_THEN_returnsClientDeviceAuthToken()
             throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
-        Map<String, String> mqttCredentialMap = ImmutableMap.of(
-                "clientId", "some-client-id",
-                "username", null,
-                "password", null,
-                "certificatePem", "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM="
-                        + System.lineSeparator() + "-----END CERTIFICATE-----" + System.lineSeparator());
+        Map<String, String> mqttCredentialMap =
+                ImmutableMap.of("clientId", "some-client-id", "username", null, "password", null, "certificatePem",
+                        "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM=" + System.lineSeparator()
+                                + "-----END CERTIFICATE-----" + System.lineSeparator());
 
-        when(sessionManager
-                .createSession("mqtt", mqttCredentialMap))
-                .thenReturn("some-session-uuid");
+        when(sessionManager.createSession("mqtt", mqttCredentialMap)).thenReturn("some-session-uuid");
 
         startNucleusWithConfig("cda.yaml");
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            MQTTCredential mqttCredential = new MQTTCredential().withClientId("some-client-id")
-                    .withCertificatePem("PEM");
+            MQTTCredential mqttCredential =
+                    new MQTTCredential().withClientId("some-client-id").withCertificatePem("PEM");
             CredentialDocument cd = new CredentialDocument().withMqttCredential(mqttCredential);
             GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(cd);
             Pair<CompletableFuture<Void>, Consumer<GetClientDeviceAuthTokenResponse>> cb =
@@ -200,7 +196,8 @@ class GetClientDeviceAuthTokenTest {
             CompletableFuture<GetClientDeviceAuthTokenResponse> fut2 =
                     ipcClient.getClientDeviceAuthToken(request, Optional.empty()).getResponse();
             // Request 3 (expect rejection)
-            Exception err = assertThrows(Exception.class, () -> clientDeviceAuthToken(ipcClient, request, (r) -> {}));
+            Exception err = assertThrows(Exception.class, () -> clientDeviceAuthToken(ipcClient, request, (r) -> {
+            }));
             assertThat(err.getCause().getMessage(), containsString("Unable to queue request"));
             assertEquals(ServiceError.class, err.getCause().getClass());
             fut1.get(2, TimeUnit.SECONDS);
@@ -216,8 +213,7 @@ class GetClientDeviceAuthTokenTest {
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithNoConfig")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest()
-                    .withCredential(null);
+            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(null);
 
             Exception err = assertThrows(Exception.class, () -> {
                 clientDeviceAuthToken(ipcClient, request, null);
@@ -229,26 +225,21 @@ class GetClientDeviceAuthTokenTest {
 
     @Test
     void GIVEN_brokerWithInvalidSession_WHEN_GetClientDeviceAuthToken_THEN_throwInvalidCredentialError(
-            ExtensionContext context)
-            throws Exception {
+            ExtensionContext context) throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
         ignoreExceptionOfType(context, AuthenticationException.class);
         startNucleusWithConfig("cda.yaml");
-        Map<String, String> mqttCredentialMap = ImmutableMap.of(
-                "clientId", "some-client-id",
-                "username", null,
-                "password", null,
-                "certificatePem", "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM="
-                        + System.lineSeparator() + "-----END CERTIFICATE-----" + System.lineSeparator());
-        when(sessionManager
-                .createSession("mqtt", mqttCredentialMap))
-                .thenThrow(AuthenticationException.class);
+        Map<String, String> mqttCredentialMap =
+                ImmutableMap.of("clientId", "some-client-id", "username", null, "password", null, "certificatePem",
+                        "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM=" + System.lineSeparator()
+                                + "-----END CERTIFICATE-----" + System.lineSeparator());
+        when(sessionManager.createSession("mqtt", mqttCredentialMap)).thenThrow(AuthenticationException.class);
 
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            MQTTCredential mqttCredential = new MQTTCredential().withClientId("some-client-id")
-                    .withCertificatePem("PEM");
+            MQTTCredential mqttCredential =
+                    new MQTTCredential().withClientId("some-client-id").withCertificatePem("PEM");
             CredentialDocument cd = new CredentialDocument().withMqttCredential(mqttCredential);
             GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(cd);
 
@@ -261,26 +252,21 @@ class GetClientDeviceAuthTokenTest {
 
     @Test
     void GIVEN_brokerWithValidCredentials_WHEN_GetClientDeviceAuthTokenFails_THEN_throwServiceError(
-            ExtensionContext context)
-            throws Exception {
+            ExtensionContext context) throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
         ignoreExceptionOfType(context, CloudServiceInteractionException.class);
         startNucleusWithConfig("cda.yaml");
-        Map<String, String> mqttCredentialMap = ImmutableMap.of(
-                "clientId", "some-client-id",
-                "username", null,
-                "password", null,
-                "certificatePem", "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM="
-                        + System.lineSeparator() + "-----END CERTIFICATE-----" + System.lineSeparator());
-        when(sessionManager
-                .createSession("mqtt", mqttCredentialMap))
-                .thenThrow(CloudServiceInteractionException.class);
+        Map<String, String> mqttCredentialMap =
+                ImmutableMap.of("clientId", "some-client-id", "username", null, "password", null, "certificatePem",
+                        "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM=" + System.lineSeparator()
+                                + "-----END CERTIFICATE-----" + System.lineSeparator());
+        when(sessionManager.createSession("mqtt", mqttCredentialMap)).thenThrow(CloudServiceInteractionException.class);
 
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithGetClientDeviceAuthTokenPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            MQTTCredential mqttCredential = new MQTTCredential().withClientId("some-client-id")
-                    .withCertificatePem("PEM");
+            MQTTCredential mqttCredential =
+                    new MQTTCredential().withClientId("some-client-id").withCertificatePem("PEM");
             CredentialDocument cd = new CredentialDocument().withMqttCredential(mqttCredential);
             GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(cd);
 
@@ -299,8 +285,7 @@ class GetClientDeviceAuthTokenTest {
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerMissingGetClientDeviceAuthTokenPolicy")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest()
-                    .withCredential(null);
+            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(null);
 
             Exception err = assertThrows(Exception.class, () -> {
                 clientDeviceAuthToken(ipcClient, request, null);

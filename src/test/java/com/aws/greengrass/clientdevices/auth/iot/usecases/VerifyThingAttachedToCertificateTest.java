@@ -47,8 +47,8 @@ class VerifyThingAttachedToCertificateTest {
     @BeforeEach
     void beforeEach() {
         iotAuthClientFake = new IotAuthClientFake();
-        verifyThingAttachedToCertificate = new VerifyThingAttachedToCertificate(iotAuthClientFake,
-                mockThingRegistry, mockNetworkState);
+        verifyThingAttachedToCertificate =
+                new VerifyThingAttachedToCertificate(iotAuthClientFake, mockThingRegistry, mockNetworkState);
     }
 
     @Test
@@ -95,7 +95,8 @@ class VerifyThingAttachedToCertificateTest {
     }
 
     @Test
-    void GIVEN_networkUpButFailedCloudCall_WHEN_verifyThingAttachedToCertificate_THEN_returnLocalResult() throws Exception {
+    void GIVEN_networkUpButFailedCloudCall_WHEN_verifyThingAttachedToCertificate_THEN_returnLocalResult()
+            throws Exception {
         Thing thing = Thing.of("thing-1");
         X509Certificate certificate = createTestClientCertificate();
         String certPem = CertificateHelper.toPem(certificate);
@@ -107,8 +108,8 @@ class VerifyThingAttachedToCertificateTest {
         // set up VerifyThingAttachedToCertificate usecase with mock iot auth client
         // to be able to throw exceptions during cloud calls
         IotAuthClient mockIotAuthClient = Mockito.mock(IotAuthClient.class);
-        doThrow(CloudServiceInteractionException.class)
-                .when(mockIotAuthClient).isThingAttachedToCertificate(any(), anyString());
+        doThrow(CloudServiceInteractionException.class).when(mockIotAuthClient)
+                .isThingAttachedToCertificate(any(), anyString());
         VerifyThingAttachedToCertificate verifyThingAttachedToCertificate =
                 new VerifyThingAttachedToCertificate(mockIotAuthClient, mockThingRegistry, mockNetworkState);
 
@@ -127,7 +128,7 @@ class VerifyThingAttachedToCertificateTest {
         KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
         X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
         KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
-        return createClientCertificate(
-                rootCA, "AWS IoT Certificate", clientKeyPair.getPublic(), rootKeyPair.getPrivate());
+        return createClientCertificate(rootCA, "AWS IoT Certificate", clientKeyPair.getPublic(),
+                rootKeyPair.getPrivate());
     }
 }

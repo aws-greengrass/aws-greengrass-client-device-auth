@@ -23,8 +23,7 @@ import java.security.cert.X509Certificate;
 import java.util.Optional;
 import javax.inject.Inject;
 
-public class RegisterCertificateAuthorityUseCase
-        implements UseCases.UseCase<Void, Void> {
+public class RegisterCertificateAuthorityUseCase implements UseCases.UseCase<Void, Void> {
     private static final Logger logger = LogManager.getLogger(RegisterCertificateAuthorityUseCase.class);
 
     private final CertificateManager certificateManager;
@@ -34,15 +33,14 @@ public class RegisterCertificateAuthorityUseCase
 
     /**
      * Register core certificate authority with Greengrass cloud.
+     *
      * @param certificateManager  Certificate manager.
      * @param certificateStore    Certificate store.
      * @param deviceConfiguration Greengrass device configuration.
      */
     @Inject
-    public RegisterCertificateAuthorityUseCase(
-            CertificateManager certificateManager,
-            CertificateStore certificateStore,
-            DeviceConfiguration deviceConfiguration) {
+    public RegisterCertificateAuthorityUseCase(CertificateManager certificateManager, CertificateStore certificateStore,
+                                               DeviceConfiguration deviceConfiguration) {
         this.certificateManager = certificateManager;
         this.deviceConfiguration = deviceConfiguration;
         this.certificateStore = certificateStore;
@@ -52,7 +50,7 @@ public class RegisterCertificateAuthorityUseCase
         X509Certificate[] caChain = certificateStore.getCaCertificateChain();
 
         if (caChain == null || caChain.length < 1) {
-           return Optional.empty();
+            return Optional.empty();
         }
 
         return Optional.of(caChain[caChain.length - 1]);
@@ -75,20 +73,19 @@ public class RegisterCertificateAuthorityUseCase
             // Upload the generated or provided CA certificates to the GG cloud and update config
             // NOTE: uploadCoreDeviceCAs should not block execution.
             certificateManager.uploadCoreDeviceCAs(thingName, certificate.get());
-            return  null;
+            return null;
         } catch (CloudServiceInteractionException e) {
             logger.atError().cause(e).kv("coreThingName", thingName)
                     .log("Unable to upload core CA certificates to the cloud");
-            throw  new UseCaseException(e);
+            throw new UseCaseException(e);
         } catch (DeviceConfigurationException e) {
             // TODO: This should be retried, but the customer likely needs to make configuration changes first
             // For now, we will log and give up. But eventually this can be added to a DLQ and retried when
             // DeviceConfiguration is updated.
-            logger.atError().cause(e)
-                    .log("Unable to upload core CA due to bad DeviceConfiguration. "
-                            + "Please correct configuration problem and restart Greengrass. "
-                            + "Failure to upload core CA may result in client devices being unable to "
-                            + "authenticate Greengrass.");
+            logger.atError().cause(e).log("Unable to upload core CA due to bad DeviceConfiguration. "
+                    + "Please correct configuration problem and restart Greengrass. "
+                    + "Failure to upload core CA may result in client devices being unable to "
+                    + "authenticate Greengrass.");
             throw new UseCaseException(e);
         } catch (CertificateEncodingException | KeyStoreException | IOException e) {
             throw new UseCaseException(e);

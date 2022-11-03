@@ -44,24 +44,12 @@ class SessionManagerTest {
     private Session mockSession;
     @Mock
     private Session mockSession2;
-    private final Map<String, String> credentialMap = ImmutableMap.of(
-            "certificatePem", "PEM",
-            "clientId", "clientId",
-            "username", "",
-            "password", ""
-    );
-    private final Map<String, String> credentialMap2 = ImmutableMap.of(
-            "certificatePem", "PEM2",
-            "clientId", "clientId2",
-            "username", "",
-            "password", ""
-    );
-    private final Map<String, String> invalidCredentialMap = ImmutableMap.of(
-            "certificatePem", "BAD_PEM",
-            "clientId", "clientId2",
-            "username", "",
-            "password", ""
-    );
+    private final Map<String, String> credentialMap =
+            ImmutableMap.of("certificatePem", "PEM", "clientId", "clientId", "username", "", "password", "");
+    private final Map<String, String> credentialMap2 =
+            ImmutableMap.of("certificatePem", "PEM2", "clientId", "clientId2", "username", "", "password", "");
+    private final Map<String, String> invalidCredentialMap =
+            ImmutableMap.of("certificatePem", "BAD_PEM", "clientId", "clientId2", "username", "", "password", "");
 
     @BeforeEach
     void beforeEach() throws AuthenticationException {
@@ -71,7 +59,8 @@ class SessionManagerTest {
         SessionCreator.registerSessionFactory(CREDENTIAL_TYPE, mockSessionFactory);
         lenient().when(mockSessionFactory.createSession(credentialMap)).thenReturn(mockSession);
         lenient().when(mockSessionFactory.createSession(credentialMap2)).thenReturn(mockSession2);
-        lenient().when(mockSessionFactory.createSession(invalidCredentialMap)).thenThrow(new AuthenticationException(""));
+        lenient().when(mockSessionFactory.createSession(invalidCredentialMap))
+                .thenThrow(new AuthenticationException(""));
     }
 
     @AfterEach
@@ -107,7 +96,8 @@ class SessionManagerTest {
 
     @Test
     void GIVEN_invalidDeviceCredentials_WHEN_createSession_THEN_throwsAuthenticationException() {
-        assertThrows(AuthenticationException.class, () -> sessionManager.createSession(CREDENTIAL_TYPE, invalidCredentialMap));
+        assertThrows(AuthenticationException.class,
+                () -> sessionManager.createSession(CREDENTIAL_TYPE, invalidCredentialMap));
     }
 
     @Test
@@ -116,30 +106,14 @@ class SessionManagerTest {
         reset(mockSessionConfig);
         reset(mockSessionFactory);
 
-        Map<String, String> credentialMap1 = ImmutableMap.of(
-                "certificatePem", "PEM1",
-                "clientId", "clientId1",
-                "username", "user1",
-                "password", ""
-        );
-        Map<String, String> credentialMap2 = ImmutableMap.of(
-                "certificatePem", "PEM2",
-                "clientId", "clientId2",
-                "username", "user2",
-                "password", ""
-        );
-        Map<String, String> credentialMap3 = ImmutableMap.of(
-                "certificatePem", "PEM3",
-                "clientId", "clientId3",
-                "username", "user3",
-                "password", ""
-        );
-        Map<String, String> credentialMap4 = ImmutableMap.of(
-                "certificatePem", "PEM4",
-                "clientId", "clientId4",
-                "username", "user4",
-                "password", ""
-        );
+        Map<String, String> credentialMap1 =
+                ImmutableMap.of("certificatePem", "PEM1", "clientId", "clientId1", "username", "user1", "password", "");
+        Map<String, String> credentialMap2 =
+                ImmutableMap.of("certificatePem", "PEM2", "clientId", "clientId2", "username", "user2", "password", "");
+        Map<String, String> credentialMap3 =
+                ImmutableMap.of("certificatePem", "PEM3", "clientId", "clientId3", "username", "user3", "password", "");
+        Map<String, String> credentialMap4 =
+                ImmutableMap.of("certificatePem", "PEM4", "clientId", "clientId4", "username", "user4", "password", "");
 
         Session mockSession1 = mock(Session.class);
         Session mockSession2 = mock(Session.class);

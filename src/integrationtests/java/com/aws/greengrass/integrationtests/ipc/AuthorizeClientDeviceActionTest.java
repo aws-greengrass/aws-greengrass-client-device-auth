@@ -99,8 +99,8 @@ class AuthorizeClientDeviceActionTest {
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         listener = (GreengrassService service, State was, State newState) -> {
-            if (service.getName().equals(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME) &&
-                    service.getState().equals(expectedServiceState)) {
+            if (service.getName().equals(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
+                    && service.getState().equals(expectedServiceState)) {
                 authServiceRunning.countDown();
             }
         };
@@ -123,15 +123,11 @@ class AuthorizeClientDeviceActionTest {
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithAuthorizeClientDeviceActionPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            AuthorizeClientDeviceActionRequest request = new AuthorizeClientDeviceActionRequest()
-                    .withOperation("some-action")
-                    .withResource("some-resource")
-                    .withClientDeviceAuthToken("some-token");
-            AuthorizationRequest authzReq = AuthorizationRequest.builder()
-                    .sessionId(request.getClientDeviceAuthToken())
-                    .operation(request.getOperation())
-                    .resource(request.getResource())
-                    .build();
+            AuthorizeClientDeviceActionRequest request =
+                    new AuthorizeClientDeviceActionRequest().withOperation("some-action").withResource("some-resource")
+                            .withClientDeviceAuthToken("some-token");
+            AuthorizationRequest authzReq = AuthorizationRequest.builder().sessionId(request.getClientDeviceAuthToken())
+                    .operation(request.getOperation()).resource(request.getResource()).build();
             when(deviceAuthClient.canDevicePerform(authzReq)).thenReturn(true);
             Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
                     asyncAssertOnConsumer((m) -> {
@@ -149,10 +145,9 @@ class AuthorizeClientDeviceActionTest {
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithAuthorizeClientDeviceActionPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            AuthorizeClientDeviceActionRequest request = new AuthorizeClientDeviceActionRequest()
-                    .withOperation("some-invalid-action")
-                    .withResource("some-resource")
-                    .withClientDeviceAuthToken("some-token");
+            AuthorizeClientDeviceActionRequest request =
+                    new AuthorizeClientDeviceActionRequest().withOperation("some-invalid-action")
+                            .withResource("some-resource").withClientDeviceAuthToken("some-token");
             when(deviceAuthClient.canDevicePerform(any())).thenReturn(false);
             Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
                     asyncAssertOnConsumer((m) -> {
@@ -171,10 +166,9 @@ class AuthorizeClientDeviceActionTest {
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithAuthorizeClientDeviceActionPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            AuthorizeClientDeviceActionRequest request = new AuthorizeClientDeviceActionRequest()
-                    .withOperation("some-action")
-                    .withResource(null)
-                    .withClientDeviceAuthToken("some-token");
+            AuthorizeClientDeviceActionRequest request =
+                    new AuthorizeClientDeviceActionRequest().withOperation("some-action").withResource(null)
+                            .withClientDeviceAuthToken("some-token");
             Exception err = assertThrows(Exception.class, () -> {
                 authzClientDeviceAction(ipcClient, request, null);
             });
@@ -183,18 +177,17 @@ class AuthorizeClientDeviceActionTest {
     }
 
     @Test
-    void GIVEN_brokerWithInvalidAuthToken_WHEN_AuthorizeClientDeviceAction_THEN_throwInvalidClientDeviceAuthTokenError
-            (ExtensionContext context) throws Exception {
+    void GIVEN_brokerWithInvalidAuthToken_WHEN_AuthorizeClientDeviceAction_THEN_throwInvalidClientDeviceAuthTokenError(
+            ExtensionContext context) throws Exception {
         kernel.getContext().put(DeviceAuthClient.class, deviceAuthClient);
         ignoreExceptionOfType(context, InvalidSessionException.class);
         startNucleusWithConfig("cda.yaml");
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithAuthorizeClientDeviceActionPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            AuthorizeClientDeviceActionRequest request = new AuthorizeClientDeviceActionRequest()
-                    .withOperation("some-action")
-                    .withResource("some-resource")
-                    .withClientDeviceAuthToken("some-invalid-token");
+            AuthorizeClientDeviceActionRequest request =
+                    new AuthorizeClientDeviceActionRequest().withOperation("some-action").withResource("some-resource")
+                            .withClientDeviceAuthToken("some-invalid-token");
             when(deviceAuthClient.canDevicePerform(any())).thenThrow(InvalidSessionException.class);
             Exception err = assertThrows(Exception.class, () -> {
                 authzClientDeviceAction(ipcClient, request, null);
@@ -204,18 +197,17 @@ class AuthorizeClientDeviceActionTest {
     }
 
     @Test
-    void GIVEN_brokerWithValidAuthzRequest_WHEN_AuthorizeClientDeviceActionFails_THEN_throwServiceError
-            (ExtensionContext context) throws Exception {
+    void GIVEN_brokerWithValidAuthzRequest_WHEN_AuthorizeClientDeviceActionFails_THEN_throwServiceError(
+            ExtensionContext context) throws Exception {
         kernel.getContext().put(DeviceAuthClient.class, deviceAuthClient);
         ignoreExceptionOfType(context, IllegalArgumentException.class);
         startNucleusWithConfig("cda.yaml");
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithAuthorizeClientDeviceActionPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            AuthorizeClientDeviceActionRequest request = new AuthorizeClientDeviceActionRequest()
-                    .withOperation("some-action")
-                    .withResource("some-resource")
-                    .withClientDeviceAuthToken("some-token");
+            AuthorizeClientDeviceActionRequest request =
+                    new AuthorizeClientDeviceActionRequest().withOperation("some-action").withResource("some-resource")
+                            .withClientDeviceAuthToken("some-token");
             when(deviceAuthClient.canDevicePerform(any())).thenThrow(IllegalArgumentException.class);
             Exception err = assertThrows(Exception.class, () -> {
                 authzClientDeviceAction(ipcClient, request, null);
@@ -232,10 +224,9 @@ class AuthorizeClientDeviceActionTest {
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithNoConfig")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            AuthorizeClientDeviceActionRequest request = new AuthorizeClientDeviceActionRequest()
-                    .withOperation("some-action")
-                    .withResource("some-resource")
-                    .withClientDeviceAuthToken("some-token");
+            AuthorizeClientDeviceActionRequest request =
+                    new AuthorizeClientDeviceActionRequest().withOperation("some-action").withResource("some-resource")
+                            .withClientDeviceAuthToken("some-token");
             Exception err = assertThrows(Exception.class, () -> {
                 authzClientDeviceAction(ipcClient, request, null);
             });
@@ -251,10 +242,9 @@ class AuthorizeClientDeviceActionTest {
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerMissingAuthorizeClientDeviceActionPolicy")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            AuthorizeClientDeviceActionRequest request = new AuthorizeClientDeviceActionRequest()
-                    .withOperation("some-action")
-                    .withResource("some-resource")
-                    .withClientDeviceAuthToken("some-token");
+            AuthorizeClientDeviceActionRequest request =
+                    new AuthorizeClientDeviceActionRequest().withOperation("some-action").withResource("some-resource")
+                            .withClientDeviceAuthToken("some-token");
             Exception err = assertThrows(Exception.class, () -> {
                 authzClientDeviceAction(ipcClient, request, null);
             });

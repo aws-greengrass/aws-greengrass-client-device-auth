@@ -49,8 +49,7 @@ public class ClientCertificateStoreTest {
 
         // Count files in work dir
         try (Stream<Path> stream = Files.walk(workDir)) {
-            long count = stream.filter(Files::isRegularFile)
-                    .count();
+            long count = stream.filter(Files::isRegularFile).count();
             assertThat(count, is(1L));
         }
     }

@@ -83,11 +83,10 @@ public class IotAuthClientTest {
     }
 
     @Test
-    void GIVEN_cloudThrowValidationException_WHEN_getActiveCertificateId_THEN_returnNull(
-            ExtensionContext context) {
+    void GIVEN_cloudThrowValidationException_WHEN_getActiveCertificateId_THEN_returnNull(ExtensionContext context) {
         ignoreExceptionOfType(context, ValidationException.class);
-        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class)))
-                .thenThrow(ValidationException.class);
+        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class))).thenThrow(
+                ValidationException.class);
 
         assertThat(iotAuthClient.getActiveCertificateId("certificatePem"), is(Optional.empty()));
     }
@@ -96,8 +95,8 @@ public class IotAuthClientTest {
     void GIVEN_cloudThrowException_WHEN_getActiveCertificateId_THEN_throwCloudInteractionException(
             ExtensionContext context) {
         ignoreExceptionOfType(context, AccessDeniedException.class);
-        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class)))
-                .thenThrow(AccessDeniedException.class);
+        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class))).thenThrow(
+                AccessDeniedException.class);
 
         assertThrows(CloudServiceInteractionException.class,
                 () -> iotAuthClient.getActiveCertificateId("certificatePem"));
@@ -113,8 +112,8 @@ public class IotAuthClientTest {
             ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, InterruptedException.class);
         ignoreExceptionOfType(context, InternalServerException.class);
-        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class)))
-                .thenThrow(InternalServerException.class);
+        when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class))).thenThrow(
+                InternalServerException.class);
 
         CountDownLatch latch = new CountDownLatch(1);
         Thread thread = new Thread(() -> {
@@ -135,8 +134,8 @@ public class IotAuthClientTest {
         when(thing.getThingName()).thenReturn("thingName");
         when(certificate.getCertificateId()).thenReturn("certificateId");
         when(client.verifyClientDeviceIoTCertificateAssociation(
-                any(VerifyClientDeviceIoTCertificateAssociationRequest.class)))
-                .thenReturn(VerifyClientDeviceIoTCertificateAssociationResponse.builder().build());
+                any(VerifyClientDeviceIoTCertificateAssociationRequest.class))).thenReturn(
+                VerifyClientDeviceIoTCertificateAssociationResponse.builder().build());
 
         assertThat(iotAuthClient.isThingAttachedToCertificate(thing, certificate), is(true));
         verify(client).verifyClientDeviceIoTCertificateAssociation(associationRequestCaptor.capture());

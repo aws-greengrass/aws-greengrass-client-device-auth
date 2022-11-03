@@ -89,40 +89,37 @@ public final class CertificateTestHelpers {
         return createCertificate(null, commonName, kp.getPublic(), kp.getPrivate(), CertificateTypes.ROOT_CA);
     }
 
-    public static X509Certificate createIntermediateCertificateAuthority(
-            X509Certificate caCert, String commonName, PublicKey publicKey, PrivateKey caPrivateKey) throws
-            NoSuchAlgorithmException,
-            CertificateException, CertIOException, OperatorCreationException {
+    public static X509Certificate createIntermediateCertificateAuthority(X509Certificate caCert, String commonName,
+                                                                         PublicKey publicKey, PrivateKey caPrivateKey)
+            throws NoSuchAlgorithmException, CertificateException, CertIOException, OperatorCreationException {
         return createCertificate(caCert, commonName, publicKey, caPrivateKey, CertificateTypes.INTERMEDIATE_CA);
     }
 
     public static X509Certificate createServerCertificate(X509Certificate caCert, String commonName,
-                                                          PublicKey publicKey,
-                                                   PrivateKey caPrivateKey)
+                                                          PublicKey publicKey, PrivateKey caPrivateKey)
             throws NoSuchAlgorithmException, CertificateException, IOException, OperatorCreationException {
         return createCertificate(caCert, commonName, publicKey, caPrivateKey, CertificateTypes.SERVER_CERTIFICATE);
     }
 
     public static X509Certificate createClientCertificate(X509Certificate caCert, String commonName,
-                                                          PublicKey publicKey,
-                                                   PrivateKey caPrivateKey)
+                                                          PublicKey publicKey, PrivateKey caPrivateKey)
             throws CertificateException, NoSuchAlgorithmException, OperatorCreationException, CertIOException {
         return createCertificate(caCert, commonName, publicKey, caPrivateKey, CertificateTypes.CLIENT_CERTIFICATE);
     }
 
     private static X509Certificate createCertificate(X509Certificate caCert, String commonName, PublicKey publicKey,
-                                                     PrivateKey caPrivateKey, CertificateTypes type) throws NoSuchAlgorithmException,
-            CertIOException, CertificateException, OperatorCreationException {
+                                                     PrivateKey caPrivateKey, CertificateTypes type)
+            throws NoSuchAlgorithmException, CertIOException, CertificateException, OperatorCreationException {
         Pair<Date, Date> dateRange = getValidityDateRange();
         X500Name subject = getX500Name(commonName);
 
         X509v3CertificateBuilder builder;
         if (type == CertificateTypes.ROOT_CA) {
-            builder = new JcaX509v3CertificateBuilder(
-                    subject, getSerialNumber(), dateRange.getLeft(), dateRange.getRight(), subject, publicKey);
+            builder = new JcaX509v3CertificateBuilder(subject, getSerialNumber(), dateRange.getLeft(),
+                    dateRange.getRight(), subject, publicKey);
         } else {
-            builder = new JcaX509v3CertificateBuilder(
-                    caCert, getSerialNumber(), dateRange.getLeft(), dateRange.getRight(), subject, publicKey);
+            builder = new JcaX509v3CertificateBuilder(caCert, getSerialNumber(), dateRange.getLeft(),
+                    dateRange.getRight(), subject, publicKey);
         }
 
         buildCertificateExtensions(builder, caCert, publicKey, type);
@@ -133,47 +130,40 @@ public final class CertificateTestHelpers {
     private static X509CertificateHolder signCertificate(X509v3CertificateBuilder certBuilder, PrivateKey privateKey)
             throws OperatorCreationException {
         String signingAlgorithm = CERTIFICATE_SIGNING_ALGORITHM.get(privateKey.getAlgorithm());
-        final ContentSigner contentSigner = new JcaContentSignerBuilder(
-                signingAlgorithm).setProvider("BC").build(privateKey);
+        final ContentSigner contentSigner =
+                new JcaContentSignerBuilder(signingAlgorithm).setProvider("BC").build(privateKey);
 
         return certBuilder.build(contentSigner);
     }
 
-    private static void buildCertificateExtensions(
-            X509v3CertificateBuilder builder, X509Certificate caCert, PublicKey publicKey, CertificateTypes type) throws
-            NoSuchAlgorithmException, CertificateEncodingException, CertIOException {
+    private static void buildCertificateExtensions(X509v3CertificateBuilder builder, X509Certificate caCert,
+                                                   PublicKey publicKey, CertificateTypes type)
+            throws NoSuchAlgorithmException, CertificateEncodingException, CertIOException {
         JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
         builder.addExtension(Extension.subjectKeyIdentifier, false, extUtils.createSubjectKeyIdentifier(publicKey));
 
         if (type == CertificateTypes.ROOT_CA) {
-            builder
-                    .addExtension(Extension.authorityKeyIdentifier, false,
+            builder.addExtension(Extension.authorityKeyIdentifier, false,
                             extUtils.createAuthorityKeyIdentifier(publicKey))
                     .addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
         }
 
         if (type == CertificateTypes.INTERMEDIATE_CA) {
-            builder
-                    .addExtension(Extension.authorityKeyIdentifier, false,
-                            extUtils.createAuthorityKeyIdentifier(caCert))
+            builder.addExtension(Extension.authorityKeyIdentifier, false, extUtils.createAuthorityKeyIdentifier(caCert))
                     .addExtension(Extension.basicConstraints, true, new BasicConstraints(true))
                     .addExtension(Extension.keyUsage, true, new X509KeyUsage(
                             X509KeyUsage.digitalSignature | X509KeyUsage.keyCertSign | X509KeyUsage.cRLSign));
         }
 
         if (type == CertificateTypes.SERVER_CERTIFICATE) {
-            builder
-                    .addExtension(Extension.authorityKeyIdentifier, false,
-                            extUtils.createAuthorityKeyIdentifier(caCert))
+            builder.addExtension(Extension.authorityKeyIdentifier, false, extUtils.createAuthorityKeyIdentifier(caCert))
                     .addExtension(Extension.basicConstraints, true, new BasicConstraints(false))
                     .addExtension(Extension.extendedKeyUsage, true,
                             new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
         }
 
         if (type == CertificateTypes.CLIENT_CERTIFICATE) {
-            builder
-                    .addExtension(Extension.authorityKeyIdentifier, false,
-                            extUtils.createAuthorityKeyIdentifier(caCert))
+            builder.addExtension(Extension.authorityKeyIdentifier, false, extUtils.createAuthorityKeyIdentifier(caCert))
                     .addExtension(Extension.basicConstraints, true, new BasicConstraints(false))
                     .addExtension(Extension.extendedKeyUsage, true,
                             new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth));
@@ -181,7 +171,7 @@ public final class CertificateTestHelpers {
     }
 
     private static BigInteger getSerialNumber() {
-        return  new BigInteger(160, new SecureRandom());
+        return new BigInteger(160, new SecureRandom());
     }
 
     private static Pair<Date, Date> getValidityDateRange() {
@@ -207,11 +197,11 @@ public final class CertificateTestHelpers {
     /**
      * Verifies if one certificate was signed by another.
      *
-     * @param issuerCA  X509Certificate issuer cert
+     * @param issuerCA    X509Certificate issuer cert
      * @param certificate X509Certificate signed cert
      */
-    public static boolean wasCertificateIssuedBy(X509Certificate issuerCA, X509Certificate certificate) throws
-            CertificateException {
+    public static boolean wasCertificateIssuedBy(X509Certificate issuerCA, X509Certificate certificate)
+            throws CertificateException {
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
         List<X509Certificate> leafCertificate = Arrays.asList(certificate);
         CertPath leafCertPath = cf.generateCertPath(leafCertificate);
@@ -223,7 +213,7 @@ public final class CertificateTestHelpers {
             validationParams.setRevocationEnabled(false);
             cpv.validate(leafCertPath, validationParams);
             return true;
-        } catch (CertPathValidatorException | InvalidAlgorithmParameterException | NoSuchAlgorithmException  e) {
+        } catch (CertPathValidatorException | InvalidAlgorithmParameterException | NoSuchAlgorithmException e) {
             return false;
         }
     }
@@ -237,27 +227,24 @@ public final class CertificateTestHelpers {
         for (int i = 0; i < amount; i++) {
             KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
 
-            clientCertificates.add(createClientCertificate(
-                    rootCA, "AWS IoT Certificate", clientKeyPair.getPublic(), rootKeyPair.getPrivate()));
+            clientCertificates.add(createClientCertificate(rootCA, "AWS IoT Certificate", clientKeyPair.getPublic(),
+                    rootKeyPair.getPrivate()));
         }
 
         return clientCertificates;
     }
 
-    public static List<X509Certificate> loadX509Certificate(String pem)
-            throws IOException, CertificateException {
+    public static List<X509Certificate> loadX509Certificate(String pem) throws IOException, CertificateException {
 
         try (InputStream targetStream = IOUtils.toInputStream(pem)) {
             CertificateFactory factory = CertificateFactory.getInstance("X.509");
 
-            return new ArrayList<>(
-                    (Collection<? extends X509Certificate>) factory.generateCertificates(targetStream));
+            return new ArrayList<>((Collection<? extends X509Certificate>) factory.generateCertificates(targetStream));
         }
     }
 
     @SuppressWarnings("PMD.AvoidFileStream")
-    public static void writeToPath(Path filePath, String boundary, List<byte[]> encodings)
-            throws IOException {
+    public static void writeToPath(Path filePath, String boundary, List<byte[]> encodings) throws IOException {
         File file = filePath.toFile();
 
         if (!Files.exists(filePath)) {

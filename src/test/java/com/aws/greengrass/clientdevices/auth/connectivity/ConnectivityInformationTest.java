@@ -69,18 +69,19 @@ public class ConnectivityInformationTest {
 
     @Test
     void GIVEN_connectivity_info_WHEN_get_connectivity_info_THEN_connectivity_info_returned() {
-        ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
-                .metadata("").id("172.8.8.10").portNumber(8883).build();
-        ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
-                .metadata("").id("localhost").portNumber(8883).build();
+        ConnectivityInfo connectivityInfo =
+                ConnectivityInfo.builder().hostAddress("172.8.8.10").metadata("").id("172.8.8.10").portNumber(8883)
+                        .build();
+        ConnectivityInfo connectivityInfo1 =
+                ConnectivityInfo.builder().hostAddress("localhost").metadata("").id("localhost").portNumber(8883)
+                        .build();
         GetConnectivityInfoResponse getConnectivityInfoResponse = GetConnectivityInfoResponse.builder()
                 .connectivityInfo(Arrays.asList(connectivityInfo, connectivityInfo1)).build();
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
         List<ConnectivityInfo> connectivityInfos = connectivityInformation.getConnectivityInfo();
-        verify(greengrassV2DataClient, times(1))
-                .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
+        verify(greengrassV2DataClient, times(1)).getConnectivityInfo(any(GetConnectivityInfoRequest.class));
         assertThat(connectivityInfos, containsInAnyOrder(connectivityInfo, connectivityInfo1));
     }
 
@@ -91,8 +92,7 @@ public class ConnectivityInformationTest {
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
         List<ConnectivityInfo> connectivityInfos = connectivityInformation.getConnectivityInfo();
-        verify(greengrassV2DataClient, times(1))
-                .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
+        verify(greengrassV2DataClient, times(1)).getConnectivityInfo(any(GetConnectivityInfoRequest.class));
         assertThat(connectivityInfos, is(empty()));
     }
 
@@ -100,18 +100,20 @@ public class ConnectivityInformationTest {
     void GIVEN_cloudThrowValidationException_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned(
             ExtensionContext context) {
         ignoreExceptionOfType(context, ValidationException.class);
-        when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class)))
-                .thenThrow(ValidationException.class);
+        when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class))).thenThrow(
+                ValidationException.class);
 
         assertThat(connectivityInformation.getConnectivityInfo(), is(empty()));
     }
 
     @Test
     void GIVEN_cached_connectivity_info_WHEN_get_cached_connectivity_info_THEN_connectivity_info_returned() {
-        ConnectivityInfo connectivityInfo = ConnectivityInfo.builder().hostAddress("172.8.8.10")
-                .metadata("").id("172.8.8.10").portNumber(8883).build();
-        ConnectivityInfo connectivityInfo1 = ConnectivityInfo.builder().hostAddress("localhost")
-                .metadata("").id("localhost").portNumber(8883).build();
+        ConnectivityInfo connectivityInfo =
+                ConnectivityInfo.builder().hostAddress("172.8.8.10").metadata("").id("172.8.8.10").portNumber(8883)
+                        .build();
+        ConnectivityInfo connectivityInfo1 =
+                ConnectivityInfo.builder().hostAddress("localhost").metadata("").id("localhost").portNumber(8883)
+                        .build();
         GetConnectivityInfoResponse getConnectivityInfoResponse = GetConnectivityInfoResponse.builder()
                 .connectivityInfo(Arrays.asList(connectivityInfo, connectivityInfo1)).build();
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
@@ -130,12 +132,10 @@ public class ConnectivityInformationTest {
 
     @Test
     void GIVEN_connectivityInfoFromSingleSource_WHEN_hostAddressesAddedAndRemoved_THEN_correctConnectivityInfoReturned() {
-        Set<HostAddress> sourceConnectivityInfo = Stream.of("localhost", "127.0.0.1")
-                .map(HostAddress::of)
-                .collect(Collectors.toSet());
-        Set<HostAddress> connectivityInfoSuperset = Stream.of("localhost", "127.0.0.1", "127.0.0.2")
-                .map(HostAddress::of)
-                .collect(Collectors.toSet());
+        Set<HostAddress> sourceConnectivityInfo =
+                Stream.of("localhost", "127.0.0.1").map(HostAddress::of).collect(Collectors.toSet());
+        Set<HostAddress> connectivityInfoSuperset =
+                Stream.of("localhost", "127.0.0.1", "127.0.0.2").map(HostAddress::of).collect(Collectors.toSet());
 
         connectivityInformation.recordConnectivityInformationForSource("source", sourceConnectivityInfo);
         Set<HostAddress> mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
@@ -157,12 +157,10 @@ public class ConnectivityInformationTest {
 
     @Test
     void GIVEN_disjointConnectivityInfoFromMultipleSources_WHEN_getConnectivityInformation_THEN_mergedConnectivityInfoReturned() {
-        Set<HostAddress> sourceConnectivityInfo = Stream.of("localhost", "127.0.0.1")
-                .map(HostAddress::of)
-                .collect(Collectors.toSet());
-        Set<HostAddress> disjointConnectivityInfoSet = Stream.of("192.168.1.1", "hostname")
-                .map(HostAddress::of)
-                .collect(Collectors.toSet());
+        Set<HostAddress> sourceConnectivityInfo =
+                Stream.of("localhost", "127.0.0.1").map(HostAddress::of).collect(Collectors.toSet());
+        Set<HostAddress> disjointConnectivityInfoSet =
+                Stream.of("192.168.1.1", "hostname").map(HostAddress::of).collect(Collectors.toSet());
 
         connectivityInformation.recordConnectivityInformationForSource("source", sourceConnectivityInfo);
         connectivityInformation.recordConnectivityInformationForSource("source2", disjointConnectivityInfoSet);
@@ -170,17 +168,16 @@ public class ConnectivityInformationTest {
         Set<HostAddress> mergedConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
         assertTrue(mergedConnectivityInfo.containsAll(sourceConnectivityInfo));
         assertTrue(mergedConnectivityInfo.containsAll(disjointConnectivityInfoSet));
-        assertThat(mergedConnectivityInfo.size(), is(sourceConnectivityInfo.size() + disjointConnectivityInfoSet.size()));
+        assertThat(mergedConnectivityInfo.size(),
+                is(sourceConnectivityInfo.size() + disjointConnectivityInfoSet.size()));
     }
 
     @Test
     void GIVEN_overlappingConnectivityInfoFromMultipleSources_WHEN_getConnectivityInformation_THEN_mergedConnectivityInfoReturned() {
-        Set<HostAddress> sourceConnectivityInfo = Stream.of("localhost", "127.0.0.1")
-                .map(HostAddress::of)
-                .collect(Collectors.toSet());
-        Set<HostAddress> overlappingConnectivityInfo = Stream.of("localhost")
-                .map(HostAddress::of)
-                .collect(Collectors.toSet());
+        Set<HostAddress> sourceConnectivityInfo =
+                Stream.of("localhost", "127.0.0.1").map(HostAddress::of).collect(Collectors.toSet());
+        Set<HostAddress> overlappingConnectivityInfo =
+                Stream.of("localhost").map(HostAddress::of).collect(Collectors.toSet());
 
         connectivityInformation.recordConnectivityInformationForSource("source", sourceConnectivityInfo);
         connectivityInformation.recordConnectivityInformationForSource("source2", overlappingConnectivityInfo);

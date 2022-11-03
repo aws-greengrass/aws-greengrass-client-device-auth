@@ -21,8 +21,8 @@ import java.security.cert.CertificateEncodingException;
 import javax.inject.Inject;
 
 /**
- * Registers a custom certificate authority with a private key and certificate provide through the configuration.
- * The CA is used to issue certificates to other Greengrass plugins and verify device access.
+ * Registers a custom certificate authority with a private key and certificate provide through the configuration. The CA
+ * is used to issue certificates to other Greengrass plugins and verify device access.
  */
 public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Void, CAConfiguration> {
     private static final Logger logger = LogManager.getLogger(ConfigureCustomCertificateAuthority.class);
@@ -34,11 +34,11 @@ public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Voi
      * Configure core certificate authority.
      *
      * @param certificateManager Instance of CertificateManager
-     * @param runtimeConfig - The runtime configuration
+     * @param runtimeConfig      - The runtime configuration
      */
     @Inject
-    public ConfigureCustomCertificateAuthority(
-            CertificateManager certificateManager, RuntimeConfiguration runtimeConfig) {
+    public ConfigureCustomCertificateAuthority(CertificateManager certificateManager,
+                                               RuntimeConfiguration runtimeConfig) {
         this.certificateManager = certificateManager;
         this.runtimeConfig = runtimeConfig;
     }

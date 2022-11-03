@@ -63,9 +63,7 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
                 cloudCert = iotAuthClient.getIotCertificate(certificatePem);
             }
         } catch (InvalidCertificateException e) {
-            logger.atWarn()
-                    .kv("certificatePem", certificatePem)
-                    .log("Unable to process certificate", e);
+            logger.atWarn().kv("certificatePem", certificatePem).log("Unable to process certificate", e);
             return false;
         }
 
@@ -80,9 +78,7 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
         }
 
         String verificationSource = cloudCert.isPresent() ? CLOUD_VERIFICATION_SOURCE : LOCAL_VERIFICATION_SOURCE;
-        logger.atDebug()
-                .kv("certificateId", cert.getCertificateId())
-                .kv(VERIFICATION_SOURCE, verificationSource)
+        logger.atDebug().kv("certificateId", cert.getCertificateId()).kv(VERIFICATION_SOURCE, verificationSource)
                 .log(cert.isActive() ? "Certificate is active" : "Certificate is not active");
 
         return cert.isActive();

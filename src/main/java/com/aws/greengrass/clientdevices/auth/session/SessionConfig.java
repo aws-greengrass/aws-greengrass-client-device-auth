@@ -63,8 +63,7 @@ public class SessionConfig {
     }
 
     /**
-     * Retrieves configured Session Capacity.
-     * Invalid values are clamped to the valid range.
+     * Retrieves configured Session Capacity. Invalid values are clamped to the valid range.
      *
      * @return session capacity value
      */
@@ -72,13 +71,13 @@ public class SessionConfig {
         if (configuration == null || configuration.isEmpty()) {
             return DEFAULT_SESSION_CAPACITY;
         }
-        int configValue = Coerce.toInt(configuration.findOrDefault(DEFAULT_SESSION_CAPACITY,
-                PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC));
+        int configValue = Coerce.toInt(
+                configuration.findOrDefault(DEFAULT_SESSION_CAPACITY, PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC));
 
         int clamped = Math.max(MIN_SESSION_CAPACITY, Math.min(MAX_SESSION_CAPACITY, configValue));
         if (clamped != configValue) {
-            LOGGER.warn("Illegal value {} for configuration {}. Using clamped value {}",
-                    configValue, MAX_ACTIVE_AUTH_TOKENS_TOPIC, clamped);
+            LOGGER.warn("Illegal value {} for configuration {}. Using clamped value {}", configValue,
+                    MAX_ACTIVE_AUTH_TOKENS_TOPIC, clamped);
             return clamped;
         }
         return configValue;

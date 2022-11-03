@@ -15,9 +15,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
- * Singleton manager class for managing device group roles and retrieving permissions associated
- * with Sessions. To determine device permissions, the GroupManager first determines which device
- * groups a Session belongs to, and then merges device group permissions.
+ * Singleton manager class for managing device group roles and retrieving permissions associated with Sessions. To
+ * determine device permissions, the GroupManager first determines which device groups a Session belongs to, and then
+ * merges device group permissions.
  */
 public class GroupManager {
     private final AtomicReference<GroupConfiguration> groupConfigurationRef = new AtomicReference<>();

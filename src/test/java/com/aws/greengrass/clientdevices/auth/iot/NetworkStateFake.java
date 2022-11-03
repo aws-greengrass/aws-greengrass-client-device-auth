@@ -36,6 +36,8 @@ public class NetworkStateFake implements NetworkStateProvider {
     }
 
     private void emit() {
-        handlers.forEach((handler) -> {handler.accept(connectionState);});
+        handlers.forEach((handler) -> {
+            handler.accept(connectionState);
+        });
     }
 }

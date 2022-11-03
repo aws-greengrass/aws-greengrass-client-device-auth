@@ -57,10 +57,11 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     static final String SHADOW_UPDATE_DELTA_TOPIC = "$aws/things/%s/shadow/update/delta";
     static final String SHADOW_GET_ACCEPTED_TOPIC = "$aws/things/%s/shadow/get/accepted";
 
-    private static final RetryUtils.RetryConfig GET_CONNECTIVITY_RETRY_CONFIG = RetryUtils.RetryConfig.builder()
-            .initialRetryInterval(Duration.ofMinutes(1L)).maxRetryInterval(Duration.ofMinutes(30L))
-            .maxAttempt(Integer.MAX_VALUE).retryableExceptions(Arrays.asList(ThrottlingException.class,
-                    InternalServerException.class)).build();
+    private static final RetryUtils.RetryConfig GET_CONNECTIVITY_RETRY_CONFIG =
+            RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofMinutes(1L))
+                    .maxRetryInterval(Duration.ofMinutes(30L)).maxAttempt(Integer.MAX_VALUE)
+                    .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
+                    .build();
 
     private MqttClientConnection connection;
     private IotShadowClient iotShadowClient;
@@ -81,18 +82,15 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      */
     @Inject
     public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
-                            DeviceConfiguration deviceConfiguration,
-                            ConnectivityInformation connectivityInformation) {
-        this(null, null, executorService,
-                Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX,
+                            DeviceConfiguration deviceConfiguration, ConnectivityInformation connectivityInformation) {
+        this(null, null, executorService, Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX,
                 connectivityInformation);
         this.connection = new WrapperMqttClientConnection(mqttClient);
         this.iotShadowClient = new IotShadowClient(this.connection);
     }
 
-    CISShadowMonitor(MqttClientConnection connection, IotShadowClient iotShadowClient,
-                     ExecutorService executorService, String shadowName,
-                     ConnectivityInformation connectivityInformation) {
+    CISShadowMonitor(MqttClientConnection connection, IotShadowClient iotShadowClient, ExecutorService executorService,
+                     String shadowName, ConnectivityInformation connectivityInformation) {
         this.connection = connection;
         this.iotShadowClient = iotShadowClient;
         this.executorService = executorService;
@@ -152,8 +150,8 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 throw new InterruptedException("Interrupted while subscribing to CIS shadow topics");
             }
             try {
-                ShadowDeltaUpdatedSubscriptionRequest shadowDeltaUpdatedSubscriptionRequest
-                        = new ShadowDeltaUpdatedSubscriptionRequest();
+                ShadowDeltaUpdatedSubscriptionRequest shadowDeltaUpdatedSubscriptionRequest =
+                        new ShadowDeltaUpdatedSubscriptionRequest();
                 shadowDeltaUpdatedSubscriptionRequest.thingName = shadowName;
                 iotShadowClient.SubscribeToShadowDeltaUpdatedEvents(shadowDeltaUpdatedSubscriptionRequest,
                                 QualityOfService.AT_LEAST_ONCE,
@@ -166,10 +164,8 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 GetShadowSubscriptionRequest getShadowSubscriptionRequest = new GetShadowSubscriptionRequest();
                 getShadowSubscriptionRequest.thingName = shadowName;
                 iotShadowClient.SubscribeToGetShadowAccepted(getShadowSubscriptionRequest,
-                                QualityOfService.AT_LEAST_ONCE,
-                                this::processCISShadow,
-                                (e) -> LOGGER.atError()
-                                        .log("Error processing getShadowSubscription Response", e))
+                                QualityOfService.AT_LEAST_ONCE, this::processCISShadow,
+                                (e) -> LOGGER.atError().log("Error processing getShadowSubscription Response", e))
                         .get(TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS, TimeUnit.SECONDS);
                 LOGGER.info("Subscribed to shadow get accepted topic");
                 return;
@@ -177,8 +173,8 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
             } catch (ExecutionException e) {
                 Throwable cause = e.getCause();
                 if (cause instanceof MqttException || cause instanceof TimeoutException) {
-                    LOGGER.atWarn().setCause(cause).log("Caught exception while subscribing to shadow topics, "
-                            + "will retry shortly");
+                    LOGGER.atWarn().setCause(cause)
+                            .log("Caught exception while subscribing to shadow topics, will retry shortly");
                 } else if (cause instanceof InterruptedException) {
                     throw (InterruptedException) cause;
                 } else {
@@ -232,8 +228,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 return;
             } catch (Exception e) {
                 LOGGER.atError().kv(VERSION, version).cause(e)
-                        .log("Failed to get connectivity info from cloud."
-                                + " Check that the core device's IoT policy "
+                        .log("Failed to get connectivity info from cloud. Check that the core device's IoT policy "
                                 + "grants the greengrass:GetConnectivityInfo permission");
                 return;
             }
@@ -270,22 +265,20 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         updateShadowRequest.thingName = shadowName;
         updateShadowRequest.state = new ShadowState();
         updateShadowRequest.state.reported = reportedState == null ? null : new HashMap<>(reportedState);
-        iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE)
-                .exceptionally(e -> {
-                    LOGGER.atWarn().cause(e).log("Unable to update CIS shadow reported state");
-                    return null;
-                });
+        iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE).exceptionally(e -> {
+            LOGGER.atWarn().cause(e).log("Unable to update CIS shadow reported state");
+            return null;
+        });
     }
 
     private void publishToGetCISShadowTopic() {
         LOGGER.atDebug().log("Publishing to get shadow topic");
         GetShadowRequest getShadowRequest = new GetShadowRequest();
         getShadowRequest.thingName = shadowName;
-        iotShadowClient.PublishGetShadow(getShadowRequest, QualityOfService.AT_LEAST_ONCE)
-                .exceptionally(e -> {
-                    LOGGER.atWarn().cause(e).log("Unable to retrieve CIS shadow");
-                    return null;
-                });
+        iotShadowClient.PublishGetShadow(getShadowRequest, QualityOfService.AT_LEAST_ONCE).exceptionally(e -> {
+            LOGGER.atWarn().cause(e).log("Unable to retrieve CIS shadow");
+            return null;
+        });
     }
 
     private void unsubscribeFromShadowTopics() {

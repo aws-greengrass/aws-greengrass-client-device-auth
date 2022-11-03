@@ -35,16 +35,16 @@ class PermissionEvaluationUtilsTest {
         authorized = PermissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:b", groupPermissions);
         assertThat(authorized, is(true));
 
-        authorized = PermissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:$foo/bar/+/baz",
-                groupPermissions);
+        authorized =
+                PermissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:$foo/bar/+/baz", groupPermissions);
         assertThat(authorized, is(true));
 
         authorized = PermissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:$foo .10bar/導À-baz/#",
                 groupPermissions);
         assertThat(authorized, is(true));
 
-        authorized = PermissionEvaluationUtils.isAuthorized("mqtt:connect", "mqtt:broker:localBroker",
-                groupPermissions);
+        authorized =
+                PermissionEvaluationUtils.isAuthorized("mqtt:connect", "mqtt:broker:localBroker", groupPermissions);
         assertThat(authorized, is(true));
 
         authorized = PermissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:d", groupPermissions);
@@ -55,12 +55,12 @@ class PermissionEvaluationUtilsTest {
     }
 
     private Map<String, Set<Permission>> prepareGroupPermissionsData() {
-        Permission[] sensorPermission = {
-                Permission.builder().principal("sensor").operation("mqtt:publish").resource("mqtt:topic:a").build(),
-                Permission.builder().principal("sensor").operation("mqtt:*").resource("mqtt:topic:b").build(),
-                Permission.builder().principal("sensor").operation("mqtt:subscribe").resource("mqtt:topic:*").build(),
-                Permission.builder().principal("sensor").operation("mqtt:connect").resource("*").build(),
-        };
+        Permission[] sensorPermission =
+                {Permission.builder().principal("sensor").operation("mqtt:publish").resource("mqtt:topic:a").build(),
+                        Permission.builder().principal("sensor").operation("mqtt:*").resource("mqtt:topic:b").build(),
+                        Permission.builder().principal("sensor").operation("mqtt:subscribe")
+                                .resource("mqtt:topic:*").build(),
+                        Permission.builder().principal("sensor").operation("mqtt:connect").resource("*").build(),};
         return Collections.singletonMap("sensor", new HashSet<>(Arrays.asList(sensorPermission)));
     }
 

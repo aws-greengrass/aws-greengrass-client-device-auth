@@ -105,7 +105,7 @@ public class BackgroundCertificateRefreshTest {
         iotAuthClientFake = spy(new IotAuthClientFake());
         lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
 
-        DomainEvents domainEvents =  new DomainEvents();
+        DomainEvents domainEvents = new DomainEvents();
         configurationTopics = Topics.of(new Context(), "config", null);
         RuntimeConfiguration runtimeConfiguration = RuntimeConfiguration.from(configurationTopics);
         pemStore = new ClientCertificateStore(workDir);
@@ -113,14 +113,14 @@ public class BackgroundCertificateRefreshTest {
         thingRegistry = new ThingRegistry(domainEvents, runtimeConfiguration);
 
         UseCases useCases = new UseCases();
-        configurationTopics.getContext().put(VerifyThingAttachedToCertificate.class, verifyThingAttachedToCertificateMock);
+        configurationTopics.getContext()
+                .put(VerifyThingAttachedToCertificate.class, verifyThingAttachedToCertificateMock);
         configurationTopics.getContext().put(VerifyIotCertificate.class, verifyIotCertificateMock);
         useCases.init(configurationTopics.getContext());
 
         this.clockMock = Optional.empty();
 
-        backgroundRefresh = spy(new BackgroundCertificateRefresh(
-                schedulerMock, thingRegistry, networkStateMock, 
+        backgroundRefresh = spy(new BackgroundCertificateRefresh(schedulerMock, thingRegistry, networkStateMock,
                 certificateRegistry, pemStore, iotAuthClientFake, useCases));
     }
 
@@ -141,24 +141,24 @@ public class BackgroundCertificateRefreshTest {
         this.clockMock = Optional.of(clockMock);
     }
 
-    private List<X509Certificate> generateClientCerts(int numberOfCerts) throws NoSuchAlgorithmException,
-            CertificateException, OperatorCreationException, CertIOException {
+    private List<X509Certificate> generateClientCerts(int numberOfCerts)
+            throws NoSuchAlgorithmException, CertificateException, OperatorCreationException, CertIOException {
         KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
         X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
         ArrayList<X509Certificate> clientCerts = new ArrayList<>();
 
         for (int i = 0; i < numberOfCerts; i++) {
             KeyPair clientAKeyPair = CertificateStore.newRSAKeyPair(2048);
-            clientCerts.add(createClientCertificate(
-                    rootCA, "AWS IoT Certificate", clientAKeyPair.getPublic(), rootKeyPair.getPrivate()));
+            clientCerts.add(createClientCertificate(rootCA, "AWS IoT Certificate", clientAKeyPair.getPublic(),
+                    rootKeyPair.getPrivate()));
         }
 
         return clientCerts;
     }
 
     @Test
-    void GIVEN_certsAndThings_WHEN_orphanedCertificate_THEN_itGetsRemoved() throws
-            NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
+    void GIVEN_certsAndThings_WHEN_orphanedCertificate_THEN_itGetsRemoved()
+            throws NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
             InvalidCertificateException {
         // Given
         Supplier<String> thingOneName = () -> "ThingOne";
@@ -196,8 +196,7 @@ public class BackgroundCertificateRefreshTest {
     }
 
     @Test
-    void GIVEN_certsAndThings_WHEN_certificateAssociatedToMoreThanOneThing_THEN_itDoesNotGetRemoved() throws
-        Exception{
+    void GIVEN_certsAndThings_WHEN_certificateAssociatedToMoreThanOneThing_THEN_itDoesNotGetRemoved() throws Exception {
         // Given
         Supplier<String> thingOneName = () -> "ThingOne";
         Thing thingOne = Thing.of(thingOneName.get());
@@ -274,12 +273,16 @@ public class BackgroundCertificateRefreshTest {
     @Test
     void GIVEN_triggeredByMultipleThreads_WHEN_called_THEN_itShouldOnlyRunOnceForThatTimeWindow()
             throws InterruptedException {
-       Thread t1 = new Thread(() -> { backgroundRefresh.run(); });
-       Thread t2 = new Thread(() -> { backgroundRefresh.run(); });
-       t1.start();
-       t2.start();
-       t1.join();
-       t2.join();
+        Thread t1 = new Thread(() -> {
+            backgroundRefresh.run();
+        });
+        Thread t2 = new Thread(() -> {
+            backgroundRefresh.run();
+        });
+        t1.start();
+        t2.start();
+        t1.join();
+        t2.join();
 
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
     }
@@ -335,9 +338,8 @@ public class BackgroundCertificateRefreshTest {
         ArgumentCaptor<VerifyThingAttachedToCertificateDTO> doCaptor =
                 ArgumentCaptor.forClass(VerifyThingAttachedToCertificateDTO.class);
 
-        when(verifyThingAttachedToCertificateMock.apply(doCaptor.capture()))
-                .thenThrow(new CloudServiceInteractionException("Failed to verify association"))
-                .thenReturn(true);
+        when(verifyThingAttachedToCertificateMock.apply(doCaptor.capture())).thenThrow(
+                new CloudServiceInteractionException("Failed to verify association")).thenReturn(true);
         assertNull(backgroundRefresh.getLastRan());
         backgroundRefresh.run();
 

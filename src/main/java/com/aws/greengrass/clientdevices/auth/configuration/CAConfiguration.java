@@ -22,8 +22,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Represents the certificateAuthority and ca_type part of the component configuration. Acts as an adapter
- * from the GG Topics to the domain.
+ * Represents the certificateAuthority and ca_type part of the component configuration. Acts as an adapter from the GG
+ * Topics to the domain.
  * <p>
  * |---- configuration
  * |    |---- certificateAuthority:
@@ -47,8 +47,8 @@ public final class CAConfiguration {
     private Optional<URI> certificateUri;
 
 
-    private CAConfiguration(List<String> caTypes, CertificateStore.CAType caType,
-                            Optional<URI> privateKeyUri, Optional<URI> certificateUri) {
+    private CAConfiguration(List<String> caTypes, CertificateStore.CAType caType, Optional<URI> privateKeyUri,
+                            Optional<URI> certificateUri) {
         this.caType = caType;
         this.caTypeList = caTypes;
         this.privateKeyUri = privateKeyUri;
@@ -59,23 +59,20 @@ public final class CAConfiguration {
      * Factory method for creating an immutable CAConfiguration from the service configuration.
      *
      * @param configurationTopics the configuration key of the service configuration
-     *
      * @throws URISyntaxException if invalid certificateUri or privateKeyUri provided.
      */
     public static CAConfiguration from(Topics configurationTopics) throws URISyntaxException {
         Topics certAuthorityTopic = configurationTopics.lookupTopics(CERTIFICATE_AUTHORITY_TOPIC);
 
-        return new CAConfiguration(
-                getCaTypeListFromConfiguration(configurationTopics),
+        return new CAConfiguration(getCaTypeListFromConfiguration(configurationTopics),
                 getCaTypeFromConfiguration(configurationTopics),
                 getCaPrivateKeyUriFromConfiguration(certAuthorityTopic),
-                getCaCertificateUriFromConfiguration(certAuthorityTopic)
-        );
+                getCaCertificateUriFromConfiguration(certAuthorityTopic));
     }
 
     /**
-     * Checks if the bringing your own certificate configuration was provided. For it to be valid both the
-     * privateKeyUri and the certificateUri must be provided.
+     * Checks if the bringing your own certificate configuration was provided. For it to be valid both the privateKeyUri
+     * and the certificateUri must be provided.
      */
     public boolean isUsingCustomCA() {
         return privateKeyUri.isPresent() && certificateUri.isPresent();
@@ -83,12 +80,12 @@ public final class CAConfiguration {
 
     /**
      * Compares 2 CAConfigurations and returns true if it has changed.
+     *
      * @param config - an existing CAConfiguration
      */
     public boolean hasChanged(CAConfiguration config) {
-        return !Objects.equals(config.getCertificateUri(), getCertificateUri())
-                || !Objects.equals(config.getPrivateKeyUri(), getPrivateKeyUri())
-                || !Objects.equals(config.getCaType(), getCaType());
+        return !Objects.equals(config.getCertificateUri(), getCertificateUri()) || !Objects.equals(
+                config.getPrivateKeyUri(), getPrivateKeyUri()) || !Objects.equals(config.getCaType(), getCaType());
     }
 
     private static List<String> getCaTypeListFromConfiguration(Topics configurationTopic) {
@@ -135,8 +132,8 @@ public final class CAConfiguration {
         return uri;
     }
 
-    private static Optional<URI> getCaPrivateKeyUriFromConfiguration(Topics certAuthorityTopic) throws
-            URISyntaxException {
+    private static Optional<URI> getCaPrivateKeyUriFromConfiguration(Topics certAuthorityTopic)
+            throws URISyntaxException {
         String privateKeyUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_PRIVATE_KEY_URI));
 
         if (Utils.isEmpty(privateKeyUri)) {
@@ -146,8 +143,8 @@ public final class CAConfiguration {
         return Optional.of(getUri(privateKeyUri));
     }
 
-    private static Optional<URI> getCaCertificateUriFromConfiguration(Topics certAuthorityTopic) throws
-            URISyntaxException {
+    private static Optional<URI> getCaCertificateUriFromConfiguration(Topics certAuthorityTopic)
+            throws URISyntaxException {
         String certificateUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_CERTIFICATE_URI));
 
         if (Utils.isEmpty(certificateUri)) {

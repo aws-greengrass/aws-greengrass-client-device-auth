@@ -53,7 +53,7 @@ import javax.net.ssl.KeyManager;
 import javax.net.ssl.X509KeyManager;
 
 public class CertificateStore {
-    private static final long   DEFAULT_CA_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
+    private static final long DEFAULT_CA_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
     private static final String DEFAULT_CA_CN = "Greengrass Core CA";
     private static final String CA_KEY_ALIAS = "CA";
     private static final String DEFAULT_KEYSTORE_FILENAME = "ca.jks";
@@ -64,10 +64,10 @@ public class CertificateStore {
     // https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-57pt1r5.pdf
     // RSA 2048 is used on v1 and provides 112 bits
     // NIST-P256 (secp256r1) provides 128 bits
-    private static final int    RSA_KEY_LENGTH = 2048;
+    private static final int RSA_KEY_LENGTH = 2048;
     private static final String EC_DEFAULT_CURVE = "secp256r1";
-    private static final FileSystemPermission OWNER_RW_ONLY =  FileSystemPermission.builder()
-            .ownerRead(true).ownerWrite(true).build();
+    private static final FileSystemPermission OWNER_RW_ONLY =
+            FileSystemPermission.builder().ownerRead(true).ownerWrite(true).build();
 
     private final Logger logger = LogManager.getLogger(CertificateStore.class);
     private final SecurityService securityService;
@@ -93,15 +93,15 @@ public class CertificateStore {
     @Inject
     public CertificateStore(Kernel kernel, DomainEvents eventEmitter, SecurityService securityService)
             throws IOException {
-        this(kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME),
-                eventEmitter, securityService);
+        this(kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME), eventEmitter,
+                securityService);
     }
 
     /**
      * Create a certificate store for tests.
      *
-     * @param workPath     test path
-     * @param eventEmitter domain events
+     * @param workPath        test path
+     * @param eventEmitter    domain events
      * @param securityService security service
      */
     public CertificateStore(Path workPath, DomainEvents eventEmitter, SecurityService securityService) {
@@ -117,8 +117,8 @@ public class CertificateStore {
     /**
      * Initialize CA keystore.
      *
-     * @param passphrase   Passphrase used for KeyStore and private key entries.
-     * @param caType CA key type.
+     * @param passphrase Passphrase used for KeyStore and private key entries.
+     * @param caType     CA key type.
      * @throws KeyStoreException if unable to load or create CA KeyStore
      */
     public void update(String passphrase, CAType caType) throws KeyStoreException {
@@ -145,7 +145,7 @@ public class CertificateStore {
     /**
      * Get CA PrivateKey.
      *
-     * @return                   CA PrivateKey object
+     * @return CA PrivateKey object
      */
     public PrivateKey getCAPrivateKey() {
         return caPrivateKey;
@@ -159,9 +159,9 @@ public class CertificateStore {
      * @return X509Certificate list that corresponds to the given private key and certificate URIs
      * @throws KeyLoadingException              if it fails to load key
      * @throws CertificateChainLoadingException if no certificate chain is found
-     * @throws ServiceUnavailableException     if the security service is not available
+     * @throws ServiceUnavailableException      if the security service is not available
      */
-    public  X509Certificate[] loadCaCertificateChain(URI privateKeyUri, URI certificateUri)
+    public X509Certificate[] loadCaCertificateChain(URI privateKeyUri, URI certificateUri)
             throws CertificateChainLoadingException, KeyLoadingException, ServiceUnavailableException {
         KeyManager[] km = securityService.getKeyManagers(privateKeyUri, certificateUri);
 
@@ -174,8 +174,8 @@ public class CertificateStore {
         KeyPair keyPair = securityService.getKeyPair(privateKeyUri, certificateUri);
         String[] aliases = x509KeyManager.getClientAliases(keyPair.getPublic().getAlgorithm(), null);
         if (aliases == null) {
-            throw new CertificateChainLoadingException("Unable to find aliases in the key manager with the given "
-                    + "private key and certificate URIs");
+            throw new CertificateChainLoadingException(
+                    "Unable to find aliases in the key manager with the given private key and certificate URIs");
         }
 
         // TODO: We are making the assumption that the keyStore built by the security service provider will always
@@ -185,16 +185,16 @@ public class CertificateStore {
         X509Certificate[] chain = x509KeyManager.getCertificateChain(alias);
 
         if (chain == null || chain.length < 1) {
-            throw new CertificateChainLoadingException("Unable to get the certificate chain using the private key and "
-                    + "certificate URIs");
+            throw new CertificateChainLoadingException(
+                    "Unable to get the certificate chain using the private key and certificate URIs");
         }
 
         return chain;
     }
 
     /**
-     * Checks if the certificate store is ready, which happens once it has all the required fields to
-     * provide what is required to issue certificates.
+     * Checks if the certificate store is ready, which happens once it has all the required fields to provide what is
+     * required to issue certificates.
      */
     public boolean isReady() {
         return this.getCaCertificateChain() != null && this.getCAPrivateKey() != null && this.getProviderType() != null;
@@ -203,7 +203,7 @@ public class CertificateStore {
     /**
      * Get CA Public Certificate.
      *
-     * @return                   CA X509Certificate object
+     * @return CA X509Certificate object
      * @throws KeyStoreException if unable to retrieve the certificate
      */
     public X509Certificate getCACertificate() throws KeyStoreException {
@@ -216,18 +216,17 @@ public class CertificateStore {
 
 
     /**
-     * Sets the CA chain and private key that are used to generate certificates. It combines setting both values
-     * at the same time to avoid invalid states where the caChain can be updated without updating the value of
-     * the private key required to sign generated certificates.
+     * Sets the CA chain and private key that are used to generate certificates. It combines setting both values at the
+     * same time to avoid invalid states where the caChain can be updated without updating the value of the private key
+     * required to sign generated certificates.
      *
-     * @param privateKey  leaf CA private key
+     * @param privateKey         leaf CA private key
      * @param caCertificateChain a CA chain
-     * @param providerType  provider type DEFAULT or HSM, used to map to the correct JCA provider
-     *
-     * @throws KeyStoreException  if privateKey is not instance of PrivateKey or no ca chain provided
+     * @param providerType       provider type DEFAULT or HSM, used to map to the correct JCA provider
+     * @throws KeyStoreException if privateKey is not instance of PrivateKey or no ca chain provided
      */
-    public synchronized void setCaKeyAndCertificateChain(
-            CertificateHelper.ProviderType providerType, Key privateKey, X509Certificate... caCertificateChain)
+    public synchronized void setCaKeyAndCertificateChain(CertificateHelper.ProviderType providerType, Key privateKey,
+                                                         X509Certificate... caCertificateChain)
             throws KeyStoreException {
         if (caCertificateChain == null) {
             throw new KeyStoreException("No certificate chain provided");
@@ -241,8 +240,7 @@ public class CertificateStore {
         this.caCertificateChain = caCertificateChain;
         caPrivateKey = (PrivateKey) privateKey;
 
-        logger.atInfo()
-                .kv("subject", caCertificateChain[0].getSubjectX500Principal())
+        logger.atInfo().kv("subject", caCertificateChain[0].getSubjectX500Principal())
                 .log("Configured new certificate authority");
         eventEmitter.emit(new CACertificateChainChanged(caCertificateChain));
     }
@@ -279,8 +277,8 @@ public class CertificateStore {
             Instant now = Instant.now();
             Date notBefore = Date.from(now);
             Date notAfter = Date.from(now.plusSeconds(DEFAULT_CA_EXPIRY_SECONDS));
-            caCertificate = CertificateHelper.createCACertificate(
-                    kp, notBefore, notAfter, DEFAULT_CA_CN, CertificateHelper.ProviderType.DEFAULT);
+            caCertificate = CertificateHelper.createCACertificate(kp, notBefore, notAfter, DEFAULT_CA_CN,
+                    CertificateHelper.ProviderType.DEFAULT);
         } catch (NoSuchAlgorithmException | CertIOException | OperatorCreationException | CertificateException e) {
             throw new KeyStoreException("unable to generate CA certificate", e);
         }
@@ -293,7 +291,7 @@ public class CertificateStore {
         }
         // generate new passphrase for new CA certificate
         passphrase = generateRandomPassphrase().toCharArray();
-        caCertificateChain = new X509Certificate[]{ caCertificate };
+        caCertificateChain = new X509Certificate[]{caCertificate};
         ks.setKeyEntry(CA_KEY_ALIAS, kp.getPrivate(), getPassphrase(), caCertificateChain);
         keyStore = ks;
 
@@ -304,8 +302,7 @@ public class CertificateStore {
         }
     }
 
-    private KeyPair newKeyPair(CAType caType)
-            throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
+    private KeyPair newKeyPair(CAType caType) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
         if (caType.equals(CAType.ECDSA_P256)) {
             return newECKeyPair();
         } else if (caType.equals(CAType.RSA_2048)) {
@@ -350,8 +347,9 @@ public class CertificateStore {
         return kpg.generateKeyPair();
     }
 
-    private KeyStore loadDefaultKeyStore(CAType caType) throws KeyStoreException, IOException,
-            CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException {
+    private KeyStore loadDefaultKeyStore(CAType caType)
+            throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException,
+            UnrecoverableKeyException {
         KeyStore ks = KeyStore.getInstance("JKS");
         try (InputStream ksInputStream = Files.newInputStream(workPath.resolve(DEFAULT_KEYSTORE_FILENAME))) {
             ks.load(ksInputStream, getPassphrase());
@@ -377,8 +375,7 @@ public class CertificateStore {
         return false;
     }
 
-    private void saveKeyStore() throws IOException, CertificateException,
-            NoSuchAlgorithmException, KeyStoreException {
+    private void saveKeyStore() throws IOException, CertificateException, NoSuchAlgorithmException, KeyStoreException {
         Path caPath = workPath.resolve(DEFAULT_KEYSTORE_FILENAME);
         Files.createDirectories(caPath.getParent());
         try (OutputStream writeStream = Files.newOutputStream(caPath)) {
@@ -390,7 +387,7 @@ public class CertificateStore {
         // Write CA to filesystem in PEM format as well for customers not using cloud discovery
         X509Certificate caCert = getCACertificate();
         saveCertificatePem(workPath.resolve(DEFAULT_CA_CERTIFICATE_FILENAME),
-                EncryptionUtils.encodeToPem(CertificateHelper.PEM_BOUNDARY_CERTIFICATE,caCert.getEncoded()));
+                EncryptionUtils.encodeToPem(CertificateHelper.PEM_BOUNDARY_CERTIFICATE, caCert.getEncoded()));
     }
 
     private void saveCertificatePem(Path filePath, String certificatePem) throws IOException {

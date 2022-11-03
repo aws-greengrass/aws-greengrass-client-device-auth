@@ -22,14 +22,12 @@ import javax.inject.Inject;
 
 public class CertificateRegistry {
     private final RuntimeConfiguration runtimeConfiguration;
-    private final Map<Certificate.Status, CertificateV1DTO.Status> domain2dtoStatus = ImmutableMap.of(
-            Certificate.Status.ACTIVE, CertificateV1DTO.Status.ACTIVE,
-            Certificate.Status.UNKNOWN, CertificateV1DTO.Status.UNKNOWN
-    );
-    private final Map<CertificateV1DTO.Status, Certificate.Status> dto2domainStatus = ImmutableMap.of(
-            CertificateV1DTO.Status.ACTIVE, Certificate.Status.ACTIVE,
-            CertificateV1DTO.Status.UNKNOWN, Certificate.Status.UNKNOWN
-    );
+    private final Map<Certificate.Status, CertificateV1DTO.Status> domain2dtoStatus =
+            ImmutableMap.of(Certificate.Status.ACTIVE, CertificateV1DTO.Status.ACTIVE, Certificate.Status.UNKNOWN,
+                    CertificateV1DTO.Status.UNKNOWN);
+    private final Map<CertificateV1DTO.Status, Certificate.Status> dto2domainStatus =
+            ImmutableMap.of(CertificateV1DTO.Status.ACTIVE, Certificate.Status.ACTIVE, CertificateV1DTO.Status.UNKNOWN,
+                    Certificate.Status.UNKNOWN);
     private static final Logger logger = LogManager.getLogger(CertificateRegistry.class);
 
     private final ClientCertificateStore pemStore;
@@ -38,7 +36,7 @@ public class CertificateRegistry {
      * Creates a certificate registry.
      *
      * @param runtimeConfiguration Runtime configuration
-     * @param pemStore An instance of ClientCertificateStore
+     * @param pemStore             An instance of ClientCertificateStore
      */
     @Inject
     public CertificateRegistry(RuntimeConfiguration runtimeConfiguration, ClientCertificateStore pemStore) {
@@ -62,13 +60,11 @@ public class CertificateRegistry {
     /**
      * Get a new certificate, creating and storing one if it does not exist.
      * </p>
-     * Certificates are created with an initial UNKNOWN state. Callers
-     * are responsible for updating the appropriate metadata and then
-     * calling {@link #updateCertificate(Certificate)}
+     * Certificates are created with an initial UNKNOWN state. Callers are responsible for updating the appropriate
+     * metadata and then calling {@link #updateCertificate(Certificate)}
      *
      * @param certificatePem Certificate PEM
      * @return certificate object
-     *
      * @throws InvalidCertificateException if certificate PEM is invalid
      */
     public Certificate getOrCreateCertificate(String certificatePem) throws InvalidCertificateException {
@@ -79,8 +75,7 @@ public class CertificateRegistry {
             try {
                 this.pemStore.storePem(newCert.getCertificateId(), certificatePem);
             } catch (IOException e) {
-                logger.atWarn().kv("certificateId", newCert.getCertificateId())
-                        .log("Failed to store certificate pem");
+                logger.atWarn().kv("certificateId", newCert.getCertificateId()).log("Failed to store certificate pem");
             }
         }
 

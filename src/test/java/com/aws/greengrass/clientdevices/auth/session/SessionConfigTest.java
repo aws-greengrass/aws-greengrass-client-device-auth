@@ -51,8 +51,7 @@ class SessionConfigTest {
     public void GIVEN_default_session_capacity_WHEN_update_configuration_THEN_returns_updated_capacity() {
         assertThat(sessionConfig.getSessionCapacity(), is(equalTo(DEFAULT_MAX_ACTIVE_AUTH_TOKENS)));
         int newCapacity = 1;
-        configurationTopics.lookup(PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
-                .withValue(newCapacity);
+        configurationTopics.lookup(PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC).withValue(newCapacity);
         // block until config changes are merged in
         configurationTopics.context.waitForPublishQueueToClear();
         assertThat(sessionConfig.getSessionCapacity(), is(equalTo(newCapacity)));

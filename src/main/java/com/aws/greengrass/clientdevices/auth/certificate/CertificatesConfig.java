@@ -41,17 +41,15 @@ public class CertificatesConfig {
      * @return Server certificate validity in seconds
      */
     public int getServerCertValiditySeconds() {
-        int configuredValidityPeriod = Coerce.toInt(configuration.findOrDefault(DEFAULT_SERVER_CERT_EXPIRY_SECONDS,
-                PATH_SERVER_CERT_EXPIRY_SECONDS));
+        int configuredValidityPeriod = Coerce.toInt(
+                configuration.findOrDefault(DEFAULT_SERVER_CERT_EXPIRY_SECONDS, PATH_SERVER_CERT_EXPIRY_SECONDS));
         if (configuredValidityPeriod > MAX_SERVER_CERT_EXPIRY_SECONDS) {
-            LOGGER.atWarn()
-                    .kv(SERVER_CERT_VALIDITY_SECONDS, configuredValidityPeriod)
+            LOGGER.atWarn().kv(SERVER_CERT_VALIDITY_SECONDS, configuredValidityPeriod)
                     .kv("maxAllowable", MAX_SERVER_CERT_EXPIRY_SECONDS)
                     .log("Using maximum allowable duration for server certificate validity period");
             return MAX_SERVER_CERT_EXPIRY_SECONDS;
         } else if (configuredValidityPeriod < MIN_SERVER_CERT_EXPIRY_SECONDS) {
-            LOGGER.atWarn()
-                    .kv(SERVER_CERT_VALIDITY_SECONDS, configuredValidityPeriod)
+            LOGGER.atWarn().kv(SERVER_CERT_VALIDITY_SECONDS, configuredValidityPeriod)
                     .kv("minAllowable", MIN_SERVER_CERT_EXPIRY_SECONDS)
                     .log("Using minimum allowable duration for server certificate validity period");
             return MIN_SERVER_CERT_EXPIRY_SECONDS;
@@ -74,8 +72,7 @@ public class CertificatesConfig {
      * @return true if certificate rotations are disabled
      */
     public boolean isCertificateRotationDisabled() {
-        return Coerce.toBoolean(configuration.findOrDefault(
-                DEFAULT_DISABLE_CERTIFICATE_ROTATION,
-                PATH_DISABLE_CERTIFICATE_ROTATION));
+        return Coerce.toBoolean(
+                configuration.findOrDefault(DEFAULT_DISABLE_CERTIFICATE_ROTATION, PATH_DISABLE_CERTIFICATE_ROTATION));
     }
 }

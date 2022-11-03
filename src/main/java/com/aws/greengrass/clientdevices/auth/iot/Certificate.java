@@ -36,8 +36,7 @@ public class Certificate implements AttributeProvider {
             new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
 
     public enum Status {
-        ACTIVE,
-        UNKNOWN
+        ACTIVE, UNKNOWN
     }
 
     private String certificateId;
@@ -48,6 +47,7 @@ public class Certificate implements AttributeProvider {
 
     /**
      * Builds a new Certificate instance given its id generated from PEM file.
+     *
      * @param certificateId - a certificateId
      */
     Certificate(String certificateId) {
@@ -58,6 +58,7 @@ public class Certificate implements AttributeProvider {
 
     /**
      * Factory method to construct a Certificate object from certificate PEM.
+     *
      * @param certificatePem Certificate PEM
      * @return Certificate
      * @throws InvalidCertificateException if certificate PEM is invalid
@@ -73,6 +74,7 @@ public class Certificate implements AttributeProvider {
 
     /**
      * Set certificate status as of the current time.
+     *
      * @param status Certificate status
      */
     public void setStatus(Status status) {
@@ -81,6 +83,7 @@ public class Certificate implements AttributeProvider {
 
     /**
      * Set certificate status as of the provided time.
+     *
      * @param status      Certificate status
      * @param lastUpdated Timestamp
      */
@@ -91,6 +94,7 @@ public class Certificate implements AttributeProvider {
 
     /**
      * Check certificate status.
+     *
      * @return true if this certificate is verified and active in IoT Core.
      */
     public boolean isActive() {
@@ -99,6 +103,7 @@ public class Certificate implements AttributeProvider {
 
     /**
      * Retrieve certificate PEM.
+     *
      * @return certificate PEM as a UTF-8 encoded string
      * @throws UnsupportedOperationException since this is not yet supported
      */
@@ -108,6 +113,7 @@ public class Certificate implements AttributeProvider {
 
     /**
      * Determined whether this certificate was updated after another.
+     *
      * @param cert - another Certificate
      */
     public boolean wasUpdatedAfter(Certificate cert) {

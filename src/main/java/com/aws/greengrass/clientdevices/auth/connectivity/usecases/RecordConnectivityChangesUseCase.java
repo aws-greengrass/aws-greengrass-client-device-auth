@@ -18,12 +18,11 @@ import javax.inject.Inject;
 /**
  * Record Connectivity Changes.
  * </p>
- * This use case constructs current connectivity information from
- * connectivity providers and returns a diff (if any) since the
- * last recorded change.
+ * This use case constructs current connectivity information from connectivity providers and returns a diff (if any)
+ * since the last recorded change.
  */
-public class RecordConnectivityChangesUseCase implements
-        UseCases.UseCase<RecordConnectivityChangesResponse, RecordConnectivityChangesRequest> {
+public class RecordConnectivityChangesUseCase
+        implements UseCases.UseCase<RecordConnectivityChangesResponse, RecordConnectivityChangesRequest> {
     private final ConnectivityInformation connectivityInformation;
 
     @Inject
@@ -37,16 +36,16 @@ public class RecordConnectivityChangesUseCase implements
         // connectivity information for a single source may also be useful.
         Set<HostAddress> previousConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
 
-        connectivityInformation.recordConnectivityInformationForSource(
-                recordChangesRequest.getSource(), recordChangesRequest.getConnectivityInformation());
+        connectivityInformation.recordConnectivityInformationForSource(recordChangesRequest.getSource(),
+                recordChangesRequest.getConnectivityInformation());
 
         Set<HostAddress> newConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
-        Set<HostAddress> addedAddresses = newConnectivityInfo.stream()
-                .filter((item) -> !previousConnectivityInfo.contains(item))
-                .collect(Collectors.toSet());
-        Set<HostAddress> removedAddresses = previousConnectivityInfo.stream()
-                .filter((item) -> !newConnectivityInfo.contains(item))
-                .collect(Collectors.toSet());
+        Set<HostAddress> addedAddresses =
+                newConnectivityInfo.stream().filter((item) -> !previousConnectivityInfo.contains(item))
+                        .collect(Collectors.toSet());
+        Set<HostAddress> removedAddresses =
+                previousConnectivityInfo.stream().filter((item) -> !newConnectivityInfo.contains(item))
+                        .collect(Collectors.toSet());
 
         return new RecordConnectivityChangesResponse(addedAddresses, removedAddresses);
     }

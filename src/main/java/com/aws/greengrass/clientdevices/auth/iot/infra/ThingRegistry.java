@@ -25,7 +25,7 @@ public class ThingRegistry {
     /**
      * Construct Thing registry.
      *
-     * @param domainEvents Domain events
+     * @param domainEvents  Domain events
      * @param runtimeConfig Runtime configuration store
      */
     @Inject
@@ -36,6 +36,7 @@ public class ThingRegistry {
 
     /**
      * Get or create a Thing.
+     *
      * @param thingName ThingName
      * @return Thing object
      */
@@ -49,6 +50,7 @@ public class ThingRegistry {
 
     /**
      * Create a Thing.
+     *
      * @param thingName ThingName
      * @return Thing object
      */
@@ -74,8 +76,9 @@ public class ThingRegistry {
 
     /**
      * Update a Thing.
+     *
      * @param thing Thing which is being updated
-     * @return      New Thing version
+     * @return New Thing version
      */
     public Thing updateThing(Thing thing) {
         // TODO: this method should throw exceptions instead of returning
@@ -124,19 +127,13 @@ public class ThingRegistry {
 
     private Thing dtoToThing(ThingV1DTO dto) {
         Map<String, Instant> certIds = dto.getCertificates().entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> Instant.ofEpochMilli(entry.getValue())
-                ));
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> Instant.ofEpochMilli(entry.getValue())));
         return Thing.of(dto.getThingName(), certIds);
     }
 
     private ThingV1DTO thingToDto(Thing thing) {
         Map<String, Long> certIds = thing.getAttachedCertificateIds().entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue().toEpochMilli()
-                ));
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toEpochMilli()));
         return new ThingV1DTO(thing.getThingName(), certIds);
     }
 }

@@ -41,8 +41,8 @@ import static org.mockito.Mockito.verify;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class ClientCertificateGeneratorTest {
     private static final String TEST_PASSPHRASE = "testPassphrase";
-    private static final String SUBJECT_PRINCIPAL
-            = "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
+    private static final String SUBJECT_PRINCIPAL =
+            "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
 
     @Mock
     private BiConsumer<X509Certificate, X509Certificate[]> mockCallback;
@@ -65,8 +65,9 @@ public class ClientCertificateGeneratorTest {
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
         configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         CertificatesConfig certificatesConfig = new CertificatesConfig(configurationTopics);
-        certificateGenerator = new ClientCertificateGenerator(subject, publicKey, mockCallback, certificateStore,
-                certificatesConfig, Clock.systemUTC());
+        certificateGenerator =
+                new ClientCertificateGenerator(subject, publicKey, mockCallback, certificateStore, certificatesConfig,
+                        Clock.systemUTC());
     }
 
     @AfterEach
@@ -83,8 +84,7 @@ public class ClientCertificateGeneratorTest {
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
         assertThat(new KeyPurposeId(generatedCert.getExtendedKeyUsage().get(0)), is(KeyPurposeId.id_kp_clientAuth));
         assertThat(generatedCert.getPublicKey(), is(publicKey));
-        verify(mockCallback, times(1))
-                .accept(generatedCert, certificateStore.getCaCertificateChain());
+        verify(mockCallback, times(1)).accept(generatedCert, certificateStore.getCaCertificateChain());
 
         certificateGenerator.generateCertificate(Collections::emptyList, "test");
         X509Certificate secondGeneratedCert = certificateGenerator.getCertificate();
@@ -102,7 +102,7 @@ public class ClientCertificateGeneratorTest {
         certificateGenerator.generateCertificate(Collections::emptyList, "test");
 
         // only the initial cert is generated, no rotation occurs
-        verify(mockCallback, times(1)).accept(
-                certificateGenerator.getCertificate(), certificateStore.getCaCertificateChain());
+        verify(mockCallback, times(1)).accept(certificateGenerator.getCertificate(),
+                certificateStore.getCaCertificateChain());
     }
 }

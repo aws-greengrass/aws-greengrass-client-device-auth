@@ -48,11 +48,9 @@ public class AuthorizeClientDeviceActionOperationHandler
      * @param clientDevicesAuthServiceApi client devices auth service handle
      * @param authorizationHandler        authorization handler
      */
-    public AuthorizeClientDeviceActionOperationHandler(
-            OperationContinuationHandlerContext context,
-            ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
-            AuthorizationHandler authorizationHandler
-    ) {
+    public AuthorizeClientDeviceActionOperationHandler(OperationContinuationHandlerContext context,
+                                                       ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
+                                                       AuthorizationHandler authorizationHandler) {
 
         super(context);
         serviceName = context.getAuthenticationData().getIdentityLabel();
@@ -81,29 +79,22 @@ public class AuthorizeClientDeviceActionOperationHandler
                         "Unable to find a valid session with the given auth token. Check Greengrass log for details.");
             } catch (Exception e) {
                 logger.atError().cause(e).log("Unhandled exception while authorizing client device action");
-                throw new ServiceError(
-                        "Authorizing client device action failed. Check Greengrass log for details.");
+                throw new ServiceError("Authorizing client device action failed. Check Greengrass log for details.");
             }
         });
     }
 
     private void doAuthorizationForClientDevAction() throws AuthorizationException {
         authorizationHandler.isAuthorized(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME,
-                Permission.builder()
-                        .principal(serviceName)
-                        .operation(AUTHORIZE_CLIENT_DEVICE_ACTION)
-                        .resource("*")
+                Permission.builder().principal(serviceName).operation(AUTHORIZE_CLIENT_DEVICE_ACTION).resource("*")
                         .build());
     }
 
 
     private AuthorizationRequest getAuthzRequest(AuthorizeClientDeviceActionRequest request) {
         validateRequest(request);
-        return AuthorizationRequest.builder()
-                .sessionId(request.getClientDeviceAuthToken())
-                .operation(request.getOperation())
-                .resource(request.getResource())
-                .build();
+        return AuthorizationRequest.builder().sessionId(request.getClientDeviceAuthToken())
+                .operation(request.getOperation()).resource(request.getResource()).build();
     }
 
     private void validateRequest(AuthorizeClientDeviceActionRequest request) {

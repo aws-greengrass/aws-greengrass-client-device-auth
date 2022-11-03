@@ -21,8 +21,8 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * Manages the runtime configuration for the plugin. It allows to read and write
- * to topics under the runtime key. Acts as an adapter from the GG Runtime Topics to the domain.
+ * Manages the runtime configuration for the plugin. It allows to read and write to topics under the runtime key. Acts
+ * as an adapter from the GG Runtime Topics to the domain.
  * <p>
  * |---- runtime
  * |    |---- ca_passphrase: "..."
@@ -61,7 +61,7 @@ public final class RuntimeConfiguration {
     }
 
     public static RuntimeConfiguration from(Topics runtimeTopics) {
-       return new RuntimeConfiguration(runtimeTopics);
+        return new RuntimeConfiguration(runtimeTopics);
     }
 
     /**
@@ -144,7 +144,7 @@ public final class RuntimeConfiguration {
      * Get a certificate.
      *
      * @param certificateId Certificate ID
-     * @return  Optional of CertificateV1 DTO, else empty optional
+     * @return Optional of CertificateV1 DTO, else empty optional
      */
     public Optional<CertificateV1DTO> getCertificateV1(String certificateId) {
         Topics v1CertTopics = config.findTopics(CERTS_KEY, CERTS_V1_KEY, certificateId);
@@ -229,7 +229,6 @@ public final class RuntimeConfiguration {
 
         return v1ThingTopics.children.keySet().stream().map(Coerce::toString).map(this::getThingV1).map(Optional::get);
     }
-
 
 
     /**

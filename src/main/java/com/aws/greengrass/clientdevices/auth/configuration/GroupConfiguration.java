@@ -90,8 +90,8 @@ public class GroupConfiguration {
                 if (Utils.isEmpty(resource)) {
                     continue;
                 }
-                permissions
-                        .add(Permission.builder().principal(groupName).operation(operation).resource(resource).build());
+                permissions.add(
+                        Permission.builder().principal(groupName).operation(operation).resource(resource).build());
             }
         }
         return permissions;

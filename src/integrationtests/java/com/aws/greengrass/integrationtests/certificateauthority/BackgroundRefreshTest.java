@@ -86,7 +86,7 @@ public class BackgroundRefreshTest {
         network = new NetworkStateFake();
         kernel.getContext().put(NetworkStateProvider.class, network);
 
-        DomainEvents domainEvents =  new DomainEvents();
+        DomainEvents domainEvents = new DomainEvents();
         kernel.getContext().put(DomainEvents.class, domainEvents);
 
         iotAuthClientFake = new IotAuthClientFake();
@@ -117,8 +117,8 @@ public class BackgroundRefreshTest {
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
-            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName()) && service.getState()
-                    .equals(State.RUNNING)) {
+            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName())
+                    && service.getState().equals(State.RUNNING)) {
                 authServiceRunning.countDown();
             }
         });
@@ -131,7 +131,7 @@ public class BackgroundRefreshTest {
         // Simulate some client components (like Moquette) verifying some certificates
         api.verifyClientDeviceIdentity(certificatePem);
         // Simulate a client connecting and generating a session
-        return api.getClientDeviceAuthToken("mqtt",   new HashMap<String, String>() {{
+        return api.getClientDeviceAuthToken("mqtt", new HashMap<String, String>() {{
             put("clientId", thingName);
             put("certificatePem", certificatePem);
             put("username", "foo");
@@ -160,7 +160,7 @@ public class BackgroundRefreshTest {
         // Configure the IotClientFake
         String clientAPem = CertificateHelper.toPem(clientCertificates.get(0));
         String clientBPem = CertificateHelper.toPem(clientCertificates.get(1));
-        Supplier<String> thingOne =  () -> "ThingOne";
+        Supplier<String> thingOne = () -> "ThingOne";
         Supplier<String> thingTwo = () -> "ThingTwo";
         iotAuthClientFake.activateCert(clientAPem);
         iotAuthClientFake.activateCert(clientBPem);
@@ -189,8 +189,10 @@ public class BackgroundRefreshTest {
         ThingRegistry thingRegistry = kernel.getContext().get(ThingRegistry.class);
         Thing ogThingA = thingRegistry.getOrCreateThing(thingOne.get());
         Thing ogThingB = thingRegistry.getOrCreateThing(thingTwo.get());
-        assertEquals(ogThingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(), now.toEpochMilli());
-        assertEquals(ogThingB.certificateLastAttachedOn(ogCertB.getCertificateId()).get().toEpochMilli(), now.toEpochMilli());
+        assertEquals(ogThingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(),
+                now.toEpochMilli());
+        assertEquals(ogThingB.certificateLastAttachedOn(ogCertB.getCertificateId()).get().toEpochMilli(),
+                now.toEpochMilli());
 
         // Detach one thing from the core
         iotAuthClientFake.detachThingFromCore(thingTwo);
@@ -216,10 +218,8 @@ public class BackgroundRefreshTest {
         // Verify thing certificate attachments got updated after refresh
         Thing thingA = thingRegistry.getThing(thingOne.get());
         Thing thingB = thingRegistry.getThing(thingTwo.get());
-        assertEquals(
-                thingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(),
-                anHourLater.toEpochMilli()
-        );
+        assertEquals(thingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(),
+                anHourLater.toEpochMilli());
         // This one should have been removed given it is no longer attached
         assertNull(thingB);
     }
@@ -235,7 +235,7 @@ public class BackgroundRefreshTest {
         // Configure the IotClientFake
         String clientAPem = CertificateHelper.toPem(clientCertificates.get(0));
         String clientBPem = CertificateHelper.toPem(clientCertificates.get(1));
-        Supplier<String> thingOne =  () -> "ThingOne";
+        Supplier<String> thingOne = () -> "ThingOne";
         Supplier<String> thingTwo = () -> "ThingTwo";
         iotAuthClientFake.attachCertificateToThing(thingOne.get(), clientAPem);
         iotAuthClientFake.attachCertificateToThing(thingTwo.get(), clientBPem);

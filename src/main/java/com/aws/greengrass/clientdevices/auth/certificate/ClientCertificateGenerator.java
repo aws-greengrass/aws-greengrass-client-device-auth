@@ -39,11 +39,9 @@ public class ClientCertificateGenerator extends CertificateGenerator {
      * @param certificatesConfig Certificate configuration
      * @param clock              clock
      */
-    public ClientCertificateGenerator(X500Name subject,
-                                      PublicKey publicKey,
+    public ClientCertificateGenerator(X500Name subject, PublicKey publicKey,
                                       BiConsumer<X509Certificate, X509Certificate[]> callback,
-                                      CertificateStore certificateStore,
-                                      CertificatesConfig certificatesConfig,
+                                      CertificateStore certificateStore, CertificatesConfig certificatesConfig,
                                       Clock clock) {
         super(subject, publicKey, certificateStore, certificatesConfig, clock);
         this.callback = callback;
@@ -53,9 +51,7 @@ public class ClientCertificateGenerator extends CertificateGenerator {
     public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
             throws CertificateGenerationException {
         if (certificatesConfig.isCertificateRotationDisabled() && certificate != null) {
-            logger.atWarn()
-                    .kv("subject", subject)
-                    .kv("certExpiry", getExpiryTime())
+            logger.atWarn().kv("subject", subject).kv("certExpiry", getExpiryTime())
                     .log("Certificate rotation is disabled, current certificate will NOT be rotated");
             return;
         }
@@ -63,19 +59,12 @@ public class ClientCertificateGenerator extends CertificateGenerator {
         Instant now = Instant.now(clock);
 
         try {
-            certificate = CertificateHelper.issueClientCertificate(
-                    certificateStore.getCACertificate(),
-                    certificateStore.getCAPrivateKey(),
-                    subject,
-                    publicKey,
-                    Date.from(now),
+            certificate = CertificateHelper.issueClientCertificate(certificateStore.getCACertificate(),
+                    certificateStore.getCAPrivateKey(), subject, publicKey, Date.from(now),
                     Date.from(now.plusSeconds(certificatesConfig.getClientCertValiditySeconds())),
                     certificateStore.getProviderType());
 
-            logger.atInfo()
-                    .kv("subject", subject)
-                    .kv("reason", reason)
-                    .kv("certExpiry", getExpiryTime())
+            logger.atInfo().kv("subject", subject).kv("reason", reason).kv("certExpiry", getExpiryTime())
                     .log("New client certificate generated");
 
             callback.accept(certificate, certificateStore.getCaCertificateChain());

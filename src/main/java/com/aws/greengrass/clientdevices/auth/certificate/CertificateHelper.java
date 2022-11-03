@@ -94,9 +94,7 @@ public final class CertificateHelper {
     private static void computeProviders() {
         Provider[] providers = Security.getProviders();
 
-        Arrays.stream(providers)
-                .filter((provider) -> provider.getName().contains("SunPKCS11-"))
-                .findFirst()
+        Arrays.stream(providers).filter((provider) -> provider.getName().contains("SunPKCS11-")).findFirst()
                 .ifPresent(provider -> CertificateHelper.providers.put(ProviderType.HSM, provider.getName()));
     }
 
@@ -117,28 +115,26 @@ public final class CertificateHelper {
     /**
      * Create CA certificate.
      *
-     * @param keyPair           CA Keypair
-     * @param caNotBefore       CA NotBefore Date
-     * @param caNotAfter        CA NotAfter Date
-     * @param caCommonName      CA Common Name
-     * @param providerType      Type of provider
-     * @return                  X509 certificate
+     * @param keyPair      CA Keypair
+     * @param caNotBefore  CA NotBefore Date
+     * @param caNotAfter   CA NotAfter Date
+     * @param caCommonName CA Common Name
+     * @param providerType Type of provider
+     * @return X509 certificate
      * @throws NoSuchAlgorithmException  Unsupported signing algorithm
      * @throws CertIOException           CertIOException
      * @throws OperatorCreationException OperatorCreationException
      * @throws CertificateException      CertificateException
      */
-    public static X509Certificate createCACertificate(@NonNull KeyPair keyPair,
-                                                      @NonNull Date caNotBefore,
-                                                      @NonNull Date caNotAfter,
-                                                      @NonNull String caCommonName,
+    public static X509Certificate createCACertificate(@NonNull KeyPair keyPair, @NonNull Date caNotBefore,
+                                                      @NonNull Date caNotAfter, @NonNull String caCommonName,
                                                       @NonNull ProviderType providerType)
             throws NoSuchAlgorithmException, CertIOException, OperatorCreationException, CertificateException {
 
         final X500Name issuer = getX500Name(caCommonName);
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, newSerialNumber(),
-                caNotBefore, caNotAfter, issuer, keyPair.getPublic()
-        );
+        X509v3CertificateBuilder builder =
+                new JcaX509v3CertificateBuilder(issuer, newSerialNumber(), caNotBefore, caNotAfter, issuer,
+                        keyPair.getPublic());
 
         JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true))
@@ -146,9 +142,9 @@ public final class CertificateHelper {
                         extUtils.createSubjectKeyIdentifier(keyPair.getPublic()));
 
         String signingAlgorithm = CERTIFICATE_SIGNING_ALGORITHM.get(keyPair.getPrivate().getAlgorithm());
-        final ContentSigner contentSigner = new JcaContentSignerBuilder(signingAlgorithm)
-                .setProvider(getProvider(providerType))
-                .build(keyPair.getPrivate());
+        final ContentSigner contentSigner =
+                new JcaContentSignerBuilder(signingAlgorithm).setProvider(getProvider(providerType))
+                        .build(keyPair.getPrivate());
 
         return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner));
     }
@@ -164,66 +160,56 @@ public final class CertificateHelper {
      * @param notBefore             Certificate notBefore Date
      * @param notAfter              Certificate notAfter Date
      * @param providerType          Type of provider
-     * @return                      X509 certificate
-     * @throws NoSuchAlgorithmException   NoSuchAlgorithmException
-     * @throws OperatorCreationException  OperatorCreationException
-     * @throws CertificateException       CertificateException
-     * @throws IOException                IOException
+     * @return X509 certificate
+     * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
+     * @throws OperatorCreationException OperatorCreationException
+     * @throws CertificateException      CertificateException
+     * @throws IOException               IOException
      */
     public static X509Certificate issueServerCertificate(@NonNull X509Certificate caCert,
-                                                         @NonNull PrivateKey caPrivateKey,
-                                                         @NonNull X500Name subject,
+                                                         @NonNull PrivateKey caPrivateKey, @NonNull X500Name subject,
                                                          @NonNull PublicKey publicKey,
                                                          @NonNull List<String> connectivityInfoItems,
-                                                         @NonNull Date notBefore,
-                                                         @NonNull Date notAfter,
+                                                         @NonNull Date notBefore, @NonNull Date notAfter,
                                                          @NonNull ProviderType providerType)
             throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
-        return issueCertificate(caCert, caPrivateKey, subject, publicKey, connectivityInfoItems, notBefore,
-                notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth), providerType);
+        return issueCertificate(caCert, caPrivateKey, subject, publicKey, connectivityInfoItems, notBefore, notAfter,
+                new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth), providerType);
     }
 
     /**
      * Generate client certificate.
      *
-     * @param caCert        CA Certificate
-     * @param caPrivateKey  CA Private Key
-     * @param subject       client's subject
-     * @param publicKey     client's public key
-     * @param notBefore     Certificate notBefore Date
-     * @param notAfter      Certificate notAfter Date
-     * @param providerType  Type of provider
-     * @return              X509 certificate
-     * @throws NoSuchAlgorithmException   NoSuchAlgorithmException
-     * @throws OperatorCreationException  OperatorCreationException
-     * @throws CertificateException       CertificateException
-     * @throws IOException                IOException
+     * @param caCert       CA Certificate
+     * @param caPrivateKey CA Private Key
+     * @param subject      client's subject
+     * @param publicKey    client's public key
+     * @param notBefore    Certificate notBefore Date
+     * @param notAfter     Certificate notAfter Date
+     * @param providerType Type of provider
+     * @return X509 certificate
+     * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
+     * @throws OperatorCreationException OperatorCreationException
+     * @throws CertificateException      CertificateException
+     * @throws IOException               IOException
      */
     public static X509Certificate issueClientCertificate(@NonNull X509Certificate caCert,
-                                                         @NonNull PrivateKey caPrivateKey,
-                                                         @NonNull X500Name subject,
-                                                         @NonNull PublicKey publicKey,
-                                                         @NonNull Date notBefore,
-                                                         @NonNull Date notAfter,
-                                                         @NonNull ProviderType providerType)
+                                                         @NonNull PrivateKey caPrivateKey, @NonNull X500Name subject,
+                                                         @NonNull PublicKey publicKey, @NonNull Date notBefore,
+                                                         @NonNull Date notAfter, @NonNull ProviderType providerType)
             throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
-        return issueCertificate(caCert, caPrivateKey, subject, publicKey, null, notBefore,
-                notAfter, new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth), providerType);
+        return issueCertificate(caCert, caPrivateKey, subject, publicKey, null, notBefore, notAfter,
+                new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth), providerType);
     }
 
-    private static X509Certificate issueCertificate(@NonNull X509Certificate caCert,
-                                                    @NonNull PrivateKey caPrivateKey,
-                                                    @NonNull X500Name subject,
-                                                    @NonNull PublicKey publicKey,
-                                                    List<String> connectivityInfoItems,
-                                                    @NonNull Date notBefore,
-                                                    @NonNull Date notAfter,
-                                                    @NonNull ExtendedKeyUsage keyUsage,
+    private static X509Certificate issueCertificate(@NonNull X509Certificate caCert, @NonNull PrivateKey caPrivateKey,
+                                                    @NonNull X500Name subject, @NonNull PublicKey publicKey,
+                                                    List<String> connectivityInfoItems, @NonNull Date notBefore,
+                                                    @NonNull Date notAfter, @NonNull ExtendedKeyUsage keyUsage,
                                                     @NonNull ProviderType providerType)
             throws NoSuchAlgorithmException, CertificateException, IOException, OperatorCreationException {
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                caCert, newSerialNumber(), notBefore, notAfter, subject, publicKey
-        );
+        X509v3CertificateBuilder builder =
+                new JcaX509v3CertificateBuilder(caCert, newSerialNumber(), notBefore, notAfter, subject, publicKey);
 
         JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
         builder.addExtension(Extension.authorityKeyIdentifier, false, extUtils.createAuthorityKeyIdentifier(caCert))
@@ -235,8 +221,9 @@ public final class CertificateHelper {
             addSANFromConnectivityInfoToCertificate(connectivityInfoItems, builder);
         }
 
-        final ContentSigner contentSigner = new JcaContentSignerBuilder(
-                caCert.getSigAlgName()).setProvider(getProvider(providerType)).build(caPrivateKey);
+        final ContentSigner contentSigner =
+                new JcaContentSignerBuilder(caCert.getSigAlgName()).setProvider(getProvider(providerType))
+                        .build(caPrivateKey);
 
         return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner));
     }
@@ -246,13 +233,13 @@ public final class CertificateHelper {
      *
      * @param certificates Certificates to encode
      * @return PEM encoded X509 certificate
-     * @throws IOException If unable to read certificate
+     * @throws IOException                  If unable to read certificate
      * @throws CertificateEncodingException If unable to get certificate encoding
      */
     public static String toPem(X509Certificate... certificates) throws IOException, CertificateEncodingException {
         try (StringWriter str = new StringWriter(); JcaPEMWriter pemWriter = new JcaPEMWriter(str)) {
 
-            for (X509Certificate certificate: certificates) {
+            for (X509Certificate certificate : certificates) {
                 PemObject pemObject = new PemObject(PEM_BOUNDARY_CERTIFICATE, certificate.getEncoded());
                 pemWriter.writeObject(pemObject);
             }
@@ -281,6 +268,7 @@ public final class CertificateHelper {
 
     /**
      * Construct X500Name from Common Name.
+     *
      * @param commonName Common name to include in X500Name
      * @return X500Name
      */

@@ -69,7 +69,6 @@ public class CertificateManager {
     private static final String pkcs11Scheme = "pkcs11";
 
 
-
     /**
      * Construct a new CertificateManager.
      *
@@ -79,18 +78,14 @@ public class CertificateManager {
      * @param cisShadowMonitor        CIS Shadow Monitor
      * @param clock                   clock
      * @param clientFactory           Greengrass cloud service client factory
-     * @param securityService          Security Service
-     * @param caConfigurationMonitor   CA Configuration Monitor
+     * @param securityService         Security Service
+     * @param caConfigurationMonitor  CA Configuration Monitor
      */
     @Inject
-    public CertificateManager(CertificateStore certificateStore,
-                              ConnectivityInformation connectivityInformation,
-                              CertificateExpiryMonitor certExpiryMonitor,
-                              CISShadowMonitor cisShadowMonitor,
-                              Clock clock,
-                              GreengrassServiceClientFactory clientFactory,
-                              SecurityService securityService,
-                              CertificateRotationHandler caConfigurationMonitor) {
+    public CertificateManager(CertificateStore certificateStore, ConnectivityInformation connectivityInformation,
+                              CertificateExpiryMonitor certExpiryMonitor, CISShadowMonitor cisShadowMonitor,
+                              Clock clock, GreengrassServiceClientFactory clientFactory,
+                              SecurityService securityService, CertificateRotationHandler caConfigurationMonitor) {
         this.certificateStore = certificateStore;
         this.connectivityInformation = connectivityInformation;
         this.certExpiryMonitor = certExpiryMonitor;
@@ -109,7 +104,7 @@ public class CertificateManager {
      * Initialize the certificate manager.
      *
      * @param caPassphrase CA Passphrase
-     * @param caType certificate authority type
+     * @param caType       certificate authority type
      * @throws KeyStoreException if unable to load the CA key store
      */
     public void generateCA(String caPassphrase, CertificateStore.CAType caType) throws KeyStoreException {
@@ -138,7 +133,6 @@ public class CertificateManager {
      * @throws KeyStoreException            if unable to retrieve the certificate
      * @throws IOException                  if unable to write certificate
      * @throws CertificateEncodingException if unable to get certificate encoding
-     *
      * @deprecated use getX509CACertificates
      */
     public List<String> getCACertificates() throws KeyStoreException, IOException, CertificateEncodingException {
@@ -153,9 +147,8 @@ public class CertificateManager {
      * Subscribe to certificate updates.
      * <p>
      * The certificate manager will save the given request and generate a new certificate under the following scenarios:
-     * 1) The previous certificate is nearing expiry
-     * 2) GGC connectivity information changes (for server certificates only)
-     * Certificates will continue to be generated until the client calls unsubscribeFromCertificateUpdates.
+     * 1) The previous certificate is nearing expiry 2) GGC connectivity information changes (for server certificates
+     * only) Certificates will continue to be generated until the client calls unsubscribeFromCertificateUpdates.
      * </p>
      * An initial certificate will be generated and sent to the consumer prior to this function returning.
      * </p>
@@ -208,8 +201,7 @@ public class CertificateManager {
                                                           @NonNull BiConsumer<X509Certificate, X509Certificate[]> cb)
             throws CertificateGenerationException {
         CertificateGenerator certificateGenerator =
-                new ServerCertificateGenerator(
-                        CertificateHelper.getX500Name(certificateRequest.getServiceName()),
+                new ServerCertificateGenerator(CertificateHelper.getX500Name(certificateRequest.getServiceName()),
                         publicKey, cb, certificateStore, certificatesConfig, clock);
 
         // Add certificate generator to monitors first in order to avoid missing events
@@ -237,8 +229,7 @@ public class CertificateManager {
                                                           @NonNull BiConsumer<X509Certificate, X509Certificate[]> cb)
             throws CertificateGenerationException {
         CertificateGenerator certificateGenerator =
-                new ClientCertificateGenerator(
-                        CertificateHelper.getX500Name(certificateRequest.getServiceName()),
+                new ClientCertificateGenerator(CertificateHelper.getX500Name(certificateRequest.getServiceName()),
                         publicKey, cb, certificateStore, certificatesConfig, clock);
 
         caConfigurationMonitor.addToMonitor(certificateGenerator);
@@ -267,9 +258,9 @@ public class CertificateManager {
     /**
      * Configures the KeyStore to use a certificates provided from the CA configuration.
      *
-     * @param configuration                the certificateAuthority configuration
+     * @param configuration the certificateAuthority configuration
      * @throws InvalidConfigurationException if the CA configuration doesn't have both a privateKeyUri and
-     *                                      certificateUri
+     *                                       certificateUri
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void configureCustomCA(CAConfiguration configuration) throws InvalidConfigurationException {
@@ -281,25 +272,24 @@ public class CertificateManager {
         URI privateKeyUri = configuration.getPrivateKeyUri().get();
         URI certificateUri = configuration.getCertificateUri().get();
 
-        RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
-                .initialRetryInterval(Duration.ofSeconds(2)).maxAttempt(3)
-                .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
+        RetryUtils.RetryConfig retryConfig =
+                RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(2)).maxAttempt(3)
+                        .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
 
         logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", certificateUri)
                 .log("Configuring custom core CA");
 
         try {
             KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
-                    () -> securityService.getKeyPair(privateKeyUri, certificateUri),
-                    "get-key-pair", logger);
+                    () -> securityService.getKeyPair(privateKeyUri, certificateUri), "get-key-pair", logger);
 
             X509Certificate[] certificateChain = RetryUtils.runWithRetry(retryConfig,
                     () -> certificateStore.loadCaCertificateChain(privateKeyUri, certificateUri),
                     "get-certificate-chain", logger);
 
-            CertificateHelper.ProviderType providerType = privateKeyUri.getScheme().contains(pkcs11Scheme)
-                    ? CertificateHelper.ProviderType.HSM
-                    : CertificateHelper.ProviderType.DEFAULT;
+            CertificateHelper.ProviderType providerType =
+                    privateKeyUri.getScheme().contains(pkcs11Scheme) ? CertificateHelper.ProviderType.HSM
+                            : CertificateHelper.ProviderType.DEFAULT;
 
             certificateStore.setCaKeyAndCertificateChain(providerType, keyPair.getPrivate(), certificateChain);
         } catch (Exception e) {
@@ -311,27 +301,24 @@ public class CertificateManager {
     /**
      * Uploads the stored certificates to the cloud.
      *
-     * @param thingName Core device name
+     * @param thingName   Core device name
      * @param certificate the CA to upload to IoT core. Which will be provided by cloud discovery
-     *
-     * @throws CertificateEncodingException   If unable to get certificate encoding
-     * @throws KeyStoreException              If unable to retrieve the certificate
-     * @throws IOException                    If unable to read certificate
-     * @throws DeviceConfigurationException   If unable to retrieve Greengrass V2 Data client
+     * @throws CertificateEncodingException If unable to get certificate encoding
+     * @throws KeyStoreException            If unable to retrieve the certificate
+     * @throws IOException                  If unable to read certificate
+     * @throws DeviceConfigurationException If unable to retrieve Greengrass V2 Data client
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidRethrowingException"})
     public void uploadCoreDeviceCAs(String thingName, X509Certificate certificate)
-            throws CertificateEncodingException, KeyStoreException,
-            IOException, DeviceConfigurationException {
+            throws CertificateEncodingException, KeyStoreException, IOException, DeviceConfigurationException {
         String certificatePem = CertificateHelper.toPem(certificate);
 
-        List<Class> retryAbleExceptions = Arrays.asList(ThrottlingException.class, InternalServerException.class,
-                AccessDeniedException.class);
+        List<Class> retryAbleExceptions =
+                Arrays.asList(ThrottlingException.class, InternalServerException.class, AccessDeniedException.class);
 
-        RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
-                .initialRetryInterval(Duration.ofSeconds(3)).maxAttempt(Integer.MAX_VALUE)
-                .retryableExceptions(retryAbleExceptions)
-                .build();
+        RetryUtils.RetryConfig retryConfig =
+                RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(3))
+                        .maxAttempt(Integer.MAX_VALUE).retryableExceptions(retryAbleExceptions).build();
 
         PutCertificateAuthoritiesRequest request =
                 PutCertificateAuthoritiesRequest.builder().coreDeviceThingName(thingName)

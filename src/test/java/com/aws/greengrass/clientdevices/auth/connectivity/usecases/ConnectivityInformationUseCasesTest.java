@@ -39,12 +39,10 @@ public class ConnectivityInformationUseCasesTest {
 
     private static final String defaultSource = "source";
     private static final HostAddress supersetHost = HostAddress.of("127.0.0.2");
-    private static final Set<HostAddress> sourceConnectivityInfo = Stream.of("localhost", "127.0.0.1")
-            .map(HostAddress::of)
-            .collect(Collectors.toSet());
-    private static final Set<HostAddress> connectivityInfoSuperset = Stream.of("localhost", "127.0.0.1", "127.0.0.2")
-            .map(HostAddress::of)
-            .collect(Collectors.toSet());
+    private static final Set<HostAddress> sourceConnectivityInfo =
+            Stream.of("localhost", "127.0.0.1").map(HostAddress::of).collect(Collectors.toSet());
+    private static final Set<HostAddress> connectivityInfoSuperset =
+            Stream.of("localhost", "127.0.0.1", "127.0.0.2").map(HostAddress::of).collect(Collectors.toSet());
     private UseCases useCases;
 
     @BeforeEach

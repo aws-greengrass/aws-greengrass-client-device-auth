@@ -38,9 +38,9 @@ import static org.hamcrest.Matchers.not;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateStoreTest {
     static final String RSA_KEY_ALGORITHM = "RSA";
-    static final int    RSA_BIT_LENGTH = 2048;
+    static final int RSA_BIT_LENGTH = 2048;
     static final String EC_KEY_ALGORITHM = "EC";
-    static final int    EC_BIT_LENGTH = 256;
+    static final int EC_BIT_LENGTH = 256;
     static final String RSA_CERT_SIG_ALG = "SHA256withRSA";
     static final String ECDSA_CERT_SIG_ALG = "SHA256withECDSA";
     static final String DEFAULT_PASSPHRASE = "defaultPassphrase";
@@ -88,7 +88,7 @@ public class CertificateStoreTest {
     public void GIVEN_CertificateStore_WHEN_newRSAKeyPair_THEN_2048_bit_RSA_key_generated()
             throws NoSuchAlgorithmException {
         KeyPair rsaKeypair = certificateStore.newRSAKeyPair();
-        RSAPrivateKey rsaPrivateKey = (RSAPrivateKey)rsaKeypair.getPrivate();
+        RSAPrivateKey rsaPrivateKey = (RSAPrivateKey) rsaKeypair.getPrivate();
 
         assertThat(rsaPrivateKey.getAlgorithm(), equalTo(RSA_KEY_ALGORITHM));
         assertThat(rsaPrivateKey.getModulus().bitLength(), equalTo(RSA_BIT_LENGTH));
@@ -98,7 +98,7 @@ public class CertificateStoreTest {
     public void GIVEN_CertificateStore_WHEN_newECKeyPair_THEN_nist_p256_ec_key_generated()
             throws InvalidAlgorithmParameterException, NoSuchAlgorithmException {
         KeyPair ecKeyPair = certificateStore.newECKeyPair();
-        ECPrivateKey ecPrivateKey = (ECPrivateKey)ecKeyPair.getPrivate();
+        ECPrivateKey ecPrivateKey = (ECPrivateKey) ecKeyPair.getPrivate();
 
         assertThat(ecPrivateKey.getAlgorithm(), equalTo(EC_KEY_ALGORITHM));
         assertThat(ecPrivateKey.getParams().getCurve().getField().getFieldSize(), equalTo(EC_BIT_LENGTH));

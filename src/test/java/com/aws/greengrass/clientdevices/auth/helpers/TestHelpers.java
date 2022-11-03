@@ -15,8 +15,7 @@ import java.util.function.Supplier;
  * Helpers for generic assertion tooling
  */
 public final class TestHelpers {
-    public static final long DEFAULT_GENERIC_POLLING_TIMEOUT_MILLIS =
-            TimeUnit.SECONDS.toMillis(10);
+    public static final long DEFAULT_GENERIC_POLLING_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(10);
 
     public static final long DEFAULT_POLLING_INTERVAL_MILLIS = 500;
 
