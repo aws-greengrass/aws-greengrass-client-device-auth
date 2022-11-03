@@ -43,8 +43,8 @@ import java.util.stream.Stream;
 import javax.inject.Inject;
 
 /**
- * Periodically updates the certificates and its relationships to things
- * (whether they are still attached or not to a thing) to keep them in sync with the cloud.
+ * Periodically updates the certificates and its relationships to things (whether they are still attached or not to a
+ * thing) to keep them in sync with the cloud.
  */
 public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkStateProvider.ConnectionState> {
     private final UseCases useCases;
@@ -64,19 +64,20 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
     /**
      * Creates an instance of the BackgroundCertificateRefresh.
-     * @param scheduler - A ScheduledThreadPoolExecutor
-     * @param thingRegistry - A thingRegistry
+     *
+     * @param scheduler           - A ScheduledThreadPoolExecutor
+     * @param thingRegistry       - A thingRegistry
      * @param certificateRegistry - A certificateRegistry
-     * @param iotAuthClient - A client to interact with the IotCore
-     * @param networkState - A network state
-     * @param pemStore -  Store for the client certificates
-     * @param useCases - useCases service
+     * @param iotAuthClient       - A client to interact with the IotCore
+     * @param networkState        - A network state
+     * @param pemStore            -  Store for the client certificates
+     * @param useCases            - useCases service
      */
     @Inject
-    public BackgroundCertificateRefresh(
-            ScheduledThreadPoolExecutor scheduler, ThingRegistry thingRegistry, NetworkStateProvider networkState,
-            CertificateRegistry certificateRegistry, ClientCertificateStore pemStore, IotAuthClient iotAuthClient,
-            UseCases useCases) {
+    public BackgroundCertificateRefresh(ScheduledThreadPoolExecutor scheduler, ThingRegistry thingRegistry,
+                                        NetworkStateProvider networkState, CertificateRegistry certificateRegistry,
+                                        ClientCertificateStore pemStore, IotAuthClient iotAuthClient,
+                                        UseCases useCases) {
         this.scheduler = scheduler;
         this.thingRegistry = thingRegistry;
         this.networkState = networkState;
@@ -123,7 +124,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      * or not but the guarantee is that it is scheduled to run 24h after the last successful run.
      */
     public Instant getNextScheduledRun() {
-       return nextScheduledRun.get();
+        return nextScheduledRun.get();
     }
 
     /**
@@ -167,6 +168,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
     /**
      * Handler to react to network changes.
+     *
      * @param connectionState - A network state
      */
     @Override
@@ -186,24 +188,25 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     }
 
     /**
-     * Returns ThingAssociations which has information about what Things are associated with the core device and
-     * which things are no longer associated with the core device.
+     * Returns ThingAssociations which has information about what Things are associated with the core device and which
+     * things are no longer associated with the core device.
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private Optional<Set<String>> getThingsAssociatedWithCoreDevice() {
-        RetryUtils.RetryConfig retryConfig = RetryUtils.RetryConfig.builder()
-                .initialRetryInterval(Duration.ofSeconds(30)).maxRetryInterval(Duration.ofMinutes(3))
-                .maxAttempt(3)
-                .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class)).build();
+        RetryUtils.RetryConfig retryConfig =
+                RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(30))
+                        .maxRetryInterval(Duration.ofMinutes(3)).maxAttempt(3)
+                        .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
+                        .build();
 
         try {
-            Stream<List<AssociatedClientDevice>> cloudAssociatedDevices = RetryUtils.runWithRetry(
-                    retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
+            Stream<List<AssociatedClientDevice>> cloudAssociatedDevices =
+                    RetryUtils.runWithRetry(retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
                             "get-things-associated-with-core-device", logger);
 
-            Set<String> cloudThings = cloudAssociatedDevices.flatMap(List::stream)
-                        .map(AssociatedClientDevice::thingName)
-                    .collect(Collectors.toSet());
+            Set<String> cloudThings =
+                    cloudAssociatedDevices.flatMap(List::stream).map(AssociatedClientDevice::thingName)
+                            .collect(Collectors.toSet());
 
             return Optional.of(cloudThings);
         } catch (AccessDeniedException e) {
@@ -211,8 +214,8 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
                 "Did not refresh local certificates. To enable certificate refresh add a policy to the core device"
                         + " that grants the greengrass:ListClientDevicesAssociatedWithCoreDevice permission");
         } catch (Exception e) {
-            logger.atWarn().cause(e).log(
-                    "Failed to get things associated to the core device. Retry will be scheduled later");
+            logger.atWarn().cause(e)
+                    .log("Failed to get things associated to the core device. Retry will be scheduled later");
         }
 
         return Optional.empty();
@@ -226,7 +229,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             certificatesAttachedToThings.addAll(certificateIdAttachedToThing);
         }
 
-        for (String certificateId: certificatesAttachedToThings) {
+        for (String certificateId : certificatesAttachedToThings) {
             this.refreshCertificateValidity(certificateId);
         }
 
@@ -247,10 +250,10 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
         Set<String> thingCertificateIds = thing.getAttachedCertificateIds().keySet();
 
-        for (String certificateId: thingCertificateIds) {
+        for (String certificateId : thingCertificateIds) {
             try {
-                useCases.get(VerifyThingAttachedToCertificate.class).apply(
-                        new VerifyThingAttachedToCertificateDTO(thingName, certificateId));
+                useCases.get(VerifyThingAttachedToCertificate.class)
+                        .apply(new VerifyThingAttachedToCertificateDTO(thingName, certificateId));
             } catch (RuntimeException e) {
                 logger.atWarn().cause(e).kv("thingName", thing.getThingName()).kv("certificate", certificateId)
                         .log("Failed to verify thing certificate - certificate pem is invalid");
@@ -267,15 +270,13 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         try {
             certPem = pemStore.getPem(certificateId);
         } catch (IOException e) {
-            logger.atWarn().cause(e)
-                    .kv("certificateId", certificateId)
+            logger.atWarn().cause(e).kv("certificateId", certificateId)
                     .log("Unable to load certificate. Certificate validity information will not be refreshed");
             return;
         }
 
         if (!certPem.isPresent()) {
-            logger.atWarn()
-                    .kv("certificateId", certificateId)
+            logger.atWarn().kv("certificateId", certificateId)
                     .log("Attempted to refresh certificate validity but its pem was not found");
             return;
         }
@@ -291,12 +292,9 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         Stream<Thing> localThings = thingRegistry.getAllThings();
         Stream<Certificate> localCerts = certificateRegistry.getAllCertificates();
 
-        localThings
-                .filter(thing -> !attachedThings.contains(thing.getThingName()))
-                .forEach(thingRegistry::deleteThing);
+        localThings.filter(thing -> !attachedThings.contains(thing.getThingName())).forEach(thingRegistry::deleteThing);
 
-        localCerts
-                .filter(certificate -> !certificatesAttachedToThings.contains(certificate.getCertificateId()))
+        localCerts.filter(certificate -> !certificatesAttachedToThings.contains(certificate.getCertificateId()))
                 .forEach(certificateRegistry::deleteCertificate);
     }
 

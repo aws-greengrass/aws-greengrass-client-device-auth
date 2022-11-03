@@ -21,24 +21,22 @@ import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
 import java.util.Optional;
 import javax.inject.Inject;
 
-public class CreateIoTThingSession
-        implements UseCases.UseCase<Session, CreateSessionDTO> {
+public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSessionDTO> {
     private final ThingRegistry thingRegistry;
     private final CertificateRegistry certificateRegistry;
     private final UseCases useCases;
-
 
 
     /**
      * Verify a certificate with IoT Core.
      *
      * @param thingRegistry       Thing Registry
-     * @param certificateRegistry  Certificate Registry
-     * @param useCases  UseCases service
+     * @param certificateRegistry Certificate Registry
+     * @param useCases            UseCases service
      */
     @Inject
-    public CreateIoTThingSession(ThingRegistry thingRegistry,
-                                 CertificateRegistry certificateRegistry, UseCases useCases) {
+    public CreateIoTThingSession(ThingRegistry thingRegistry, CertificateRegistry certificateRegistry,
+                                 UseCases useCases) {
         this.thingRegistry = thingRegistry;
         this.certificateRegistry = certificateRegistry;
         this.useCases = useCases;
@@ -47,6 +45,7 @@ public class CreateIoTThingSession
 
     /**
      * Creates an IoT session if the thing is attached to an active certificate.
+     *
      * @param dto - VerifyCertificateAttachedToThingDTO
      */
     @Override

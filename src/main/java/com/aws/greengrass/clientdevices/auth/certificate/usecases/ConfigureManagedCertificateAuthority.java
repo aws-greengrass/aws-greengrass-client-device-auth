@@ -30,12 +30,13 @@ public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Vo
 
     /**
      * Configure core certificate authority.
-     * @param certificateManager  Certificate manager.
-     * @param runtimeConfig - The runtime configuration
+     *
+     * @param certificateManager Certificate manager.
+     * @param runtimeConfig      - The runtime configuration
      */
     @Inject
-    public ConfigureManagedCertificateAuthority(
-            CertificateManager certificateManager, RuntimeConfiguration runtimeConfig) {
+    public ConfigureManagedCertificateAuthority(CertificateManager certificateManager,
+                                                RuntimeConfiguration runtimeConfig) {
         this.certificateManager = certificateManager;
         this.runtimeConfig = runtimeConfig;
     }

@@ -92,19 +92,15 @@ public class NetworkStateTest {
     // Called by JUnit
     @SuppressWarnings("PMD.UnusedPrivateMethod")
     private static Stream<Arguments> provideNetworkEventsAndExpectedState() {
-        return Stream.of(
-            Arguments.arguments((Callable<NetworkStateProvider.ConnectionState>)() -> {
-                onConnectCaptor.getValue().onConnect(true);
-                return NetworkStateProvider.ConnectionState.NETWORK_UP;
-            }),
-            Arguments.arguments((Callable<NetworkStateProvider.ConnectionState>)() -> {
-                connectionEventsArgumentCaptor.getValue().onConnectionResumed(true);
-                return NetworkStateProvider.ConnectionState.NETWORK_UP;
-            }),
-            Arguments.arguments((Callable<NetworkStateProvider.ConnectionState>)() -> {
-                connectionEventsArgumentCaptor.getValue().onConnectionInterrupted(0);
-                return NetworkStateProvider.ConnectionState.NETWORK_DOWN;
-            })
-        );
+        return Stream.of(Arguments.arguments((Callable<NetworkStateProvider.ConnectionState>) () -> {
+            onConnectCaptor.getValue().onConnect(true);
+            return NetworkStateProvider.ConnectionState.NETWORK_UP;
+        }), Arguments.arguments((Callable<NetworkStateProvider.ConnectionState>) () -> {
+            connectionEventsArgumentCaptor.getValue().onConnectionResumed(true);
+            return NetworkStateProvider.ConnectionState.NETWORK_UP;
+        }), Arguments.arguments((Callable<NetworkStateProvider.ConnectionState>) () -> {
+            connectionEventsArgumentCaptor.getValue().onConnectionInterrupted(0);
+            return NetworkStateProvider.ConnectionState.NETWORK_DOWN;
+        }));
     }
 }

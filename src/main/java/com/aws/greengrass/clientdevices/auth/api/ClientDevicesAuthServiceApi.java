@@ -26,16 +26,14 @@ public class ClientDevicesAuthServiceApi {
     /**
      * Constructor.
      *
-     * @param sessionManager      session manager
-     * @param deviceAuthClient    device auth client
-     * @param certificateManager  certificate manager
-     * @param useCases            CDA use cases
+     * @param sessionManager     session manager
+     * @param deviceAuthClient   device auth client
+     * @param certificateManager certificate manager
+     * @param useCases           CDA use cases
      */
     @Inject
-    public ClientDevicesAuthServiceApi(SessionManager sessionManager,
-                                       DeviceAuthClient deviceAuthClient,
-                                       CertificateManager certificateManager,
-                                       UseCases useCases) {
+    public ClientDevicesAuthServiceApi(SessionManager sessionManager, DeviceAuthClient deviceAuthClient,
+                                       CertificateManager certificateManager, UseCases useCases) {
         this.sessionManager = sessionManager;
         this.deviceAuthClient = deviceAuthClient;
         this.certificateManager = certificateManager;
@@ -44,6 +42,7 @@ public class ClientDevicesAuthServiceApi {
 
     /**
      * Verify client device identity.
+     *
      * @param certificatePem PEM encoded client certificate.
      * @return True if the provided client certificate is trusted.
      */
@@ -58,13 +57,14 @@ public class ClientDevicesAuthServiceApi {
 
     /**
      * Get client auth token.
+     *
      * @param credentialType    Type of client credentials
      * @param deviceCredentials Client credential map
      * @return client auth token to be used for future authorization requests.
      * @throws AuthenticationException if unable to authenticate client credentials
      */
     public String getClientDeviceAuthToken(String credentialType, Map<String, String> deviceCredentials)
-        throws AuthenticationException {
+            throws AuthenticationException {
         return sessionManager.createSession(credentialType, deviceCredentials);
     }
 
@@ -72,6 +72,7 @@ public class ClientDevicesAuthServiceApi {
      * Close client auth session.
      *
      * <P>Note that closing auth sessions is strictly optional</P>
+     *
      * @param authToken Auth token corresponding to the session to be closed.
      */
     public void closeClientDeviceAuthSession(String authToken) {
@@ -80,6 +81,7 @@ public class ClientDevicesAuthServiceApi {
 
     /**
      * Authorize client action.
+     *
      * @param authorizationRequest Authorization request, including auth token, operation, and resource
      * @return true if the client action is allowed
      * @throws AuthorizationException if the client action is not allowed
@@ -91,6 +93,7 @@ public class ClientDevicesAuthServiceApi {
 
     /**
      * Subscribe to certificate updates.
+     *
      * @param getCertificateRequest subscription request parameters
      * @throws CertificateGenerationException if unable to subscribe to certificate updates
      */
@@ -101,6 +104,7 @@ public class ClientDevicesAuthServiceApi {
 
     /**
      * Unsubscribe from certificate updates.
+     *
      * @param getCertificateRequest request used to make the original certificate update subscription
      */
     public void unsubscribeFromCertificateUpdates(GetCertificateRequest getCertificateRequest) {

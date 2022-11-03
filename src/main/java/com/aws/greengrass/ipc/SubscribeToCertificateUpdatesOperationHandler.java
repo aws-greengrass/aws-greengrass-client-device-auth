@@ -114,12 +114,8 @@ public class SubscribeToCertificateUpdatesOperationHandler
      * @throws AuthorizationException if the component is not authorized
      */
     private void doAuthorizationForSubscribingToCertUpdates(String serviceName) throws AuthorizationException {
-        authorizationHandler.isAuthorized(
-                ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME,
-                Permission.builder()
-                        .principal(serviceName)
-                        .operation(SUBSCRIBE_TO_CERTIFICATE_UPDATES)
-                        .resource("*")
+        authorizationHandler.isAuthorized(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME,
+                Permission.builder().principal(serviceName).operation(SUBSCRIBE_TO_CERTIFICATE_UPDATES).resource("*")
                         .build());
     }
 
@@ -139,7 +135,7 @@ public class SubscribeToCertificateUpdatesOperationHandler
             throw new InvalidArgumentsError(NO_CERT_OPTIONS_ERROR);
         }
     }
-    
+
     @SuppressWarnings("PMD.PreserveStackTrace")
     private void forwardServerCertificates(
             com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent updateEvent) {
@@ -150,8 +146,7 @@ public class SubscribeToCertificateUpdatesOperationHandler
                     .withCertificate(EncryptionUtils.encodeToPem(PEM_BOUNDARY_CERTIFICATE,
                             updateEvent.getCertificate().getEncoded()))
                     .withCaCertificates(this.certificateManager.getCACertificates())
-                    .withPublicKey(
-                            EncryptionUtils.encodeToPem(PEM_BOUNDARY_PUBLIC_KEY, kp.getPublic().getEncoded()))
+                    .withPublicKey(EncryptionUtils.encodeToPem(PEM_BOUNDARY_PUBLIC_KEY, kp.getPublic().getEncoded()))
                     .withPrivateKey(
                             EncryptionUtils.encodeToPem(PEM_BOUNDARY_PRIVATE_KEY, kp.getPrivate().getEncoded()));
         } catch (CertificateEncodingException | IOException | KeyStoreException e) {

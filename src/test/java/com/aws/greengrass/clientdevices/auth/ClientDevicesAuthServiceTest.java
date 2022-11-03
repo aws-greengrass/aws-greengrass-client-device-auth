@@ -145,8 +145,8 @@ class ClientDevicesAuthServiceTest {
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         kernel.getContext().addGlobalStateChangeListener((service, was, newState) -> {
-            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName()) && service.getState()
-                    .equals(expectedServiceState)) {
+            if (ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME.equals(service.getName())
+                    && service.getState().equals(expectedServiceState)) {
                 authServiceRunning.countDown();
             }
         });
@@ -186,8 +186,8 @@ class ClientDevicesAuthServiceTest {
         assertThat(groupConfiguration.getFormatVersion(), is(ConfigurationFormatVersion.MAR_05_2021));
         assertThat(groupConfiguration.getDefinitions(), IsMapWithSize.aMapWithSize(2));
         assertThat(groupConfiguration.getPolicies(), IsMapWithSize.aMapWithSize(1));
-        assertThat(groupConfiguration.getDefinitions(), IsMapContaining
-                .hasEntry(is("myTemperatureSensors"), hasProperty("policyName", is("sensorAccessPolicy"))));
+        assertThat(groupConfiguration.getDefinitions(), IsMapContaining.hasEntry(is("myTemperatureSensors"),
+                hasProperty("policyName", is("sensorAccessPolicy"))));
         assertThat(groupConfiguration.getDefinitions(),
                 IsMapContaining.hasEntry(is("myHumiditySensors"), hasProperty("policyName", is("sensorAccessPolicy"))));
         assertThat(groupConfiguration.getPolicies(), IsMapContaining.hasEntry(is("sensorAccessPolicy"),
@@ -323,13 +323,11 @@ class ClientDevicesAuthServiceTest {
 
         kernel.getContext().runOnPublishQueueAndWait(() -> {
             kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
-                    .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
-                            CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
+                    .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
                             CAConfiguration.CA_TYPE_KEY);
         });
         Topic topic = kernel.locate(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME).getConfig()
-                .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,
-                        CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
+                .lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
                         CAConfiguration.CA_TYPE_KEY);
         topic.withValue(Collections.singletonList("RSA_2048"));
         // Block until subscriber has finished updating
@@ -352,16 +350,14 @@ class ClientDevicesAuthServiceTest {
         assertThat(getCaPassphrase(), not(initialCaPassPhrase));
 
         verify(client, times(2)).putCertificateAuthorities(putCARequestArgumentCaptor.capture());
-        List<List<String>> certificatesInRequests =
-                putCARequestArgumentCaptor.getAllValues().stream().map(
-                        PutCertificateAuthoritiesRequest::coreDeviceCertificates).collect(
-                        Collectors.toList());
+        List<List<String>> certificatesInRequests = putCARequestArgumentCaptor.getAllValues().stream()
+                .map(PutCertificateAuthoritiesRequest::coreDeviceCertificates).collect(Collectors.toList());
         assertThat(certificatesInRequests, contains(initialCACerts, thirdCACerts));
     }
 
     @Test
-    void GIVEN_certificateAuthorityConfiguration_WHEN_itChanges_THEN_CAisConfigured() throws InterruptedException,
-            ServiceLoadException, UseCaseException {
+    void GIVEN_certificateAuthorityConfiguration_WHEN_itChanges_THEN_CAisConfigured()
+            throws InterruptedException, ServiceLoadException, UseCaseException {
         ArgumentCaptor<CAConfiguration> configurationCaptor = ArgumentCaptor.forClass(CAConfiguration.class);
         UseCases useCasesMock = mock(UseCases.class);
         ConfigureCustomCertificateAuthority customCAUseCase = mock(ConfigureCustomCertificateAuthority.class);
@@ -375,7 +371,7 @@ class ClientDevicesAuthServiceTest {
 
         // Block until subscriber has finished updating
         kernel.getContext().waitForPublishQueueToClear();
-        verify(managedCAUseCase,times(1)).apply(configurationCaptor.capture());
+        verify(managedCAUseCase, times(1)).apply(configurationCaptor.capture());
 
         topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC,
                 CAConfiguration.CA_PRIVATE_KEY_URI).withValue("file:///intermediateCA.key");
@@ -393,7 +389,7 @@ class ClientDevicesAuthServiceTest {
         verify(managedCAUseCase, times(1)).apply(configurationCaptor.capture());
         verify(customCAUseCase, times(2)).apply(configurationCaptor.capture());
 
-        topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY,PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
+        topics.lookup(KernelConfigResolver.CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, MAX_ACTIVE_AUTH_TOKENS_TOPIC)
                 .withValue(2);
 
         kernel.getContext().waitForPublishQueueToClear();

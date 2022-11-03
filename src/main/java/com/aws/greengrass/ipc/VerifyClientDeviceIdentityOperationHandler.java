@@ -51,9 +51,10 @@ public class VerifyClientDeviceIdentityOperationHandler
      * @param authorizationHandler        authorization handler
      * @param cloudCallThreadPool         executor to run the call to the cloud asynchronously
      */
-    public VerifyClientDeviceIdentityOperationHandler(
-            OperationContinuationHandlerContext context, ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
-            AuthorizationHandler authorizationHandler, ExecutorService cloudCallThreadPool) {
+    public VerifyClientDeviceIdentityOperationHandler(OperationContinuationHandlerContext context,
+                                                      ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
+                                                      AuthorizationHandler authorizationHandler,
+                                                      ExecutorService cloudCallThreadPool) {
 
         super(context);
         this.clientDevicesAuthServiceApi = clientDevicesAuthServiceApi;
@@ -100,10 +101,7 @@ public class VerifyClientDeviceIdentityOperationHandler
 
     private void doAuthorizationForClientDevIdentity() throws AuthorizationException {
         authorizationHandler.isAuthorized(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME,
-                Permission.builder()
-                        .principal(serviceName)
-                        .operation(VERIFY_CLIENT_DEVICE_IDENTITY)
-                        .resource("*")
+                Permission.builder().principal(serviceName).operation(VERIFY_CLIENT_DEVICE_IDENTITY).resource("*")
                         .build());
     }
 

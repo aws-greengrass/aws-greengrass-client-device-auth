@@ -44,9 +44,7 @@ public final class SecurityConfiguration {
     public static SecurityConfiguration from(Topics configurationTopics) {
         Topics securityTopics = configurationTopics.lookupTopics(SECURITY_TOPIC);
 
-        return new SecurityConfiguration(
-                getClientDeviceTrustDurationMinutes(securityTopics)
-        );
+        return new SecurityConfiguration(getClientDeviceTrustDurationMinutes(securityTopics));
     }
 
     /**
@@ -59,16 +57,15 @@ public final class SecurityConfiguration {
             return true;
         }
 
-        return !Objects.equals(newConfig.getClientDeviceTrustDurationMinutes(),
-                getClientDeviceTrustDurationMinutes());
+        return !Objects.equals(newConfig.getClientDeviceTrustDurationMinutes(), getClientDeviceTrustDurationMinutes());
     }
 
     private static int getClientDeviceTrustDurationMinutes(Topics securityTopics) {
         int configValue = Coerce.toInt(securityTopics.findOrDefault(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES,
                 CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC));
         if (configValue < MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES) {
-            logger.warn("Illegal value {} for configuration {}. Using minimum value {}",
-                    configValue, CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC, MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
+            logger.warn("Illegal value {} for configuration {}. Using minimum value {}", configValue,
+                    CLIENT_DEVICE_TRUST_DURATION_MINUTES_TOPIC, MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
             configValue = MIN_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
         }
         return configValue;

@@ -39,11 +39,9 @@ public class ServerCertificateGenerator extends CertificateGenerator {
      * @param certificatesConfig Certificate configuration
      * @param clock              clock
      */
-    public ServerCertificateGenerator(X500Name subject,
-                                      PublicKey publicKey,
+    public ServerCertificateGenerator(X500Name subject, PublicKey publicKey,
                                       BiConsumer<X509Certificate, X509Certificate[]> callback,
-                                      CertificateStore certificateStore,
-                                      CertificatesConfig certificatesConfig,
+                                      CertificateStore certificateStore, CertificatesConfig certificatesConfig,
                                       Clock clock) {
         super(subject, publicKey, certificateStore, certificatesConfig, clock);
         this.callback = callback;
@@ -53,9 +51,7 @@ public class ServerCertificateGenerator extends CertificateGenerator {
     public synchronized void generateCertificate(Supplier<List<String>> connectivityInfoSupplier, String reason)
             throws CertificateGenerationException {
         if (certificatesConfig.isCertificateRotationDisabled() && certificate != null) {
-            logger.atWarn()
-                    .kv("subject", subject)
-                    .kv("certExpiry", getExpiryTime())
+            logger.atWarn().kv("subject", subject).kv("certExpiry", getExpiryTime())
                     .log("Certificate rotation is disabled, current certificate will NOT be rotated");
             return;
         }
@@ -70,13 +66,8 @@ public class ServerCertificateGenerator extends CertificateGenerator {
         connectivityInfo.add("localhost");
 
         try {
-            certificate = CertificateHelper.issueServerCertificate(
-                    certificateStore.getCACertificate(),
-                    certificateStore.getCAPrivateKey(),
-                    subject,
-                    publicKey,
-                    connectivityInfo,
-                    Date.from(now),
+            certificate = CertificateHelper.issueServerCertificate(certificateStore.getCACertificate(),
+                    certificateStore.getCAPrivateKey(), subject, publicKey, connectivityInfo, Date.from(now),
                     Date.from(now.plusSeconds(certificatesConfig.getServerCertValiditySeconds())),
                     certificateStore.getProviderType());
         } catch (NoSuchAlgorithmException | OperatorCreationException | CertificateException | IOException
@@ -85,12 +76,8 @@ public class ServerCertificateGenerator extends CertificateGenerator {
             throw new CertificateGenerationException(e);
         }
 
-        logger.atInfo()
-                .kv("subject", subject)
-                .kv("reason", reason)
-                .kv("connectivityInfo", connectivityInfo)
-                .kv("certExpiry", getExpiryTime())
-                .log("New server certificate generated");
+        logger.atInfo().kv("subject", subject).kv("reason", reason).kv("connectivityInfo", connectivityInfo)
+                .kv("certExpiry", getExpiryTime()).log("New server certificate generated");
 
         callback.accept(certificate, certificateStore.getCaCertificateChain());
     }

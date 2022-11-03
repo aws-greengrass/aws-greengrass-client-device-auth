@@ -17,8 +17,7 @@ import javax.inject.Inject;
 
 public interface NetworkStateProvider {
     enum ConnectionState {
-        NETWORK_UP,
-        NETWORK_DOWN,
+        NETWORK_UP, NETWORK_DOWN,
     }
 
     void registerHandler(Consumer<ConnectionState> networkChangeHandler);
@@ -50,6 +49,7 @@ public interface NetworkStateProvider {
 
         /**
          * Represents the current network state.
+         *
          * @param mqttClient      MqttClient wrapper.
          * @param executorService Executor service used to dispatch connection state change events.
          */
@@ -68,14 +68,12 @@ public interface NetworkStateProvider {
         /**
          * Returns the current state of the Greengrass MQTT connection.
          * </p>
-         * The idea here is to use the Greengrass MQTT connection as a proxy for
-         * whether we think the core device is online. This may be useful in latency
-         * sensitive situation where we'd like to avoid making a network call if we
-         * think it will time out.
+         * The idea here is to use the Greengrass MQTT connection as a proxy for whether we think the core device is
+         * online. This may be useful in latency sensitive situation where we'd like to avoid making a network call if
+         * we think it will time out.
          * </p>
-         * Note that this is not a perfect indicator. Assume the response could be
-         * wrong and make sure your code will function in case this never returns
-         * NETWORK_UP.
+         * Note that this is not a perfect indicator. Assume the response could be wrong and make sure your code will
+         * function in case this never returns NETWORK_UP.
          *
          * @return Connection state enum
          */

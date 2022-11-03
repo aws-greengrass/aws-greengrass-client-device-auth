@@ -21,6 +21,7 @@ public class CACertificateChainChangedHandler implements Consumer<CACertificateC
 
     /**
      * Register core certificate authority with Greengrass cloud.
+     *
      * @param useCases     Use cases.
      * @param domainEvents Domain event router.
      */

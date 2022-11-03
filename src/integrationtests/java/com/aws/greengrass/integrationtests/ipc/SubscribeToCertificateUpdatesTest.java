@@ -72,8 +72,8 @@ class SubscribeToCertificateUpdatesTest {
     private GreengrassV2DataClient client;
 
     private static void subscribeToCertUpdates(GreengrassCoreIPCClient ipcClient,
-                                              SubscribeToCertificateUpdatesRequest request,
-                                              Consumer<CertificateUpdate> consumer) throws Exception {
+                                               SubscribeToCertificateUpdatesRequest request,
+                                               Consumer<CertificateUpdate> consumer) throws Exception {
         ipcClient.subscribeToCertificateUpdates(request,
                 Optional.of(new StreamResponseHandler<CertificateUpdateEvent>() {
                     @Override
@@ -95,8 +95,8 @@ class SubscribeToCertificateUpdatesTest {
     private static SubscribeToCertificateUpdatesRequest getSampleSubsRequest() {
         SubscribeToCertificateUpdatesRequest subscribeToCertificateUpdatesRequest =
                 new SubscribeToCertificateUpdatesRequest();
-        subscribeToCertificateUpdatesRequest.setCertificateOptions(new CertificateOptions().withCertificateType(
-                CertificateType.SERVER));
+        subscribeToCertificateUpdatesRequest.setCertificateOptions(
+                new CertificateOptions().withCertificateType(CertificateType.SERVER));
         return subscribeToCertificateUpdatesRequest;
     }
 
@@ -121,8 +121,8 @@ class SubscribeToCertificateUpdatesTest {
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         listener = (GreengrassService service, State was, State newState) -> {
-            if (service.getName().equals(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME) &&
-                    service.getState().equals(expectedServiceState)) {
+            if (service.getName().equals(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
+                    && service.getState().equals(expectedServiceState)) {
                 authServiceRunning.countDown();
             }
         };
@@ -187,7 +187,8 @@ class SubscribeToCertificateUpdatesTest {
                 assertThat(m.getPublicKey(), startsWith("-----BEGIN PUBLIC KEY-----"));
 
                 assertThat(m.getCertificate(), endsWith("-----END CERTIFICATE-----" + System.lineSeparator()));
-                assertThat(m.getCaCertificates().get(0), endsWith("-----END CERTIFICATE-----" + System.lineSeparator()));
+                assertThat(m.getCaCertificates().get(0),
+                        endsWith("-----END CERTIFICATE-----" + System.lineSeparator()));
                 assertThat(m.getPrivateKey(), endsWith("-----END PRIVATE KEY-----" + System.lineSeparator()));
                 assertThat(m.getPublicKey(), endsWith("-----END PUBLIC KEY-----" + System.lineSeparator()));
 
@@ -223,8 +224,8 @@ class SubscribeToCertificateUpdatesTest {
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerSubscribingToCertUpdates")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-                SubscribeToCertificateUpdatesRequest request = new SubscribeToCertificateUpdatesRequest();
-                request.withCertificateOptions(new CertificateOptions().withCertificateType("INVALID-TYPE"));
+            SubscribeToCertificateUpdatesRequest request = new SubscribeToCertificateUpdatesRequest();
+            request.withCertificateOptions(new CertificateOptions().withCertificateType("INVALID-TYPE"));
 
 
             Pair<CompletableFuture<Void>, Consumer<CertificateUpdate>> cb = asyncAssertOnConsumer((m) -> {
@@ -233,7 +234,7 @@ class SubscribeToCertificateUpdatesTest {
                 subscribeToCertUpdates(ipcClient, request, cb.getRight());
             });
             assertThat(err.getCause(), is(instanceOf(InvalidArgumentsError.class)));
-            assertThat(err.getMessage(),containsString("Valid certificate type is required."));
+            assertThat(err.getMessage(), containsString("Valid certificate type is required."));
         }
     }
 

@@ -52,9 +52,7 @@ public final class CDAConfiguration {
     private final CAConfiguration certificateAuthorityConfiguration;
     private final DomainEvents domainEvents;
 
-    private CDAConfiguration(DomainEvents domainEvents,
-                             RuntimeConfiguration runtime,
-                             CAConfiguration ca,
+    private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca,
                              SecurityConfiguration security) {
         this.domainEvents = domainEvents;
         this.runtime = runtime;
@@ -63,11 +61,11 @@ public final class CDAConfiguration {
     }
 
     /**
-     * Creates the CDA (Client Device Auth) Service configuration. And allows it to be available in the context
-     * with the updated values
+     * Creates the CDA (Client Device Auth) Service configuration. And allows it to be available in the context with the
+     * updated values
      *
-     * @param existingConfig  an existing version of the CDAConfiguration
-     * @param topics configuration topics from GG
+     * @param existingConfig an existing version of the CDAConfiguration
+     * @param topics         configuration topics from GG
      * @throws URISyntaxException if invalid URI inside the configuration
      */
     public static CDAConfiguration from(CDAConfiguration existingConfig, Topics topics) throws URISyntaxException {
@@ -76,12 +74,8 @@ public final class CDAConfiguration {
 
         DomainEvents domainEvents = topics.getContext().get(DomainEvents.class);
 
-        CDAConfiguration newConfig = new CDAConfiguration(
-            domainEvents,
-            RuntimeConfiguration.from(runtimeTopics),
-            CAConfiguration.from(serviceConfiguration),
-            SecurityConfiguration.from(serviceConfiguration)
-        );
+        CDAConfiguration newConfig = new CDAConfiguration(domainEvents, RuntimeConfiguration.from(runtimeTopics),
+                CAConfiguration.from(serviceConfiguration), SecurityConfiguration.from(serviceConfiguration));
 
         newConfig.triggerChanges(newConfig, existingConfig);
 
@@ -112,10 +106,9 @@ public final class CDAConfiguration {
     }
 
     /**
-     * Verifies if the configuration for the certificateAuthority has changed, given a previous
-     * configuration.
+     * Verifies if the configuration for the certificateAuthority has changed, given a previous configuration.
      *
-     * @param config  CDAConfiguration
+     * @param config CDAConfiguration
      */
     private boolean hasCAConfigurationChanged(CDAConfiguration config) {
         if (config == null) {

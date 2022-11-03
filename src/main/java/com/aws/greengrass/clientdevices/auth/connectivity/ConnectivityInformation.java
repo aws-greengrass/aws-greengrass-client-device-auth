@@ -68,19 +68,19 @@ public class ConnectivityInformation {
      * @return list of connectivity info items
      */
     public List<ConnectivityInfo> getConnectivityInfo() {
-        GetConnectivityInfoRequest getConnectivityInfoRequest = GetConnectivityInfoRequest.builder()
-                .thingName(Coerce.toString(deviceConfiguration.getThingName())).build();
+        GetConnectivityInfoRequest getConnectivityInfoRequest =
+                GetConnectivityInfoRequest.builder().thingName(Coerce.toString(deviceConfiguration.getThingName()))
+                        .build();
         List<ConnectivityInfo> connectivityInfoList = Collections.emptyList();
 
         try {
-            GetConnectivityInfoResponse getConnectivityInfoResponse = clientFactory.getGreengrassV2DataClient()
-                    .getConnectivityInfo(getConnectivityInfoRequest);
+            GetConnectivityInfoResponse getConnectivityInfoResponse =
+                    clientFactory.getGreengrassV2DataClient().getConnectivityInfo(getConnectivityInfoRequest);
             if (getConnectivityInfoResponse.hasConnectivityInfo()) {
                 // Filter out port and metadata since it is not needed
                 connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
-                cachedHostAddresses = new ArrayList<>(connectivityInfoList.stream()
-                        .map(ci -> ci.hostAddress())
-                        .collect(Collectors.toSet()));
+                cachedHostAddresses = new ArrayList<>(
+                        connectivityInfoList.stream().map(ci -> ci.hostAddress()).collect(Collectors.toSet()));
             }
         } catch (ValidationException | ResourceNotFoundException e) {
             LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
@@ -94,9 +94,7 @@ public class ConnectivityInformation {
         // Phase 2) Introduce new certificate rotation workflows that use GetConnectivityInformationUseCase
         //   instead of getCachedHostAddresses(). This will decouple cert rotation and connectivity info domains.
         // Phase 3) Remove this code entirely. CISShadowMonitor will update via RecordConnectivityChangesUseCase.
-        Set<HostAddress> hostAddresses = connectivityInfoList.stream()
-                .map(HostAddress::of)
-                .collect(Collectors.toSet());
+        Set<HostAddress> hostAddresses = connectivityInfoList.stream().map(HostAddress::of).collect(Collectors.toSet());
         recordConnectivityInformationForSource("connectivity-information-service", hostAddresses);
 
         return connectivityInfoList;
@@ -108,10 +106,7 @@ public class ConnectivityInformation {
      * @return set of connectivity information from all connectivity sources.
      */
     public Set<HostAddress> getAggregatedConnectivityInformation() {
-        return connectivityInformationMap.entrySet()
-                .stream()
-                .map(Map.Entry::getValue)
-                .flatMap(Set::stream)
+        return connectivityInformationMap.entrySet().stream().map(Map.Entry::getValue).flatMap(Set::stream)
                 .collect(Collectors.toSet());
     }
 
@@ -122,9 +117,7 @@ public class ConnectivityInformation {
      * @param sourceConnectivityInfo connectivity information.
      */
     public void recordConnectivityInformationForSource(String source, Set<HostAddress> sourceConnectivityInfo) {
-        LOGGER.atInfo()
-                .kv("source", source)
-                .kv("connectivityInformation", sourceConnectivityInfo)
+        LOGGER.atInfo().kv("source", source).kv("connectivityInformation", sourceConnectivityInfo)
                 .log("Updating connectivity information");
         connectivityInformationMap.put(source, sourceConnectivityInfo);
     }

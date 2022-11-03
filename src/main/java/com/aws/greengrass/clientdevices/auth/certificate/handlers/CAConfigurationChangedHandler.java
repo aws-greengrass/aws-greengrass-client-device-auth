@@ -24,9 +24,9 @@ public class CAConfigurationChangedHandler implements Consumer<CAConfigurationCh
     private final Logger logger = LogManager.getLogger(CAConfigurationChangedHandler.class);
 
 
-
     /**
      * Configure certificate authority.
+     *
      * @param useCases     Use cases.
      * @param domainEvents Domain event router.
      */
@@ -49,7 +49,7 @@ public class CAConfigurationChangedHandler implements Consumer<CAConfigurationCh
      * @param event Certificate authority configuration change event
      */
     @Override
-    public void accept(CAConfigurationChanged event)  {
+    public void accept(CAConfigurationChanged event) {
         CAConfiguration configuration = event.getConfiguration();
 
         try {

@@ -10,8 +10,8 @@ import java.util.regex.Pattern;
 
 public final class ParseIPAddress {
     private static final Pattern IPV4_PAT = Pattern.compile("^(\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)(?::(\\d+)){0,1}$");
-    private static final Pattern IPV6_DOUBL_COL_PAT = Pattern.compile(
-            "^\\[{0,1}([0-9a-f:]*)::([0-9a-f:]*)(?:\\]:(\\d+)){0,1}$");
+    private static final Pattern IPV6_DOUBL_COL_PAT =
+            Pattern.compile("^\\[{0,1}([0-9a-f:]*)::([0-9a-f:]*)(?:\\]:(\\d+)){0,1}$");
     private static String ipv6Pattern;
 
     static {
@@ -56,7 +56,7 @@ public final class ParseIPAddress {
             if (p2.isEmpty()) {
                 p2 = "0";
             }
-            host =  p1 + getZero(8 - numCount(p1) - numCount(p2)) + p2;
+            host = p1 + getZero(8 - numCount(p1) - numCount(p2)) + p2;
             if (ipv6DoubleColonMatcher.group(3) != null) {
                 host = "[" + host + "]:" + ipv6DoubleColonMatcher.group(3);
             }

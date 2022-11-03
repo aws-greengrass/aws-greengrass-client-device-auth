@@ -63,13 +63,12 @@ public interface IotAuthClient {
         /**
          * Default IotAuthClient constructor.
          *
-         * @param deviceConfiguration greengrass core device configuration
-         * @param ggV2DataClientFactory greengrass v2 data client factory
+         * @param deviceConfiguration    greengrass core device configuration
+         * @param ggV2DataClientFactory  greengrass v2 data client factory
          * @param lazyCredentialProvider credetial provider for the GG client
          */
         @Inject
-        Default(DeviceConfiguration deviceConfiguration,
-                GreengrassV2DataClientFactory ggV2DataClientFactory,
+        Default(DeviceConfiguration deviceConfiguration, GreengrassV2DataClientFactory ggV2DataClientFactory,
                 LazyCredentialProvider lazyCredentialProvider) {
             this.deviceConfiguration = deviceConfiguration;
             this.ggV2DataClientFactory = ggV2DataClientFactory;
@@ -93,9 +92,8 @@ public interface IotAuthClient {
                         .log("Certificate doesn't exist or isn't active");
                 return Optional.empty();
             } catch (DeviceConfigurationException e) {
-                logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
-                        .log("Failed to construct GG v2 Data client. "
-                                + "Check that the core device configuration is valid");
+                logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem).log("Failed to construct GG v2 Data client. "
+                        + "Check that the core device configuration is valid");
                 throw new CloudServiceInteractionException("Failed to construct GG v2 Data client", e);
             } catch (Exception e) {
                 logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
@@ -122,9 +120,8 @@ public interface IotAuthClient {
                         .log("Certificate doesn't exist or isn't active");
                 cert.setStatus(Certificate.Status.UNKNOWN);
             } catch (DeviceConfigurationException e) {
-                logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem)
-                        .log("Failed to construct GG v2 Data client. "
-                                + "Check that the core device configuration is valid");
+                logger.atError().cause(e).kv(CERTPEM_KEY, certificatePem).log("Failed to construct GG v2 Data client. "
+                        + "Check that the core device configuration is valid");
                 return Optional.empty();
             } catch (Exception e) {
                 // TODO: don't log at error level for network failures
@@ -158,16 +155,15 @@ public interface IotAuthClient {
 
             VerifyClientDeviceIoTCertificateAssociationRequest request =
                     VerifyClientDeviceIoTCertificateAssociationRequest.builder()
-                            .clientDeviceThingName(thing.getThingName())
-                            .clientDeviceCertificateId(certificateId).build();
+                            .clientDeviceThingName(thing.getThingName()).clientDeviceCertificateId(certificateId)
+                            .build();
             try (GreengrassV2DataClient client = ggV2DataClientFactory.getClient()) {
                 client.verifyClientDeviceIoTCertificateAssociation(request);
-                logger.atDebug().kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificateId).log("Thing is attached to certificate");
+                logger.atDebug().kv("thingName", thing.getThingName()).kv("certificateId", certificateId)
+                        .log("Thing is attached to certificate");
                 return true;
             } catch (ValidationException | ResourceNotFoundException e) {
-                logger.atDebug().cause(e).kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificateId)
+                logger.atDebug().cause(e).kv("thingName", thing.getThingName()).kv("certificateId", certificateId)
                         .log("Thing is not attached to certificate");
                 return false;
             } catch (DeviceConfigurationException e) {
@@ -176,13 +172,12 @@ public interface IotAuthClient {
                                 + "Check that the core device configuration is valid");
                 throw new CloudServiceInteractionException("Failed to construct GG v2 Data client", e);
             } catch (Exception e) {
-                logger.atError().cause(e).kv("thingName", thing.getThingName())
-                        .kv("certificateId", certificateId)
+                logger.atError().cause(e).kv("thingName", thing.getThingName()).kv("certificateId", certificateId)
                         .log("Failed to verify certificate thing association. Check that the core device's IoT policy"
                                 + " grants the greengrass:VerifyClientDeviceIoTCertificateAssociation permission");
                 throw new CloudServiceInteractionException(
-                        String.format("Failed to verify certificate %s thing %s association",
-                                certificateId, thing.getThingName()), e);
+                        String.format("Failed to verify certificate %s thing %s association", certificateId,
+                                thing.getThingName()), e);
             }
         }
 
@@ -191,9 +186,7 @@ public interface IotAuthClient {
             String thingName = Coerce.toString(deviceConfiguration.getThingName());
 
             ListClientDevicesAssociatedWithCoreDeviceRequest request =
-                    ListClientDevicesAssociatedWithCoreDeviceRequest.builder()
-                            .coreDeviceThingName(thingName)
-                            .build();
+                    ListClientDevicesAssociatedWithCoreDeviceRequest.builder().coreDeviceThingName(thingName).build();
 
             try (GreengrassV2Client client = getGGV2Client()) {
                 ListClientDevicesAssociatedWithCoreDeviceIterable responses =
@@ -206,13 +199,12 @@ public interface IotAuthClient {
 
         // TODO: This should not live here ideally it should be returned by the clientFactory but we
         //  are adding it here to avoid introducing new changes to the nucleus
-        private GreengrassV2Client getGGV2Client()  {
+        private GreengrassV2Client getGGV2Client() {
             String awsRegion = Coerce.toString(deviceConfiguration.getAWSRegion());
-            GreengrassV2ClientBuilder clientBuilder = GreengrassV2Client.builder()
-                    .httpClient(ProxyUtils.getSdkHttpClient())
-                    .credentialsProvider(lazyCredentialProvider)
-                    .overrideConfiguration(
-                            ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build());
+            GreengrassV2ClientBuilder clientBuilder =
+                    GreengrassV2Client.builder().httpClient(ProxyUtils.getSdkHttpClient())
+                            .credentialsProvider(lazyCredentialProvider).overrideConfiguration(
+                                    ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build());
 
             if (Utils.isEmpty(awsRegion)) {
                 return clientBuilder.build();
@@ -222,8 +214,8 @@ public interface IotAuthClient {
 
             try {
                 String environment = Coerce.toString(deviceConfiguration.getEnvironmentStage());
-                String greengrassServiceEndpoint = RegionUtils.getGreengrassControlPlaneEndpoint(
-                        awsRegion, IotSdkClientFactory.EnvironmentStage.fromString(environment));
+                String greengrassServiceEndpoint = RegionUtils.getGreengrassControlPlaneEndpoint(awsRegion,
+                        IotSdkClientFactory.EnvironmentStage.fromString(environment));
                 clientBuilder.endpointOverride(URI.create(greengrassServiceEndpoint));
             } catch (InvalidEnvironmentStageException e) {
                 logger.atError().cause(e).log("Failed to configure greengrass service endpoint");

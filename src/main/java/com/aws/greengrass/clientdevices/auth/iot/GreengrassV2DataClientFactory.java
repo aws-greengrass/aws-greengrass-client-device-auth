@@ -22,9 +22,8 @@ import java.net.URI;
 import javax.inject.Inject;
 
 /**
- * Provides GG service clients built specifically for CDA use case.
- * Ideally this factory should maintain the lifecycle of its clients,
- * but for now its upto the consumer of the clients to maintain their lifecycle.
+ * Provides GG service clients built specifically for CDA use case. Ideally this factory should maintain the lifecycle
+ * of its clients, but for now its upto the consumer of the clients to maintain their lifecycle.
  */
 public class GreengrassV2DataClientFactory {
     private final DeviceConfiguration deviceConfiguration;
@@ -40,9 +39,9 @@ public class GreengrassV2DataClientFactory {
     }
 
     /**
-     * Provides a new GG v2 Data client without implicit retry policy.
-     * Consumer should handle retries when appropriate and maintain the lifecycle of the client.
-     * The Nucleus provided V2DataClient has a built in retry policy which cannot be overridden.
+     * Provides a new GG v2 Data client without implicit retry policy. Consumer should handle retries when appropriate
+     * and maintain the lifecycle of the client. The Nucleus provided V2DataClient has a built in retry policy which
+     * cannot be overridden.
      *
      * @return GreengrassV2DataClient
      * @throws DeviceConfigurationException if configured AWS region is empty
@@ -50,14 +49,12 @@ public class GreengrassV2DataClientFactory {
     public GreengrassV2DataClient getClient() throws DeviceConfigurationException {
         String awsRegion = getAwsRegion(deviceConfiguration);
         String ggServiceEndpoint = ClientConfigurationUtils.getGreengrassServiceEndpoint(deviceConfiguration);
-        ApacheHttpClient.Builder httpClient = ClientConfigurationUtils
-                .getConfiguredClientBuilder(deviceConfiguration);
+        ApacheHttpClient.Builder httpClient = ClientConfigurationUtils.getConfiguredClientBuilder(deviceConfiguration);
 
-        GreengrassV2DataClientBuilder clientBuilder = GreengrassV2DataClient.builder()
-                .credentialsProvider(AnonymousCredentialsProvider.create())
-                .httpClient(httpClient.build())
-                .overrideConfiguration(ClientOverrideConfiguration.builder()
-                        .retryPolicy(RetryPolicy.none()).build());
+        GreengrassV2DataClientBuilder clientBuilder =
+                GreengrassV2DataClient.builder().credentialsProvider(AnonymousCredentialsProvider.create())
+                        .httpClient(httpClient.build()).overrideConfiguration(
+                                ClientOverrideConfiguration.builder().retryPolicy(RetryPolicy.none()).build());
 
         clientBuilder.region(Region.of(awsRegion));
         clientBuilder.endpointOverride(URI.create(ggServiceEndpoint));

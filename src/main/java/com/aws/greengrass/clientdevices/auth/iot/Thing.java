@@ -24,10 +24,9 @@ import java.util.regex.Pattern;
 import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 
 /**
- * This is a versioned representation of an IoT Thing. It is **NOT** updated
- * when the local Thing Registry is updated, or when changes to this Thing are
- * made in IoT Core. Consider calling the ThingRegistry to retrieve Thing
- * objects as they are needed rather than storing references long term.
+ * This is a versioned representation of an IoT Thing. It is **NOT** updated when the local Thing Registry is updated,
+ * or when changes to this Thing are made in IoT Core. Consider calling the ThingRegistry to retrieve Thing objects as
+ * they are needed rather than storing references long term.
  */
 @Getter
 public final class Thing implements AttributeProvider, Cloneable {
@@ -44,7 +43,7 @@ public final class Thing implements AttributeProvider, Cloneable {
     /**
      * Create a new Thing.
      *
-     * @param thingName      AWS IoT ThingName
+     * @param thingName AWS IoT ThingName
      * @throws IllegalArgumentException If the given ThingName contains illegal characters
      */
     public static Thing of(String thingName) {
@@ -74,6 +73,7 @@ public final class Thing implements AttributeProvider, Cloneable {
 
     /**
      * Attach a certificate ID.
+     *
      * @param certificateId Certificate ID to attach
      */
     public void attachCertificate(String certificateId) {
@@ -83,6 +83,7 @@ public final class Thing implements AttributeProvider, Cloneable {
 
     /**
      * Detach a certificate ID.
+     *
      * @param certificateId Certificate ID to detach
      */
     public void detachCertificate(String certificateId) {
@@ -97,6 +98,7 @@ public final class Thing implements AttributeProvider, Cloneable {
      * This map should not be modified directly. Refer to {@link #attachCertificate(String) attachCertificate} and
      * {@link #detachCertificate(String) detachCertificate}
      * </p>
+     *
      * @return Certificate IDs
      */
     public Map<String, Instant> getAttachedCertificateIds() {
@@ -107,6 +109,7 @@ public final class Thing implements AttributeProvider, Cloneable {
 
     /**
      * Returns the last updated instant we updated the value of a certificate being attached to a thing.
+     *
      * @param certificateId - A certificateId
      */
     public Optional<Instant> certificateLastAttachedOn(String certificateId) {
@@ -151,8 +154,7 @@ public final class Thing implements AttributeProvider, Cloneable {
             return false;
         }
 
-        return thingName.equals(other.thingName)
-                && attachedCertificateIds.equals(other.attachedCertificateIds);
+        return thingName.equals(other.thingName) && attachedCertificateIds.equals(other.attachedCertificateIds);
     }
 
     @Override

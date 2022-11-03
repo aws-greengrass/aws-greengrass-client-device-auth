@@ -8,10 +8,9 @@ package com.aws.greengrass.clientdevices.auth.util;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * Wrapper for LinkedBlockingQueue which lets us resize on demand.
- * When grown, the queue accepts new entries immediately.
- * When shrunk, all members of the queue remain, but new entries will be rejected until the queue size decreases
- * under the capacity.
+ * Wrapper for LinkedBlockingQueue which lets us resize on demand. When grown, the queue accepts new entries
+ * immediately. When shrunk, all members of the queue remain, but new entries will be rejected until the queue size
+ * decreases under the capacity.
  */
 public class ResizableLinkedBlockingQueue<T> extends LinkedBlockingQueue<T> {
     private static final long serialVersionUID = -6903933977591709194L;

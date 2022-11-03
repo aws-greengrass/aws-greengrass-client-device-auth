@@ -27,13 +27,12 @@ public class VerifyThingAttachedToCertificate
     private static final Logger logger = LogManager.getLogger(VerifyThingAttachedToCertificate.class);
 
 
-
     /**
      * Verify a certificate with IoT Core.
      *
-     * @param iotAuthClient       IoT auth client
-     * @param thingRegistry       Thing Registry
-     * @param networkState        Network state
+     * @param iotAuthClient IoT auth client
+     * @param thingRegistry Thing Registry
+     * @param networkState  Network state
      */
     @Inject
     public VerifyThingAttachedToCertificate(IotAuthClient iotAuthClient, ThingRegistry thingRegistry,
@@ -69,9 +68,10 @@ public class VerifyThingAttachedToCertificate
     }
 
     /**
-     * Verifies if a certificate is attached to a thing. When the device is online it will try to verify
-     * it from the cloud and update the local values in case the device goes offline. When offline, the assertion
-     * will be based on the locally stored values.
+     * Verifies if a certificate is attached to a thing. When the device is online it will try to verify it from the
+     * cloud and update the local values in case the device goes offline. When offline, the assertion will be based on
+     * the locally stored values.
+     *
      * @param dto - VerifyCertificateAttachedToThingDTO
      */
     @Override

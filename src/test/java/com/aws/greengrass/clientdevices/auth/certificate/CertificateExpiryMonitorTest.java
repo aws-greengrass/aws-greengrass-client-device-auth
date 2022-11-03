@@ -42,8 +42,8 @@ import static org.mockito.Mockito.mock;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateExpiryMonitorTest {
     private static final String TEST_PASSPHRASE = "testPassphrase";
-    private static final String SUBJECT_PRINCIPAL
-            = "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
+    private static final String SUBJECT_PRINCIPAL =
+            "CN=testCNC\\=USST\\=WashingtonL\\=SeattleO\\=Amazon.com Inc.OU\\=Amazon Web Services";
     private static final X500Name SUBJECT = new X500Name(SUBJECT_PRINCIPAL);
     private static final Duration CERT_EXPIRY = Duration.ofDays(7);
 
@@ -65,7 +65,9 @@ public class CertificateExpiryMonitorTest {
         certificateStore = new CertificateStore(tmpPath, new DomainEvents(), securityServiceMock);
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
 
-        certExpiryMonitor = new CertificateExpiryMonitor(mock(ScheduledExecutorService.class), mock(ConnectivityInformation.class), Clock.systemUTC());
+        certExpiryMonitor =
+                new CertificateExpiryMonitor(mock(ScheduledExecutorService.class), mock(ConnectivityInformation.class),
+                        Clock.systemUTC());
     }
 
     @AfterEach
@@ -102,10 +104,8 @@ public class CertificateExpiryMonitorTest {
         CertificateGenerator serverCg = monitorNewServerCert(now);
         CertificateGenerator clientCg = monitorNewClientCert(now);
 
-        Clock pastExpiration = Clock.fixed(Instant.now(now)
-                        .plus(CERT_EXPIRY)
-                        .plus(10, ChronoUnit.DAYS),
-                ZoneId.of("UTC"));
+        Clock pastExpiration =
+                Clock.fixed(Instant.now(now).plus(CERT_EXPIRY).plus(10, ChronoUnit.DAYS), ZoneId.of("UTC"));
 
         // when certs are regenerated, make regen time the current time
         serverCg.setClock(pastExpiration);
@@ -116,22 +116,22 @@ public class CertificateExpiryMonitorTest {
         certExpiryMonitor.watchForCertExpiryOnce();
 
         // verify certs are new
-        assertEquals(pastExpiration.instant().plus(CERT_EXPIRY).truncatedTo(ChronoUnit.SECONDS), serverCg.getExpiryTime());
-        assertEquals(pastExpiration.instant().plus(CERT_EXPIRY).truncatedTo(ChronoUnit.SECONDS), clientCg.getExpiryTime());
+        assertEquals(pastExpiration.instant().plus(CERT_EXPIRY).truncatedTo(ChronoUnit.SECONDS),
+                serverCg.getExpiryTime());
+        assertEquals(pastExpiration.instant().plus(CERT_EXPIRY).truncatedTo(ChronoUnit.SECONDS),
+                clientCg.getExpiryTime());
     }
 
     @Test
-    void GIVEN_certs_added_to_monitor_WHEN_certs_approaching_expiration_THEN_new_certs_are_generated() throws Exception {
+    void GIVEN_certs_added_to_monitor_WHEN_certs_approaching_expiration_THEN_new_certs_are_generated()
+            throws Exception {
         Clock now = Clock.fixed(Instant.now(), ZoneId.of("UTC"));
 
         CertificateGenerator serverCg = monitorNewServerCert(now);
         CertificateGenerator clientCg = monitorNewClientCert(now);
 
-        Clock approachingExpiration = Clock.fixed(
-                Instant.now(now)
-                        .plus(CERT_EXPIRY)
-                        .minus(1, ChronoUnit.DAYS),
-                ZoneId.of("UTC"));
+        Clock approachingExpiration =
+                Clock.fixed(Instant.now(now).plus(CERT_EXPIRY).minus(1, ChronoUnit.DAYS), ZoneId.of("UTC"));
 
         // when certs are regenerated, make regen time the current time
         serverCg.setClock(approachingExpiration);
@@ -142,8 +142,10 @@ public class CertificateExpiryMonitorTest {
         certExpiryMonitor.watchForCertExpiryOnce();
 
         // verify certs are new
-        assertEquals(approachingExpiration.instant().plus(CERT_EXPIRY).truncatedTo(ChronoUnit.SECONDS), serverCg.getExpiryTime());
-        assertEquals(approachingExpiration.instant().plus(CERT_EXPIRY).truncatedTo(ChronoUnit.SECONDS), clientCg.getExpiryTime());
+        assertEquals(approachingExpiration.instant().plus(CERT_EXPIRY).truncatedTo(ChronoUnit.SECONDS),
+                serverCg.getExpiryTime());
+        assertEquals(approachingExpiration.instant().plus(CERT_EXPIRY).truncatedTo(ChronoUnit.SECONDS),
+                clientCg.getExpiryTime());
     }
 
     @Test
@@ -157,10 +159,8 @@ public class CertificateExpiryMonitorTest {
         Instant originalClientCertExpiry = clientCg.getExpiryTime();
 
         Clock notExpired = Clock.fixed(
-                Instant.now(now)
-                        .plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS))
-                        .minus(2, ChronoUnit.DAYS),
-                ZoneId.of("UTC"));
+                Instant.now(now).plus(Duration.ofSeconds(CertificatesConfig.DEFAULT_SERVER_CERT_EXPIRY_SECONDS))
+                        .minus(2, ChronoUnit.DAYS), ZoneId.of("UTC"));
 
         // when certs are regenerated, make regen time the current time
         serverCg.setClock(notExpired);
@@ -176,8 +176,7 @@ public class CertificateExpiryMonitorTest {
     }
 
     /**
-     * Create a new server certificate generator and
-     * add it to the expiry monitor.
+     * Create a new server certificate generator and add it to the expiry monitor.
      *
      * @param clock clock
      * @return cert generator
@@ -186,14 +185,12 @@ public class CertificateExpiryMonitorTest {
      */
     private CertificateGenerator monitorNewServerCert(Clock clock)
             throws NoSuchAlgorithmException, CertificateGenerationException {
-        return monitorNewCert(key -> new ServerCertificateGenerator(
-                SUBJECT, key, (cert, caChain) -> {
+        return monitorNewCert(key -> new ServerCertificateGenerator(SUBJECT, key, (cert, caChain) -> {
         }, certificateStore, certificatesConfig, clock));
     }
 
     /**
-     * Create a new client certificate generator and
-     * add it to the expiry monitor.
+     * Create a new client certificate generator and add it to the expiry monitor.
      *
      * @param clock clock
      * @return cert generator
@@ -202,8 +199,7 @@ public class CertificateExpiryMonitorTest {
      */
     private CertificateGenerator monitorNewClientCert(Clock clock)
             throws NoSuchAlgorithmException, CertificateGenerationException {
-        return monitorNewCert(key -> new ClientCertificateGenerator(
-                SUBJECT, key, (cert, caChain) -> {
+        return monitorNewCert(key -> new ClientCertificateGenerator(SUBJECT, key, (cert, caChain) -> {
         }, certificateStore, certificatesConfig, clock));
     }
 

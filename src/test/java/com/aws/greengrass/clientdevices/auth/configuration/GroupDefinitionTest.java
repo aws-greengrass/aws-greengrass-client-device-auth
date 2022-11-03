@@ -33,7 +33,8 @@ public class GroupDefinitionTest {
     }
 
     @Test
-    void GIVEN_groupDefinitionWithWildcardAndMatchingSession_WHEN_containsSession_THEN_returnsTrue() throws ParseException {
+    void GIVEN_groupDefinitionWithWildcardAndMatchingSession_WHEN_containsSession_THEN_returnsTrue()
+            throws ParseException {
         GroupDefinition groupDefinition = new GroupDefinition("thingName: thing*", "Policy1");
         Session session = Mockito.mock(Session.class);
         DeviceAttribute attribute = new WildcardSuffixAttribute("thing-A");

@@ -34,7 +34,7 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
      * Construct a new ConfigurationMonitor.
      *
      * @param connectivityInformation Connectivity Info Provider
-     * @param domainEvents domain events service
+     * @param domainEvents            domain events service
      */
     @Inject
     public CertificateRotationHandler(ConnectivityInformation connectivityInformation, DomainEvents domainEvents) {
@@ -78,8 +78,7 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
 
         for (CertificateGenerator generator : monitoredCertificateGenerators) {
             try {
-                generator.generateCertificate(
-                        connectivityInformation::getCachedHostAddresses,
+                generator.generateCertificate(connectivityInformation::getCachedHostAddresses,
                         "Certificate Configuration Changed");
             } catch (CertificateGenerationException e) {
                 logger.atError().cause(e).log("Failed to rotate server certificate");

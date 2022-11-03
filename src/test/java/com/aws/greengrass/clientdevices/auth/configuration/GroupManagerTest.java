@@ -42,8 +42,7 @@ public class GroupManagerTest {
         GroupConfiguration groupConfiguration = GroupConfiguration.builder()
                 .definitions(Collections.singletonMap("group1", getGroupDefinition("differentThingName", "policy1")))
                 .policies(Collections.singletonMap("policy1",
-                        Collections.singletonMap("Statement1", getPolicyStatement("connect", "clientId"))))
-                .build();
+                        Collections.singletonMap("Statement1", getPolicyStatement("connect", "clientId")))).build();
         GroupManager groupManager = new GroupManager();
         groupManager.setGroupConfiguration(groupConfiguration);
 
@@ -56,14 +55,13 @@ public class GroupManagerTest {
             throws AuthorizationException, ParseException {
         Session session = getSessionFromThing("thingName");
         GroupConfiguration groupConfiguration = GroupConfiguration.builder()
-                .definitions(Collections.singletonMap("group1", getGroupDefinition("thingName", "policy1")))
-                .policies(Collections.singletonMap("policy1",
-                        Collections.singletonMap("Statement1", getPolicyStatement("connect", "clientId"))))
+                .definitions(Collections.singletonMap("group1", getGroupDefinition("thingName", "policy1"))).policies(
+                        Collections.singletonMap("policy1",
+                                Collections.singletonMap("Statement1", getPolicyStatement("connect", "clientId"))))
                 .build();
         GroupManager groupManager = new GroupManager();
-        Map<String, Set<Permission>> permissionsMap = new HashMap<>(
-                Collections.singletonMap("group1",
-                        new HashSet<>(Collections.singleton(new Permission("group1", "connect", "clientId")))));
+        Map<String, Set<Permission>> permissionsMap = new HashMap<>(Collections.singletonMap("group1",
+                new HashSet<>(Collections.singleton(new Permission("group1", "connect", "clientId")))));
 
         groupManager.setGroupConfiguration(groupConfiguration);
 
@@ -74,18 +72,16 @@ public class GroupManagerTest {
     void GIVEN_sessionInMultipleGroups_WHEN_getApplicablePolicyPermissions_THEN_returnMergedGroupPermissions()
             throws AuthorizationException, ParseException {
         Session session = getSessionFromThing("thingName");
-        GroupConfiguration groupConfiguration = GroupConfiguration.builder()
-                .definitions(new HashMap<String, GroupDefinition>(){{
+        GroupConfiguration groupConfiguration =
+                GroupConfiguration.builder().definitions(new HashMap<String, GroupDefinition>() {{
                     put("group1", getGroupDefinition("thingName", "policy1"));
                     put("group2", getGroupDefinition("thingName", "policy2"));
                     put("group3", getGroupDefinition("differentThingName", "policy3"));
-                }})
-                .policies(new HashMap<String, Map<String, AuthorizationPolicyStatement>>() {{
+                }}).policies(new HashMap<String, Map<String, AuthorizationPolicyStatement>>() {{
                     put("policy1", Collections.singletonMap("Statement1", getPolicyStatement("connect", "clientId")));
                     put("policy2", Collections.singletonMap("Statement1", getPolicyStatement("publish", "topic")));
                     put("policy3", Collections.singletonMap("Statement1", getPolicyStatement("subscribe", "topic")));
-                }})
-                .build();
+                }}).build();
         GroupManager groupManager = new GroupManager();
 
         Map<String, Set<Permission>> permissionsMap = new HashMap<>();
@@ -105,16 +101,11 @@ public class GroupManagerTest {
     }
 
     private GroupDefinition getGroupDefinition(String thingName, String policyName) throws ParseException {
-        return GroupDefinition.builder()
-                .selectionRule("thingName: " + thingName)
-                .policyName(policyName)
-                .build();
+        return GroupDefinition.builder().selectionRule("thingName: " + thingName).policyName(policyName).build();
     }
 
     private AuthorizationPolicyStatement getPolicyStatement(String operation, String resource) {
-        return new AuthorizationPolicyStatement("Policy description",
-                AuthorizationPolicyStatement.Effect.ALLOW,
-                new HashSet<>(Collections.singleton(operation)),
-                new HashSet<>(Collections.singleton(resource)));
+        return new AuthorizationPolicyStatement("Policy description", AuthorizationPolicyStatement.Effect.ALLOW,
+                new HashSet<>(Collections.singleton(operation)), new HashSet<>(Collections.singleton(resource)));
     }
 }

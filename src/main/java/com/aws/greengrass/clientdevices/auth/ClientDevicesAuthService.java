@@ -99,11 +99,12 @@ public class ClientDevicesAuthService extends PluginService {
 
     private int getValidCloudCallQueueSize(Topics topics) {
         int newSize = Coerce.toInt(
-                topics.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE,
-                        CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, CLOUD_REQUEST_QUEUE_SIZE_TOPIC));
+                topics.findOrDefault(DEFAULT_CLOUD_CALL_QUEUE_SIZE, CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC,
+                        CLOUD_REQUEST_QUEUE_SIZE_TOPIC));
         if (newSize <= 0) {
-            logger.atWarn().log("{} illegal size, will not change the queue size from {}",
-                    CLOUD_REQUEST_QUEUE_SIZE_TOPIC, cloudCallQueueSize);
+            logger.atWarn()
+                    .log("{} illegal size, will not change the queue size from {}", CLOUD_REQUEST_QUEUE_SIZE_TOPIC,
+                            cloudCallQueueSize);
             return cloudCallQueueSize; // existing size
         }
         return newSize;
@@ -120,8 +121,7 @@ public class ClientDevicesAuthService extends PluginService {
         // Initialize IPC thread pool
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
         cloudCallQueueSize = getValidCloudCallQueueSize(config);
-        cloudCallThreadPool = new ThreadPoolExecutor(1,
-                DEFAULT_THREAD_POOL_SIZE, 60, TimeUnit.SECONDS,
+        cloudCallThreadPool = new ThreadPoolExecutor(1, DEFAULT_THREAD_POOL_SIZE, 60, TimeUnit.SECONDS,
                 new ResizableLinkedBlockingQueue<>(cloudCallQueueSize));
         cloudCallThreadPool.allowCoreThreadTimeOut(true); // act as a cached threadpool
     }
@@ -162,8 +162,9 @@ public class ClientDevicesAuthService extends PluginService {
 
         try {
             // NOTE: Extract this to a method these are infrastructure concerns.
-            int threadPoolSize = Coerce.toInt(this.config.findOrDefault(DEFAULT_THREAD_POOL_SIZE,
-                    CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC, MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC));
+            int threadPoolSize = Coerce.toInt(
+                    this.config.findOrDefault(DEFAULT_THREAD_POOL_SIZE, CONFIGURATION_CONFIG_KEY, PERFORMANCE_TOPIC,
+                            MAX_CONCURRENT_CLOUD_REQUESTS_TOPIC));
             if (threadPoolSize >= cloudCallThreadPool.getCorePoolSize()) {
                 cloudCallThreadPool.setMaximumPoolSize(threadPoolSize);
             }
@@ -205,11 +206,9 @@ public class ClientDevicesAuthService extends PluginService {
         super.postInject();
         AuthorizationHandler authorizationHandler = context.get(AuthorizationHandler.class);
         try {
-            authorizationHandler.registerComponent(this.getName(),
-                    new HashSet<>(Arrays.asList(SUBSCRIBE_TO_CERTIFICATE_UPDATES,
-                            VERIFY_CLIENT_DEVICE_IDENTITY,
-                            GET_CLIENT_DEVICE_AUTH_TOKEN,
-                            AUTHORIZE_CLIENT_DEVICE_ACTION)));
+            authorizationHandler.registerComponent(this.getName(), new HashSet<>(
+                    Arrays.asList(SUBSCRIBE_TO_CERTIFICATE_UPDATES, VERIFY_CLIENT_DEVICE_IDENTITY,
+                            GET_CLIENT_DEVICE_AUTH_TOKEN, AUTHORIZE_CLIENT_DEVICE_ACTION)));
         } catch (com.aws.greengrass.authorization.exceptions.AuthorizationException e) {
             logger.atError("initialize-cda-service-authorization-error", e)
                     .log("Failed to initialize the client device auth service with the Authorization module.");
@@ -219,17 +218,17 @@ public class ClientDevicesAuthService extends PluginService {
         ClientDevicesAuthServiceApi serviceApi = context.get(ClientDevicesAuthServiceApi.class);
         CertificateManager certificateManager = context.get(CertificateManager.class);
 
-        greengrassCoreIPCService.setSubscribeToCertificateUpdatesHandler(context ->
-                new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager, authorizationHandler));
-        greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(context ->
-                new VerifyClientDeviceIdentityOperationHandler(context, serviceApi,
-                        authorizationHandler, cloudCallThreadPool));
-        greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(context ->
-                new GetClientDeviceAuthTokenOperationHandler(context, serviceApi, authorizationHandler,
-                        cloudCallThreadPool));
-        greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(context ->
-                new AuthorizeClientDeviceActionOperationHandler(context, serviceApi,
+        greengrassCoreIPCService.setSubscribeToCertificateUpdatesHandler(
+                context -> new SubscribeToCertificateUpdatesOperationHandler(context, certificateManager,
                         authorizationHandler));
+        greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(
+                context -> new VerifyClientDeviceIdentityOperationHandler(context, serviceApi, authorizationHandler,
+                        cloudCallThreadPool));
+        greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(
+                context -> new GetClientDeviceAuthTokenOperationHandler(context, serviceApi, authorizationHandler,
+                        cloudCallThreadPool));
+        greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(
+                context -> new AuthorizeClientDeviceActionOperationHandler(context, serviceApi, authorizationHandler));
     }
 
     public CertificateManager getCertificateManager() {
@@ -237,16 +236,14 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void updateDeviceGroups(WhatHappened whatHappened, Topics deviceGroupsTopics) {
-        final ObjectMapper objectMapper = new ObjectMapper()
-                .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
+        final ObjectMapper objectMapper = new ObjectMapper().enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS,
+                MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
 
         try {
             context.get(GroupManager.class).setGroupConfiguration(
                     objectMapper.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
         } catch (IllegalArgumentException e) {
-            logger.atError().kv("event", whatHappened)
-                    .kv("node", deviceGroupsTopics.getFullName())
-                    .setCause(e)
+            logger.atError().kv("event", whatHappened).kv("node", deviceGroupsTopics.getFullName()).setCause(e)
                     .log("Unable to parse group configuration");
             serviceErrored(e);
         }

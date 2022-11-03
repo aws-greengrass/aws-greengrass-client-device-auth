@@ -39,7 +39,8 @@ public final class CertificateFake extends Certificate {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             digest.reset();
-            return new String(Hex.encode(digest.digest(certPem.getBytes(StandardCharsets.UTF_8))), StandardCharsets.UTF_8);
+            return new String(Hex.encode(digest.digest(certPem.getBytes(StandardCharsets.UTF_8))),
+                    StandardCharsets.UTF_8);
         } catch (NoSuchAlgorithmException e) {
             throw new InvalidCertificateException("Unable to compute certificate ID", e);
         }

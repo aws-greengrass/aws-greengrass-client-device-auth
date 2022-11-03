@@ -25,8 +25,8 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /**
- * IoT Auth Client Fake allows test writers to set up valid and invalid certificates,
- * as well as Thing <-> certificate attachments without needing to manage mocks.
+ * IoT Auth Client Fake allows test writers to set up valid and invalid certificates, as well as Thing <-> certificate
+ * attachments without needing to manage mocks.
  */
 public class IotAuthClientFake implements IotAuthClient {
     private final List<Supplier<String>> thingsAttachedToCore = new ArrayList<>();
@@ -134,7 +134,7 @@ public class IotAuthClientFake implements IotAuthClient {
     }
 
     /**
-     *  Returns 1 AssociatedClientDevice per page.
+     * Returns 1 AssociatedClientDevice per page.
      */
     private static class ThingsAttachedToCorePaginator implements SdkIterable<List<AssociatedClientDevice>> {
         private final SyncPageFetcher<List<AssociatedClientDevice>> syncPageFetcher;
@@ -173,8 +173,8 @@ public class IotAuthClientFake implements IotAuthClient {
         public List<AssociatedClientDevice> nextPage(List<AssociatedClientDevice> previousPage) {
             if (hasNextPage(previousPage)) {
                 Thing toReturn = Thing.of(thingsAttachedToCore.get(currentPage).get());
-                AssociatedClientDevice device = AssociatedClientDevice.builder()
-                        .associationTimestamp(Instant.now()).thingName(toReturn.getThingName()).build();
+                AssociatedClientDevice device = AssociatedClientDevice.builder().associationTimestamp(Instant.now())
+                        .thingName(toReturn.getThingName()).build();
                 currentPage++;
                 return Collections.singletonList(device);
             }

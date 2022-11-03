@@ -26,8 +26,8 @@ public class SessionManager {
     // Thread-safe LRU Session Cache that evicts the eldest entry (based on access order) upon reaching its size.
     // TODO: Support time-based cache eviction (Session timeout) and Session deduping.
     @Getter(AccessLevel.PACKAGE)
-    private final Map<String, Session> sessionMap = Collections.synchronizedMap(
-            new LinkedHashMap<String, Session>(getSessionCapacity(), 0.75f, true) {
+    private final Map<String, Session> sessionMap =
+            Collections.synchronizedMap(new LinkedHashMap<String, Session>(getSessionCapacity(), 0.75f, true) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry<String, Session> eldest) {
                     // check size against latest configured session capacity

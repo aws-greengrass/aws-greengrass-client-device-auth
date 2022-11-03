@@ -84,7 +84,7 @@ public class RuntimeConfigurationTest {
         // create thing leaf node (topic) instead of topic container (topics)
         String[] topicList = {THINGS_KEY, THINGS_V1_KEY, mockThingName, THINGS_CERTIFICATES_KEY};
         for (int index = 0; index < topicList.length; index++) {
-            String[] temp = Arrays.copyOfRange(topicList, 0, index+1);
+            String[] temp = Arrays.copyOfRange(topicList, 0, index + 1);
             configurationTopics.lookup(temp);
             ThingV1DTO thing = new ThingV1DTO(mockThingName, Collections.emptyMap());
             runtimeConfiguration.putThing(thing);

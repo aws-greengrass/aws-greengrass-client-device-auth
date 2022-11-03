@@ -42,13 +42,12 @@ public class CertificateExpiryMonitor {
     /**
      * Construct a new CertificateExpiryMonitor.
      *
-     * @param ses                      ScheduledExecutorService to schedule cert expiry checks
+     * @param ses                     ScheduledExecutorService to schedule cert expiry checks
      * @param connectivityInformation Connectivity Info Provider
-     * @param clock                    clock
+     * @param clock                   clock
      */
     @Inject
-    public CertificateExpiryMonitor(ScheduledExecutorService ses,
-                                    ConnectivityInformation connectivityInformation,
+    public CertificateExpiryMonitor(ScheduledExecutorService ses, ConnectivityInformation connectivityInformation,
                                     Clock clock) {
         this.ses = ses;
         this.connectivityInformation = connectivityInformation;
@@ -72,17 +71,14 @@ public class CertificateExpiryMonitor {
 
     void watchForCertExpiryOnce() {
         for (CertificateGenerator cg : monitoredCertificateGenerators) {
-            new CertRotationDecider(cg, clock)
-                    .rotationReady()
-                    .ifPresent(reason -> {
-                        try {
-                            cg.generateCertificate(connectivityInformation::getCachedHostAddresses, reason);
-                        } catch (CertificateGenerationException e) {
-                            LOGGER.atError().cause(e).log(
-                                    "Error generating certificate. Will be retried after {} seconds",
-                                    DEFAULT_CERT_EXPIRY_CHECK_SECONDS);
-                        }
-                    });
+            new CertRotationDecider(cg, clock).rotationReady().ifPresent(reason -> {
+                try {
+                    cg.generateCertificate(connectivityInformation::getCachedHostAddresses, reason);
+                } catch (CertificateGenerationException e) {
+                    LOGGER.atError().cause(e).log("Error generating certificate. Will be retried after {} seconds",
+                            DEFAULT_CERT_EXPIRY_CHECK_SECONDS);
+                }
+            });
         }
     }
 
@@ -134,11 +130,9 @@ public class CertificateExpiryMonitor {
             }
 
             if (isAboutToExpire()) {
-                return Optional.of(String.format(
-                        "certificate is approaching expiration at %s with %d seconds remaining",
-                        expiryTime,
-                        getValidity().getSeconds()
-                ));
+                return Optional.of(
+                        String.format("certificate is approaching expiration at %s with %d seconds remaining",
+                                expiryTime, getValidity().getSeconds()));
             }
 
             return Optional.empty();

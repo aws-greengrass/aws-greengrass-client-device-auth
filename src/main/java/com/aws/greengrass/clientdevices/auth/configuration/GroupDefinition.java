@@ -36,8 +36,8 @@ public class GroupDefinition {
     }
 
     /**
-     * Returns true if the client device represented by the specified session
-     * belongs to this device group.
+     * Returns true if the client device represented by the specified session belongs to this device group.
+     *
      * @param session session representing the client device to be tested
      * @return true if the client device belongs to the group
      */

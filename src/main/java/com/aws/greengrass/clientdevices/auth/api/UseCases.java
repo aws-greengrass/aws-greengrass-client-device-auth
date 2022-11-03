@@ -11,7 +11,7 @@ import com.aws.greengrass.dependency.Context;
 public class UseCases {
     private Context context;
 
-    public interface UseCase<R, D>  {
+    public interface UseCase<R, D> {
         @SuppressWarnings("PMD.SignatureDeclareThrowsException")
         R apply(D var1) throws Exception;
     }

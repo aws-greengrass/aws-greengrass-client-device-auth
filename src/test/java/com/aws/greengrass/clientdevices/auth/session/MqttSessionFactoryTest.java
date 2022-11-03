@@ -57,12 +57,8 @@ public class MqttSessionFactoryTest {
     private MqttSessionFactory mqttSessionFactory;
     private Context context;
 
-    private final Map<String, String> credentialMap = ImmutableMap.of(
-            "certificatePem", "PEM",
-            "clientId", "clientId",
-            "username", "",
-            "password", ""
-    );
+    private final Map<String, String> credentialMap =
+            ImmutableMap.of("certificatePem", "PEM", "clientId", "clientId", "username", "", "password", "");
 
 
     @BeforeEach
@@ -88,36 +84,33 @@ public class MqttSessionFactoryTest {
     void GIVEN_credentialsWithUnknownClientId_WHEN_createSession_THEN_throwsAuthenticationException()
             throws InvalidCertificateException {
         when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
-        when(mockCertificateRegistry.getCertificateFromPem(any()))
-                .thenReturn(Optional.of(CertificateFake.activeCertificate()));
+        when(mockCertificateRegistry.getCertificateFromPem(any())).thenReturn(
+                Optional.of(CertificateFake.activeCertificate()));
         when(mockThingRegistry.getThing(any())).thenReturn(Thing.of("clientId"));
         when(mockThingRegistry.getOrCreateThing(any())).thenReturn(Thing.of("clientId"));
         when(iotAuthClientMock.isThingAttachedToCertificate(any(), (String) any())).thenReturn(false);
 
-        Assertions.assertThrows(AuthenticationException.class,
-                () -> mqttSessionFactory.createSession(credentialMap));
+        Assertions.assertThrows(AuthenticationException.class, () -> mqttSessionFactory.createSession(credentialMap));
     }
 
     @Test
     void GIVEN_credentialsWithInvalidCertificate_WHEN_createSession_THEN_throwsAuthenticationException()
             throws InvalidCertificateException {
         when(mockCertificateRegistry.getCertificateFromPem(any())).thenReturn(Optional.empty());
-        Assertions.assertThrows(AuthenticationException.class,
-                () -> mqttSessionFactory.createSession(credentialMap));
+        Assertions.assertThrows(AuthenticationException.class, () -> mqttSessionFactory.createSession(credentialMap));
     }
 
     @Test
     void GIVEN_credentialsWithCertificate_WHEN_createSession_AND_cloudError_THEN_throwsAuthenticationException()
             throws InvalidCertificateException {
         when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
-        when(mockCertificateRegistry.getCertificateFromPem(any()))
-                .thenReturn(Optional.of(CertificateFake.activeCertificate()));
+        when(mockCertificateRegistry.getCertificateFromPem(any())).thenReturn(
+                Optional.of(CertificateFake.activeCertificate()));
         when(mockThingRegistry.getThing(any())).thenReturn(Thing.of("clientId"));
         when(mockThingRegistry.getOrCreateThing(any())).thenReturn(Thing.of("clientId"));
-        when(iotAuthClientMock.isThingAttachedToCertificate(any(), (String) any()))
-                .thenThrow(CloudServiceInteractionException.class);
-        Assertions.assertThrows(AuthenticationException.class,
-                () -> mqttSessionFactory.createSession(credentialMap));
+        when(iotAuthClientMock.isThingAttachedToCertificate(any(), (String) any())).thenThrow(
+                CloudServiceInteractionException.class);
+        Assertions.assertThrows(AuthenticationException.class, () -> mqttSessionFactory.createSession(credentialMap));
     }
 
     @Test
@@ -126,8 +119,8 @@ public class MqttSessionFactoryTest {
         when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockThingRegistry.getOrCreateThing("clientId")).thenReturn(Thing.of("clientId"));
         when(mockThingRegistry.getThing(any())).thenReturn(Thing.of("clientId"));
-        when(mockCertificateRegistry.getCertificateFromPem(any()))
-                .thenReturn(Optional.of(CertificateFake.activeCertificate()));
+        when(mockCertificateRegistry.getCertificateFromPem(any())).thenReturn(
+                Optional.of(CertificateFake.activeCertificate()));
         when(iotAuthClientMock.isThingAttachedToCertificate((Thing) any(), (String) any())).thenReturn(true);
 
         Session session = mqttSessionFactory.createSession(credentialMap);

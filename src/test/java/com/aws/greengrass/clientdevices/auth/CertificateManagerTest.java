@@ -107,12 +107,13 @@ public class CertificateManagerTest {
         certificateStore = spy(new CertificateStore(tmpPath, domainEvents, securityServiceMock));
         certRotationMonitor = new CertificateRotationHandler(mockConnectivityInformation, domainEvents);
 
-        certificateManager = new CertificateManager(certificateStore,
-                mockConnectivityInformation, mockCertExpiryMonitor, mockShadowMonitor,
-                Clock.systemUTC(), clientFactoryMock, securityServiceMock, certRotationMonitor);
+        certificateManager =
+                new CertificateManager(certificateStore, mockConnectivityInformation, mockCertExpiryMonitor,
+                        mockShadowMonitor, Clock.systemUTC(), clientFactoryMock, securityServiceMock,
+                        certRotationMonitor);
 
-        CertificatesConfig certificatesConfig = new CertificatesConfig(
-                Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
+        CertificatesConfig certificatesConfig =
+                new CertificatesConfig(Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
     }
 
@@ -128,13 +129,9 @@ public class CertificateManagerTest {
 
         Instant now = Instant.now();
         KeyPair keyPair = CertificateStore.newRSAKeyPair(2048);
-        X509Certificate caCertificate = CertificateHelper.createCACertificate(
-            keyPair,
-            Date.from(now),
-            Date.from(now.plusSeconds(10)),
-            "Custom Core CA",
-            CertificateHelper.ProviderType.DEFAULT
-        );
+        X509Certificate caCertificate =
+                CertificateHelper.createCACertificate(keyPair, Date.from(now), Date.from(now.plusSeconds(10)),
+                        "Custom Core CA", CertificateHelper.ProviderType.DEFAULT);
 
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
@@ -169,13 +166,9 @@ public class CertificateManagerTest {
 
         Instant now = Instant.now();
         KeyPair keyPair = CertificateStore.newRSAKeyPair(2048);
-        X509Certificate caCertificate = CertificateHelper.createCACertificate(
-            keyPair,
-            Date.from(now),
-            Date.from(now.plusSeconds(10)),
-            "Custom Core CA",
-            CertificateHelper.ProviderType.DEFAULT
-        );
+        X509Certificate caCertificate =
+                CertificateHelper.createCACertificate(keyPair, Date.from(now), Date.from(now.plusSeconds(10)),
+                        "Custom Core CA", CertificateHelper.ProviderType.DEFAULT);
 
         URI privateKeyUri = new URI("file:///private.key");
         URI certificateUri = new URI("file:///certificate.pem");
@@ -205,8 +198,8 @@ public class CertificateManagerTest {
             KeyStoreException {
         certificateManager.generateCA("", CertificateStore.CAType.RSA_2048);
 
-        Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> con =
-                TestUtils.asyncAssertOnConsumer((a) -> {}, 3);
+        Pair<CompletableFuture<Void>, Consumer<CertificateUpdateEvent>> con = TestUtils.asyncAssertOnConsumer((a) -> {
+        }, 3);
 
         GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
         requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.SERVER);
@@ -221,14 +214,15 @@ public class CertificateManagerTest {
     }
 
     @Test
-    void GIVEN_caIsNotReady_WHEN_subscribeToCertificateUpdates_THEN_receivesCertsWhenCAReady() throws
-            CertificateGenerationException, KeyStoreException {
+    void GIVEN_caIsNotReady_WHEN_subscribeToCertificateUpdates_THEN_receivesCertsWhenCAReady()
+            throws CertificateGenerationException, KeyStoreException {
         AtomicInteger callCount = new AtomicInteger(0);
-        Consumer<CertificateUpdateEvent> consumer = (a) -> { callCount.getAndIncrement(); };
+        Consumer<CertificateUpdateEvent> consumer = (a) -> {
+            callCount.getAndIncrement();
+        };
         GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
         requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.SERVER);
-        GetCertificateRequest certificateRequest =
-                new GetCertificateRequest("testService", requestOptions, consumer);
+        GetCertificateRequest certificateRequest = new GetCertificateRequest("testService", requestOptions, consumer);
         certRotationMonitor.listen();
 
         // Ca has not been configured
@@ -247,10 +241,9 @@ public class CertificateManagerTest {
 
         Consumer<CertificateUpdateEvent> cb = t -> {
             try {
-                X509Certificate[] certChain = Stream.concat(
-                                Stream.of(t.getCertificate()),
-                                Arrays.stream(t.getCaCertificates()))
-                        .toArray(X509Certificate[]::new);
+                X509Certificate[] certChain =
+                        Stream.concat(Stream.of(t.getCertificate()), Arrays.stream(t.getCaCertificates()))
+                                .toArray(X509Certificate[]::new);
                 KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
                 ks.load(null, null);
                 ks.setKeyEntry("key", t.getKeyPair().getPrivate(), "".toCharArray(), certChain);
@@ -261,8 +254,7 @@ public class CertificateManagerTest {
 
         GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
         requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.SERVER);
-        GetCertificateRequest certificateRequest =
-                new GetCertificateRequest("testService", requestOptions, cb);
+        GetCertificateRequest certificateRequest = new GetCertificateRequest("testService", requestOptions, cb);
 
         certificateManager.subscribeToCertificateUpdates(certificateRequest);
     }
@@ -274,10 +266,9 @@ public class CertificateManagerTest {
 
         Consumer<CertificateUpdateEvent> cb = t -> {
             try {
-                X509Certificate[] certChain = Stream.concat(
-                                Stream.of(t.getCertificate()),
-                                Arrays.stream(t.getCaCertificates()))
-                        .toArray(X509Certificate[]::new);
+                X509Certificate[] certChain =
+                        Stream.concat(Stream.of(t.getCertificate()), Arrays.stream(t.getCaCertificates()))
+                                .toArray(X509Certificate[]::new);
                 KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
                 ks.load(null, null);
                 ks.setKeyEntry("key", t.getKeyPair().getPrivate(), "".toCharArray(), certChain);
@@ -288,16 +279,16 @@ public class CertificateManagerTest {
 
         GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
         requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CLIENT);
-        GetCertificateRequest certificateRequest =
-                new GetCertificateRequest("testService", requestOptions, cb);
+        GetCertificateRequest certificateRequest = new GetCertificateRequest("testService", requestOptions, cb);
 
         certificateManager.subscribeToCertificateUpdates(certificateRequest);
     }
 
     @Test
-    void GIVEN_caChain_WHEN_caChainChanges_THEN_subscribersGetLatestValues() throws NoSuchAlgorithmException,
-            CertificateException, OperatorCreationException, IOException, CertificateGenerationException,
-            KeyStoreException, ExecutionException, InterruptedException, TimeoutException {
+    void GIVEN_caChain_WHEN_caChainChanges_THEN_subscribersGetLatestValues()
+            throws NoSuchAlgorithmException, CertificateException, OperatorCreationException, IOException,
+            CertificateGenerationException, KeyStoreException, ExecutionException, InterruptedException,
+            TimeoutException {
         certificateManager.generateCA("", CertificateStore.CAType.RSA_2048);
         AtomicReference<CertificateUpdateEvent> eventRef = new AtomicReference<>();
 
@@ -320,7 +311,7 @@ public class CertificateManagerTest {
 
         asyncCall.getLeft().get(2, TimeUnit.SECONDS);
         assertEquals(1, eventRef.get().getCaCertificates().length);
-        assertEquals(CertificateHelper.toPem(caA), CertificateHelper.toPem( eventRef.get().getCaCertificates()[0]));
+        assertEquals(CertificateHelper.toPem(caA), CertificateHelper.toPem(eventRef.get().getCaCertificates()[0]));
 
         ArgumentCaptor<CertificateGenerator> generator = ArgumentCaptor.forClass(CertificateGenerator.class);
         verify(mockCertExpiryMonitor).addToMonitor(generator.capture());
@@ -337,7 +328,7 @@ public class CertificateManagerTest {
     @Test
     void GIVEN_nullRequest_WHEN_subscribeToCertificateUpdates_THEN_throwsNPE() throws KeyStoreException {
         certificateManager.generateCA("", CertificateStore.CAType.RSA_2048);
-        Assertions.assertThrows(NullPointerException.class, () ->
-                certificateManager.subscribeToCertificateUpdates(null));
+        Assertions.assertThrows(NullPointerException.class,
+                () -> certificateManager.subscribeToCertificateUpdates(null));
     }
 }

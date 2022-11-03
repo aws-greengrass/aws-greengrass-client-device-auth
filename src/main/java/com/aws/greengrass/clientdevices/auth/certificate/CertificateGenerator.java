@@ -38,11 +38,8 @@ public abstract class CertificateGenerator {
      * @param certificatesConfig Certificate configuration
      * @param clock              clock
      */
-    public CertificateGenerator(X500Name subject,
-                                PublicKey publicKey,
-                                CertificateStore certificateStore,
-                                CertificatesConfig certificatesConfig,
-                                Clock clock) {
+    public CertificateGenerator(X500Name subject, PublicKey publicKey, CertificateStore certificateStore,
+                                CertificatesConfig certificatesConfig, Clock clock) {
         this.subject = subject;
         this.publicKey = publicKey;
         this.certificateStore = certificateStore;
@@ -51,8 +48,8 @@ public abstract class CertificateGenerator {
     }
 
     /**
-     * Generate a new certificate. This is a potentially expensive operation, especially
-     * for low-powered devices, so consider calling this asynchronously.
+     * Generate a new certificate. This is a potentially expensive operation, especially for low-powered devices, so
+     * consider calling this asynchronously.
      *
      * @param connectivityInfoSupplier connectivity information
      * @param reason                   WHY cert gen was requested.
