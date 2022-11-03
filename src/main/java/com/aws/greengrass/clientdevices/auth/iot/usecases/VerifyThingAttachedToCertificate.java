@@ -43,13 +43,13 @@ public class VerifyThingAttachedToCertificate
     }
 
     private boolean verifyLocally(Thing thing, String certificateId) {
-        logger.atInfo().kv("thing", thing.getThingName()).kv("certificate", certificateId)
+        logger.atDebug().kv("thing", thing.getThingName()).kv("certificate", certificateId)
                 .log("Network down, verifying thing attached to certificate locally");
         return thing.isCertificateAttached(certificateId);
     }
 
     private boolean verifyFromCloud(Thing thing, String certificateId) {
-        logger.atInfo().kv("thing", thing.getThingName()).kv("certificate", certificateId)
+        logger.atDebug().kv("thing", thing.getThingName()).kv("certificate", certificateId)
                 .log("Network up, verifying thing attached to certificate from cloud");
 
         if (iotAuthClient.isThingAttachedToCertificate(thing, certificateId)) {

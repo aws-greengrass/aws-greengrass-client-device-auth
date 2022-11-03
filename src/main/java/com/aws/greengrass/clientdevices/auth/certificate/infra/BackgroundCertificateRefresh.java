@@ -55,7 +55,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     private final ThingRegistry thingRegistry;
     private final IotAuthClient iotAuthClient;
     private final CertificateRegistry certificateRegistry;
-
+    private NetworkStateProvider.ConnectionState previousConnectionState;
     private ScheduledFuture<?> scheduledFuture = null;
     private final ScheduledThreadPoolExecutor scheduler;
     private final AtomicReference<Instant> nextScheduledRun = new AtomicReference<>();
@@ -173,7 +173,10 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      */
     @Override
     public void accept(NetworkStateProvider.ConnectionState connectionState) {
-        if (connectionState == NetworkStateProvider.ConnectionState.NETWORK_UP) {
+        boolean shouldRun = isNetworkBackOnline();
+        this.previousConnectionState = connectionState;
+
+        if (shouldRun) {
             run();
         }
     }
@@ -296,6 +299,11 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
         localCerts.filter(certificate -> !certificatesAttachedToThings.contains(certificate.getCertificateId()))
                 .forEach(certificateRegistry::deleteCertificate);
+    }
+
+    private boolean isNetworkBackOnline() {
+        return previousConnectionState == NetworkStateProvider.ConnectionState.NETWORK_DOWN
+                && networkState.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_UP;
     }
 
     private boolean isNetworkDown() {

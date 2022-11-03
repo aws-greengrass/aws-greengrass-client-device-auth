@@ -12,11 +12,11 @@ import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificate
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
-import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
+import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
@@ -82,13 +82,12 @@ public class BackgroundCertificateRefreshTest {
     @Mock
     private GreengrassV2DataClient client;
     @Mock
-    private NetworkStateProvider.Default networkStateMock;
-    @Mock
     private ScheduledThreadPoolExecutor schedulerMock;
     @Mock
     private VerifyThingAttachedToCertificate verifyThingAttachedToCertificateMock;
     @Mock
     private VerifyIotCertificate verifyIotCertificateMock;
+    private NetworkStateFake network;
     private IotAuthClientFake iotAuthClientFake;
     private CertificateRegistry certificateRegistry;
     private Topics configurationTopics;
@@ -120,8 +119,12 @@ public class BackgroundCertificateRefreshTest {
 
         this.clockMock = Optional.empty();
 
-        backgroundRefresh = spy(new BackgroundCertificateRefresh(schedulerMock, thingRegistry, networkStateMock,
+        network = new NetworkStateFake();
+
+        backgroundRefresh = spy(new BackgroundCertificateRefresh(schedulerMock, thingRegistry, network,
                 certificateRegistry, pemStore, iotAuthClientFake, useCases));
+
+        network.goOnline();
     }
 
     @AfterEach
@@ -231,11 +234,13 @@ public class BackgroundCertificateRefreshTest {
 
     @Test
     void GIVEN_networkWasDown_WHEN_networkUp_THEN_backgroundTaskTriggered() {
-        backgroundRefresh.accept(NetworkStateProvider.ConnectionState.NETWORK_DOWN);
+        network.registerHandler(backgroundRefresh);
+
+        network.goOffline();
         verify(backgroundRefresh, times(0)).run();
-        backgroundRefresh.accept(NetworkStateProvider.ConnectionState.NETWORK_UP);
+        network.goOnline();
         verify(backgroundRefresh, times(1)).run();
-        backgroundRefresh.accept(NetworkStateProvider.ConnectionState.NETWORK_DOWN);
+        network.goOffline();
         verify(backgroundRefresh, times(1)).run();
     }
 
@@ -338,8 +343,9 @@ public class BackgroundCertificateRefreshTest {
         ArgumentCaptor<VerifyThingAttachedToCertificateDTO> doCaptor =
                 ArgumentCaptor.forClass(VerifyThingAttachedToCertificateDTO.class);
 
-        when(verifyThingAttachedToCertificateMock.apply(doCaptor.capture())).thenThrow(
-                new CloudServiceInteractionException("Failed to verify association")).thenReturn(true);
+        when(verifyThingAttachedToCertificateMock.apply(doCaptor.capture()))
+                .thenThrow(new CloudServiceInteractionException("Failed to verify association"))
+                .thenReturn(true);
         assertNull(backgroundRefresh.getLastRan());
         backgroundRefresh.run();
 
@@ -349,7 +355,21 @@ public class BackgroundCertificateRefreshTest {
     }
 
     @Test
+    void GIVEN_deviceBootUpAndNetworkUp_WHEN_backgroundRefreshStarts_THEN_itRunsOnlyAfterNetworkWasPreviouslyDown() {
+        network.registerHandler(backgroundRefresh);
+
+        network.goOnline();
+        verify(backgroundRefresh, times(0)).run();
+        network.goOffline();
+        verify(backgroundRefresh, times(0)).run();
+        network.goOnline();
+        verify(backgroundRefresh, times(1)).run();
+    }
+
+    @Test
     void GIVEN_scheduler_WHEN_runWithConnectivityIssues_THEN_itShouldRunEvery24H() {
+        network.registerHandler(backgroundRefresh);
+
         // Service get started on boot-up
         Instant now = Instant.now();
         mockInstant(now.toEpochMilli());
@@ -358,9 +378,10 @@ public class BackgroundCertificateRefreshTest {
         verify(backgroundRefresh, times(0)).run();
 
         // Network goes down and back up some time later
+        network.goOffline();
         Instant twelveHoursLater = Instant.now();
         mockInstant(twelveHoursLater.toEpochMilli());
-        backgroundRefresh.accept(NetworkStateProvider.ConnectionState.NETWORK_UP);
+        network.goOnline();
         verify(backgroundRefresh, times(1)).run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
         assertEquals(twelveHoursLater.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());
@@ -388,6 +409,8 @@ public class BackgroundCertificateRefreshTest {
     @Test
     void GIVEN_scheduler_WHEN_runWithNetworkFailures_THEN_itShouldRunEvery24H(ExtensionContext context) {
         ignoreExceptionOfType(context, AccessDeniedException.class);
+        network.registerHandler(backgroundRefresh);
+
         // Service get started on boot-up
         Instant now = Instant.now();
         mockInstant(now.toEpochMilli());
@@ -407,10 +430,11 @@ public class BackgroundCertificateRefreshTest {
         assertNull(backgroundRefresh.getLastRan());
 
         // Network goes down and back up again, but this time the error goes away
+        network.goOffline();
         Instant twelveHoursAfterExecution = timeOfNextScheduledRun.plus(Duration.ofHours(12));
         mockInstant(twelveHoursAfterExecution.toEpochMilli());
         reset(iotAuthClientFake); // <- We are removing the error here
-        backgroundRefresh.accept(NetworkStateProvider.ConnectionState.NETWORK_UP);
+        network.goOnline();
         verify(backgroundRefresh, times(2)).run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
         assertEquals(twelveHoursAfterExecution.plus(Duration.ofHours(24)), backgroundRefresh.getNextScheduledRun());
