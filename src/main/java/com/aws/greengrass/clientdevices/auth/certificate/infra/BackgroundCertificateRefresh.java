@@ -148,7 +148,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             return;
         }
 
-        logger.atInfo("Running background task: Refreshing client certificates");
+        logger.info("Running background task: Refreshing client certificates");
 
         Optional<Set<String>> thingNamesAssociatedWithCore = getThingsAssociatedWithCoreDevice();
         thingNamesAssociatedWithCore.ifPresent(thingNames -> {
