@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
+import com.aws.greengrass.clientdevices.auth.helpers.ClockFake;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
@@ -30,8 +31,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.MockedStatic;
-import org.mockito.ScopedMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
@@ -41,10 +40,10 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -57,9 +56,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
+
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class OfflineAuthenticationTest {
@@ -67,8 +64,8 @@ public class OfflineAuthenticationTest {
     Path rootDir;
     private Kernel kernel;
     private IotAuthClientFake iotAuthClientFake;
-    private Optional<MockedStatic<Clock>> clockMock;
     private NetworkStateFake network;
+    private ClockFake clock;
 
 
     @BeforeEach
@@ -84,27 +81,15 @@ public class OfflineAuthenticationTest {
         DomainEvents domainEvents = new DomainEvents();
         kernel.getContext().put(DomainEvents.class, domainEvents);
 
-        iotAuthClientFake = new IotAuthClientFake();
+        clock = new ClockFake();
+        iotAuthClientFake = new IotAuthClientFake(clock);
         kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
-
-        clockMock = Optional.empty();
+        kernel.getContext().put(Clock.class, clock);
     }
 
     @AfterEach
     void cleanup() {
-        this.clockMock.ifPresent(ScopedMock::close);
         kernel.shutdown();
-    }
-
-    @SuppressWarnings("PMD.CloseResource")
-    private void mockInstant(long expected) {
-        this.clockMock.ifPresent(ScopedMock::close);
-        Clock spyClock = spy(Clock.class);
-        MockedStatic<Clock> clockMock;
-        clockMock = mockStatic(Clock.class);
-        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
-        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
-        this.clockMock = Optional.of(clockMock);
     }
 
     private void runNucleusWithConfig(String configFileName) throws InterruptedException {
@@ -202,7 +187,7 @@ public class OfflineAuthenticationTest {
         // Given
         network.goOnline();
         Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
 
         // Configure the things attached to the core
         List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
@@ -217,8 +202,9 @@ public class OfflineAuthenticationTest {
 
         // When
         network.goOffline();
-        Instant twoMinutesLater = now.plusSeconds(2 * 60); // Default expiry is 1 minute
-        mockInstant(twoMinutesLater.toEpochMilli());
+        Instant twoMinutesLater = now.plus(Duration.ofMinutes(2)); // Default expiry is 1 minute
+        clock.setCurrentInstant(twoMinutesLater);
+
 
         // Then
         assertThrows(AuthenticationException.class, () -> {
