@@ -21,6 +21,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -34,6 +35,7 @@ public class Certificate implements AttributeProvider {
     public static final String NAMESPACE = "Certificate";
     private static final AtomicInteger metadataTrustDurationMinutes =
             new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
+    private final Clock clock;
 
     public enum Status {
         ACTIVE, UNKNOWN
@@ -51,6 +53,16 @@ public class Certificate implements AttributeProvider {
      * @param certificateId - a certificateId
      */
     Certificate(String certificateId) {
+        this(certificateId, Clock.systemUTC());
+    }
+
+    /**
+     * Builds a new Certificate instance given its id generated from PEM file.
+     *
+     * @param certificateId - a certificateId
+     */
+    Certificate(String certificateId, Clock clock) {
+        this.clock = clock;
         this.certificateId = certificateId;
         this.status = Status.UNKNOWN;
         this.statusLastUpdated = Instant.EPOCH; // Treat epoch as beginning of time
@@ -78,7 +90,17 @@ public class Certificate implements AttributeProvider {
      * @param status Certificate status
      */
     public void setStatus(Status status) {
-        setStatus(status, Instant.now());
+        setStatus(status, Instant.now(clock));
+    }
+
+    /**
+     * Set certificate status as of the current time.
+     *
+     * @param status Certificate status
+     * @param clock a clock instance
+     */
+    public void setStatus(Status status, Clock clock) {
+        setStatus(status, Instant.now(clock));
     }
 
     /**
@@ -157,7 +179,7 @@ public class Certificate implements AttributeProvider {
 
     private boolean isStatusTrusted() {
         Instant validTill = statusLastUpdated.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
-        return validTill.isAfter(Instant.now());
+        return validTill.isAfter(Instant.now(clock));
     }
 
     private static String computeCertificateId(String certificatePem)

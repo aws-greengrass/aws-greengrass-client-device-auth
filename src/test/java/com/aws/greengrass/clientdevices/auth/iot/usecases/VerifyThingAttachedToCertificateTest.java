@@ -26,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
 
 import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -48,7 +49,8 @@ class VerifyThingAttachedToCertificateTest {
     void beforeEach() {
         iotAuthClientFake = new IotAuthClientFake();
         verifyThingAttachedToCertificate =
-                new VerifyThingAttachedToCertificate(iotAuthClientFake, mockThingRegistry, mockNetworkState);
+                new VerifyThingAttachedToCertificate(iotAuthClientFake, mockThingRegistry, mockNetworkState,
+                        Clock.systemUTC());
     }
 
     @Test
@@ -111,7 +113,8 @@ class VerifyThingAttachedToCertificateTest {
         doThrow(CloudServiceInteractionException.class).when(mockIotAuthClient)
                 .isThingAttachedToCertificate(any(), anyString());
         VerifyThingAttachedToCertificate verifyThingAttachedToCertificate =
-                new VerifyThingAttachedToCertificate(mockIotAuthClient, mockThingRegistry, mockNetworkState);
+                new VerifyThingAttachedToCertificate(mockIotAuthClient, mockThingRegistry, mockNetworkState,
+                        Clock.systemUTC());
 
         when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockThingRegistry.getThing(thing.getThingName())).thenReturn(thing);

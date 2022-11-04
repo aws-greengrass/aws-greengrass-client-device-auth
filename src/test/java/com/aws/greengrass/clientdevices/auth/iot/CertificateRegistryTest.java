@@ -25,10 +25,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.security.KeyPair;
-import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -62,10 +62,10 @@ class CertificateRegistryTest {
     }
 
     @BeforeEach
-    void beforeEach() throws KeyStoreException {
+    void beforeEach() {
         configTopic = Topics.of(new Context(), "config", null);
         ClientCertificateStore store = new ClientCertificateStore(workDir);
-        registry = new CertificateRegistry(RuntimeConfiguration.from(configTopic), store);
+        registry = new CertificateRegistry(RuntimeConfiguration.from(configTopic), store, Clock.systemUTC());
     }
 
     @AfterEach

@@ -32,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
 
@@ -68,7 +69,8 @@ public class MqttSessionFactoryTest {
         CreateIoTThingSession createIoTThingSession =
                 new CreateIoTThingSession(mockThingRegistry, mockCertificateRegistry, useCases);
         VerifyThingAttachedToCertificate verifyThingAttachedToCertificate =
-                new VerifyThingAttachedToCertificate(iotAuthClientMock, mockThingRegistry, mockNetworkState);
+                new VerifyThingAttachedToCertificate(iotAuthClientMock, mockThingRegistry, mockNetworkState,
+                        Clock.systemUTC());
         context.put(NetworkStateProvider.class, mockNetworkState);
         context.put(CreateIoTThingSession.class, createIoTThingSession);
         context.put(VerifyThingAttachedToCertificate.class, verifyThingAttachedToCertificate);

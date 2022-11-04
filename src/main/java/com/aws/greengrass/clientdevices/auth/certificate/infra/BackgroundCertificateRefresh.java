@@ -24,6 +24,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.InternalServerExce
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -55,6 +56,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     private final ThingRegistry thingRegistry;
     private final IotAuthClient iotAuthClient;
     private final CertificateRegistry certificateRegistry;
+    private final Clock clock;
     private ScheduledFuture<?> scheduledFuture = null;
     private final ScheduledThreadPoolExecutor scheduler;
     private final AtomicReference<Instant> nextRunDue = new AtomicReference<>();
@@ -70,12 +72,13 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      * @param networkState        - A network state
      * @param pemStore            -  Store for the client certificates
      * @param useCases            - useCases service
+     * @param clock               - A clock instance
      */
     @Inject
     public BackgroundCertificateRefresh(ScheduledThreadPoolExecutor scheduler, ThingRegistry thingRegistry,
                                         NetworkStateProvider networkState, CertificateRegistry certificateRegistry,
                                         ClientCertificateStore pemStore, IotAuthClient iotAuthClient,
-                                        UseCases useCases) {
+                                        UseCases useCases, Clock clock) {
         this.scheduler = scheduler;
         this.thingRegistry = thingRegistry;
         this.networkState = networkState;
@@ -83,6 +86,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
         this.pemStore = pemStore;
         this.iotAuthClient = iotAuthClient;
         this.useCases = useCases;
+        this.clock = clock;
     }
 
     /**
@@ -111,13 +115,6 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     }
 
     /**
-     * Return true if the background refresh has started.
-     */
-    public boolean isRunning() {
-        return scheduledFuture != null;
-    }
-
-    /**
      * Returns the next Instant the task is scheduled to run. This will change based on whether the device goes offline
      * or not but the guarantee is that it is scheduled to run 24h after the last successful run.
      */
@@ -140,7 +137,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     private void scheduleNextRun() {
         stop();
 
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         nextRunDue.set(now.plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS)));
         Duration duration = Duration.between(now, nextRunDue.get());
 
@@ -167,7 +164,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             return false;
         }
 
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         return now.equals(nextRunDue.get()) || now.isAfter(nextRunDue.get());
     }
 
@@ -249,7 +246,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void refreshCertificateValidity(String certificateId) {
-        Optional<String> certPem = null;
+        Optional<String> certPem;
 
         try {
             certPem = pemStore.getPem(certificateId);

@@ -15,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
+import java.time.Clock;
 import java.util.Objects;
 import javax.inject.Inject;
 
@@ -25,6 +26,7 @@ public class VerifyThingAttachedToCertificate
     private final NetworkStateProvider networkState;
     private final ThingRegistry thingRegistry;
     private static final Logger logger = LogManager.getLogger(VerifyThingAttachedToCertificate.class);
+    private final Clock clock;
 
 
     /**
@@ -33,19 +35,21 @@ public class VerifyThingAttachedToCertificate
      * @param iotAuthClient IoT auth client
      * @param thingRegistry Thing Registry
      * @param networkState  Network state
+     * @param clock a clock instance
      */
     @Inject
     public VerifyThingAttachedToCertificate(IotAuthClient iotAuthClient, ThingRegistry thingRegistry,
-                                            NetworkStateProvider networkState) {
+                                            NetworkStateProvider networkState, Clock clock) {
         this.iotAuthClient = iotAuthClient;
         this.thingRegistry = thingRegistry;
         this.networkState = networkState;
+        this.clock = clock;
     }
 
     private boolean verifyLocally(Thing thing, String certificateId) {
         logger.atDebug().kv("thing", thing.getThingName()).kv("certificate", certificateId)
                 .log("Network down, verifying thing attached to certificate locally");
-        return thing.isCertificateAttached(certificateId);
+        return thing.isCertificateAttached(certificateId, clock);
     }
 
     private boolean verifyFromCloud(Thing thing, String certificateId) {
@@ -53,7 +57,7 @@ public class VerifyThingAttachedToCertificate
                 .log("Network up, verifying thing attached to certificate from cloud");
 
         if (iotAuthClient.isThingAttachedToCertificate(thing, certificateId)) {
-            thing.attachCertificate(certificateId);
+            thing.attachCertificate(certificateId, clock);
             thingRegistry.updateThing(thing);
             return true;
         }

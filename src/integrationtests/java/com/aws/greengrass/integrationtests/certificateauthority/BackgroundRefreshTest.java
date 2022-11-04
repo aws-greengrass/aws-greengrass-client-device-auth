@@ -13,6 +13,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertifi
 import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificateStore;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
+import com.aws.greengrass.clientdevices.auth.helpers.ClockFake;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
@@ -34,8 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.MockedStatic;
-import org.mockito.ScopedMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
@@ -45,6 +44,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -61,10 +61,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
+
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class BackgroundRefreshTest {
@@ -72,8 +69,8 @@ public class BackgroundRefreshTest {
     Path rootDir;
     private Kernel kernel;
     private IotAuthClientFake iotAuthClientFake;
-    private Optional<MockedStatic<Clock>> clockMock;
     private NetworkStateFake network;
+    private ClockFake clock;
 
 
     @BeforeEach
@@ -89,27 +86,15 @@ public class BackgroundRefreshTest {
         DomainEvents domainEvents = new DomainEvents();
         kernel.getContext().put(DomainEvents.class, domainEvents);
 
-        iotAuthClientFake = new IotAuthClientFake();
+        clock = new ClockFake();
+        iotAuthClientFake = new IotAuthClientFake(clock);
         kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
-
-        clockMock = Optional.empty();
+        kernel.getContext().put(Clock.class, clock);
     }
 
     @AfterEach
     void cleanup() {
-        this.clockMock.ifPresent(ScopedMock::close);
         kernel.shutdown();
-    }
-
-    @SuppressWarnings("PMD.CloseResource")
-    private void mockInstant(long expected) {
-        this.clockMock.ifPresent(ScopedMock::close);
-        Clock spyClock = spy(Clock.class);
-        MockedStatic<Clock> clockMock;
-        clockMock = mockStatic(Clock.class);
-        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
-        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
-        this.clockMock = Optional.of(clockMock);
     }
 
     private void runNucleusWithConfig(String configFileName) throws InterruptedException {
@@ -173,7 +158,7 @@ public class BackgroundRefreshTest {
         runNucleusWithConfig("config.yaml");
 
         Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
 
         connectToCore(thingOne.get(), clientAPem);
         connectToCore(thingTwo.get(), clientBPem);
@@ -198,11 +183,10 @@ public class BackgroundRefreshTest {
         iotAuthClientFake.detachThingFromCore(thingTwo);
 
         // When
-        Instant anHourLater = now.plusSeconds(60 * 60);
-        mockInstant(anHourLater.toEpochMilli());
+        Instant aDayLater = now.plus(Duration.ofHours(24));
+        clock.setCurrentInstant(aDayLater);
 
         BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
-        assertTrue(backgroundRefresh.isRunning(), "background refresh is not running");
         backgroundRefresh.run(); // Force a run because otherwise it is controlled by a ScheduledExecutorService
         kernel.getConfig().waitConfigUpdateComplete();
 
@@ -211,15 +195,14 @@ public class BackgroundRefreshTest {
         // Verify certificates updated after refresh
         Optional<Certificate> certA = certRegistry.getCertificateFromPem(clientAPem);
         Optional<Certificate> certB = certRegistry.getCertificateFromPem(clientBPem);
-        assertEquals(certA.get().getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+        assertEquals(aDayLater, certA.get().getStatusLastUpdated());
         // Given certB was only attached to thingB and thingB got detached it is deleted from the registry.
         assertFalse(certB.isPresent());
 
         // Verify thing certificate attachments got updated after refresh
         Thing thingA = thingRegistry.getThing(thingOne.get());
         Thing thingB = thingRegistry.getThing(thingTwo.get());
-        assertEquals(thingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(),
-                anHourLater.toEpochMilli());
+        assertEquals(aDayLater, thingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get());
         // This one should have been removed given it is no longer attached
         assertNull(thingB);
     }
@@ -245,18 +228,17 @@ public class BackgroundRefreshTest {
         iotAuthClientFake.activateCert(clientBPem);
 
         network.goOnline();
+        Instant now = clock.instant();
         runNucleusWithConfig("config.yaml");
 
         BackgroundCertificateRefresh backgroundRefresh = kernel.getContext().get(BackgroundCertificateRefresh.class);
-        Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
 
         connectToCore(thingOne.get(), clientAPem);
         connectToCore(thingTwo.get(), clientBPem);
 
         // When
-        Instant anHourLater = now.plusSeconds(60 * 60);
-        mockInstant(anHourLater.toEpochMilli());
+        Instant aDayLater = now.plus(Duration.ofHours(24));
+        clock.setCurrentInstant(aDayLater);
 
         corruptStoredClientCertificate(clientBPem);
         backgroundRefresh.run();
@@ -272,9 +254,9 @@ public class BackgroundRefreshTest {
         CertificateRegistry certRegistry = kernel.getContext().get(CertificateRegistry.class);
         Optional<Certificate> certA = certRegistry.getCertificateFromPem(clientAPem);
         Optional<Certificate> certB = certRegistry.getCertificateFromPem(clientBPem);
-        assertEquals(certA.get().getStatusLastUpdated().toEpochMilli(), anHourLater.toEpochMilli());
+        assertEquals(aDayLater, certA.get().getStatusLastUpdated());
         // certB didn't get updated
-        assertEquals(certB.get().getStatusLastUpdated().toEpochMilli(), now.toEpochMilli());
+        assertEquals(now, certB.get().getStatusLastUpdated());
     }
 
 }

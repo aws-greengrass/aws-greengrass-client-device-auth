@@ -13,6 +13,7 @@ import com.aws.greengrass.logging.impl.LogManager;
 import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -31,15 +32,19 @@ public class CertificateRegistry {
     private static final Logger logger = LogManager.getLogger(CertificateRegistry.class);
 
     private final ClientCertificateStore pemStore;
+    private final Clock clock;
 
     /**
      * Creates a certificate registry.
      *
      * @param runtimeConfiguration Runtime configuration
      * @param pemStore             An instance of ClientCertificateStore
+     * @param clock                A clock instance
      */
     @Inject
-    public CertificateRegistry(RuntimeConfiguration runtimeConfiguration, ClientCertificateStore pemStore) {
+    public CertificateRegistry(
+            RuntimeConfiguration runtimeConfiguration, ClientCertificateStore pemStore, Clock clock) {
+        this.clock = clock;
         this.runtimeConfiguration = runtimeConfiguration;
         this.pemStore = pemStore;
     }
@@ -120,7 +125,7 @@ public class CertificateRegistry {
     }
 
     private Certificate certificateV1DTOToCert(CertificateV1DTO dto) {
-        Certificate cert = new Certificate(dto.getCertificateId());
+        Certificate cert = new Certificate(dto.getCertificateId(), clock);
         cert.setStatus(dto2domainStatus.get(dto.getStatus()), Instant.ofEpochMilli(dto.getStatusUpdated()));
         return cert;
     }

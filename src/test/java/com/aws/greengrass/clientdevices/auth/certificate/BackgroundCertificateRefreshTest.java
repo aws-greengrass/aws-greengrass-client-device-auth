@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.infra.ClientCertificate
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
+import com.aws.greengrass.clientdevices.auth.helpers.ClockFake;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
@@ -37,8 +38,6 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.ScopedMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
@@ -54,7 +53,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.Supplier;
 
@@ -67,7 +65,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -93,9 +90,9 @@ public class BackgroundCertificateRefreshTest {
     private ThingRegistry thingRegistry;
     private ClientCertificateStore pemStore;
     private BackgroundCertificateRefresh backgroundRefresh;
-    private Optional<MockedStatic<Clock>> clockMock;
     @TempDir
     Path workDir;
+    private ClockFake clock;
 
 
     @BeforeEach
@@ -107,7 +104,7 @@ public class BackgroundCertificateRefreshTest {
         configurationTopics = Topics.of(new Context(), "config", null);
         RuntimeConfiguration runtimeConfiguration = RuntimeConfiguration.from(configurationTopics);
         pemStore = new ClientCertificateStore(workDir);
-        certificateRegistry = new CertificateRegistry(runtimeConfiguration, pemStore);
+        certificateRegistry = new CertificateRegistry(runtimeConfiguration, pemStore, Clock.systemUTC());
         thingRegistry = new ThingRegistry(domainEvents, runtimeConfiguration);
 
         UseCases useCases = new UseCases();
@@ -116,37 +113,18 @@ public class BackgroundCertificateRefreshTest {
         configurationTopics.getContext().put(VerifyIotCertificate.class, verifyIotCertificateMock);
         useCases.init(configurationTopics.getContext());
 
-        this.clockMock = Optional.empty();
-
         network = new NetworkStateFake();
+        clock = new ClockFake();
 
         backgroundRefresh = spy(new BackgroundCertificateRefresh(schedulerMock, thingRegistry, network,
-                certificateRegistry, pemStore, iotAuthClientFake, useCases));
+                certificateRegistry, pemStore, iotAuthClientFake, useCases, clock));
 
         network.goOnline();
     }
 
     @AfterEach
     void cleanup() throws IOException {
-        this.clockMock.ifPresent(ScopedMock::close);
         configurationTopics.getContext().close();
-    }
-
-    @SuppressWarnings("PMD.CloseResource")
-    private void mockInstant(long expected) {
-        this.clockMock.ifPresent(ScopedMock::close);
-        MockedStatic<Clock> clockMockInternal = mockInstantForThread(expected);
-        this.clockMock = Optional.of(clockMockInternal);
-    }
-
-    @SuppressWarnings("PMD.CloseResource")
-    private MockedStatic<Clock> mockInstantForThread(long expected) {
-        Clock spyClock = spy(Clock.class);
-        MockedStatic<Clock> clockMock;
-        clockMock = mockStatic(Clock.class);
-        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
-        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
-        return clockMock;
     }
 
     private List<X509Certificate> generateClientCerts(int numberOfCerts)
@@ -167,7 +145,7 @@ public class BackgroundCertificateRefreshTest {
     @Test
     void GIVEN_certsAndThings_WHEN_orphanedCertificate_THEN_itGetsRemoved() throws Exception {
         Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
         backgroundRefresh.start();
 
         // Given
@@ -194,7 +172,7 @@ public class BackgroundCertificateRefreshTest {
         iotAuthClientFake.attachThingToCore(thingOneName);
 
         // When
-        mockInstant(now.plus(Duration.ofHours(24)).toEpochMilli());
+        clock.setCurrentInstant(now.plus(Duration.ofHours(24)));
         backgroundRefresh.run();
 
         // Then
@@ -210,7 +188,7 @@ public class BackgroundCertificateRefreshTest {
     void GIVEN_certsAndThings_WHEN_certificateAssociatedToMoreThanOneThing_THEN_itDoesNotGetRemoved() throws
         Exception {
         Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
         backgroundRefresh.start();
 
         // Given
@@ -236,7 +214,7 @@ public class BackgroundCertificateRefreshTest {
         iotAuthClientFake.attachThingToCore(thingOneName);
 
         // When
-        mockInstant(now.plus(Duration.ofHours(24)).toEpochMilli());
+        clock.setCurrentInstant(now.plus(Duration.ofHours(24)));
         backgroundRefresh.run();
 
         // Then
@@ -249,7 +227,7 @@ public class BackgroundCertificateRefreshTest {
     @Test
     void GIVEN_networkGoesOfflineAndScheduleTriggered_WHEN_networkComesUp_THEN_refreshTriggered() {
         Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
         backgroundRefresh.start();
         network.registerHandler(backgroundRefresh);
 
@@ -258,7 +236,7 @@ public class BackgroundCertificateRefreshTest {
         verify(iotAuthClientFake, times(0)).getThingsAssociatedWithCoreDevice();
 
         Instant justAfterOneDay = now.plus(Duration.ofHours(24)).plus(Duration.ofMillis(1));
-        mockInstant(justAfterOneDay.toEpochMilli());
+        clock.setCurrentInstant(justAfterOneDay);
 
         network.goOnline();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
@@ -268,13 +246,13 @@ public class BackgroundCertificateRefreshTest {
     void GIVEN_deviceOnline_WHEN_iotCoreCallFails_THEN_itShouldStillScheduleNextRun(ExtensionContext context) {
         ignoreExceptionOfType(context, AccessDeniedException.class);
         Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
         backgroundRefresh.start();
 
         AccessDeniedException accessDeniedException = AccessDeniedException.builder().build();
         when(iotAuthClientFake.getThingsAssociatedWithCoreDevice()).thenThrow(accessDeniedException);
 
-        mockInstant(now.plus(Duration.ofHours(24)).toEpochMilli());
+        clock.setCurrentInstant(now.plus(Duration.ofHours(24)));
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
 
@@ -284,31 +262,31 @@ public class BackgroundCertificateRefreshTest {
     @Test
     void GIVEN_scheduleEver24Hours_WHEN_triggered_THEN_shouldNotRunMoreThanOnceEvery24Hours() {
         Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
         backgroundRefresh.start();
 
         Instant twoHoursLater = now.plus(Duration.ofHours(2));
-        mockInstant(twoHoursLater.toEpochMilli());
+        clock.setCurrentInstant(twoHoursLater);
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(0)).getThingsAssociatedWithCoreDevice();
 
         Instant aDayLater = now.plus(Duration.ofHours(24));
-        mockInstant(aDayLater.toEpochMilli());
+        clock.setCurrentInstant(aDayLater);
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
 
         Instant justAfterADay = aDayLater.plus(Duration.ofNanos(1));
-        mockInstant(justAfterADay.toEpochMilli());
+        clock.setCurrentInstant(justAfterADay);
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
 
         Instant justBeforeTwoDays = aDayLater.plus(Duration.ofHours(24)).minus(Duration.ofNanos(1));
-        mockInstant(justBeforeTwoDays.toEpochMilli());
+        clock.setCurrentInstant(justBeforeTwoDays);
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
 
         Instant twoDaysLater = aDayLater.plus(Duration.ofHours(24));
-        mockInstant(twoDaysLater.toEpochMilli());
+        clock.setCurrentInstant(twoDaysLater);
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(2)).getThingsAssociatedWithCoreDevice();
     }
@@ -317,20 +295,17 @@ public class BackgroundCertificateRefreshTest {
     void GIVEN_triggeredByMultipleThreads_WHEN_called_THEN_itShouldOnlyRunOnceForThatTimeWindow()
             throws InterruptedException {
         Instant now = Instant.now();
-         mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
         backgroundRefresh.start();
 
         Instant aDayLater = now.plus(Duration.ofHours(24));
+        clock.setCurrentInstant(aDayLater);
 
         Thread t1 = new Thread(() -> {
-            MockedStatic<Clock> clockT1 = mockInstantForThread(aDayLater.toEpochMilli());
             backgroundRefresh.run();
-            clockT1.close();
         });
         Thread t2 = new Thread(() -> {
-            MockedStatic<Clock> clockT2 = mockInstantForThread(aDayLater.toEpochMilli());
             backgroundRefresh.run();
-            clockT2.close();
         });
         t1.start();
         t2.start();
@@ -345,7 +320,7 @@ public class BackgroundCertificateRefreshTest {
             ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, CloudServiceInteractionException.class);
         Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
         backgroundRefresh.start();
 
         // Given
@@ -375,7 +350,7 @@ public class BackgroundCertificateRefreshTest {
 
 
         Instant aDayLater = now.plus(Duration.ofHours(24));
-        mockInstant(aDayLater.toEpochMilli());
+        clock.setCurrentInstant(aDayLater);
 
         // When
         // Fail when verifying thingOne attachment to certA
@@ -395,20 +370,20 @@ public class BackgroundCertificateRefreshTest {
     void GIVEN_scheduler_WHEN_runWithConnectivityIssues_THEN_itShouldRunEvery24H() {
         network.registerHandler(backgroundRefresh);
         Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
         backgroundRefresh.start();
         verify(backgroundRefresh, times(0)).run();
 
         // Network goes down and back up some time later
         network.goOffline();
         Instant twelveHoursLater = now.plus(Duration.ofHours(12));
-        mockInstant(twelveHoursLater.toEpochMilli());
+        clock.setCurrentInstant(twelveHoursLater);
         network.goOnline();
         verify(iotAuthClientFake, times(0)).getThingsAssociatedWithCoreDevice();
 
         // Something calls the task directly 12 hours after the last ran
         Instant aDayLater = twelveHoursLater.plus(Duration.ofHours(24));
-        mockInstant(aDayLater.toEpochMilli());
+        clock.setCurrentInstant(aDayLater);
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
     }
@@ -418,7 +393,7 @@ public class BackgroundCertificateRefreshTest {
         ignoreExceptionOfType(context, AccessDeniedException.class);
         network.registerHandler(backgroundRefresh);
         Instant now = Instant.now();
-        mockInstant(now.toEpochMilli());
+        clock.setCurrentInstant(now);
         backgroundRefresh.start();
         verify(backgroundRefresh, times(0)).run();
 
@@ -426,14 +401,14 @@ public class BackgroundCertificateRefreshTest {
         AccessDeniedException err = AccessDeniedException.builder().build();
         when(iotAuthClientFake.getThingsAssociatedWithCoreDevice()).thenThrow(err);
         Instant aDayLater = now.plus(Duration.ofHours(24));
-        mockInstant(aDayLater.toEpochMilli());
+        clock.setCurrentInstant(aDayLater);
         backgroundRefresh.run();
         verify(iotAuthClientFake, times(1)).getThingsAssociatedWithCoreDevice();
 
         // Network goes down and back up again, but this time the error goes away
         network.goOffline();
         Instant twelveHoursAfterExecution = aDayLater.plus(Duration.ofHours(12));
-        mockInstant(twelveHoursAfterExecution.toEpochMilli());
+        clock.setCurrentInstant(twelveHoursAfterExecution);
         reset(iotAuthClientFake); // <- We are removing the error here
         network.goOnline();
         verify(iotAuthClientFake, times(0)).getThingsAssociatedWithCoreDevice();

@@ -10,6 +10,7 @@ import software.amazon.awssdk.core.pagination.sync.SdkIterable;
 import software.amazon.awssdk.core.pagination.sync.SyncPageFetcher;
 import software.amazon.awssdk.services.greengrassv2.model.AssociatedClientDevice;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,6 +34,15 @@ public class IotAuthClientFake implements IotAuthClient {
     private final Map<String, Set<String>> thingToCerts = new HashMap<>();
     private final Set<String> activeCertIds = new HashSet<>();
     private final Set<String> inactiveCertIds = new HashSet<>();
+    private final Clock clock;
+
+    public IotAuthClientFake(Clock clock) {
+        this.clock = clock;
+    }
+
+    public IotAuthClientFake() {
+        this(Clock.systemUTC());
+    }
 
     public void activateCert(String certPem) throws InvalidCertificateException {
         Certificate cert = Certificate.fromPem(certPem);
@@ -89,11 +99,11 @@ public class IotAuthClientFake implements IotAuthClient {
         Certificate cert = Certificate.fromPem(certificatePem);
 
         if (activeCertIds.contains(cert.getCertificateId())) {
-            cert.setStatus(Certificate.Status.ACTIVE);
+            cert.setStatus(Certificate.Status.ACTIVE, clock);
             return Optional.of(cert);
         }
         if (inactiveCertIds.contains(cert.getCertificateId())) {
-            cert.setStatus(Certificate.Status.UNKNOWN);
+            cert.setStatus(Certificate.Status.UNKNOWN, clock);
             return Optional.of(cert);
         }
 

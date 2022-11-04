@@ -10,6 +10,7 @@ import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.WildcardSuffixAttribute;
 import lombok.Getter;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -77,7 +78,17 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @param certificateId Certificate ID to attach
      */
     public void attachCertificate(String certificateId) {
-        attachedCertificateIds.put(certificateId, Instant.now());
+        attachCertificate(certificateId, Clock.systemUTC());
+    }
+
+    /**
+     * Attach a certificate ID.
+     *
+     * @param certificateId Certificate ID to attach
+     * @param clock A clock instance
+     */
+    public void attachCertificate(String certificateId, Clock clock) {
+        attachedCertificateIds.put(certificateId, Instant.now(clock));
         modified = true;
     }
 
@@ -127,8 +138,19 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @return whether the given certificate is attached
      */
     public boolean isCertificateAttached(String certificateId) {
+        return isCertificateAttached(certificateId, Clock.systemUTC());
+    }
+
+    /**
+     * Indicates whether the given certificate is attached to this thing.
+     *
+     * @param certificateId Certificate ID
+     * @param clock a clock instance to specify the current time instance
+     * @return whether the given certificate is attached
+     */
+    public boolean isCertificateAttached(String certificateId, Clock clock) {
         Instant lastVerified = attachedCertificateIds.get(certificateId);
-        return lastVerified != null && isCertAttachmentTrusted(lastVerified);
+        return lastVerified != null && isCertAttachmentTrusted(lastVerified, clock);
     }
 
     private Thing(String thingName, Map<String, Instant> certificateIds) {
@@ -181,8 +203,8 @@ public final class Thing implements AttributeProvider, Cloneable {
         metadataTrustDurationMinutes.set(newTrustDuration);
     }
 
-    private boolean isCertAttachmentTrusted(Instant lastVerified) {
+    private boolean isCertAttachmentTrusted(Instant lastVerified, Clock clock) {
         Instant validTill = lastVerified.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
-        return validTill.isAfter(Instant.now());
+        return validTill.isAfter(Instant.now(clock));
     }
 }
