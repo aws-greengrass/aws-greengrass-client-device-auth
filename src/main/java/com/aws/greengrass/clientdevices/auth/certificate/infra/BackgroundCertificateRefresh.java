@@ -179,8 +179,8 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     }
 
     private boolean canRun() {
-        if (lastRan.get() == null) {
-            return true;
+        if (nextScheduledRun.get() == null) {
+            return false;
         }
 
         Instant now = Instant.now();
