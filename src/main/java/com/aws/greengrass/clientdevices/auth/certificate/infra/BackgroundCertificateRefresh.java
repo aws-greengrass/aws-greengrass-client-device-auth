@@ -148,6 +148,8 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             return;
         }
 
+        logger.info("Running background task: Refreshing client certificates");
+
         Optional<Set<String>> thingNamesAssociatedWithCore = getThingsAssociatedWithCoreDevice();
         thingNamesAssociatedWithCore.ifPresent(thingNames -> {
             this.refresh(thingNames);
