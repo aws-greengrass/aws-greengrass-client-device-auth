@@ -55,11 +55,9 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
     private final ThingRegistry thingRegistry;
     private final IotAuthClient iotAuthClient;
     private final CertificateRegistry certificateRegistry;
-    private NetworkStateProvider.ConnectionState previousConnectionState;
     private ScheduledFuture<?> scheduledFuture = null;
     private final ScheduledThreadPoolExecutor scheduler;
-    private final AtomicReference<Instant> nextScheduledRun = new AtomicReference<>();
-    private final AtomicReference<Instant> lastRan = new AtomicReference<>();
+    private final AtomicReference<Instant> nextRunDue = new AtomicReference<>();
 
 
     /**
@@ -123,15 +121,8 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      * Returns the next Instant the task is scheduled to run. This will change based on whether the device goes offline
      * or not but the guarantee is that it is scheduled to run 24h after the last successful run.
      */
-    public Instant getNextScheduledRun() {
-        return nextScheduledRun.get();
-    }
-
-    /**
-     * Returns the last Instant the task ran successfully.
-     */
-    public Instant getLastRan() {
-        return lastRan.get();
+    public Instant getNextScheduledRunInstant() {
+        return nextRunDue.get();
     }
 
     /**
@@ -139,29 +130,19 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      */
     @Override
     public synchronized void run() {
-        if (isNetworkDown()) {
-            logger.debug("Network is down - not refreshing certificates");
-            return;
+        if (canRun()) {
+            Optional<Set<String>> thingNamesAssociatedWithCore = getThingsAssociatedWithCoreDevice();
+            thingNamesAssociatedWithCore.ifPresent(this::refresh);
+            this.scheduleNextRun();
         }
-
-        if (!canRun()) {
-            return;
-        }
-
-        Optional<Set<String>> thingNamesAssociatedWithCore = getThingsAssociatedWithCoreDevice();
-        thingNamesAssociatedWithCore.ifPresent(thingNames -> {
-            this.refresh(thingNames);
-            lastRan.set(Instant.now());
-        });
-        this.scheduleNextRun();
     }
 
     private void scheduleNextRun() {
         stop();
 
         Instant now = Instant.now();
-        nextScheduledRun.set(now.plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS)));
-        Duration duration = Duration.between(now, nextScheduledRun.get());
+        nextRunDue.set(now.plus(Duration.ofSeconds(DEFAULT_INTERVAL_SECONDS)));
+        Duration duration = Duration.between(now, nextRunDue.get());
 
         scheduledFuture = scheduler.schedule(this, duration.getSeconds(), TimeUnit.SECONDS);
     }
@@ -173,21 +154,21 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
      */
     @Override
     public void accept(NetworkStateProvider.ConnectionState connectionState) {
-        boolean shouldRun = isNetworkBackOnline();
-        this.previousConnectionState = connectionState;
-
-        if (shouldRun) {
-            run();
-        }
+        run();
     }
 
     private boolean canRun() {
-        if (lastRan.get() == null) {
-            return true;
+        if (isNetworkDown()) {
+            logger.debug("Network is down - not refreshing certificates");
+            return false;
+        }
+
+        if (nextRunDue.get() == null) {
+            return false;
         }
 
         Instant now = Instant.now();
-        return now.equals(nextScheduledRun.get()) || now.isAfter(nextScheduledRun.get());
+        return now.equals(nextRunDue.get()) || now.isAfter(nextRunDue.get());
     }
 
     /**
@@ -299,11 +280,6 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
 
         localCerts.filter(certificate -> !certificatesAttachedToThings.contains(certificate.getCertificateId()))
                 .forEach(certificateRegistry::deleteCertificate);
-    }
-
-    private boolean isNetworkBackOnline() {
-        return previousConnectionState == NetworkStateProvider.ConnectionState.NETWORK_DOWN
-                && networkState.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_UP;
     }
 
     private boolean isNetworkDown() {
