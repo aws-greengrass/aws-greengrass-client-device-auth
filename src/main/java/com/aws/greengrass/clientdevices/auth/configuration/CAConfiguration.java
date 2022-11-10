@@ -141,7 +141,7 @@ public final class CAConfiguration {
 
     private static Optional<URI> getCaCertificateChainUriFromConfiguration(Topics certAuthorityTopic)
             throws URISyntaxException {
-        String certificateChainUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_CERTIFICATE_CHAIN_URI));
+        String certificateChainUri = Coerce.toString(certAuthorityTopic.find(CA_CERTIFICATE_CHAIN_URI));
 
         if (Utils.isEmpty(certificateChainUri)) {
             return Optional.empty();
@@ -152,7 +152,7 @@ public final class CAConfiguration {
 
     private static Optional<URI> getCaPrivateKeyUriFromConfiguration(Topics certAuthorityTopic)
             throws URISyntaxException {
-        String privateKeyUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_PRIVATE_KEY_URI));
+        String privateKeyUri = Coerce.toString(certAuthorityTopic.find(CA_PRIVATE_KEY_URI));
 
         if (Utils.isEmpty(privateKeyUri)) {
             return Optional.empty();
@@ -163,7 +163,7 @@ public final class CAConfiguration {
 
     private static Optional<URI> getCaCertificateUriFromConfiguration(Topics certAuthorityTopic)
             throws URISyntaxException {
-        String certificateUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_CERTIFICATE_URI));
+        String certificateUri = Coerce.toString(certAuthorityTopic.find(CA_CERTIFICATE_URI));
 
         if (Utils.isEmpty(certificateUri)) {
             return Optional.empty();
