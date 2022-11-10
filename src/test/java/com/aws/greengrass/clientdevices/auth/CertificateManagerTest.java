@@ -210,7 +210,7 @@ public class CertificateManagerTest {
         X509Certificate[] certificateChain = {intermediateCA, rootCA};
         storeCAOnFileSystem(intermediateKeyPair.getPrivate(), certificateChain);
 
-        URI certificateChainUri = new URI("file://" + rootDir.resolve("certificate.pem"));
+        URI certificateChainUri = rootDir.resolve("certificate.pem").toFile().toURI();
         URI privateKeyUri = new URI("pkcs11:object=CustomerIntermediateCA;type=private");
         URI certificateUri = new URI("pkcs11:object=CustomerIntermediateCA;type=cert");
 
