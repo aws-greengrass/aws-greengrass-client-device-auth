@@ -27,6 +27,7 @@ import java.util.Optional;
  * <p>
  * |---- configuration
  * |    |---- certificateAuthority:
+ * |          |---- certificateChainUri "..."
  * |          |---- privateKeyUri: "..."
  * |          |---- certificateUri: "..."
  * |          |---- caType: [...]
@@ -36,6 +37,7 @@ import java.util.Optional;
 public final class CAConfiguration {
     public static final String CA_CERTIFICATE_URI = "certificateUri";
     public static final String CA_PRIVATE_KEY_URI = "privateKeyUri";
+    public static final String CA_CERTIFICATE_CHAIN_URI = "certificateChainUri";
     public static final String DEPRECATED_CA_TYPE_KEY = "ca_type";
     public static final String CA_TYPE_KEY = "caType";
     public static final String CERTIFICATE_AUTHORITY_TOPIC = "certificateAuthority";
@@ -45,14 +47,17 @@ public final class CAConfiguration {
     private List<String> caTypeList;
     private Optional<URI> privateKeyUri;
     private Optional<URI> certificateUri;
+    private Optional<URI> certificateChainUri;
+
 
 
     private CAConfiguration(List<String> caTypes, CertificateStore.CAType caType, Optional<URI> privateKeyUri,
-                            Optional<URI> certificateUri) {
+                            Optional<URI> certificateUri, Optional<URI> certificateChainUri) {
         this.caType = caType;
         this.caTypeList = caTypes;
         this.privateKeyUri = privateKeyUri;
         this.certificateUri = certificateUri;
+        this.certificateChainUri = certificateChainUri;
     }
 
     /**
@@ -67,7 +72,9 @@ public final class CAConfiguration {
         return new CAConfiguration(getCaTypeListFromConfiguration(configurationTopics),
                 getCaTypeFromConfiguration(configurationTopics),
                 getCaPrivateKeyUriFromConfiguration(certAuthorityTopic),
-                getCaCertificateUriFromConfiguration(certAuthorityTopic));
+                getCaCertificateUriFromConfiguration(certAuthorityTopic),
+                getCaCertificateChainUriFromConfiguration(certAuthorityTopic)
+        );
     }
 
     /**
@@ -132,9 +139,20 @@ public final class CAConfiguration {
         return uri;
     }
 
+    private static Optional<URI> getCaCertificateChainUriFromConfiguration(Topics certAuthorityTopic)
+            throws URISyntaxException {
+        String certificateChainUri = Coerce.toString(certAuthorityTopic.find(CA_CERTIFICATE_CHAIN_URI));
+
+        if (Utils.isEmpty(certificateChainUri)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(getUri(certificateChainUri));
+    }
+
     private static Optional<URI> getCaPrivateKeyUriFromConfiguration(Topics certAuthorityTopic)
             throws URISyntaxException {
-        String privateKeyUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_PRIVATE_KEY_URI));
+        String privateKeyUri = Coerce.toString(certAuthorityTopic.find(CA_PRIVATE_KEY_URI));
 
         if (Utils.isEmpty(privateKeyUri)) {
             return Optional.empty();
@@ -145,7 +163,7 @@ public final class CAConfiguration {
 
     private static Optional<URI> getCaCertificateUriFromConfiguration(Topics certAuthorityTopic)
             throws URISyntaxException {
-        String certificateUri = Coerce.toString(certAuthorityTopic.findOrDefault("", CA_CERTIFICATE_URI));
+        String certificateUri = Coerce.toString(certAuthorityTopic.find(CA_CERTIFICATE_URI));
 
         if (Utils.isEmpty(certificateUri)) {
             return Optional.empty();
