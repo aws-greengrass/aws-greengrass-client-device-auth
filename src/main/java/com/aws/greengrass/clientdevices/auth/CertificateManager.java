@@ -19,6 +19,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRot
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateChainLoadingException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
@@ -28,6 +29,7 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
+import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
 import lombok.NonNull;
@@ -38,6 +40,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingExceptio
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -50,6 +53,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import javax.inject.Inject;
@@ -255,6 +259,33 @@ public class CertificateManager {
         caConfigurationMonitor.removeFromMonitor(gen);
     }
 
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private X509Certificate[] getCertificateChainFromConfiguration(CAConfiguration configuration) throws
+            CertificateChainLoadingException {
+        try {
+            Optional<URI> certificateChainUri = configuration.getCertificateChainUri();
+
+            if (certificateChainUri.isPresent()) {
+                List<X509Certificate> certificateChain =
+                        EncryptionUtils.loadX509Certificates(Paths.get(certificateChainUri.get()));
+                return certificateChain.toArray(new X509Certificate[0]);
+            }
+
+            URI certificateUri = configuration.getCertificateUri().get();
+            URI privateKeyUri = configuration.getPrivateKeyUri().get();
+
+            RetryUtils.RetryConfig retryConfig =
+                    RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(2)).maxAttempt(3)
+                            .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
+
+            return RetryUtils.runWithRetry(retryConfig,
+                    () -> certificateStore.loadCaCertificateChain(privateKeyUri, certificateUri),
+                    "get-certificate-chain", logger);
+        } catch (Exception e) {
+            throw new CertificateChainLoadingException("Failed to load certificate chain", e);
+        }
+    }
+
     /**
      * Configures the KeyStore to use a certificates provided from the CA configuration.
      *
@@ -283,9 +314,7 @@ public class CertificateManager {
             KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
                     () -> securityService.getKeyPair(privateKeyUri, certificateUri), "get-key-pair", logger);
 
-            X509Certificate[] certificateChain = RetryUtils.runWithRetry(retryConfig,
-                    () -> certificateStore.loadCaCertificateChain(privateKeyUri, certificateUri),
-                    "get-certificate-chain", logger);
+            X509Certificate[] certificateChain = getCertificateChainFromConfiguration(configuration);
 
             CertificateHelper.ProviderType providerType =
                     privateKeyUri.getScheme().contains(pkcs11Scheme) ? CertificateHelper.ProviderType.HSM
