@@ -45,6 +45,7 @@ import java.security.KeyPair;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -52,8 +53,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -64,6 +68,9 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME;
+import static com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper.PEM_BOUNDARY_CERTIFICATE;
+import static com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper.PEM_BOUNDARY_PRIVATE_KEY;
+import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_CHAIN_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_PRIVATE_KEY_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CERTIFICATE_AUTHORITY_TOPIC;
@@ -91,6 +98,8 @@ public class CertificateManagerTest {
     GreengrassServiceClientFactory clientFactoryMock;
     @Mock
     SecurityService securityServiceMock;
+    @TempDir
+    Path rootDir;
 
 
     @TempDir
@@ -121,6 +130,28 @@ public class CertificateManagerTest {
     void afterEach() {
         reset(securityServiceMock);
     }
+
+    private Map<String, URI> storeCAOnFileSystem(PrivateKey pk, X509Certificate... chain)
+            throws IOException, CertificateEncodingException {
+        Path pkPath = rootDir.resolve("private.key").toAbsolutePath();
+        CertificateTestHelpers.writeToPath(pkPath, PEM_BOUNDARY_PRIVATE_KEY,
+                Collections.singletonList(pk.getEncoded()));
+
+        List<byte[]> encodings = new ArrayList<>();
+        for (X509Certificate x509Certificate : chain) {
+            byte[] encoded = x509Certificate.getEncoded();
+            encodings.add(encoded);
+        }
+
+        Path chainPath = rootDir.resolve("certificate.pem").toAbsolutePath();
+        CertificateTestHelpers.writeToPath(chainPath.toAbsolutePath(), PEM_BOUNDARY_CERTIFICATE, encodings);
+
+        return new HashMap<String, URI>() {{
+            put("privateKey", pkPath.toUri());
+            put("certificateAuthority", chainPath.toUri());
+        }};
+    }
+
 
     @Test
     void GIVEN_customCAConfiguration_WHEN_configureCustomCA_THEN_returnsCustomCA() throws Exception {
@@ -157,6 +188,52 @@ public class CertificateManagerTest {
         List<String> caPemStrings = certificateManager.getCACertificates();
         String caPem = caPemStrings.get(0);
         assertEquals(caPem, CertificateHelper.toPem(caCertificate));
+    }
+
+    @Test
+    void GIVEN_certificateChainConfiguration_WHEN_configureCustomCA_THEN_certificateChainFetchedFromCertificateChainUri() throws
+            Exception {
+        // Given
+        certificateManager.generateCA("", CertificateStore.CAType.RSA_2048);
+
+        Instant now = Instant.now();
+        KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate rootCA =
+                CertificateHelper.createCACertificate(rootKeyPair, Date.from(now), Date.from(now.plusSeconds(10)),
+                        "Custom Core CA", CertificateHelper.ProviderType.DEFAULT);
+        KeyPair intermediateKeyPair = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate intermediateCA =
+                CertificateTestHelpers.createIntermediateCertificateAuthority(rootCA, "intermediate",
+                        intermediateKeyPair.getPublic(), rootKeyPair.getPrivate());
+
+
+        X509Certificate[] certificateChain = {intermediateCA, rootCA};
+        storeCAOnFileSystem(intermediateKeyPair.getPrivate(), certificateChain);
+
+        URI certificateChainUri = new URI("file://" + rootDir.resolve("certificate.pem"));
+        URI privateKeyUri = new URI("pkcs11:object=CustomerIntermediateCA;type=private");
+        URI certificateUri = new URI("pkcs11:object=CustomerIntermediateCA;type=cert");
+
+        Topics configurationTopics = Topics.of(new Context(), CLIENT_DEVICES_AUTH_SERVICE_NAME, null);
+        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
+                .withValue(privateKeyUri.toString());
+        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
+                .withValue(certificateUri.toString());
+        configurationTopics.lookup(CONFIGURATION_CONFIG_KEY, CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_CHAIN_URI)
+                .withValue(certificateChainUri.toString());
+
+        when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(intermediateKeyPair);
+
+
+        // When
+        CDAConfiguration cdaConfiguration = CDAConfiguration.from(configurationTopics);
+        certificateManager.configureCustomCA(cdaConfiguration.getCertificateAuthorityConfiguration());
+
+        // Then
+        assertEquals(CertificateHelper.toPem(certificateStore.getCACertificate()),
+                CertificateHelper.toPem(intermediateCA));
+        assertEquals(CertificateHelper.toPem(certificateStore.getCaCertificateChain()),
+                CertificateHelper.toPem(certificateChain));
     }
 
     @Test

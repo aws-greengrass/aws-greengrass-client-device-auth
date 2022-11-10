@@ -21,6 +21,7 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
 
+import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_CHAIN_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_CERTIFICATE_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_PRIVATE_KEY_URI;
 import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration.CA_TYPE_KEY;
@@ -45,6 +46,7 @@ public class CAConfigurationTest {
     void afterEach() throws IOException {
         configurationTopics.getContext().close();
     }
+
 
     @Test
     public void GIVEN_cdaDefaultConfiguration_WHEN_getCATypeList_THEN_returnsEmptyList() throws URISyntaxException {
@@ -94,7 +96,7 @@ public class CAConfigurationTest {
     }
 
     @Test
-    public void GIVEN_pathInsteadOfUri_WHEN_configurationLoaded_THEN_itRaisesAnException() throws URISyntaxException {
+    public void GIVEN_pathInsteadOfUri_WHEN_configurationLoaded_THEN_itRaisesAnException() {
         configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
                 .withValue("/root/tls/intermediate/certs/intermediate.cacert.pem");
 
@@ -121,7 +123,6 @@ public class CAConfigurationTest {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(caConfiguration.getCaType(), is(CertificateStore.CAType.ECDSA_P256));
         assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("ECDSA_P256")));
-
     }
 
     @Test
@@ -134,6 +135,21 @@ public class CAConfigurationTest {
         CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
         assertThat(caConfiguration.getCaType(), is(CertificateStore.CAType.RSA_2048));
         assertThat(caConfiguration.getCaTypeList(), is(Arrays.asList("RSA_2048")));
+    }
 
+    @Test
+    public void GIVEN_certificateChainConfiguration_WHEN_configuringCustomCA_THEN_certificateChainConfigApplied() throws
+            URISyntaxException {
+        CAConfiguration caConfiguration = CAConfiguration.from(configurationTopics);
+        configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_PRIVATE_KEY_URI)
+                .withValue("pkcs11:object=test;CustomerIntermediateCA;type=private");
+        configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_URI)
+                .withValue("pkcs11:object=test;CustomerIntermediateCA;type=cert");
+        configurationTopics.lookup(CERTIFICATE_AUTHORITY_TOPIC, CA_CERTIFICATE_CHAIN_URI)
+                .withValue("file:///root/tls/intermediate/certs/certificateChain.pem");
+
+        caConfiguration = CAConfiguration.from(configurationTopics);
+        assertThat(caConfiguration.getCertificateChainUri().get(), is(new URI("file:///root/tls/intermediate/certs" +
+                "/certificateChain.pem")));
     }
 }
