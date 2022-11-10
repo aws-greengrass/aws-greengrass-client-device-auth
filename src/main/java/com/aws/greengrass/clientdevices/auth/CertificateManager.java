@@ -38,6 +38,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingExceptio
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -50,6 +51,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import javax.inject.Inject;
@@ -67,6 +69,7 @@ public class CertificateManager {
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CertificateManager.class);
     private static final String pkcs11Scheme = "pkcs11";
+    private static final String fileScheme = "file";
 
 
     /**
@@ -255,6 +258,23 @@ public class CertificateManager {
         caConfigurationMonitor.removeFromMonitor(gen);
     }
 
+    private URI getCertificateUri(URI privateKeyUri, URI certificateUri) {
+        // Why do we have this? - PKCS11 doesn't support storing multiple certificates under a single key and the
+        // security service requires both keys to have the same scheme. When configuring HSM with intermediate CAs
+        // we need to use a certificateUri that matches the scheme of the private key. This is hacky but later on
+        // we could modify the security service to support scenarios where we pass the private key under a
+        // different scheme than the URI
+        if (Objects.equals(certificateUri.getScheme(), fileScheme)
+                && Objects.equals(privateKeyUri.getScheme(), pkcs11Scheme)) {
+            try {
+                return new URI(privateKeyUri.toString().replace("type=private", "type=cert"));
+            } catch (URISyntaxException e) {
+                return certificateUri;
+            }
+        }
+        return certificateUri;
+    }
+
     /**
      * Configures the KeyStore to use a certificates provided from the CA configuration.
      *
@@ -270,21 +290,24 @@ public class CertificateManager {
         }
 
         URI privateKeyUri = configuration.getPrivateKeyUri().get();
-        URI certificateUri = configuration.getCertificateUri().get();
+        URI configuredCertificateUri = configuration.getCertificateUri().get();
 
         RetryUtils.RetryConfig retryConfig =
                 RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofSeconds(2)).maxAttempt(3)
                         .retryableExceptions(Collections.singletonList(ServiceUnavailableException.class)).build();
 
-        logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", certificateUri)
+        logger.atInfo().kv("privateKeyUri", privateKeyUri).kv("certificateUri", configuredCertificateUri)
                 .log("Configuring custom core CA");
 
         try {
+
             KeyPair keyPair = RetryUtils.runWithRetry(retryConfig,
-                    () -> securityService.getKeyPair(privateKeyUri, certificateUri), "get-key-pair", logger);
+                    () -> securityService.getKeyPair(privateKeyUri, getCertificateUri(privateKeyUri,
+                            configuredCertificateUri)),
+                    "get-key-pair", logger);
 
             X509Certificate[] certificateChain = RetryUtils.runWithRetry(retryConfig,
-                    () -> certificateStore.loadCaCertificateChain(privateKeyUri, certificateUri),
+                    () -> certificateStore.loadCaCertificateChain(configuredCertificateUri),
                     "get-certificate-chain", logger);
 
             CertificateHelper.ProviderType providerType =
@@ -294,7 +317,8 @@ public class CertificateManager {
             certificateStore.setCaKeyAndCertificateChain(providerType, keyPair.getPrivate(), certificateChain);
         } catch (Exception e) {
             throw new InvalidCertificateAuthorityException(String.format("Failed to configure CA: There was an error "
-                    + "reading the provided private key %s or certificate chain %s", privateKeyUri, certificateUri), e);
+                    + "reading the provided private key %s or certificate chain %s", privateKeyUri,
+                    configuredCertificateUri), e);
         }
     }
 

@@ -55,7 +55,7 @@ public class CertificateStoreTest {
 
     @BeforeEach
     public void beforeEach() {
-        certificateStore = new CertificateStore(tmpPath, new DomainEvents(), securityService);
+        certificateStore = new CertificateStore(tmpPath, new DomainEvents());
     }
 
     @AfterEach
@@ -111,7 +111,7 @@ public class CertificateStoreTest {
         X509Certificate initialCert = certificateStore.getCACertificate();
         String passphrase = certificateStore.getCaPassphrase();
 
-        CertificateStore certificateStore2 = new CertificateStore(tmpPath, new DomainEvents(), securityService);
+        CertificateStore certificateStore2 = new CertificateStore(tmpPath, new DomainEvents());
         certificateStore2.update(passphrase, CAType.RSA_2048);
         X509Certificate secondCert = certificateStore2.getCACertificate();
 
@@ -124,7 +124,7 @@ public class CertificateStoreTest {
         certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
         X509Certificate initialCert = certificateStore.getCACertificate();
 
-        CertificateStore certificateStore2 = new CertificateStore(tmpPath, new DomainEvents(), securityService);
+        CertificateStore certificateStore2 = new CertificateStore(tmpPath, new DomainEvents());
         certificateStore2.update("wrongPassphrase", CAType.RSA_2048);
         X509Certificate secondCert = certificateStore2.getCACertificate();
 
@@ -137,7 +137,7 @@ public class CertificateStoreTest {
         certificateStore.update(DEFAULT_PASSPHRASE, CAType.RSA_2048);
         X509Certificate initialCert = certificateStore.getCACertificate();
 
-        CertificateStore certificateStore2 = new CertificateStore(tmpPath, new DomainEvents(), securityService);
+        CertificateStore certificateStore2 = new CertificateStore(tmpPath, new DomainEvents());
         certificateStore2.update(DEFAULT_PASSPHRASE, CAType.ECDSA_P256);
         X509Certificate secondCert = certificateStore2.getCACertificate();
 

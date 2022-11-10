@@ -11,7 +11,6 @@ import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.junit.jupiter.api.AfterEach;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
@@ -52,8 +50,6 @@ public class CertificateExpiryMonitorTest {
     CertificateStore certificateStore;
     CertificateExpiryMonitor certExpiryMonitor;
 
-    @Mock
-    SecurityService securityServiceMock;
     @TempDir
     Path tmpPath;
 
@@ -62,7 +58,7 @@ public class CertificateExpiryMonitorTest {
         configTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
         certificatesConfig = new CertificatesConfig(configTopics);
 
-        certificateStore = new CertificateStore(tmpPath, new DomainEvents(), securityServiceMock);
+        certificateStore = new CertificateStore(tmpPath, new DomainEvents());
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
 
         certExpiryMonitor =

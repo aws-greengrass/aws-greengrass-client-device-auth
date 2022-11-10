@@ -104,7 +104,7 @@ public class CertificateManagerTest {
     @BeforeEach
     void beforeEach() {
         DomainEvents domainEvents = new DomainEvents();
-        certificateStore = spy(new CertificateStore(tmpPath, domainEvents, securityServiceMock));
+        certificateStore = spy(new CertificateStore(tmpPath, domainEvents));
         certRotationMonitor = new CertificateRotationHandler(mockConnectivityInformation, domainEvents);
 
         certificateManager =
@@ -148,7 +148,7 @@ public class CertificateManagerTest {
         //  this is a bad given we are exposing implementation details on the test.
         when(securityServiceMock.getKeyPair(privateKeyUri, certificateUri)).thenReturn(keyPair);
         doReturn(new X509Certificate[]{caCertificate}).when(certificateStore)
-                .loadCaCertificateChain(privateKeyUri, certificateUri);
+                .loadCaCertificateChain(certificateUri);
 
         // When
         certificateManager.configureCustomCA(cdaConfiguration.getCertificateAuthorityConfiguration());

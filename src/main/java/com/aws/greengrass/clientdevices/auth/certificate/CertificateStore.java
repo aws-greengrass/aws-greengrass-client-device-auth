@@ -12,9 +12,6 @@ import com.aws.greengrass.clientdevices.auth.exception.CertificateChainLoadingEx
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import com.aws.greengrass.security.SecurityService;
-import com.aws.greengrass.security.exceptions.KeyLoadingException;
-import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
 import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.FileSystemPermission;
 import com.aws.greengrass.util.platforms.Platform;
@@ -27,8 +24,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.Key;
 import java.security.KeyPair;
@@ -48,9 +47,9 @@ import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
+import java.util.Objects;
 import javax.inject.Inject;
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.X509KeyManager;
 
 public class CertificateStore {
     private static final long DEFAULT_CA_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 5; // 5 years
@@ -58,6 +57,7 @@ public class CertificateStore {
     private static final String CA_KEY_ALIAS = "CA";
     private static final String DEFAULT_KEYSTORE_FILENAME = "ca.jks";
     private static final String DEFAULT_CA_CERTIFICATE_FILENAME = "ca.pem";
+    private static final String fileScheme = "file";
 
     // Current NIST recommendation is to provide at least 112 bits
     // of security strength through 2030
@@ -70,7 +70,6 @@ public class CertificateStore {
             FileSystemPermission.builder().ownerRead(true).ownerWrite(true).build();
 
     private final Logger logger = LogManager.getLogger(CertificateStore.class);
-    private final SecurityService securityService;
     @Getter
     private KeyStore keyStore;
     @Getter(AccessLevel.PRIVATE)
@@ -91,10 +90,10 @@ public class CertificateStore {
     }
 
     @Inject
-    public CertificateStore(Kernel kernel, DomainEvents eventEmitter, SecurityService securityService)
+    public CertificateStore(Kernel kernel, DomainEvents eventEmitter)
             throws IOException {
-        this(kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME), eventEmitter,
-                securityService);
+        this(kernel.getNucleusPaths().workPath(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME),
+                eventEmitter);
     }
 
     /**
@@ -102,12 +101,10 @@ public class CertificateStore {
      *
      * @param workPath        test path
      * @param eventEmitter    domain events
-     * @param securityService security service
      */
-    public CertificateStore(Path workPath, DomainEvents eventEmitter, SecurityService securityService) {
+    public CertificateStore(Path workPath, DomainEvents eventEmitter) {
         this.workPath = workPath;
         this.eventEmitter = eventEmitter;
-        this.securityService = securityService;
     }
 
     public String getCaPassphrase() {
@@ -154,42 +151,25 @@ public class CertificateStore {
     /**
      * Get certificate chain using private and certificate URIs.
      *
-     * @param privateKeyUri  private key URI
      * @param certificateUri certificate URI
      * @return X509Certificate list that corresponds to the given private key and certificate URIs
-     * @throws KeyLoadingException              if it fails to load key
      * @throws CertificateChainLoadingException if no certificate chain is found
-     * @throws ServiceUnavailableException      if the security service is not available
+     * @throws URISyntaxException               if provided uri scheme is not file
      */
-    public X509Certificate[] loadCaCertificateChain(URI privateKeyUri, URI certificateUri)
-            throws CertificateChainLoadingException, KeyLoadingException, ServiceUnavailableException {
-        KeyManager[] km = securityService.getKeyManagers(privateKeyUri, certificateUri);
-
-        if (km.length != 1 || !(km[0] instanceof X509KeyManager)) {
-            throw new CertificateChainLoadingException("Unable to find the X509 key manager instance to get the "
-                    + "certificate chain using the private key and certificate URIs");
+    public X509Certificate[] loadCaCertificateChain(URI certificateUri) throws CertificateChainLoadingException,
+            URISyntaxException {
+        if (!Objects.equals(certificateUri.getScheme(), fileScheme)) {
+            throw new URISyntaxException(certificateUri.toString(), "Invalid URI - certificateUri only supports file "
+                    + "scheme");
         }
 
-        X509KeyManager x509KeyManager = (X509KeyManager) km[0];
-        KeyPair keyPair = securityService.getKeyPair(privateKeyUri, certificateUri);
-        String[] aliases = x509KeyManager.getClientAliases(keyPair.getPublic().getAlgorithm(), null);
-        if (aliases == null) {
-            throw new CertificateChainLoadingException(
-                    "Unable to find aliases in the key manager with the given private key and certificate URIs");
+        try {
+            List<X509Certificate> certificateChain =
+                    EncryptionUtils.loadX509Certificates(Paths.get(certificateUri));
+            return certificateChain.toArray(new X509Certificate[0]);
+        } catch (IOException | CertificateException e) {
+            throw new CertificateChainLoadingException("Failed to load certificate chain", e);
         }
-
-        // TODO: We are making the assumption that the keyStore built by the security service provider will always
-        //  have at most 1 certificate (hence one single client alias). Ideally we don't have to make that assumption
-        //  and this logic could all live on the security service.
-        String alias = aliases[0];
-        X509Certificate[] chain = x509KeyManager.getCertificateChain(alias);
-
-        if (chain == null || chain.length < 1) {
-            throw new CertificateChainLoadingException(
-                    "Unable to get the certificate chain using the private key and certificate URIs");
-        }
-
-        return chain;
     }
 
     /**
