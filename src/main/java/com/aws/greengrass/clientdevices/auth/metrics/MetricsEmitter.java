@@ -5,27 +5,16 @@
 
 package com.aws.greengrass.clientdevices.auth.metrics;
 
-import com.aws.greengrass.logging.api.Logger;
-import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.telemetry.PeriodicMetricsEmitter;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.impl.MetricFactory;
 
+import java.util.ArrayList;
 import java.util.List;
-import javax.inject.Inject;
 
 public class MetricsEmitter extends PeriodicMetricsEmitter {
-    public static final Logger logger = LogManager.getLogger(MetricsEmitter.class);
-    public static final String NAMESPACE = "ClientDeviceAuth";
+    private static final String NAMESPACE = "ClientDeviceAuth";
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
-
-    /**
-     * Constructor for metrics emitter.
-     */
-    @Inject
-    public MetricsEmitter() {
-        super();
-    }
 
     /**
      * Emit CDA metrics.
@@ -45,6 +34,6 @@ public class MetricsEmitter extends PeriodicMetricsEmitter {
     @Override
     public List<Metric> getMetrics() {
         //implementation pending
-        return null; 
+        return new ArrayList<>();
     }
 }
