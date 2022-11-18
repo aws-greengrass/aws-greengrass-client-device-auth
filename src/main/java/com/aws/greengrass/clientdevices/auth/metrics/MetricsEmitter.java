@@ -9,12 +9,24 @@ import com.aws.greengrass.telemetry.PeriodicMetricsEmitter;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.impl.MetricFactory;
 
-import java.util.ArrayList;
 import java.util.List;
+import javax.inject.Inject;
 
 public class MetricsEmitter extends PeriodicMetricsEmitter {
     private static final String NAMESPACE = "ClientDeviceAuth";
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
+    private final ClientDeviceAuthMetrics metrics;
+
+    /**
+     * Constructor for metrics emitter.
+     *
+     * @param metrics {@link ClientDeviceAuthMetrics}
+     */
+    @Inject
+    public MetricsEmitter(ClientDeviceAuthMetrics metrics) {
+        super();
+        this.metrics = metrics;
+    }
 
     /**
      * Emit CDA metrics.
@@ -33,7 +45,6 @@ public class MetricsEmitter extends PeriodicMetricsEmitter {
      */
     @Override
     public List<Metric> getMetrics() {
-        //implementation pending
-        return new ArrayList<>();
+        return metrics.collectMetrics();
     }
 }

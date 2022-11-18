@@ -24,6 +24,7 @@ import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationExce
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
+import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -71,7 +72,7 @@ public class CertificateManager {
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CertificateManager.class);
     private static final String pkcs11Scheme = "pkcs11";
-
+    private ClientDeviceAuthMetrics metrics;
 
     /**
      * Construct a new CertificateManager.
@@ -183,6 +184,7 @@ public class CertificateManager {
                 };
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
+            metrics.incrementSubscribeSuccess();
         } catch (NoSuchAlgorithmException e) {
             throw new CertificateGenerationException(e);
         }
