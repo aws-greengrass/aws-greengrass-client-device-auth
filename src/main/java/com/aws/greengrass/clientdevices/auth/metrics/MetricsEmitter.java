@@ -34,13 +34,14 @@ public class MetricsEmitter extends PeriodicMetricsEmitter {
     @Override
     public void emitMetrics() {
         List<Metric> retrievedMetrics = getMetrics();
-        for (Metric retrievedMetric: retrievedMetrics) {
+        for (Metric retrievedMetric : retrievedMetrics) {
             mf.putMetricData(retrievedMetric);
         }
     }
 
     /**
      * Retrieve CDA metrics.
+     *
      * @return a list of {@link Metric}
      */
     @Override

@@ -187,7 +187,7 @@ public class CertificateManager {
                 };
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
-            metrics.incrementSubscribeSuccess();
+            metrics.subscribeSuccess();
         } catch (NoSuchAlgorithmException e) {
             throw new CertificateGenerationException(e);
         }

@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class ClientDeviceAuthMetrics {
 
-    private static AtomicLong certSubscribeSuccess = new AtomicLong();
+    private final AtomicLong certSubscribeSuccess = new AtomicLong();
     private static final String NAMESPACE = "ClientDeviceAuth";
 
     /**
@@ -33,7 +33,7 @@ public class ClientDeviceAuthMetrics {
                 .namespace(NAMESPACE)
                 .name("Cert.SubscribeSuccess")
                 .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Count)
+                .aggregation(TelemetryAggregation.Sum)
                 .value(certSubscribeSuccess.getAndSet(0))
                 .timestamp(timestamp)
                 .build();
@@ -45,7 +45,7 @@ public class ClientDeviceAuthMetrics {
     /**
      * Increments the Cert.SubscribeSuccess metric.
      */
-    public void incrementSubscribeSuccess() {
+    public void subscribeSuccess() {
         certSubscribeSuccess.incrementAndGet();
     }
 
