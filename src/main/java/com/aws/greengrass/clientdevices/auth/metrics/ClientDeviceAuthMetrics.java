@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package com.aws.greengrass.clientdevices.auth.metrics;
 
 
@@ -15,6 +20,10 @@ public class ClientDeviceAuthMetrics {
     private static AtomicLong certSubscribeSuccess = new AtomicLong();
     private static final String NAMESPACE = "ClientDeviceAuth";
 
+    /**
+     * Builds the CDA metrics.
+     * @return a list of {@link Metric}
+     */
     public List<Metric> collectMetrics() {
         List<Metric> metricsList = new ArrayList<>();
 
@@ -33,6 +42,9 @@ public class ClientDeviceAuthMetrics {
         return metricsList;
     }
 
+    /**
+     * Increments the Cert.SubscribeSuccess metric.
+     */
     public void incrementSubscribeSuccess() {
         certSubscribeSuccess.incrementAndGet();
     }
