@@ -34,7 +34,7 @@ public class ClientDeviceAuthMetrics {
                 .name("Cert.SubscribeSuccess")
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Count)
-                .value(certSubscribeSuccess)
+                .value(certSubscribeSuccess.getAndSet(0))
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);

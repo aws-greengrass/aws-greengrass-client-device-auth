@@ -20,6 +20,7 @@ import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
+import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.security.SecurityService;
@@ -98,6 +99,8 @@ public class CertificateManagerTest {
     GreengrassServiceClientFactory clientFactoryMock;
     @Mock
     SecurityService securityServiceMock;
+    @Mock
+    ClientDeviceAuthMetrics metricsMock;
     @TempDir
     Path rootDir;
 
@@ -119,7 +122,7 @@ public class CertificateManagerTest {
         certificateManager =
                 new CertificateManager(certificateStore, mockConnectivityInformation, mockCertExpiryMonitor,
                         mockShadowMonitor, Clock.systemUTC(), clientFactoryMock, securityServiceMock,
-                        certRotationMonitor);
+                        certRotationMonitor, metricsMock);
 
         CertificatesConfig certificatesConfig =
                 new CertificatesConfig(Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
