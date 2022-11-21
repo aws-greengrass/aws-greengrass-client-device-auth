@@ -24,6 +24,7 @@ import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationExce
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
+import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -71,7 +72,7 @@ public class CertificateManager {
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CertificateManager.class);
     private static final String pkcs11Scheme = "pkcs11";
-
+    private final ClientDeviceAuthMetrics metrics;
 
     /**
      * Construct a new CertificateManager.
@@ -84,12 +85,14 @@ public class CertificateManager {
      * @param clientFactory           Greengrass cloud service client factory
      * @param securityService         Security Service
      * @param caConfigurationMonitor  CA Configuration Monitor
+     * @param metrics                 Client Device Auth Metrics
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore, ConnectivityInformation connectivityInformation,
                               CertificateExpiryMonitor certExpiryMonitor, CISShadowMonitor cisShadowMonitor,
                               Clock clock, GreengrassServiceClientFactory clientFactory,
-                              SecurityService securityService, CertificateRotationHandler caConfigurationMonitor) {
+                              SecurityService securityService, CertificateRotationHandler caConfigurationMonitor,
+                              ClientDeviceAuthMetrics metrics) {
         this.certificateStore = certificateStore;
         this.connectivityInformation = connectivityInformation;
         this.certExpiryMonitor = certExpiryMonitor;
@@ -98,6 +101,7 @@ public class CertificateManager {
         this.clock = clock;
         this.clientFactory = clientFactory;
         this.securityService = securityService;
+        this.metrics = metrics;
     }
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
@@ -183,6 +187,7 @@ public class CertificateManager {
                 };
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
+            metrics.subscribeSuccess();
         } catch (NoSuchAlgorithmException e) {
             throw new CertificateGenerationException(e);
         }
