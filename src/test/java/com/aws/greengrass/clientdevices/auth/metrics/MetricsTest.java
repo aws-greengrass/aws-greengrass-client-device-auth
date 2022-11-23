@@ -75,24 +75,25 @@ public class MetricsTest {
 
     private CertificateManager certificateManager;
     private CertificateStore certificateStore;
-    private ClientDeviceAuthMetrics metricsMock = new ClientDeviceAuthMetrics();
+    private ClientDeviceAuthMetrics metrics;
     CertificateRotationHandler certRotationMonitor;
 
     @BeforeEach
     void beforeEach() {
         DomainEvents domainEvents = new DomainEvents();
+        metrics = new ClientDeviceAuthMetrics();
         certificateStore = spy(new CertificateStore(tmpPath, domainEvents, securityServiceMock));
-        certRotationMonitor = new CertificateRotationHandler(mockConnectivityInformation, domainEvents, metricsMock);
+        certRotationMonitor = new CertificateRotationHandler(mockConnectivityInformation, domainEvents, metrics);
 
         certificateManager = new CertificateManager(certificateStore, mockConnectivityInformation,
                 mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactoryMock, securityServiceMock,
-                certRotationMonitor, metricsMock);
+                certRotationMonitor, metrics);
 
         CertificatesConfig certificatesConfig =
                 new CertificatesConfig(Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
 
-        emitterMock = new MetricsEmitter(metricsMock);
+        emitterMock = new MetricsEmitter(metrics);
     }
 
     @Test
@@ -112,7 +113,7 @@ public class MetricsTest {
         certificateManager.subscribeToCertificateUpdates(certificateRequest);
         certificateManager.subscribeToCertificateUpdates(certificateRequest);
         certificateManager.subscribeToCertificateUpdates(certificateRequest);
-        assertEquals(metricsMock.getSubscribeSuccess(), 3L);
+        assertEquals(3L, metrics.getSubscribeSuccess());
 
         // Checking that the emitter collects the metrics as expected
         Metric metric = Metric.builder()
@@ -127,12 +128,12 @@ public class MetricsTest {
         List<Metric> collectedMetrics = emitterMock.getMetrics();
         Metric subscribeSuccess = collectedMetrics.get(0);
 
-        assertEquals(subscribeSuccess.getValue(), metric.getValue());
-        assertEquals(subscribeSuccess.getName(), metric.getName());
-        assertEquals(subscribeSuccess.getTimestamp(), metric.getTimestamp());
-        assertEquals(subscribeSuccess.getAggregation(), metric.getAggregation());
-        assertEquals(subscribeSuccess.getUnit(), metric.getUnit());
-        assertEquals(subscribeSuccess.getNamespace(), metric.getNamespace());
+        assertEquals(metric.getValue(), subscribeSuccess.getValue());
+        assertEquals(metric.getName(), subscribeSuccess.getName());
+        assertEquals(metric.getTimestamp(), subscribeSuccess.getTimestamp());
+        assertEquals(metric.getAggregation(), subscribeSuccess.getAggregation());
+        assertEquals(metric.getUnit(), subscribeSuccess.getUnit());
+        assertEquals(metric.getNamespace(), subscribeSuccess.getNamespace());
     }
 
 }
