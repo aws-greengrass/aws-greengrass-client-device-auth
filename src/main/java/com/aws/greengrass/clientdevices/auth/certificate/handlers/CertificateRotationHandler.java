@@ -37,6 +37,7 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
      *
      * @param connectivityInformation Connectivity Info Provider
      * @param domainEvents            domain events service
+     * @param metrics                 ClientDeviceAuth metrics tracker
      */
     @Inject
     public CertificateRotationHandler(ConnectivityInformation connectivityInformation, DomainEvents domainEvents,

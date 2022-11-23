@@ -21,7 +21,7 @@ public class ClientDeviceAuthMetrics {
     private final AtomicLong certSubscribeError = new AtomicLong();
     private final AtomicLong invalidConfig = new AtomicLong();
     private final AtomicLong certRotation = new AtomicLong();
-    private final String NAMESPACE = "ClientDeviceAuth";
+    private static final String NAMESPACE = "ClientDeviceAuth";
 
     /**
      * Builds the CDA metrics.
@@ -85,35 +85,49 @@ public class ClientDeviceAuthMetrics {
     /**
      * Returns the Cert.SubscribeSuccess metric.
      */
-    public long getSubscribeSuccess() { return certSubscribeSuccess.get(); }
+    public long getSubscribeSuccess() {
+        return certSubscribeSuccess.get();
+    }
 
     /**
      * Increments the Cert.SubscribeError metric.
      */
-    public void subscribeError() { certSubscribeError.incrementAndGet(); }
+    public void subscribeError() {
+        certSubscribeError.incrementAndGet();
+    }
 
     /**
      * Returns the Cert.SubscribeError metric.
      */
-    public long getSubscribeError() { return certSubscribeError.get(); }
+    public long getSubscribeError() {
+        return certSubscribeError.get();
+    }
 
     /**
      * Increments the Config.Invalid metric.
      */
-    public void invalidConfig() { invalidConfig.incrementAndGet(); }
+    public void invalidConfig() {
+        invalidConfig.incrementAndGet();
+    }
 
     /**
      * Returns the Config.Invalid metric.
      */
-    public long getInvalidConfig() { return invalidConfig.get(); }
+    public long getInvalidConfig() {
+        return invalidConfig.get();
+    }
 
     /**
      * Increments the Cert.Rotate metric.
      */
-    public void certRotation() { certRotation.incrementAndGet(); }
+    public void certRotation() {
+        certRotation.incrementAndGet();
+    }
 
     /**
      * Returns the Cert.Rotate metric.
      */
-    public long getCertRotation() { return certRotation.get(); }
+    public long getCertRotation() {
+        return certRotation.get();
+    }
 }
