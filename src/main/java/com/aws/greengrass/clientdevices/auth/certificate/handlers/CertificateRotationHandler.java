@@ -10,6 +10,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CACertificateChainChanged;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
@@ -28,6 +29,7 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
 
     private final Set<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArraySet<>();
     private final DomainEvents domainEvents;
+    private final ClientDeviceAuthMetrics metrics;
 
 
     /**
@@ -37,9 +39,11 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
      * @param domainEvents            domain events service
      */
     @Inject
-    public CertificateRotationHandler(ConnectivityInformation connectivityInformation, DomainEvents domainEvents) {
+    public CertificateRotationHandler(ConnectivityInformation connectivityInformation, DomainEvents domainEvents,
+                                      ClientDeviceAuthMetrics metrics) {
         this.connectivityInformation = connectivityInformation;
         this.domainEvents = domainEvents;
+        this.metrics = metrics;
     }
 
     /**
@@ -80,6 +84,7 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
             try {
                 generator.generateCertificate(connectivityInformation::getCachedHostAddresses,
                         "Certificate Configuration Changed");
+                metrics.certRotation();
             } catch (CertificateGenerationException e) {
                 logger.atError().cause(e).log("Failed to rotate server certificate");
             }

@@ -18,7 +18,10 @@ import java.util.concurrent.atomic.AtomicLong;
 public class ClientDeviceAuthMetrics {
 
     private final AtomicLong certSubscribeSuccess = new AtomicLong();
-    private static final String NAMESPACE = "ClientDeviceAuth";
+    private final AtomicLong certSubscribeError = new AtomicLong();
+    private final AtomicLong invalidConfig = new AtomicLong();
+    private final AtomicLong certRotation = new AtomicLong();
+    private final String NAMESPACE = "ClientDeviceAuth";
 
     /**
      * Builds the CDA metrics.
@@ -39,6 +42,36 @@ public class ClientDeviceAuthMetrics {
                 .build();
         metricsList.add(metric);
 
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name("Cert.SubscribeError")
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(certSubscribeError.getAndSet(0))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name("Config.Invalid")
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(invalidConfig.getAndSet(0))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name("Cert.Rotate")
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(certRotation.getAndSet(0))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
         return metricsList;
     }
 
@@ -49,4 +82,38 @@ public class ClientDeviceAuthMetrics {
         certSubscribeSuccess.incrementAndGet();
     }
 
+    /**
+     * Returns the Cert.SubscribeSuccess metric.
+     */
+    public long getSubscribeSuccess() { return certSubscribeSuccess.get(); }
+
+    /**
+     * Increments the Cert.SubscribeError metric.
+     */
+    public void subscribeError() { certSubscribeError.incrementAndGet(); }
+
+    /**
+     * Returns the Cert.SubscribeError metric.
+     */
+    public long getSubscribeError() { return certSubscribeError.get(); }
+
+    /**
+     * Increments the Config.Invalid metric.
+     */
+    public void invalidConfig() { invalidConfig.incrementAndGet(); }
+
+    /**
+     * Returns the Config.Invalid metric.
+     */
+    public long getInvalidConfig() { return invalidConfig.get(); }
+
+    /**
+     * Increments the Cert.Rotate metric.
+     */
+    public void certRotation() { certRotation.incrementAndGet(); }
+
+    /**
+     * Returns the Cert.Rotate metric.
+     */
+    public long getCertRotation() { return certRotation.get(); }
 }
