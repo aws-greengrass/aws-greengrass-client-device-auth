@@ -48,11 +48,9 @@ import static org.mockito.Mockito.spy;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class MetricsTest {
-//    @Mock
-//    private ClientDeviceAuthMetrics metricsMock;
 
     @Mock
-    private MetricsEmitter emitterMock;
+    private MetricsEmitter mockEmitter;
 
     @Mock
     private ConnectivityInformation mockConnectivityInformation;
@@ -64,10 +62,10 @@ public class MetricsTest {
     private CISShadowMonitor mockShadowMonitor;
 
     @Mock
-    private SecurityService securityServiceMock;
+    private SecurityService mockSecurityService;
 
     @Mock
-    private GreengrassServiceClientFactory clientFactoryMock;
+    private GreengrassServiceClientFactory mockClientFactory;
 
     @TempDir
     Path tmpPath;
@@ -75,24 +73,24 @@ public class MetricsTest {
     private CertificateManager certificateManager;
     private CertificateStore certificateStore;
     private ClientDeviceAuthMetrics metrics;
-    CertificateRotationHandler certRotationMonitor;
+    private CertificateRotationHandler certRotationMonitor;
 
     @BeforeEach
     void beforeEach() {
         DomainEvents domainEvents = new DomainEvents();
         metrics = new ClientDeviceAuthMetrics();
-        certificateStore = spy(new CertificateStore(tmpPath, domainEvents, securityServiceMock));
+        certificateStore = spy(new CertificateStore(tmpPath, domainEvents, mockSecurityService));
         certRotationMonitor = new CertificateRotationHandler(mockConnectivityInformation, domainEvents, metrics);
 
         certificateManager = new CertificateManager(certificateStore, mockConnectivityInformation,
-                mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), clientFactoryMock, securityServiceMock,
+                mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), mockClientFactory, mockSecurityService,
                 certRotationMonitor, metrics);
 
         CertificatesConfig certificatesConfig =
                 new CertificatesConfig(Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
 
-        emitterMock = new MetricsEmitter(metrics);
+        mockEmitter = new MetricsEmitter(metrics);
     }
 
     @Test
@@ -124,7 +122,7 @@ public class MetricsTest {
                 .timestamp(Instant.now().toEpochMilli())
                 .build();
 
-        List<Metric> collectedMetrics = emitterMock.getMetrics();
+        List<Metric> collectedMetrics = mockEmitter.getMetrics();
         Metric subscribeSuccess = collectedMetrics.get(0);
 
         assertEquals(metric.getValue(), subscribeSuccess.getValue());
