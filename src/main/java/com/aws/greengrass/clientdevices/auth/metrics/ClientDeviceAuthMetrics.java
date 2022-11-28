@@ -10,7 +10,7 @@ import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
 
-import java.time.Instant;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -21,7 +21,12 @@ public class ClientDeviceAuthMetrics {
     private final AtomicLong certSubscribeError = new AtomicLong();
     private final AtomicLong invalidConfig = new AtomicLong();
     private final AtomicLong certRotation = new AtomicLong();
+    private final Clock clock;
     private static final String NAMESPACE = "ClientDeviceAuth";
+
+    public ClientDeviceAuthMetrics(Clock clock) {
+        this.clock = clock;
+    }
 
     /**
      * Builds the CDA metrics.
@@ -30,7 +35,7 @@ public class ClientDeviceAuthMetrics {
     public List<Metric> collectMetrics() {
         List<Metric> metricsList = new ArrayList<>();
 
-        long timestamp = Instant.now().toEpochMilli();
+        long timestamp = clock.instant().toEpochMilli();
 
         Metric metric = Metric.builder()
                 .namespace(NAMESPACE)
