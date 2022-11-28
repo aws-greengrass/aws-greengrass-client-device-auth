@@ -189,7 +189,6 @@ public class CertificateManager {
             }
             metrics.subscribeSuccess();
         } catch (NoSuchAlgorithmException e) {
-            metrics.subscribeError();
             throw new CertificateGenerationException(e);
         }
     }
@@ -302,7 +301,6 @@ public class CertificateManager {
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void configureCustomCA(CAConfiguration configuration) throws InvalidConfigurationException {
         if (!configuration.isUsingCustomCA()) {
-            metrics.invalidConfig();
             throw new InvalidConfigurationException(
                     "Invalid configuration: certificateUri and privateKeyUri are required.");
         }
@@ -329,7 +327,6 @@ public class CertificateManager {
 
             certificateStore.setCaKeyAndCertificateChain(providerType, keyPair.getPrivate(), certificateChain);
         } catch (Exception e) {
-            metrics.invalidConfig();
             throw new InvalidCertificateAuthorityException(String.format("Failed to configure CA: There was an error "
                     + "reading the provided private key %s or certificate chain %s", privateKeyUri, certificateUri), e);
         }

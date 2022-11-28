@@ -85,7 +85,6 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
             try {
                 generator.generateCertificate(connectivityInformation::getCachedHostAddresses,
                         "Certificate Configuration Changed");
-                metrics.certRotation();
             } catch (CertificateGenerationException e) {
                 logger.atError().cause(e).log("Failed to rotate server certificate");
             }
