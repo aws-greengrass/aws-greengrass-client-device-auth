@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.inject.Inject;
 
 public class ClientDeviceAuthMetrics {
 
@@ -24,6 +25,11 @@ public class ClientDeviceAuthMetrics {
     private final Clock clock;
     private static final String NAMESPACE = "ClientDeviceAuth";
 
+    /**
+     * Construct a new ClientDeviceAuthMetrics instance.
+     * @param clock             clock
+     */
+    @Inject
     public ClientDeviceAuthMetrics(Clock clock) {
         this.clock = clock;
     }
