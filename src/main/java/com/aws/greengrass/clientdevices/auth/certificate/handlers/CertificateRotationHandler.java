@@ -10,7 +10,6 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CACertificateChainChanged;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
@@ -35,14 +34,11 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
      *
      * @param connectivityInformation Connectivity Info Provider
      * @param domainEvents            domain events service
-     * @param metrics                 ClientDeviceAuth metrics tracker
      */
     @Inject
-    public CertificateRotationHandler(ConnectivityInformation connectivityInformation, DomainEvents domainEvents,
-                                      ClientDeviceAuthMetrics metrics) {
+    public CertificateRotationHandler(ConnectivityInformation connectivityInformation, DomainEvents domainEvents) {
         this.connectivityInformation = connectivityInformation;
         this.domainEvents = domainEvents;
-        this.metrics = metrics;
     }
 
     /**
