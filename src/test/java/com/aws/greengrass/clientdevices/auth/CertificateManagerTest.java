@@ -116,7 +116,7 @@ public class CertificateManagerTest {
     @BeforeEach
     void beforeEach() {
         DomainEvents domainEvents = new DomainEvents();
-        metrics = new ClientDeviceAuthMetrics(Clock.systemUTC());
+        metrics = new ClientDeviceAuthMetrics();
         certificateStore = spy(new CertificateStore(tmpPath, domainEvents, securityServiceMock));
         certRotationMonitor = new CertificateRotationHandler(mockConnectivityInformation, domainEvents);
 
