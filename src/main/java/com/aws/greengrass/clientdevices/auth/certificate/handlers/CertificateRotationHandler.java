@@ -29,7 +29,6 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
     private final Set<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArraySet<>();
     private final DomainEvents domainEvents;
 
-
     /**
      * Construct a new ConfigurationMonitor.
      *
