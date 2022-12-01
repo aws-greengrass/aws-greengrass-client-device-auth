@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
@@ -24,12 +25,13 @@ import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationExce
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
-import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
+import com.aws.greengrass.clientdevices.auth.metrics.MetricEvent;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
+import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
@@ -69,10 +71,10 @@ public class CertificateManager {
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private final GreengrassServiceClientFactory clientFactory;
     private final SecurityService securityService;
+    private final DomainEvents domainEvent;
     private CertificatesConfig certificatesConfig;
     private static final Logger logger = LogManager.getLogger(CertificateManager.class);
     private static final String pkcs11Scheme = "pkcs11";
-    private final ClientDeviceAuthMetrics metrics;
 
     /**
      * Construct a new CertificateManager.
@@ -85,14 +87,14 @@ public class CertificateManager {
      * @param clientFactory           Greengrass cloud service client factory
      * @param securityService         Security Service
      * @param caConfigurationMonitor  CA Configuration Monitor
-     * @param metrics                 Client Device Auth Metrics
+     * @param domainEvent             Metric event emitter
      */
     @Inject
     public CertificateManager(CertificateStore certificateStore, ConnectivityInformation connectivityInformation,
                               CertificateExpiryMonitor certExpiryMonitor, CISShadowMonitor cisShadowMonitor,
                               Clock clock, GreengrassServiceClientFactory clientFactory,
                               SecurityService securityService, CertificateRotationHandler caConfigurationMonitor,
-                              ClientDeviceAuthMetrics metrics) {
+                              DomainEvents domainEvent) {
         this.certificateStore = certificateStore;
         this.connectivityInformation = connectivityInformation;
         this.certExpiryMonitor = certExpiryMonitor;
@@ -101,7 +103,7 @@ public class CertificateManager {
         this.clock = clock;
         this.clientFactory = clientFactory;
         this.securityService = securityService;
-        this.metrics = metrics;
+        this.domainEvent = domainEvent;
     }
 
     public void updateCertificatesConfiguration(CertificatesConfig certificatesConfig) {
@@ -187,7 +189,7 @@ public class CertificateManager {
                 };
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
-            metrics.subscribeSuccess();
+            domainEvent.emit(new MetricEvent("SubscribeToCertificateUpdates.Success"));
         } catch (NoSuchAlgorithmException e) {
             throw new CertificateGenerationException(e);
         }
