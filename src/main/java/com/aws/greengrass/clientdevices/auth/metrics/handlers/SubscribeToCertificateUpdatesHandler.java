@@ -10,7 +10,6 @@ import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 import com.aws.greengrass.clientdevices.auth.metrics.events.CertificateSubscriptionEvent;
 
-
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
