@@ -69,15 +69,6 @@ public class ClientDeviceAuthMetrics {
     }
 
     /**
-     * Returns the clock.
-     *
-     * @return Clock
-     */
-    public Clock getClock() {
-        return clock;
-    }
-
-    /**
      * Increments the Cert.SubscribeSuccess metric.
      */
     public void subscribeSuccess() {

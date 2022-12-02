@@ -3,14 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.metrics;
+package com.aws.greengrass.clientdevices.auth.metrics.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.metrics.events.CertificateSubscriptionEvent;
+import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
-public class MetricsHandler implements Consumer<MetricEvent> {
+public class SubscribeToCertificateUpdatesHandler implements Consumer<CertificateSubscriptionEvent> {
     private final DomainEvents domainEvents;
     private final ClientDeviceAuthMetrics metrics;
 
@@ -21,7 +23,7 @@ public class MetricsHandler implements Consumer<MetricEvent> {
      * @param metrics      Client Device Auth metrics
      */
     @Inject
-    public MetricsHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
+    public SubscribeToCertificateUpdatesHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
         this.domainEvents = domainEvents;
         this.metrics = metrics;
     }
@@ -30,7 +32,7 @@ public class MetricsHandler implements Consumer<MetricEvent> {
      * Listen for metric events.
      */
     public void listen() {
-        domainEvents.registerListener(this, MetricEvent.class);
+        domainEvents.registerListener(this, CertificateSubscriptionEvent.class);
     }
 
     /**
@@ -39,10 +41,8 @@ public class MetricsHandler implements Consumer<MetricEvent> {
      * @param event Update metric event
      */
     @Override
-    public void accept(MetricEvent event) {
-        String metricName = event.getMetricName();
-
-        if (metricName.equals(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)) {
+    public void accept(CertificateSubscriptionEvent event) {
+        if (event.isSuccessfulSubscription()) {
             metrics.subscribeSuccess();
         }
     }

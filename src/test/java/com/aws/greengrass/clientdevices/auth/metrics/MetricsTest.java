@@ -17,6 +17,8 @@ import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRot
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.SubscribeToCertificateUpdatesHandler;
+import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.security.SecurityService;
@@ -27,6 +29,7 @@ import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Pair;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +37,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.security.KeyStoreException;
 import java.time.Clock;
@@ -43,7 +47,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -66,10 +69,12 @@ public class MetricsTest {
     @TempDir
     Path tmpPath;
 
+    private CertificatesConfig certificatesConfig;
+    private Topics configurationTopics;
     private CertificateManager certificateManager;
     private CertificateStore certificateStore;
     private ClientDeviceAuthMetrics metrics;
-    private MetricsHandler metricsHandler;
+    private SubscribeToCertificateUpdatesHandler subscribeToCertificateUpdatesHandler;
     private CertificateRotationHandler certRotationMonitor;
     private Clock clock;
 
@@ -78,8 +83,8 @@ public class MetricsTest {
         clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         DomainEvents domainEvents = new DomainEvents();
         metrics = new ClientDeviceAuthMetrics(clock);
-        metricsHandler = new MetricsHandler(domainEvents, metrics);
-        metricsHandler.listen();
+        subscribeToCertificateUpdatesHandler = new SubscribeToCertificateUpdatesHandler(domainEvents, metrics);
+        subscribeToCertificateUpdatesHandler.listen();
         certificateStore = new CertificateStore(tmpPath, domainEvents, mockSecurityService);
         certRotationMonitor = new CertificateRotationHandler(mockConnectivityInformation, domainEvents);
 
@@ -87,9 +92,15 @@ public class MetricsTest {
                 mockCertExpiryMonitor, mockShadowMonitor, Clock.systemUTC(), mockClientFactory, mockSecurityService,
                 certRotationMonitor, domainEvents);
 
-        CertificatesConfig certificatesConfig =
-                new CertificatesConfig(Topics.of(new Context(), CONFIGURATION_CONFIG_KEY, null));
+        configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
+        certificatesConfig = new CertificatesConfig(configurationTopics);
+
         certificateManager.updateCertificatesConfiguration(certificatesConfig);
+    }
+
+    @AfterEach
+    void afterEach() throws IOException {
+        configurationTopics.getContext().close();
     }
 
     @Test
@@ -113,7 +124,7 @@ public class MetricsTest {
         // Checking that the emitter collects the metrics as expected
         Metric metric = Metric.builder()
                 .namespace("ClientDeviceAuth")
-                .name("SubscribeToCertificateUpdates.Success")
+                .name(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
                 .value(3L)
