@@ -31,7 +31,6 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
-import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;

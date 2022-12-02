@@ -45,6 +45,9 @@ public class MetricsHandler implements Consumer<MetricEvent> {
             case "SubscribeToCertificateUpdates.Success":
                 metrics.subscribeSuccess();
                 break;
+            case "SubscribeToCertificateUpdates.Failure":
+                //implementation pending
+                break;
             default:
                 break;
         }
