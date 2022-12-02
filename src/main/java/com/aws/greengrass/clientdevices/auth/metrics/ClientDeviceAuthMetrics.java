@@ -21,6 +21,7 @@ public class ClientDeviceAuthMetrics {
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final String NAMESPACE = "ClientDeviceAuth";
+    public static final String SubscribeToCertificateUpdatesSuccess = "SubscribeToCertificateUpdates.Success";
 
     /**
      * Constructor for Client Device Auth Metrics.
@@ -54,7 +55,7 @@ public class ClientDeviceAuthMetrics {
 
         Metric metric = Metric.builder()
                 .namespace(NAMESPACE)
-                .name("SubscribeToCertificateUpdates.Success")
+                .name(SubscribeToCertificateUpdatesSuccess)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
                 .value(subscribeToCertificateUpdatesSuccess.getAndSet(0))

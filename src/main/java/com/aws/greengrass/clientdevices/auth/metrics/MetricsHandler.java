@@ -40,16 +40,10 @@ public class MetricsHandler implements Consumer<MetricEvent> {
      */
     @Override
     public void accept(MetricEvent event) {
-        switch (event.getMetricName()) {
-            //more cases will be added as more metrics are added
-            case "SubscribeToCertificateUpdates.Success":
-                metrics.subscribeSuccess();
-                break;
-            case "SubscribeToCertificateUpdates.Failure":
-                //implementation pending
-                break;
-            default:
-                break;
+        String metricName = event.getMetricName();
+
+        if (metricName.equals(metrics.SubscribeToCertificateUpdatesSuccess)) {
+            metrics.subscribeSuccess();
         }
     }
 }
