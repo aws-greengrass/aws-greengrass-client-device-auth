@@ -180,7 +180,8 @@ public class CertificateManager {
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
-                domainEvent.emit(new CertificateSubscriptionEvent(certificateType, CertificateSubscriptionEvent.subscriptionStatus.SUCCESS));
+                domainEvent.emit(new CertificateSubscriptionEvent(certificateType,
+                        CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS));
             } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
                 BiConsumer<X509Certificate, X509Certificate[]> consumer = (clientCert, caCertificates) -> {
                     CertificateUpdateEvent certificateUpdateEvent =
