@@ -14,6 +14,7 @@ public class CertificateSubscriptionEvent implements DomainEvent {
     private GetCertificateRequestOptions.CertificateType certificateType;
     @Getter
     private SubscriptionStatus status;
+
     public enum SubscriptionStatus {
         SUCCESS,
         FAIL
