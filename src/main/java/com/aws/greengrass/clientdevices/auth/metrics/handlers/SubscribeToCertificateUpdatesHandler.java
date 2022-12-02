@@ -43,10 +43,8 @@ public class SubscribeToCertificateUpdatesHandler implements Consumer<Certificat
      */
     @Override
     public void accept(CertificateSubscriptionEvent event) {
-        if (event.getCertificateType().equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
-            if (event.isSuccessfulSubscription()) {
-                metrics.subscribeSuccess();
-            }
+        if (event.getCertificateType().equals(GetCertificateRequestOptions.CertificateType.SERVER) && event.isSuccessfulSubscription()) {
+            metrics.subscribeSuccess();
         }
     }
 }
