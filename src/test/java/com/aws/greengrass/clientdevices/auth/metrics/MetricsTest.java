@@ -75,7 +75,7 @@ public class MetricsTest {
 
     @BeforeEach
     void beforeEach() {
-        Clock clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
+        clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         DomainEvents domainEvents = new DomainEvents();
         metrics = new ClientDeviceAuthMetrics(clock);
         metricsHandler = new MetricsHandler(domainEvents, metrics);
