@@ -37,6 +37,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.nio.file.Path;
 import java.security.KeyStoreException;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -69,11 +71,13 @@ public class MetricsTest {
     private ClientDeviceAuthMetrics metrics;
     private MetricsHandler metricsHandler;
     private CertificateRotationHandler certRotationMonitor;
+    private Clock clock;
 
     @BeforeEach
     void beforeEach() {
+        Clock clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         DomainEvents domainEvents = new DomainEvents();
-        metrics = new ClientDeviceAuthMetrics(Clock.systemUTC());
+        metrics = new ClientDeviceAuthMetrics(clock);
         metricsHandler = new MetricsHandler(domainEvents, metrics);
         metricsHandler.listen();
         certificateStore = new CertificateStore(tmpPath, domainEvents, mockSecurityService);
@@ -113,7 +117,7 @@ public class MetricsTest {
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
                 .value(3L)
-                .timestamp(metrics.getClock().instant().toEpochMilli())
+                .timestamp(Instant.now(clock).toEpochMilli())
                 .build();
 
         List<Metric> collectedMetrics = metrics.collectMetrics();

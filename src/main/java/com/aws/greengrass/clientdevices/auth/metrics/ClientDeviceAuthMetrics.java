@@ -11,6 +11,7 @@ import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -21,7 +22,8 @@ public class ClientDeviceAuthMetrics {
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final String NAMESPACE = "ClientDeviceAuth";
-    public static final String SubscribeToCertificateUpdatesSuccess = "SubscribeToCertificateUpdates.Success";
+    public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS =
+            "SubscribeToCertificateUpdates.Success";
 
     /**
      * Constructor for Client Device Auth Metrics.
@@ -51,11 +53,11 @@ public class ClientDeviceAuthMetrics {
     public List<Metric> collectMetrics() {
         List<Metric> metricsList = new ArrayList<>();
 
-        long timestamp = clock.instant().toEpochMilli();
+        long timestamp = Instant.now(clock).toEpochMilli();
 
         Metric metric = Metric.builder()
                 .namespace(NAMESPACE)
-                .name(SubscribeToCertificateUpdatesSuccess)
+                .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
                 .value(subscribeToCertificateUpdatesSuccess.getAndSet(0))

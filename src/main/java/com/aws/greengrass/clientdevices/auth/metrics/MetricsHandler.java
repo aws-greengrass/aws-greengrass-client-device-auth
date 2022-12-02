@@ -42,7 +42,7 @@ public class MetricsHandler implements Consumer<MetricEvent> {
     public void accept(MetricEvent event) {
         String metricName = event.getMetricName();
 
-        if (metricName.equals(metrics.SubscribeToCertificateUpdatesSuccess)) {
+        if (metricName.equals(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)) {
             metrics.subscribeSuccess();
         }
     }
