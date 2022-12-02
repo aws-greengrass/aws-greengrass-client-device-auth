@@ -18,6 +18,7 @@ public class MetricsHandler implements Consumer<MetricEvent> {
      * Create handler for metric events.
      *
      * @param domainEvents Domain event router
+     * @param metrics      Client Device Auth metrics
      */
     @Inject
     public MetricsHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
@@ -39,7 +40,7 @@ public class MetricsHandler implements Consumer<MetricEvent> {
      */
     @Override
     public void accept(MetricEvent event) {
-        switch(event.getMetricName()) {
+        switch (event.getMetricName()) {
             //more cases will be added as more metrics are added
             case "SubscribeToCertificateUpdates.Success":
                 metrics.subscribeSuccess();

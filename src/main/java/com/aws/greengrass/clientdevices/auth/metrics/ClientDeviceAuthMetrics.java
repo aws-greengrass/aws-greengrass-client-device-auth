@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.inject.Inject;
 
 public class ClientDeviceAuthMetrics {
-    private final AtomicLong SubscribeToCertificateUpdatesSuccess = new AtomicLong();
+    private final AtomicLong subscribeToCertificateUpdatesSuccess = new AtomicLong();
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final String NAMESPACE = "ClientDeviceAuth";
@@ -25,12 +25,16 @@ public class ClientDeviceAuthMetrics {
     /**
      * Constructor for Client Device Auth Metrics.
      *
-     * @param clock
+     * @param clock Clock
      */
     @Inject
     public ClientDeviceAuthMetrics(Clock clock) {
         this.clock = clock;
     }
+
+    /**
+     * Emit metrics using Metric Factory.
+     */
     public void emitMetrics() {
         List<Metric> retrievedMetrics = collectMetrics();
         for (Metric retrievedMetric : retrievedMetrics) {
@@ -53,7 +57,7 @@ public class ClientDeviceAuthMetrics {
                 .name("SubscribeToCertificateUpdates.Success")
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
-                .value(SubscribeToCertificateUpdatesSuccess.getAndSet(0))
+                .value(subscribeToCertificateUpdatesSuccess.getAndSet(0))
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
@@ -74,7 +78,7 @@ public class ClientDeviceAuthMetrics {
      * Increments the Cert.SubscribeSuccess metric.
      */
     public void subscribeSuccess() {
-        SubscribeToCertificateUpdatesSuccess.incrementAndGet();
+        subscribeToCertificateUpdatesSuccess.incrementAndGet();
     }
 
     /**
