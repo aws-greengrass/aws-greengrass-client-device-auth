@@ -16,6 +16,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubscriptionEvent;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRotationHandler;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
@@ -25,7 +26,6 @@ import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationExce
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidCertificateAuthorityException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidConfigurationException;
-import com.aws.greengrass.clientdevices.auth.metrics.events.CertificateSubscriptionEvent;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -180,7 +180,7 @@ public class CertificateManager {
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
-                domainEvent.emit(new CertificateSubscriptionEvent(certificateType, true));
+                domainEvent.emit(new CertificateSubscriptionEvent(certificateType, CertificateSubscriptionEvent.subscriptionStatus.SUCCESS));
             } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
                 BiConsumer<X509Certificate, X509Certificate[]> consumer = (clientCert, caCertificates) -> {
                     CertificateUpdateEvent certificateUpdateEvent =

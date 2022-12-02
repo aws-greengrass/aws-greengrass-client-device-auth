@@ -17,7 +17,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRot
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.SubscribeToCertificateUpdatesHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionHandler;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
@@ -74,7 +74,7 @@ public class MetricsTest {
     private CertificateManager certificateManager;
     private CertificateStore certificateStore;
     private ClientDeviceAuthMetrics metrics;
-    private SubscribeToCertificateUpdatesHandler subscribeToCertificateUpdatesHandler;
+    private CertificateSubscriptionHandler certificateSubscriptionHandler;
     private CertificateRotationHandler certRotationMonitor;
     private Clock clock;
 
@@ -83,8 +83,8 @@ public class MetricsTest {
         clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         DomainEvents domainEvents = new DomainEvents();
         metrics = new ClientDeviceAuthMetrics(clock);
-        subscribeToCertificateUpdatesHandler = new SubscribeToCertificateUpdatesHandler(domainEvents, metrics);
-        subscribeToCertificateUpdatesHandler.listen();
+        certificateSubscriptionHandler = new CertificateSubscriptionHandler(domainEvents, metrics);
+        certificateSubscriptionHandler.listen();
         certificateStore = new CertificateStore(tmpPath, domainEvents, mockSecurityService);
         certRotationMonitor = new CertificateRotationHandler(mockConnectivityInformation, domainEvents);
 
@@ -123,7 +123,7 @@ public class MetricsTest {
 
         // Checking that the emitter collects the metrics as expected
         Metric metric = Metric.builder()
-                .namespace("ClientDeviceAuth")
+                .namespace("aws.greengrass.clientdevices.Auth")
                 .name(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)

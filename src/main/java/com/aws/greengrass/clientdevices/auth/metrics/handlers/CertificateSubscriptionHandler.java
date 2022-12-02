@@ -7,13 +7,13 @@ package com.aws.greengrass.clientdevices.auth.metrics.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
+import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubscriptionEvent;
 import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
-import com.aws.greengrass.clientdevices.auth.metrics.events.CertificateSubscriptionEvent;
 
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
-public class SubscribeToCertificateUpdatesHandler implements Consumer<CertificateSubscriptionEvent> {
+public class CertificateSubscriptionHandler implements Consumer<CertificateSubscriptionEvent> {
     private final DomainEvents domainEvents;
     private final ClientDeviceAuthMetrics metrics;
 
@@ -24,7 +24,7 @@ public class SubscribeToCertificateUpdatesHandler implements Consumer<Certificat
      * @param metrics      Client Device Auth metrics
      */
     @Inject
-    public SubscribeToCertificateUpdatesHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
+    public CertificateSubscriptionHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
         this.domainEvents = domainEvents;
         this.metrics = metrics;
     }
@@ -43,8 +43,9 @@ public class SubscribeToCertificateUpdatesHandler implements Consumer<Certificat
      */
     @Override
     public void accept(CertificateSubscriptionEvent event) {
+        //TODO track unsuccessful certificate subscriptions
         if (event.getCertificateType().equals(GetCertificateRequestOptions.CertificateType.SERVER)
-                && event.isSuccessfulSubscription()) {
+                && event.getStatus() == CertificateSubscriptionEvent.subscriptionStatus.SUCCESS) {
             metrics.subscribeSuccess();
         }
     }
