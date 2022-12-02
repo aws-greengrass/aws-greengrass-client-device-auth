@@ -180,6 +180,7 @@ public class CertificateManager {
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
+                domainEvent.emit(new CertificateSubscriptionEvent(certificateType, true));
             } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
                 BiConsumer<X509Certificate, X509Certificate[]> consumer = (clientCert, caCertificates) -> {
                     CertificateUpdateEvent certificateUpdateEvent =
@@ -188,7 +189,6 @@ public class CertificateManager {
                 };
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
-            domainEvent.emit(new CertificateSubscriptionEvent(certificateType, true));
         } catch (NoSuchAlgorithmException e) {
             throw new CertificateGenerationException(e);
         }

@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.metrics.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 import com.aws.greengrass.clientdevices.auth.metrics.events.CertificateSubscriptionEvent;
 
@@ -43,8 +44,10 @@ public class SubscribeToCertificateUpdatesHandler implements Consumer<Certificat
      */
     @Override
     public void accept(CertificateSubscriptionEvent event) {
-        if (event.isSuccessfulSubscription()) {
-            metrics.subscribeSuccess();
+        if (event.getCertificateType().equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
+            if (event.isSuccessfulSubscription()) {
+                metrics.subscribeSuccess();
+            }
         }
     }
 }
