@@ -45,6 +45,8 @@ public class MetricsHandler implements Consumer<MetricEvent> {
             case "SubscribeToCertificateUpdates.Success":
                 metrics.subscribeSuccess();
                 break;
+            default:
+                break;
         }
     }
 }
