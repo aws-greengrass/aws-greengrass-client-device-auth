@@ -62,6 +62,36 @@ public class ClientDeviceAuthMetrics {
                 .build();
         metricsList.add(metric);
 
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name("Cert.SubscribeError")
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(certSubscribeError.getAndSet(0))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name("Config.Invalid")
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(invalidConfig.getAndSet(0))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name("Cert.Rotate")
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(certRotation.getAndSet(0))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
         return metricsList;
     }
 
