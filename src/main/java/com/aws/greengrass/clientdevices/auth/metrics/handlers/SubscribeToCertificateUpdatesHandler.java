@@ -6,8 +6,9 @@
 package com.aws.greengrass.clientdevices.auth.metrics.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.metrics.events.CertificateSubscriptionEvent;
 import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
+import com.aws.greengrass.clientdevices.auth.metrics.events.CertificateSubscriptionEvent;
+
 
 import java.util.function.Consumer;
 import javax.inject.Inject;
