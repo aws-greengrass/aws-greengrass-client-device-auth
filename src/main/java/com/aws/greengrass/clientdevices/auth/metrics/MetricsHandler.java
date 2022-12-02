@@ -45,7 +45,5 @@ public class MetricsHandler implements Consumer<MetricEvent> {
                 metrics.subscribeSuccess();
                 break;
         }
-
-        metrics.emitMetrics();
     }
 }

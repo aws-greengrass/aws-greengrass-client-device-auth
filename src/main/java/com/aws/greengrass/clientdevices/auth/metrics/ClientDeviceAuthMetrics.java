@@ -10,16 +10,27 @@ import com.aws.greengrass.telemetry.impl.MetricFactory;
 import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
 
-import java.time.Instant;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.inject.Inject;
 
 public class ClientDeviceAuthMetrics {
     private final AtomicLong SubscribeToCertificateUpdatesSuccess = new AtomicLong();
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
+    private final Clock clock;
     private static final String NAMESPACE = "ClientDeviceAuth";
 
+    /**
+     * Constructor for Client Device Auth Metrics.
+     *
+     * @param clock
+     */
+    @Inject
+    public ClientDeviceAuthMetrics(Clock clock) {
+        this.clock = clock;
+    }
     public void emitMetrics() {
         List<Metric> retrievedMetrics = collectMetrics();
         for (Metric retrievedMetric : retrievedMetrics) {
@@ -29,16 +40,17 @@ public class ClientDeviceAuthMetrics {
 
     /**
      * Builds the CDA metrics.
+     *
      * @return a list of {@link Metric}
      */
     public List<Metric> collectMetrics() {
         List<Metric> metricsList = new ArrayList<>();
 
-        long timestamp = Instant.now().toEpochMilli();
+        long timestamp = clock.instant().toEpochMilli();
 
         Metric metric = Metric.builder()
                 .namespace(NAMESPACE)
-                .name("Cert.SubscribeSuccess")
+                .name("SubscribeToCertificateUpdates.Success")
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
                 .value(SubscribeToCertificateUpdatesSuccess.getAndSet(0))
@@ -47,6 +59,15 @@ public class ClientDeviceAuthMetrics {
         metricsList.add(metric);
 
         return metricsList;
+    }
+
+    /**
+     * Returns the clock.
+     *
+     * @return Clock
+     */
+    public Clock getClock() {
+        return clock;
     }
 
     /**
