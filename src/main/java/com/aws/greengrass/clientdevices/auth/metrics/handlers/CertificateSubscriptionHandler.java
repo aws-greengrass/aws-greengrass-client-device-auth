@@ -44,7 +44,7 @@ public class CertificateSubscriptionHandler implements Consumer<CertificateSubsc
     @Override
     public void accept(CertificateSubscriptionEvent event) {
         if (event.getCertificateType().equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
-            if(event.getStatus() == CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS) {
+            if (event.getStatus() == CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS) {
                 metrics.subscribeSuccess();
             } else if (event.getStatus() == CertificateSubscriptionEvent.SubscriptionStatus.FAIL) {
                 metrics.subscribeFailure();
