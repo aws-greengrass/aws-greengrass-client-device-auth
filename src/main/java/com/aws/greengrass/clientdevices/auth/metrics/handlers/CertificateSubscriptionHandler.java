@@ -43,10 +43,12 @@ public class CertificateSubscriptionHandler implements Consumer<CertificateSubsc
      */
     @Override
     public void accept(CertificateSubscriptionEvent event) {
-        //TODO track unsuccessful certificate subscriptions
-        if (event.getCertificateType().equals(GetCertificateRequestOptions.CertificateType.SERVER)
-                && event.getStatus() == CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS) {
-            metrics.subscribeSuccess();
+        if (event.getCertificateType().equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
+            if(event.getStatus() == CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS) {
+                metrics.subscribeSuccess();
+            } else if (event.getStatus() == CertificateSubscriptionEvent.SubscriptionStatus.FAIL) {
+                metrics.subscribeFailure();
+            }
         }
     }
 }

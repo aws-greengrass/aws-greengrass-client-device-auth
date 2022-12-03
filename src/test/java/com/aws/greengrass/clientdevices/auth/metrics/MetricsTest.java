@@ -42,7 +42,7 @@ public class MetricsTest {
     }
 
     @Test
-    void GIVEN_defaultCertManager_WHEN_subscribeToCertificateUpdates_THEN_subscribeSuccessMetricCorrectlyEmitted() {
+    void GIVEN_certificateSubscriptionEvents_WHEN_eventsEmitted_THEN_subscribeSuccessMetricCorrectlyEmitted() {
         // Emitting multiple Certificate Subscription Events to ensure the metric is incremented correctly
         domainEvents.emit(new CertificateSubscriptionEvent(GetCertificateRequestOptions.CertificateType.SERVER,
                 CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS));
@@ -63,6 +63,37 @@ public class MetricsTest {
 
         List<Metric> collectedMetrics = metrics.collectMetrics();
         Metric subscribeSuccess = collectedMetrics.get(0);
+
+        assertEquals(metric.getValue(), subscribeSuccess.getValue());
+        assertEquals(metric.getName(), subscribeSuccess.getName());
+        assertEquals(metric.getTimestamp(), subscribeSuccess.getTimestamp());
+        assertEquals(metric.getAggregation(), subscribeSuccess.getAggregation());
+        assertEquals(metric.getUnit(), subscribeSuccess.getUnit());
+        assertEquals(metric.getNamespace(), subscribeSuccess.getNamespace());
+    }
+
+    @Test
+    void GIVEN_certificateSubscriptionEvents_WHEN_eventsEmitted_THEN_subscribeFailureMetricCorrectlyEmitted() {
+        // Emitting multiple Certificate Subscription Events to ensure the metric is incremented correctly
+        domainEvents.emit(new CertificateSubscriptionEvent(GetCertificateRequestOptions.CertificateType.SERVER,
+                CertificateSubscriptionEvent.SubscriptionStatus.FAIL));
+        domainEvents.emit(new CertificateSubscriptionEvent(GetCertificateRequestOptions.CertificateType.SERVER,
+                CertificateSubscriptionEvent.SubscriptionStatus.FAIL));
+        domainEvents.emit(new CertificateSubscriptionEvent(GetCertificateRequestOptions.CertificateType.SERVER,
+                CertificateSubscriptionEvent.SubscriptionStatus.FAIL));
+
+        // Checking that the emitter collects the metrics as expected
+        Metric metric = Metric.builder()
+                .namespace("aws.greengrass.clientdevices.Auth")
+                .name(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE)
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(3L)
+                .timestamp(Instant.now(clock).toEpochMilli())
+                .build();
+
+        List<Metric> collectedMetrics = metrics.collectMetrics();
+        Metric subscribeSuccess = collectedMetrics.get(1);
 
         assertEquals(metric.getValue(), subscribeSuccess.getValue());
         assertEquals(metric.getName(), subscribeSuccess.getName());

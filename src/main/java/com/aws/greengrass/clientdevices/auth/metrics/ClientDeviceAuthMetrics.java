@@ -19,11 +19,14 @@ import javax.inject.Inject;
 
 public class ClientDeviceAuthMetrics {
     private final AtomicLong subscribeToCertificateUpdatesSuccess = new AtomicLong();
+    private final AtomicLong subscribeToCertificateUpdatesFailure = new AtomicLong();
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
     public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS =
             "SubscribeToCertificateUpdates.Success";
+    public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE =
+            "SubscribeToCertificateUpdates.Failure";
 
     /**
      * Constructor for Client Device Auth Metrics.
@@ -39,6 +42,7 @@ public class ClientDeviceAuthMetrics {
      * Emit metrics using Metric Factory.
      */
     public void emitMetrics() {
+        // TODO need to call this function on a timer
         List<Metric> retrievedMetrics = collectMetrics();
         for (Metric retrievedMetric : retrievedMetrics) {
             mf.putMetricData(retrievedMetric);
@@ -65,20 +69,30 @@ public class ClientDeviceAuthMetrics {
                 .build();
         metricsList.add(metric);
 
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE)
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(subscribeToCertificateUpdatesFailure.getAndSet(0))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
         return metricsList;
     }
 
     /**
-     * Increments the Cert.SubscribeSuccess metric.
+     * Increments the SubscribeToCertificateUpdates.Success metric.
      */
     public void subscribeSuccess() {
         subscribeToCertificateUpdatesSuccess.incrementAndGet();
     }
 
     /**
-     * Returns the Cert.SubscribeSuccess metric.
+     * Increments the SubscribeToCertificateUpdates.Failure metric
      */
-    public long getSubscribeSuccess() {
-        return subscribeToCertificateUpdatesSuccess.get();
+    public void subscribeFailure() {
+        subscribeToCertificateUpdatesFailure.incrementAndGet();
     }
 }
