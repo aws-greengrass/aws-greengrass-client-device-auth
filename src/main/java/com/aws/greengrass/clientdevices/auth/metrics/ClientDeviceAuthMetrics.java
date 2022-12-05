@@ -14,13 +14,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 public class ClientDeviceAuthMetrics {
-    protected ScheduledFuture<?> future;
     private final AtomicLong subscribeToCertificateUpdatesSuccess = new AtomicLong();
     private final AtomicLong subscribeToCertificateUpdatesFailure = new AtomicLong();
     private final AtomicLong verifyClientDeviceIdentitySuccess = new AtomicLong();
