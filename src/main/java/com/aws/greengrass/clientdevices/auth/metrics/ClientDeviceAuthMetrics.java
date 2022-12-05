@@ -5,70 +5,76 @@
 
 package com.aws.greengrass.clientdevices.auth.metrics;
 
-
 import com.aws.greengrass.telemetry.impl.Metric;
+import com.aws.greengrass.telemetry.impl.MetricFactory;
 import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.inject.Inject;
 
 public class ClientDeviceAuthMetrics {
+    private final AtomicLong subscribeToCertificateUpdatesSuccess = new AtomicLong();
+    private final AtomicLong subscribeToCertificateUpdatesFailure = new AtomicLong();
+    private final MetricFactory mf = new MetricFactory(NAMESPACE);
+    private final Clock clock;
+    private static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
+    public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS =
+            "SubscribeToCertificateUpdates.Success";
+    public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE =
+            "SubscribeToCertificateUpdates.Failure";
 
-    private final AtomicLong certSubscribeSuccess = new AtomicLong();
-    private final AtomicLong certSubscribeError = new AtomicLong();
-    private final AtomicLong invalidConfig = new AtomicLong();
-    private final AtomicLong certRotation = new AtomicLong();
+    /**
+     * Constructor for Client Device Auth Metrics.
+     *
+     * @param clock Clock
+     */
+    @Inject
+    public ClientDeviceAuthMetrics(Clock clock) {
+        this.clock = clock;
+    }
 
-    private static final String NAMESPACE = "ClientDeviceAuth";
+    /**
+     * Emit metrics using Metric Factory.
+     */
+    public void emitMetrics() {
+        // TODO need to call this function on a timer
+        List<Metric> retrievedMetrics = collectMetrics();
+        for (Metric retrievedMetric : retrievedMetrics) {
+            mf.putMetricData(retrievedMetric);
+        }
+    }
 
     /**
      * Builds the CDA metrics.
+     *
      * @return a list of {@link Metric}
      */
     public List<Metric> collectMetrics() {
         List<Metric> metricsList = new ArrayList<>();
 
-        long timestamp = Instant.now().toEpochMilli();
+        long timestamp = Instant.now(clock).toEpochMilli();
 
         Metric metric = Metric.builder()
                 .namespace(NAMESPACE)
-                .name("Cert.SubscribeSuccess")
+                .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
-                .value(certSubscribeSuccess.getAndSet(0))
+                .value(subscribeToCertificateUpdatesSuccess.getAndSet(0))
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
 
         metric = Metric.builder()
                 .namespace(NAMESPACE)
-                .name("Cert.SubscribeError")
+                .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
-                .value(certSubscribeError.getAndSet(0))
-                .timestamp(timestamp)
-                .build();
-        metricsList.add(metric);
-
-        metric = Metric.builder()
-                .namespace(NAMESPACE)
-                .name("Config.Invalid")
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(invalidConfig.getAndSet(0))
-                .timestamp(timestamp)
-                .build();
-        metricsList.add(metric);
-
-        metric = Metric.builder()
-                .namespace(NAMESPACE)
-                .name("Cert.Rotate")
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(certRotation.getAndSet(0))
+                .value(subscribeToCertificateUpdatesFailure.getAndSet(0))
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
@@ -77,58 +83,16 @@ public class ClientDeviceAuthMetrics {
     }
 
     /**
-     * Increments the Cert.SubscribeSuccess metric.
+     * Increments the SubscribeToCertificateUpdates.Success metric.
      */
     public void subscribeSuccess() {
-        certSubscribeSuccess.incrementAndGet();
+        subscribeToCertificateUpdatesSuccess.incrementAndGet();
     }
 
     /**
-     * Returns the Cert.SubscribeSuccess metric.
+     * Increments the SubscribeToCertificateUpdates.Failure metric
      */
-    public long getSubscribeSuccess() {
-        return certSubscribeSuccess.get();
-    }
-
-    /**
-     * Increments the Cert.SubscribeError metric.
-     */
-    public void subscribeError() {
-        certSubscribeError.incrementAndGet();
-    }
-
-    /**
-     * Returns the Cert.SubscribeError metric.
-     */
-    public long getSubscribeError() {
-        return certSubscribeError.get();
-    }
-
-    /**
-     * Increments the Config.Invalid metric.
-     */
-    public void invalidConfig() {
-        invalidConfig.incrementAndGet();
-    }
-
-    /**
-     * Returns the Config.Invalid metric.
-     */
-    public long getInvalidConfig() {
-        return invalidConfig.get();
-    }
-
-    /**
-     * Increments the Cert.Rotate metric.
-     */
-    public void certRotation() {
-        certRotation.incrementAndGet();
-    }
-
-    /**
-     * Returns the Cert.Rotate metric.
-     */
-    public long getCertRotation() {
-        return certRotation.get();
+    public void subscribeFailure() {
+        subscribeToCertificateUpdatesFailure.incrementAndGet();
     }
 }
