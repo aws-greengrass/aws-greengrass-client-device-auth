@@ -9,6 +9,7 @@ import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubscriptionEvent;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityHandler;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
@@ -29,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class MetricsTest {
     private ClientDeviceAuthMetrics metrics;
     private CertificateSubscriptionHandler certificateSubscriptionHandler;
+    private VerifyClientDeviceIdentityHandler verifyClientDeviceIdentityHandler;
     private Clock clock;
     private DomainEvents domainEvents;
 
@@ -38,7 +40,9 @@ public class MetricsTest {
         domainEvents = new DomainEvents();
         metrics = new ClientDeviceAuthMetrics(clock);
         certificateSubscriptionHandler = new CertificateSubscriptionHandler(domainEvents, metrics);
+        verifyClientDeviceIdentityHandler = new VerifyClientDeviceIdentityHandler(domainEvents, metrics);
         certificateSubscriptionHandler.listen();
+        verifyClientDeviceIdentityHandler.listen();
     }
 
     @Test
@@ -93,14 +97,70 @@ public class MetricsTest {
                 .build();
 
         List<Metric> collectedMetrics = metrics.collectMetrics();
-        Metric subscribeSuccess = collectedMetrics.get(1);
+        Metric subscribeFail = collectedMetrics.get(1);
 
-        assertEquals(metric.getValue(), subscribeSuccess.getValue());
-        assertEquals(metric.getName(), subscribeSuccess.getName());
-        assertEquals(metric.getTimestamp(), subscribeSuccess.getTimestamp());
-        assertEquals(metric.getAggregation(), subscribeSuccess.getAggregation());
-        assertEquals(metric.getUnit(), subscribeSuccess.getUnit());
-        assertEquals(metric.getNamespace(), subscribeSuccess.getNamespace());
+        assertEquals(metric.getValue(), subscribeFail.getValue());
+        assertEquals(metric.getName(), subscribeFail.getName());
+        assertEquals(metric.getTimestamp(), subscribeFail.getTimestamp());
+        assertEquals(metric.getAggregation(), subscribeFail.getAggregation());
+        assertEquals(metric.getUnit(), subscribeFail.getUnit());
+        assertEquals(metric.getNamespace(), subscribeFail.getNamespace());
+    }
+
+    @Test
+    void GIVEN_verifyClientDeviceIdentityEvents_WHEN_eventsEmitted_THEN_verifyDeviceIdentitySuccessMetricCorrectlyEmitted() {
+        // Emitting multiple Verify Client Device Identity events to ensure the metric is incremented correctly
+        domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
+        domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
+        domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
+
+        // Checking that the emitter collects the metrics as expected
+        Metric metric = Metric.builder()
+                .namespace("aws.greengrass.clientdevices.Auth")
+                .name(ClientDeviceAuthMetrics.METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS)
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(3L)
+                .timestamp(Instant.now(clock).toEpochMilli())
+                .build();
+
+        List<Metric> collectedMetrics = metrics.collectMetrics();
+        Metric verifyDeviceIdentitySuccess = collectedMetrics.get(2);
+
+        assertEquals(metric.getValue(), verifyDeviceIdentitySuccess.getValue());
+        assertEquals(metric.getName(), verifyDeviceIdentitySuccess.getName());
+        assertEquals(metric.getTimestamp(), verifyDeviceIdentitySuccess.getTimestamp());
+        assertEquals(metric.getAggregation(), verifyDeviceIdentitySuccess.getAggregation());
+        assertEquals(metric.getUnit(), verifyDeviceIdentitySuccess.getUnit());
+        assertEquals(metric.getNamespace(), verifyDeviceIdentitySuccess.getNamespace());
+    }
+
+    @Test
+    void GIVEN_verifyClientDeviceIdentityEvents_WHEN_eventsEmitted_THEN_verifyDeviceIdentityFailMetricCorrectlyEmitted() {
+        // Emitting multiple Verify Client Device Identity events to ensure the metric is incremented correctly
+        domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
+        domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
+        domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
+
+        // Checking that the emitter collects the metrics as expected
+        Metric metric = Metric.builder()
+                .namespace("aws.greengrass.clientdevices.Auth")
+                .name(ClientDeviceAuthMetrics.METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE)
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(3L)
+                .timestamp(Instant.now(clock).toEpochMilli())
+                .build();
+
+        List<Metric> collectedMetrics = metrics.collectMetrics();
+        Metric verifyDeviceIdentityFail = collectedMetrics.get(3);
+
+        assertEquals(metric.getValue(), verifyDeviceIdentityFail.getValue());
+        assertEquals(metric.getName(), verifyDeviceIdentityFail.getName());
+        assertEquals(metric.getTimestamp(), verifyDeviceIdentityFail.getTimestamp());
+        assertEquals(metric.getAggregation(), verifyDeviceIdentityFail.getAggregation());
+        assertEquals(metric.getUnit(), verifyDeviceIdentityFail.getUnit());
+        assertEquals(metric.getNamespace(), verifyDeviceIdentityFail.getNamespace());
     }
 
 }

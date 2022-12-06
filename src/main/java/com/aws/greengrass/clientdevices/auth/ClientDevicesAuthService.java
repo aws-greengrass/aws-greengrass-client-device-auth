@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CACertificateChainChangedHandler;
@@ -21,6 +22,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityHandler;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -138,6 +140,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CertificateRotationHandler.class).listen();
         context.get(SecurityConfigurationChangedHandler.class).listen();
         context.get(CertificateSubscriptionHandler.class).listen();
+        context.get(VerifyClientDeviceIdentityHandler.class).listen();
     }
 
     private void subscribeToConfigChanges() {
@@ -225,7 +228,7 @@ public class ClientDevicesAuthService extends PluginService {
                         authorizationHandler));
         greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(
                 context -> new VerifyClientDeviceIdentityOperationHandler(context, serviceApi, authorizationHandler,
-                        cloudCallThreadPool));
+                        cloudCallThreadPool, new DomainEvents()));
         greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(
                 context -> new GetClientDeviceAuthTokenOperationHandler(context, serviceApi, authorizationHandler,
                         cloudCallThreadPool));

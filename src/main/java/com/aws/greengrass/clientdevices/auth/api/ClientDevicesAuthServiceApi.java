@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
+import com.aws.greengrass.clientdevices.auth.metrics.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 
 import java.util.Map;
@@ -22,6 +23,7 @@ public class ClientDevicesAuthServiceApi {
     private final DeviceAuthClient deviceAuthClient;
     private final CertificateManager certificateManager;
     private final UseCases useCases;
+    private final DomainEvents domainEvents;
 
     /**
      * Constructor.
@@ -33,11 +35,12 @@ public class ClientDevicesAuthServiceApi {
      */
     @Inject
     public ClientDevicesAuthServiceApi(SessionManager sessionManager, DeviceAuthClient deviceAuthClient,
-                                       CertificateManager certificateManager, UseCases useCases) {
+                                       CertificateManager certificateManager, UseCases useCases, DomainEvents domainEvents) {
         this.sessionManager = sessionManager;
         this.deviceAuthClient = deviceAuthClient;
         this.certificateManager = certificateManager;
         this.useCases = useCases;
+        this.domainEvents = domainEvents;
     }
 
     /**
@@ -49,6 +52,7 @@ public class ClientDevicesAuthServiceApi {
     public boolean verifyClientDeviceIdentity(String certificatePem) {
         // Allow internal clients to verify their identities
         if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
+            domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
             return true;
         } else {
             return useCases.get(VerifyIotCertificate.class).apply(certificatePem);
