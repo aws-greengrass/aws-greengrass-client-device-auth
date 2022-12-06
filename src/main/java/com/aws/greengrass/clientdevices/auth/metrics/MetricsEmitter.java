@@ -17,6 +17,7 @@ public class MetricsEmitter {
     private static final int DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC = 3_600;
     private final ClientDeviceAuthMetrics metrics;
 
+
     /**
      * Constructor for the MetricsEmitter.
      *
@@ -25,6 +26,20 @@ public class MetricsEmitter {
      */
     @Inject
     public MetricsEmitter(ScheduledExecutorService ses, ClientDeviceAuthMetrics metrics) {
+        this.ses = ses;
+        this.metrics = metrics;
+    }
+
+    /**
+     * Constructor for the MetricsEmitter when publish and aggregate intervals are provided.
+     *
+     * @param ses                                 {@link ScheduledExecutorService}
+     * @param metrics                             {@link ClientDeviceAuthMetrics}
+     * @param periodicPublishMetricsIntervalSec   interval for cadence based telemetry publish
+     * @param periodicAggregateMetricsIntervalSec interval for cadence based telemetry metrics aggregation
+     */
+    public MetricsEmitter(ScheduledExecutorService ses, ClientDeviceAuthMetrics metrics,
+                          int periodicPublishMetricsIntervalSec, int periodicAggregateMetricsIntervalSec) {
         this.ses = ses;
         this.metrics = metrics;
     }
