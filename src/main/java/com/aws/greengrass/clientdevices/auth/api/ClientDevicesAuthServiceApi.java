@@ -54,8 +54,8 @@ public class ClientDevicesAuthServiceApi {
     public boolean verifyClientDeviceIdentity(String certificatePem) {
         // Allow internal clients to verify their identities
         if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
-            domainEvents.emit(new VerifyClientDeviceIdentityEvent
-                    (VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
+            domainEvents.emit(new VerifyClientDeviceIdentityEvent(
+                    VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
             return true;
         } else {
             return useCases.get(VerifyIotCertificate.class).apply(certificatePem);
