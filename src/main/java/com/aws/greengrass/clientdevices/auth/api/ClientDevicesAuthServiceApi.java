@@ -32,10 +32,12 @@ public class ClientDevicesAuthServiceApi {
      * @param deviceAuthClient   device auth client
      * @param certificateManager certificate manager
      * @param useCases           CDA use cases
+     * @param domainEvents       domain event emitter
      */
     @Inject
     public ClientDevicesAuthServiceApi(SessionManager sessionManager, DeviceAuthClient deviceAuthClient,
-                                       CertificateManager certificateManager, UseCases useCases, DomainEvents domainEvents) {
+                                       CertificateManager certificateManager, UseCases useCases,
+                                       DomainEvents domainEvents) {
         this.sessionManager = sessionManager;
         this.deviceAuthClient = deviceAuthClient;
         this.certificateManager = certificateManager;
@@ -52,7 +54,8 @@ public class ClientDevicesAuthServiceApi {
     public boolean verifyClientDeviceIdentity(String certificatePem) {
         // Allow internal clients to verify their identities
         if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
-            domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
+            domainEvents.emit(new VerifyClientDeviceIdentityEvent
+                    (VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
             return true;
         } else {
             return useCases.get(VerifyIotCertificate.class).apply(certificatePem);
