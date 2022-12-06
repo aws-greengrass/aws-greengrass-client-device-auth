@@ -11,8 +11,6 @@ import com.aws.greengrass.authorization.Permission;
 import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
-import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.metrics.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
@@ -44,7 +42,6 @@ public class VerifyClientDeviceIdentityOperationHandler
     private final String serviceName;
     private final AuthorizationHandler authorizationHandler;
     private final ExecutorService cloudCallThreadPool;
-    private final DomainEvents domainEvents;
 
     /**
      * Constructor.
@@ -53,19 +50,17 @@ public class VerifyClientDeviceIdentityOperationHandler
      * @param clientDevicesAuthServiceApi client devices auth service handle
      * @param authorizationHandler        authorization handler
      * @param cloudCallThreadPool         executor to run the call to the cloud asynchronously
-     * @param domainEvents                metric event emitter
      */
     public VerifyClientDeviceIdentityOperationHandler(OperationContinuationHandlerContext context,
                                                       ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
                                                       AuthorizationHandler authorizationHandler,
-                                                      ExecutorService cloudCallThreadPool, DomainEvents domainEvents) {
+                                                      ExecutorService cloudCallThreadPool) {
 
         super(context);
         this.clientDevicesAuthServiceApi = clientDevicesAuthServiceApi;
         this.authorizationHandler = authorizationHandler;
         this.cloudCallThreadPool = cloudCallThreadPool;
         serviceName = context.getAuthenticationData().getIdentityLabel();
-        this.domainEvents = domainEvents;
     }
 
     @Override
@@ -89,8 +84,6 @@ public class VerifyClientDeviceIdentityOperationHandler
             try {
                 doAuthorizationForClientDevIdentity();
             } catch (AuthorizationException e) {
-                domainEvents.emit(new VerifyClientDeviceIdentityEvent(
-                        VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
                 logger.atWarn().kv("error", e.getMessage()).kv(COMPONENT_NAME, serviceName).log(UNAUTHORIZED_ERROR);
                 throw new UnauthorizedError(e.getMessage());
             }
@@ -100,8 +93,6 @@ public class VerifyClientDeviceIdentityOperationHandler
                 response.withIsValidClientDevice(clientDevicesAuthServiceApi.verifyClientDeviceIdentity(certificate));
                 return response;
             } catch (Exception e) {
-                domainEvents.emit(new VerifyClientDeviceIdentityEvent(
-                        VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
                 logger.atError().cause(e).log("Unable to verify client device identity");
                 throw new ServiceError("Verifying client device identity failed. Check Greengrass log for details.");
             }

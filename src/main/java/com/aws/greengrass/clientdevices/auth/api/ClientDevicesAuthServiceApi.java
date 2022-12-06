@@ -58,6 +58,8 @@ public class ClientDevicesAuthServiceApi {
                     VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
             return true;
         } else {
+            domainEvents.emit(new VerifyClientDeviceIdentityEvent(
+                    VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
             return useCases.get(VerifyIotCertificate.class).apply(certificatePem);
         }
     }

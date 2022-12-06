@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
-import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CACertificateChainChangedHandler;
@@ -228,7 +227,7 @@ public class ClientDevicesAuthService extends PluginService {
                         authorizationHandler));
         greengrassCoreIPCService.setVerifyClientDeviceIdentityHandler(
                 context -> new VerifyClientDeviceIdentityOperationHandler(context, serviceApi, authorizationHandler,
-                        cloudCallThreadPool, new DomainEvents()));
+                        cloudCallThreadPool));
         greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(
                 context -> new GetClientDeviceAuthTokenOperationHandler(context, serviceApi, authorizationHandler,
                         cloudCallThreadPool));
