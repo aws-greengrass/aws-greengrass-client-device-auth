@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.api;
 
-import com.aws.greengrass.clientdevices.auth.api.DomainEvent;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
