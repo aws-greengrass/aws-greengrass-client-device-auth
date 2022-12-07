@@ -6,8 +6,8 @@
 package com.aws.greengrass.clientdevices.auth.metrics.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.api.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
-import com.aws.greengrass.clientdevices.auth.metrics.VerifyClientDeviceIdentityEvent;
 
 import java.util.function.Consumer;
 import javax.inject.Inject;

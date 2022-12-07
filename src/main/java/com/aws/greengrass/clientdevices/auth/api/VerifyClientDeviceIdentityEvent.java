@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.metrics;
+package com.aws.greengrass.clientdevices.auth.api;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvent;
 import lombok.AllArgsConstructor;
