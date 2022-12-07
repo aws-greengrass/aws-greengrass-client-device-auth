@@ -57,6 +57,7 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.GET
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.SUBSCRIBE_TO_CERTIFICATE_UPDATES;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VERIFY_CLIENT_DEVICE_IDENTITY;
 
+@SuppressWarnings("PMD.CouplingBetweenObjects")
 @ImplementsService(name = ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
