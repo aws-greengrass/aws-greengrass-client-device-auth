@@ -51,14 +51,20 @@ public class ClientDevicesAuthServiceApi {
      * @return True if the provided client certificate is trusted.
      */
     public boolean verifyClientDeviceIdentity(String certificatePem) {
+        boolean success;
+
         // Allow internal clients to verify their identities
         if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
-            domainEvents.emit(new VerifyClientDeviceIdentityEvent(
-                    VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
-            return true;
+            success = true;
         } else {
-            return useCases.get(VerifyIotCertificate.class).apply(certificatePem);
+            success = useCases.get(VerifyIotCertificate.class).apply(certificatePem);
         }
+
+        domainEvents.emit(new VerifyClientDeviceIdentityEvent(success ?
+                VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS :
+                VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
+
+        return success;
     }
 
     /**

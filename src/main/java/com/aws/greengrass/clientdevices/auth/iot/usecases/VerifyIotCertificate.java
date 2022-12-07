@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth.iot.usecases;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
-import com.aws.greengrass.clientdevices.auth.api.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
@@ -29,7 +28,6 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
     private final IotAuthClient iotAuthClient;
     private final CertificateRegistry certificateRegistry;
     private final NetworkStateProvider networkState;
-    private final DomainEvents domainEvents;
 
 
     /**
@@ -38,15 +36,13 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
      * @param iotAuthClient       IoT auth client
      * @param certificateRegistry Certificate Registry
      * @param networkState        Network state
-     * @param domainEvents        Domain event router
      */
     @Inject
     public VerifyIotCertificate(IotAuthClient iotAuthClient, CertificateRegistry certificateRegistry,
-                                NetworkStateProvider networkState, DomainEvents domainEvents) {
+                                NetworkStateProvider networkState) {
         this.iotAuthClient = iotAuthClient;
         this.certificateRegistry = certificateRegistry;
         this.networkState = networkState;
-        this.domainEvents = domainEvents;
     }
 
     @Override
@@ -69,8 +65,6 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
             }
         } catch (InvalidCertificateException e) {
             logger.atWarn().kv("certificatePem", certificatePem).log("Unable to process certificate", e);
-            domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent
-                    .VerificationStatus.FAIL));
             return false;
         }
 
@@ -87,14 +81,6 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
         String verificationSource = cloudCert.isPresent() ? CLOUD_VERIFICATION_SOURCE : LOCAL_VERIFICATION_SOURCE;
         logger.atDebug().kv("certificateId", cert.getCertificateId()).kv(VERIFICATION_SOURCE, verificationSource)
                 .log(cert.isActive() ? "Certificate is active" : "Certificate is not active");
-
-        if (cert.isActive()) {
-            domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent
-                    .VerificationStatus.SUCCESS));
-        } else {
-            domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent
-                    .VerificationStatus.FAIL));
-        }
 
         return cert.isActive();
     }
