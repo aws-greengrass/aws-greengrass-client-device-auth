@@ -70,7 +70,7 @@ public class ClientDeviceAuthMetrics {
                 .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
-                .value(subscribeToCertificateUpdatesSuccess.getAndSet(0))
+                .value(subscribeToCertificateUpdatesSuccess.getAndSet(0L))
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
@@ -80,7 +80,7 @@ public class ClientDeviceAuthMetrics {
                 .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
-                .value(subscribeToCertificateUpdatesFailure.getAndSet(0))
+                .value(subscribeToCertificateUpdatesFailure.getAndSet(0L))
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
@@ -90,7 +90,7 @@ public class ClientDeviceAuthMetrics {
                 .name(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
-                .value(verifyClientDeviceIdentitySuccess.getAndSet(0))
+                .value(verifyClientDeviceIdentitySuccess.getAndSet(0L))
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
@@ -100,7 +100,7 @@ public class ClientDeviceAuthMetrics {
                 .name(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
-                .value(verifyClientDeviceIdentityFailure.getAndSet(0))
+                .value(verifyClientDeviceIdentityFailure.getAndSet(0L))
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
