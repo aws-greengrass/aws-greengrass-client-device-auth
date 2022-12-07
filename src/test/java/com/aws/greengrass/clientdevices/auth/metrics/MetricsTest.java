@@ -23,7 +23,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -66,8 +65,12 @@ public class MetricsTest {
                 .timestamp(Instant.now(clock).toEpochMilli())
                 .build();
 
-        List<Metric> collectedMetrics = metrics.collectMetrics();
-        Metric subscribeSuccess = collectedMetrics.get(0);
+        Metric subscribeSuccess = new Metric();
+        for (Metric targetMetric : metrics.collectMetrics()) {
+            if (targetMetric.getName().equals(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)) {
+                subscribeSuccess = targetMetric;
+            }
+        }
 
         assertEquals(metric.getValue(), subscribeSuccess.getValue());
         assertEquals(metric.getName(), subscribeSuccess.getName());
@@ -97,8 +100,12 @@ public class MetricsTest {
                 .timestamp(Instant.now(clock).toEpochMilli())
                 .build();
 
-        List<Metric> collectedMetrics = metrics.collectMetrics();
-        Metric subscribeFail = collectedMetrics.get(1);
+        Metric subscribeFail = new Metric();
+        for (Metric targetMetric : metrics.collectMetrics()) {
+            if (targetMetric.getName().equals(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE)) {
+                subscribeFail = targetMetric;
+            }
+        }
 
         assertEquals(metric.getValue(), subscribeFail.getValue());
         assertEquals(metric.getName(), subscribeFail.getName());
@@ -125,8 +132,12 @@ public class MetricsTest {
                 .timestamp(Instant.now(clock).toEpochMilli())
                 .build();
 
-        List<Metric> collectedMetrics = metrics.collectMetrics();
-        Metric verifyDeviceIdentitySuccess = collectedMetrics.get(2);
+        Metric verifyDeviceIdentitySuccess = new Metric();
+        for (Metric targetMetric : metrics.collectMetrics()) {
+            if (targetMetric.getName().equals(ClientDeviceAuthMetrics.METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS)) {
+                verifyDeviceIdentitySuccess = targetMetric;
+            }
+        }
 
         assertEquals(metric.getValue(), verifyDeviceIdentitySuccess.getValue());
         assertEquals(metric.getName(), verifyDeviceIdentitySuccess.getName());
@@ -153,8 +164,12 @@ public class MetricsTest {
                 .timestamp(Instant.now(clock).toEpochMilli())
                 .build();
 
-        List<Metric> collectedMetrics = metrics.collectMetrics();
-        Metric verifyDeviceIdentityFail = collectedMetrics.get(3);
+        Metric verifyDeviceIdentityFail = new Metric();
+        for (Metric targetMetric : metrics.collectMetrics()) {
+            if (targetMetric.getName().equals(ClientDeviceAuthMetrics.METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE)) {
+                verifyDeviceIdentityFail = targetMetric;
+            }
+        }
 
         assertEquals(metric.getValue(), verifyDeviceIdentityFail.getValue());
         assertEquals(metric.getName(), verifyDeviceIdentityFail.getName());
