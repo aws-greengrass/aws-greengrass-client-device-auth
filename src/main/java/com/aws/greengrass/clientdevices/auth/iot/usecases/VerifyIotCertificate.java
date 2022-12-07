@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth.iot.usecases;
 
-import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
