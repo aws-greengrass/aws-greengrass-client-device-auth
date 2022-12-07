@@ -60,8 +60,8 @@ public class ClientDevicesAuthServiceApi {
             success = useCases.get(VerifyIotCertificate.class).apply(certificatePem);
         }
 
-        domainEvents.emit(new VerifyClientDeviceIdentityEvent(success ?
-                VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS :
+        domainEvents.emit(new VerifyClientDeviceIdentityEvent(success
+                ? VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS :
                 VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
 
         return success;
