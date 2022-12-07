@@ -38,6 +38,7 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
      * @param iotAuthClient       IoT auth client
      * @param certificateRegistry Certificate Registry
      * @param networkState        Network state
+     * @param domainEvents        Domain event router
      */
     @Inject
     public VerifyIotCertificate(IotAuthClient iotAuthClient, CertificateRegistry certificateRegistry,
