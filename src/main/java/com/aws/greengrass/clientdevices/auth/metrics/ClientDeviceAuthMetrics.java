@@ -20,6 +20,8 @@ import javax.inject.Inject;
 public class ClientDeviceAuthMetrics {
     private final AtomicLong subscribeToCertificateUpdatesSuccess = new AtomicLong();
     private final AtomicLong subscribeToCertificateUpdatesFailure = new AtomicLong();
+    private final AtomicLong verifyClientDeviceIdentitySuccess = new AtomicLong();
+    private final AtomicLong verifyClientDeviceIdentityFailure = new AtomicLong();
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
@@ -27,6 +29,10 @@ public class ClientDeviceAuthMetrics {
             "SubscribeToCertificateUpdates.Success";
     public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE =
             "SubscribeToCertificateUpdates.Failure";
+    public static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS =
+            "VerifyClientDeviceIdentity.Success";
+    public static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE =
+            "VerifyClientDeviceIdentity.Failure";
 
     /**
      * Constructor for Client Device Auth Metrics.
@@ -64,7 +70,7 @@ public class ClientDeviceAuthMetrics {
                 .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
-                .value(subscribeToCertificateUpdatesSuccess.getAndSet(0))
+                .value(subscribeToCertificateUpdatesSuccess.getAndSet(0L))
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
@@ -74,7 +80,27 @@ public class ClientDeviceAuthMetrics {
                 .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
-                .value(subscribeToCertificateUpdatesFailure.getAndSet(0))
+                .value(subscribeToCertificateUpdatesFailure.getAndSet(0L))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS)
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(verifyClientDeviceIdentitySuccess.getAndSet(0L))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE)
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(verifyClientDeviceIdentityFailure.getAndSet(0L))
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
@@ -94,5 +120,19 @@ public class ClientDeviceAuthMetrics {
      */
     public void subscribeFailure() {
         subscribeToCertificateUpdatesFailure.incrementAndGet();
+    }
+
+    /**
+     * Increments the VerifyClientDeviceIdentity.Success metric.
+     */
+    public void verifyDeviceIdentitySuccess() {
+        verifyClientDeviceIdentitySuccess.incrementAndGet();
+    }
+
+    /**
+     * Increments the VerifyClientDeviceIdentity.Failure metric.
+     */
+    public void verifyDeviceIdentityFailure() {
+        verifyClientDeviceIdentityFailure.incrementAndGet();
     }
 }

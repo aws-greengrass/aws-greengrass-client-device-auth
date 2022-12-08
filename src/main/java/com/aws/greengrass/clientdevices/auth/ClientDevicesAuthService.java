@@ -21,6 +21,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityHandler;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -56,6 +57,7 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.GET
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.SUBSCRIBE_TO_CERTIFICATE_UPDATES;
 import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VERIFY_CLIENT_DEVICE_IDENTITY;
 
+@SuppressWarnings("PMD.CouplingBetweenObjects")
 @ImplementsService(name = ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
@@ -138,6 +140,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CertificateRotationHandler.class).listen();
         context.get(SecurityConfigurationChangedHandler.class).listen();
         context.get(CertificateSubscriptionHandler.class).listen();
+        context.get(VerifyClientDeviceIdentityHandler.class).listen();
     }
 
     private void subscribeToConfigChanges() {
