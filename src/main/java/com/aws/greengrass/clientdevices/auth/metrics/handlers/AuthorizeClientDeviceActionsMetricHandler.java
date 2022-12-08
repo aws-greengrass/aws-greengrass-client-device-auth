@@ -17,7 +17,7 @@ public class AuthorizeClientDeviceActionsMetricHandler implements Consumer<Autho
     private final ClientDeviceAuthMetrics metrics;
 
     /**
-     * Create metric handler for the Authorize Client Device Actions API
+     * Create metric handler for the Authorize Client Device Actions API.
      *
      * @param domainEvents Domain event router
      * @param metrics      Client Device Auth metrics
