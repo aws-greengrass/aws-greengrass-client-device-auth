@@ -128,7 +128,7 @@ public class ClientDeviceAuthMetrics {
         verifyClientDeviceIdentityFailure.incrementAndGet();
     }
 
-     /**
+    /**
      * Increments the AuthorizeClientDeviceAction.Success metric.
      */
     public void authorizeActionSuccess() {
