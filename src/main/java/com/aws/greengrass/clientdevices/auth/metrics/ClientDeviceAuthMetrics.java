@@ -22,6 +22,8 @@ public class ClientDeviceAuthMetrics {
     private final AtomicLong subscribeToCertificateUpdatesFailure = new AtomicLong();
     private final AtomicLong verifyClientDeviceIdentitySuccess = new AtomicLong();
     private final AtomicLong verifyClientDeviceIdentityFailure = new AtomicLong();
+    private final AtomicLong authorizeClientDeviceActionSuccess = new AtomicLong();
+    private final AtomicLong authorizeClientDeviceActionFailure = new AtomicLong();
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
@@ -33,6 +35,10 @@ public class ClientDeviceAuthMetrics {
             "VerifyClientDeviceIdentity.Success";
     public static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE =
             "VerifyClientDeviceIdentity.Failure";
+    public static final String METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS =
+            "AuthorizeClientDeviceActions.Success";
+    public static final String METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_FAILURE =
+            "AuthorizeClientDeviceActions.Failure";
 
     /**
      * Constructor for Client Device Auth Metrics.
@@ -63,49 +69,98 @@ public class ClientDeviceAuthMetrics {
     public List<Metric> collectMetrics() {
         List<Metric> metricsList = new ArrayList<>();
 
+        metricsList.add(buildMetric(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS,
+                subscribeToCertificateUpdatesSuccess));
+        metricsList.add(buildMetric(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE,
+                subscribeToCertificateUpdatesFailure));
+        metricsList.add(buildMetric(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS,
+                verifyClientDeviceIdentitySuccess));
+        metricsList.add(buildMetric(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE,
+                verifyClientDeviceIdentityFailure));
+        metricsList.add(buildMetric(METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS,
+                authorizeClientDeviceActionSuccess));
+        metricsList.add(buildMetric(METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_FAILURE,
+                authorizeClientDeviceActionFailure));
+
+
+//        long timestamp = Instant.now(clock).toEpochMilli();
+//
+//        Metric metric = Metric.builder()
+//                .namespace(NAMESPACE)
+//                .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)
+//                .unit(TelemetryUnit.Count)
+//                .aggregation(TelemetryAggregation.Sum)
+//                .value(subscribeToCertificateUpdatesSuccess.getAndSet(0L))
+//                .timestamp(timestamp)
+//                .build();
+//        metricsList.add(metric);
+//
+//        metric = Metric.builder()
+//                .namespace(NAMESPACE)
+//                .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE)
+//                .unit(TelemetryUnit.Count)
+//                .aggregation(TelemetryAggregation.Sum)
+//                .value(subscribeToCertificateUpdatesFailure.getAndSet(0L))
+//                .timestamp(timestamp)
+//                .build();
+//        metricsList.add(metric);
+//
+//        metric = Metric.builder()
+//                .namespace(NAMESPACE)
+//                .name(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS)
+//                .unit(TelemetryUnit.Count)
+//                .aggregation(TelemetryAggregation.Sum)
+//                .value(verifyClientDeviceIdentitySuccess.getAndSet(0L))
+//                .timestamp(timestamp)
+//                .build();
+//        metricsList.add(metric);
+//
+//        metric = Metric.builder()
+//                .namespace(NAMESPACE)
+//                .name(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE)
+//                .unit(TelemetryUnit.Count)
+//                .aggregation(TelemetryAggregation.Sum)
+//                .value(verifyClientDeviceIdentityFailure.getAndSet(0L))
+//                .timestamp(timestamp)
+//                .build();
+//        metricsList.add(metric);
+//
+//        metric = Metric.builder()
+//                .namespace(NAMESPACE)
+//                .name(METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS)
+//                .unit(TelemetryUnit.Count)
+//                .aggregation(TelemetryAggregation.Sum)
+//                .value(authorizeClientDeviceActionSuccess.getAndSet(0L))
+//                .timestamp(timestamp)
+//                .build();
+//        metricsList.add(metric);
+//
+//        metric = Metric.builder()
+//                .namespace(NAMESPACE)
+//                .name(METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_FAILURE)
+//                .unit(TelemetryUnit.Count)
+//                .aggregation(TelemetryAggregation.Sum)
+//                .value(authorizeClientDeviceActionFailure.getAndSet(0L))
+//                .timestamp(timestamp)
+//                .build();
+//        metricsList.add(metric);
+
+        return metricsList;
+    }
+
+    private Metric buildMetric(String metricName, AtomicLong metricValue) {
         long timestamp = Instant.now(clock).toEpochMilli();
 
         Metric metric = Metric.builder()
                 .namespace(NAMESPACE)
-                .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)
+                .name(metricName)
                 .unit(TelemetryUnit.Count)
                 .aggregation(TelemetryAggregation.Sum)
-                .value(subscribeToCertificateUpdatesSuccess.getAndSet(0L))
+                .value(metricValue.getAndSet(0L))
                 .timestamp(timestamp)
                 .build();
-        metricsList.add(metric);
 
-        metric = Metric.builder()
-                .namespace(NAMESPACE)
-                .name(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(subscribeToCertificateUpdatesFailure.getAndSet(0L))
-                .timestamp(timestamp)
-                .build();
-        metricsList.add(metric);
-
-        metric = Metric.builder()
-                .namespace(NAMESPACE)
-                .name(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(verifyClientDeviceIdentitySuccess.getAndSet(0L))
-                .timestamp(timestamp)
-                .build();
-        metricsList.add(metric);
-
-        metric = Metric.builder()
-                .namespace(NAMESPACE)
-                .name(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(verifyClientDeviceIdentityFailure.getAndSet(0L))
-                .timestamp(timestamp)
-                .build();
-        metricsList.add(metric);
-
-        return metricsList;
+        return metric;
     }
 
     /**
@@ -134,5 +189,19 @@ public class ClientDeviceAuthMetrics {
      */
     public void verifyDeviceIdentityFailure() {
         verifyClientDeviceIdentityFailure.incrementAndGet();
+    }
+
+     /**
+     * Increments the AuthorizeClientDeviceAction.Success metric.
+     */
+    public void authorizeActionSuccess() {
+        authorizeClientDeviceActionSuccess.incrementAndGet();
+    }
+
+    /**
+     * Increments the AuthorizeClientDeviceAction.Failure metric.
+     */
+    public void authorizeActionFailure() {
+        authorizeClientDeviceActionFailure.incrementAndGet();
     }
 }
