@@ -100,7 +100,13 @@ public class ClientDevicesAuthServiceApi {
      */
     public boolean authorizeClientDeviceAction(AuthorizationRequest authorizationRequest)
             throws AuthorizationException {
-        return deviceAuthClient.canDevicePerform(authorizationRequest);
+        boolean isAuthorized = deviceAuthClient.canDevicePerform(authorizationRequest);
+
+        domainEvents.emit(new AuthorizeClientDeviceActionEvent(isAuthorized
+                ? AuthorizeClientDeviceActionEvent.AuthorizationStatus.SUCCESS :
+                AuthorizeClientDeviceActionEvent.AuthorizationStatus.FAIL));
+
+        return isAuthorized;
     }
 
     /**
