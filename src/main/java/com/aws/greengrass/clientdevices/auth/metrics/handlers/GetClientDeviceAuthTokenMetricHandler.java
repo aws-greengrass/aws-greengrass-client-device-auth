@@ -38,9 +38,9 @@ public class GetClientDeviceAuthTokenMetricHandler implements Consumer<GetClient
     @Override
     public void accept(GetClientDeviceAuthTokenEvent event) {
         if (event.getGetAuthTokenStatus() == GetClientDeviceAuthTokenEvent.GetAuthTokenStatus.SUCCESS) {
-            metrics.getAuthTokenSuccess();
+            metrics.authTokenSuccess();
         } else if (event.getGetAuthTokenStatus() == GetClientDeviceAuthTokenEvent.GetAuthTokenStatus.FAILURE) {
-            metrics.getAuthTokenFailure();
+            metrics.authTokenFailure();
         }
     }
 }

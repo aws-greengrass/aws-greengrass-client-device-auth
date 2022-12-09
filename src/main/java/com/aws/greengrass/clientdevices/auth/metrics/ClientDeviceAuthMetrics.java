@@ -204,14 +204,14 @@ public class ClientDeviceAuthMetrics {
     /**
      * Increments the GetClientDeviceAuthToken.Success metric
      */
-    public void getAuthTokenSuccess() {
+    public void authTokenSuccess() {
         getClientDeviceAuthTokenSuccess.incrementAndGet();
     }
 
     /**
      * Increments the GetClientDeviceAuthToken.Failure metric
      */
-    public void getAuthTokenFailure() {
+    public void authTokenFailure() {
         getClientDeviceAuthTokenFailure.incrementAndGet();
     }
 }
