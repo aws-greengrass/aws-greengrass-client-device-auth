@@ -9,7 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @AllArgsConstructor
-public class GetClientDeviceAuthTokenEvent implements DomainEvent{
+public class GetClientDeviceAuthTokenEvent implements DomainEvent {
     @Getter
     private GetAuthTokenStatus getAuthTokenStatus;
 
