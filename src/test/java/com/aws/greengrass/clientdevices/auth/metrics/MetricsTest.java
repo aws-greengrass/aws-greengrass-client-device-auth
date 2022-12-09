@@ -9,12 +9,12 @@ import com.aws.greengrass.clientdevices.auth.api.AuthorizeClientDeviceActionEven
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubscriptionEvent;
-import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateSubscriptionHandler;
+import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateSubscriptionEventHandler;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
-import com.aws.greengrass.clientdevices.auth.iot.handlers.VerifyClientDeviceIdentityHandler;
+import com.aws.greengrass.clientdevices.auth.iot.handlers.VerifyClientDeviceIdentityEventHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
 import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
-import com.aws.greengrass.clientdevices.auth.session.handlers.SessionCreationHandler;
+import com.aws.greengrass.clientdevices.auth.session.handlers.SessionCreationEventHandler;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -34,10 +35,10 @@ import static org.junit.jupiter.api.Assertions.fail;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class MetricsTest {
     private ClientDeviceAuthMetrics metrics;
-    private CertificateSubscriptionHandler certificateSubscriptionHandler;
-    private VerifyClientDeviceIdentityHandler verifyClientDeviceIdentityHandler;
+    private CertificateSubscriptionEventHandler certificateSubscriptionEventHandler;
+    private VerifyClientDeviceIdentityEventHandler verifyClientDeviceIdentityEventHandler;
     private AuthorizeClientDeviceActionsMetricHandler authorizeClientDeviceActionsMetricHandler;
-    private SessionCreationHandler sessionCreationHandler;
+    private SessionCreationEventHandler sessionCreationEventHandler;
     private Clock clock;
     private DomainEvents domainEvents;
 
@@ -46,15 +47,38 @@ public class MetricsTest {
         clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         domainEvents = new DomainEvents();
         metrics = new ClientDeviceAuthMetrics(clock);
-        certificateSubscriptionHandler = new CertificateSubscriptionHandler(domainEvents, metrics);
-        verifyClientDeviceIdentityHandler = new VerifyClientDeviceIdentityHandler(domainEvents, metrics);
+        certificateSubscriptionEventHandler = new CertificateSubscriptionEventHandler(domainEvents, metrics);
+        verifyClientDeviceIdentityEventHandler = new VerifyClientDeviceIdentityEventHandler(domainEvents, metrics);
         authorizeClientDeviceActionsMetricHandler = new AuthorizeClientDeviceActionsMetricHandler(domainEvents,
                 metrics);
-        sessionCreationHandler = new SessionCreationHandler(domainEvents, metrics);
-        certificateSubscriptionHandler.listen();
-        verifyClientDeviceIdentityHandler.listen();
+        sessionCreationEventHandler = new SessionCreationEventHandler(domainEvents, metrics);
+        certificateSubscriptionEventHandler.listen();
+        verifyClientDeviceIdentityEventHandler.listen();
         authorizeClientDeviceActionsMetricHandler.listen();
-        sessionCreationHandler.listen();
+        sessionCreationEventHandler.listen();
+    }
+
+    @Test
+    void GIVEN_metricValues_WHEN_metricsCollected_THEN_onlyNonZeroValuesCollected() {
+        // Incrementing the success metrics, leaving the failure metrics with values of 0
+        domainEvents.emit(new CertificateSubscriptionEvent(GetCertificateRequestOptions.CertificateType.SERVER,
+                CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS));
+        domainEvents.emit(new AuthorizeClientDeviceActionEvent(AuthorizeClientDeviceActionEvent
+                .AuthorizationStatus.SUCCESS));
+        domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent
+                .VerificationStatus.SUCCESS));
+        domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.SUCCESS));
+
+        List<Metric> collectedMetrics = metrics.collectMetrics();
+
+        // Checking if any metrics with a value of 0 are included in the list
+        long numZeroValueMetrics = collectedMetrics.stream()
+                .filter(m -> m.getValue().equals(0L))
+                .count();
+        assertEquals(0, numZeroValueMetrics);
+
+        // Checking that the size of the metrics list is as expected
+        assertEquals(4, collectedMetrics.size());
     }
 
     @Test

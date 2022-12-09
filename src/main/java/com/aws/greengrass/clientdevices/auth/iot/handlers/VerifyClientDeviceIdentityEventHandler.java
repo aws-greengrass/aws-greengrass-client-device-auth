@@ -12,7 +12,7 @@ import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
-public class VerifyClientDeviceIdentityHandler implements Consumer<VerifyClientDeviceIdentityEvent> {
+public class VerifyClientDeviceIdentityEventHandler implements Consumer<VerifyClientDeviceIdentityEvent> {
     private final DomainEvents domainEvents;
     private final ClientDeviceAuthMetrics metrics;
 
@@ -23,7 +23,7 @@ public class VerifyClientDeviceIdentityHandler implements Consumer<VerifyClientD
      * @param metrics      {@link ClientDeviceAuthMetrics}
      */
     @Inject
-    public VerifyClientDeviceIdentityHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
+    public VerifyClientDeviceIdentityEventHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
         this.domainEvents = domainEvents;
         this.metrics = metrics;
     }

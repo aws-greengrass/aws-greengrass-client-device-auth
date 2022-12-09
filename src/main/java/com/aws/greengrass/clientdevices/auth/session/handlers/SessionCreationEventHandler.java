@@ -12,7 +12,7 @@ import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
-public class SessionCreationHandler implements Consumer<SessionCreationEvent> {
+public class SessionCreationEventHandler implements Consumer<SessionCreationEvent> {
     private final DomainEvents domainEvents;
     private final ClientDeviceAuthMetrics metrics;
 
@@ -23,7 +23,7 @@ public class SessionCreationHandler implements Consumer<SessionCreationEvent> {
      * @param metrics      Client Device Auth Metrics
      */
     @Inject
-    public SessionCreationHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
+    public SessionCreationEventHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
         this.domainEvents = domainEvents;
         this.metrics = metrics;
     }
