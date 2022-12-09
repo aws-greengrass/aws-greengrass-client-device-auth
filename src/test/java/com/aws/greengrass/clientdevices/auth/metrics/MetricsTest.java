@@ -8,13 +8,13 @@ package com.aws.greengrass.clientdevices.auth.metrics;
 import com.aws.greengrass.clientdevices.auth.api.AuthorizeClientDeviceActionEvent;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
-import com.aws.greengrass.clientdevices.auth.api.VerifyClientDeviceIdentityEvent;
-import com.aws.greengrass.clientdevices.auth.api.GetClientDeviceAuthTokenEvent;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubscriptionEvent;
+import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateSubscriptionHandler;
+import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
+import com.aws.greengrass.clientdevices.auth.iot.handlers.VerifyClientDeviceIdentityHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.GetClientDeviceAuthTokenMetricHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityHandler;
+import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
+import com.aws.greengrass.clientdevices.auth.session.handlers.SessionCreationHandler;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
@@ -37,7 +37,7 @@ public class MetricsTest {
     private CertificateSubscriptionHandler certificateSubscriptionHandler;
     private VerifyClientDeviceIdentityHandler verifyClientDeviceIdentityHandler;
     private AuthorizeClientDeviceActionsMetricHandler authorizeClientDeviceActionsMetricHandler;
-    private GetClientDeviceAuthTokenMetricHandler getClientDeviceAuthTokenMetricHandler;
+    private SessionCreationHandler sessionCreationHandler;
     private Clock clock;
     private DomainEvents domainEvents;
 
@@ -50,11 +50,11 @@ public class MetricsTest {
         verifyClientDeviceIdentityHandler = new VerifyClientDeviceIdentityHandler(domainEvents, metrics);
         authorizeClientDeviceActionsMetricHandler = new AuthorizeClientDeviceActionsMetricHandler(domainEvents,
                 metrics);
-        getClientDeviceAuthTokenMetricHandler = new GetClientDeviceAuthTokenMetricHandler(domainEvents, metrics);
+        sessionCreationHandler = new SessionCreationHandler(domainEvents, metrics);
         certificateSubscriptionHandler.listen();
         verifyClientDeviceIdentityHandler.listen();
         authorizeClientDeviceActionsMetricHandler.listen();
-        getClientDeviceAuthTokenMetricHandler.listen();
+        sessionCreationHandler.listen();
     }
 
     @Test
@@ -252,9 +252,9 @@ public class MetricsTest {
     @Test
     void GIVEN_getClientDeviceAuthTokenEvent_WHEN_eventsEmitted_THEN_getAuthTokenSuccessMetricCorrectlyEmitted() {
         // Emitting multiple Get Client Device Auth Token events to ensure the metric is incremented correctly
-        domainEvents.emit(new GetClientDeviceAuthTokenEvent(GetClientDeviceAuthTokenEvent.GetAuthTokenStatus.SUCCESS));
-        domainEvents.emit(new GetClientDeviceAuthTokenEvent(GetClientDeviceAuthTokenEvent.GetAuthTokenStatus.SUCCESS));
-        domainEvents.emit(new GetClientDeviceAuthTokenEvent(GetClientDeviceAuthTokenEvent.GetAuthTokenStatus.SUCCESS));
+        domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.SUCCESS));
+        domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.SUCCESS));
+        domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.SUCCESS));
 
         // Checking that the emitter collects the metrics as expected
         Metric metric = Metric.builder()
@@ -282,9 +282,9 @@ public class MetricsTest {
     @Test
     void GIVEN_getClientDeviceAuthTokenEvent_WHEN_eventsEmitted_THEN_getAuthTokenFailureMetricCorrectlyEmitted() {
         // Emitting multiple Get Client Device Auth Token events to ensure the metric is incremented correctly
-        domainEvents.emit(new GetClientDeviceAuthTokenEvent(GetClientDeviceAuthTokenEvent.GetAuthTokenStatus.FAILURE));
-        domainEvents.emit(new GetClientDeviceAuthTokenEvent(GetClientDeviceAuthTokenEvent.GetAuthTokenStatus.FAILURE));
-        domainEvents.emit(new GetClientDeviceAuthTokenEvent(GetClientDeviceAuthTokenEvent.GetAuthTokenStatus.FAILURE));
+        domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.FAILURE));
+        domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.FAILURE));
+        domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.FAILURE));
 
         // Checking that the emitter collects the metrics as expected
         Metric metric = Metric.builder()

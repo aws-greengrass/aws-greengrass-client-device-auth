@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 public class ClientDeviceAuthMetrics {
@@ -155,6 +156,10 @@ public class ClientDeviceAuthMetrics {
                 .timestamp(timestamp)
                 .build();
         metricsList.add(metric);
+
+        metricsList = metricsList.stream()
+                .filter(m -> !m.getValue().equals(0L))
+                .collect(Collectors.toList());
 
         return metricsList;
     }

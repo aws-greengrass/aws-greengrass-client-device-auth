@@ -7,12 +7,12 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
-import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CACertificateChainChangedHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CAConfigurationChangedHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRotationHandler;
+import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateSubscriptionHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.SecurityConfigurationChangedHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
@@ -21,14 +21,13 @@ import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
+import com.aws.greengrass.clientdevices.auth.iot.handlers.VerifyClientDeviceIdentityHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.GetClientDeviceAuthTokenMetricHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityHandler;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
+import com.aws.greengrass.clientdevices.auth.session.handlers.SessionCreationHandler;
 import com.aws.greengrass.clientdevices.auth.util.ResizableLinkedBlockingQueue;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topics;
@@ -145,7 +144,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CertificateSubscriptionHandler.class).listen();
         context.get(VerifyClientDeviceIdentityHandler.class).listen();
         context.get(AuthorizeClientDeviceActionsMetricHandler.class).listen();
-        context.get(GetClientDeviceAuthTokenMetricHandler.class).listen();
+        context.get(SessionCreationHandler.class).listen();
     }
 
     private void subscribeToConfigChanges() {
@@ -236,7 +235,7 @@ public class ClientDevicesAuthService extends PluginService {
                         cloudCallThreadPool));
         greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(
                 context -> new GetClientDeviceAuthTokenOperationHandler(context, serviceApi, authorizationHandler,
-                        cloudCallThreadPool, new DomainEvents()));
+                        cloudCallThreadPool));
         greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(
                 context -> new AuthorizeClientDeviceActionOperationHandler(context, serviceApi, authorizationHandler));
     }

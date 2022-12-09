@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.clientdevices.auth.metrics.handlers;
+package com.aws.greengrass.clientdevices.auth.iot.handlers;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.api.VerifyClientDeviceIdentityEvent;
+import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 
 import java.util.function.Consumer;

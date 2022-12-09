@@ -11,8 +11,6 @@ import com.aws.greengrass.authorization.Permission;
 import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
-import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.api.GetClientDeviceAuthTokenEvent;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -49,7 +47,6 @@ public class GetClientDeviceAuthTokenOperationHandler
     private final ClientDevicesAuthServiceApi clientDevicesAuthServiceApi;
     private final Map<String, String> credentialMap = new HashMap<>();
     private final ExecutorService cloudCallThreadPool;
-    private final DomainEvents domainEvents;
 
     /**
      * Constructor.
@@ -58,19 +55,17 @@ public class GetClientDeviceAuthTokenOperationHandler
      * @param clientDevicesAuthServiceApi client devices auth service handle
      * @param authorizationHandler        authorization handler
      * @param cloudCallThreadPool         executor to run the call to the cloud asynchronously
-     * @param domainEvents                domain event router
      */
     public GetClientDeviceAuthTokenOperationHandler(OperationContinuationHandlerContext context,
                                                     ClientDevicesAuthServiceApi clientDevicesAuthServiceApi,
                                                     AuthorizationHandler authorizationHandler,
-                                                    ExecutorService cloudCallThreadPool, DomainEvents domainEvents) {
+                                                    ExecutorService cloudCallThreadPool) {
 
         super(context);
         serviceName = context.getAuthenticationData().getIdentityLabel();
         this.clientDevicesAuthServiceApi = clientDevicesAuthServiceApi;
         this.authorizationHandler = authorizationHandler;
         this.cloudCallThreadPool = cloudCallThreadPool;
-        this.domainEvents = domainEvents;
     }
 
     @Override
@@ -102,12 +97,8 @@ public class GetClientDeviceAuthTokenOperationHandler
                 String sessionId =
                         clientDevicesAuthServiceApi.getClientDeviceAuthToken(MQTT_CREDENTIAL_TYPE, credentialMap);
                 GetClientDeviceAuthTokenResponse response = new GetClientDeviceAuthTokenResponse();
-                domainEvents.emit(new GetClientDeviceAuthTokenEvent(GetClientDeviceAuthTokenEvent
-                        .GetAuthTokenStatus.SUCCESS));
                 return response.withClientDeviceAuthToken(sessionId);
             } catch (AuthenticationException e) {
-                domainEvents.emit(new GetClientDeviceAuthTokenEvent(GetClientDeviceAuthTokenEvent
-                        .GetAuthTokenStatus.FAILURE));
                 logger.atError().cause(e).log("Unable to authenticate the client device with the given credentials");
                 throw new InvalidCredentialError("Unable to authenticate the client device with the given credentials."
                         + " Check Greengrass log for details.");
