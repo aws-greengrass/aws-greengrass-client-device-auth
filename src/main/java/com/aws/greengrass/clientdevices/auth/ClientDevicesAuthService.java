@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CACertificateChainChangedHandler;
@@ -22,6 +23,7 @@ import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.GetClientDeviceAuthTokenMetricHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityHandler;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
@@ -143,6 +145,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CertificateSubscriptionHandler.class).listen();
         context.get(VerifyClientDeviceIdentityHandler.class).listen();
         context.get(AuthorizeClientDeviceActionsMetricHandler.class).listen();
+        context.get(GetClientDeviceAuthTokenMetricHandler.class).listen();
     }
 
     private void subscribeToConfigChanges() {
@@ -233,7 +236,7 @@ public class ClientDevicesAuthService extends PluginService {
                         cloudCallThreadPool));
         greengrassCoreIPCService.setGetClientDeviceAuthTokenHandler(
                 context -> new GetClientDeviceAuthTokenOperationHandler(context, serviceApi, authorizationHandler,
-                        cloudCallThreadPool));
+                        cloudCallThreadPool, new DomainEvents()));
         greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(
                 context -> new AuthorizeClientDeviceActionOperationHandler(context, serviceApi, authorizationHandler));
     }
