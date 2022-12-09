@@ -9,12 +9,12 @@ import com.aws.greengrass.clientdevices.auth.api.AuthorizeClientDeviceActionEven
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubscriptionEvent;
-import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateSubscriptionEventHandler;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
-import com.aws.greengrass.clientdevices.auth.iot.handlers.VerifyClientDeviceIdentityEventHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionEventHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.SessionCreationEventHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityEventHandler;
 import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
-import com.aws.greengrass.clientdevices.auth.session.handlers.SessionCreationEventHandler;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
