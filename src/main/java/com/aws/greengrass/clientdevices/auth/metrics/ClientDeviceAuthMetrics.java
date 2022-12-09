@@ -174,7 +174,6 @@ public class ClientDeviceAuthMetrics {
     }
 
     /**
-<<<<<<< Updated upstream
      * Increments the VerifyClientDeviceIdentity.Success metric.
      */
     public void verifyDeviceIdentitySuccess() {
