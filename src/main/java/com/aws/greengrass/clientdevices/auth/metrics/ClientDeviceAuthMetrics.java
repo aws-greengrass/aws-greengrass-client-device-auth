@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 public class ClientDeviceAuthMetrics {
@@ -24,21 +25,27 @@ public class ClientDeviceAuthMetrics {
     private final AtomicLong verifyClientDeviceIdentityFailure = new AtomicLong();
     private final AtomicLong authorizeClientDeviceActionSuccess = new AtomicLong();
     private final AtomicLong authorizeClientDeviceActionFailure = new AtomicLong();
+    private final AtomicLong getClientDeviceAuthTokenSuccess = new AtomicLong();
+    private final AtomicLong getClientDeviceAuthTokenFailure = new AtomicLong();
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
-    public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS =
+    static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS =
             "SubscribeToCertificateUpdates.Success";
-    public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE =
+    static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE =
             "SubscribeToCertificateUpdates.Failure";
-    public static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS =
+    static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS =
             "VerifyClientDeviceIdentity.Success";
-    public static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE =
+    static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE =
             "VerifyClientDeviceIdentity.Failure";
-    public static final String METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS =
+    static final String METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS =
             "AuthorizeClientDeviceActions.Success";
-    public static final String METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_FAILURE =
+    static final String METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_FAILURE =
             "AuthorizeClientDeviceActions.Failure";
+    static final String METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS =
+            "GetClientDeviceAuthToken.Success";
+    static final String METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_FAILURE =
+            "GetClientDeviceAuthToken.Failure";
 
     /**
      * Constructor for Client Device Auth Metrics.
@@ -130,6 +137,30 @@ public class ClientDeviceAuthMetrics {
                 .build();
         metricsList.add(metric);
 
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name(METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS)
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(getClientDeviceAuthTokenSuccess.getAndSet(0L))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name(METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_FAILURE)
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(getClientDeviceAuthTokenFailure.getAndSet(0L))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
+        metricsList = metricsList.stream()
+                .filter(m -> !m.getValue().equals(0L))
+                .collect(Collectors.toList());
+
         return metricsList;
     }
 
@@ -173,5 +204,19 @@ public class ClientDeviceAuthMetrics {
      */
     public void authorizeActionFailure() {
         authorizeClientDeviceActionFailure.incrementAndGet();
+    }
+
+    /**
+     * Increments the GetClientDeviceAuthToken.Success metric
+     */
+    public void authTokenSuccess() {
+        getClientDeviceAuthTokenSuccess.incrementAndGet();
+    }
+
+    /**
+     * Increments the GetClientDeviceAuthToken.Failure metric
+     */
+    public void authTokenFailure() {
+        getClientDeviceAuthTokenFailure.incrementAndGet();
     }
 }

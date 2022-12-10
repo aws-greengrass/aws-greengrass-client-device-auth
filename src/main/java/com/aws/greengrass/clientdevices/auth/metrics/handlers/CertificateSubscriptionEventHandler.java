@@ -13,7 +13,7 @@ import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
-public class CertificateSubscriptionHandler implements Consumer<CertificateSubscriptionEvent> {
+public class CertificateSubscriptionEventHandler implements Consumer<CertificateSubscriptionEvent> {
     private final DomainEvents domainEvents;
     private final ClientDeviceAuthMetrics metrics;
 
@@ -24,7 +24,7 @@ public class CertificateSubscriptionHandler implements Consumer<CertificateSubsc
      * @param metrics      Client Device Auth metrics
      */
     @Inject
-    public CertificateSubscriptionHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
+    public CertificateSubscriptionEventHandler(DomainEvents domainEvents, ClientDeviceAuthMetrics metrics) {
         this.domainEvents = domainEvents;
         this.metrics = metrics;
     }

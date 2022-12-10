@@ -5,7 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth.session;
 
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
+import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import lombok.AccessLevel;
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
     private static final String SESSION_ID = "SessionId";
+    private final DomainEvents domainEvents = new DomainEvents();
 
     // Thread-safe LRU Session Cache that evicts the eldest entry (based on access order) upon reaching its size.
     // TODO: Support time-based cache eviction (Session timeout) and Session deduping.
@@ -62,8 +65,17 @@ public class SessionManager {
      */
     public String createSession(String credentialType, Map<String, String> credentialMap)
             throws AuthenticationException {
-        Session session = SessionCreator.createSession(credentialType, credentialMap);
-        return addSessionInternal(session);
+        try {
+            Session session = SessionCreator.createSession(credentialType, credentialMap);
+            String createdSession = addSessionInternal(session);
+            domainEvents.emit(new SessionCreationEvent(SessionCreationEvent
+                    .SessionCreationStatus.SUCCESS));
+            return createdSession;
+        } catch (AuthenticationException e) {
+            domainEvents.emit(new SessionCreationEvent(SessionCreationEvent
+                    .SessionCreationStatus.FAILURE));
+            throw e;
+        }
     }
 
     /**
