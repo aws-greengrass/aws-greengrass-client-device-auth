@@ -21,8 +21,9 @@ import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionEventHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.SessionCreationEventHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityEventHandler;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
 import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
@@ -140,9 +141,10 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CAConfigurationChangedHandler.class).listen();
         context.get(CertificateRotationHandler.class).listen();
         context.get(SecurityConfigurationChangedHandler.class).listen();
-        context.get(CertificateSubscriptionHandler.class).listen();
-        context.get(VerifyClientDeviceIdentityHandler.class).listen();
+        context.get(CertificateSubscriptionEventHandler.class).listen();
+        context.get(VerifyClientDeviceIdentityEventHandler.class).listen();
         context.get(AuthorizeClientDeviceActionsMetricHandler.class).listen();
+        context.get(SessionCreationEventHandler.class).listen();
     }
 
     private void subscribeToConfigChanges() {
