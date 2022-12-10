@@ -29,7 +29,10 @@ public class ClientDeviceAuthMetrics {
     private final AtomicLong authorizeClientDeviceActionFailure = new AtomicLong();
     private final AtomicLong getClientDeviceAuthTokenSuccess = new AtomicLong();
     private final AtomicLong getClientDeviceAuthTokenFailure = new AtomicLong();
+<<<<<<< HEAD
     private final AtomicLong serviceError = new AtomicLong();
+=======
+>>>>>>> 8e3a266 (feat: add metrics for the Get Client Device Auth Token API (#207))
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final Logger logger = LogManager.getLogger(ClientDeviceAuthMetrics.class);
@@ -50,8 +53,11 @@ public class ClientDeviceAuthMetrics {
             "GetClientDeviceAuthToken.Success";
     static final String METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_FAILURE =
             "GetClientDeviceAuthToken.Failure";
+<<<<<<< HEAD
     static final String METRIC_SERVICE_ERROR =
             "ServiceError";
+=======
+>>>>>>> 8e3a266 (feat: add metrics for the Get Client Device Auth Token API (#207))
 
     /**
      * Constructor for Client Device Auth Metrics.
@@ -163,6 +169,7 @@ public class ClientDeviceAuthMetrics {
                 .build();
         metricsList.add(metric);
 
+<<<<<<< HEAD
         metric = Metric.builder()
                 .namespace(NAMESPACE)
                 .name(METRIC_SERVICE_ERROR)
@@ -173,6 +180,8 @@ public class ClientDeviceAuthMetrics {
                 .build();
         metricsList.add(metric);
 
+=======
+>>>>>>> 8e3a266 (feat: add metrics for the Get Client Device Auth Token API (#207))
         metricsList = metricsList.stream()
                 .filter(m -> !m.getValue().equals(0L))
                 .collect(Collectors.toList());
@@ -235,6 +244,7 @@ public class ClientDeviceAuthMetrics {
     public void authTokenFailure() {
         getClientDeviceAuthTokenFailure.incrementAndGet();
     }
+<<<<<<< HEAD
 
     /**
      * Increments the ServiceError metric.
@@ -242,4 +252,6 @@ public class ClientDeviceAuthMetrics {
     public void incrementServiceError() {
         serviceError.incrementAndGet();
     }
+=======
+>>>>>>> 8e3a266 (feat: add metrics for the Get Client Device Auth Token API (#207))
 }

@@ -12,7 +12,10 @@ import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
+<<<<<<< HEAD
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyCertificateValidityPeriod;
+=======
+>>>>>>> 8e3a266 (feat: add metrics for the Get Client Device Auth Token API (#207))
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.logging.api.Logger;

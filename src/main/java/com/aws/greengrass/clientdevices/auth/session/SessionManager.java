@@ -74,7 +74,10 @@ public class SessionManager {
         try {
             Session session = SessionCreator.createSession(credentialType, credentialMap);
             String createdSession = addSessionInternal(session);
+<<<<<<< HEAD
             logger.atDebug().log("Successfully created a session with device credentials");
+=======
+>>>>>>> 8e3a266 (feat: add metrics for the Get Client Device Auth Token API (#207))
             domainEvents.emit(new SessionCreationEvent(SessionCreationEvent
                     .SessionCreationStatus.SUCCESS));
             return createdSession;
