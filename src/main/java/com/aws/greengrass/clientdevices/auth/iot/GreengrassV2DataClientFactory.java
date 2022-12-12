@@ -53,9 +53,8 @@ public class GreengrassV2DataClientFactory {
 
         GreengrassV2DataClientBuilder clientBuilder =
                 GreengrassV2DataClient.builder().credentialsProvider(AnonymousCredentialsProvider.create())
-                        .httpClientBuilder(httpClient.useIdleConnectionReaper(false))
-                        .overrideConfiguration(ClientOverrideConfiguration.builder()
-                                .retryPolicy(RetryPolicy.none()).build());
+                        .httpClient(httpClient.build()).overrideConfiguration(
+                                ClientOverrideConfiguration.builder().retryPolicy(RetryPolicy.none()).build());
 
         clientBuilder.region(Region.of(awsRegion));
         clientBuilder.endpointOverride(URI.create(ggServiceEndpoint));

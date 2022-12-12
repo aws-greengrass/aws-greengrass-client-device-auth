@@ -202,8 +202,7 @@ public interface IotAuthClient {
         private GreengrassV2Client getGGV2Client() {
             String awsRegion = Coerce.toString(deviceConfiguration.getAWSRegion());
             GreengrassV2ClientBuilder clientBuilder =
-                    GreengrassV2Client.builder().httpClientBuilder(ProxyUtils.getSdkHttpClientBuilder()
-                                    .useIdleConnectionReaper(false))
+                    GreengrassV2Client.builder().httpClient(ProxyUtils.getSdkHttpClient())
                             .credentialsProvider(lazyCredentialProvider).overrideConfiguration(
                                     ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build());
 
