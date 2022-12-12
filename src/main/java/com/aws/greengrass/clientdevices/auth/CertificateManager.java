@@ -9,6 +9,7 @@ import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
+import com.aws.greengrass.clientdevices.auth.api.ServiceErrorEvent;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
@@ -375,6 +376,7 @@ public class CertificateManager {
             // by the next catch block
             throw e;
         } catch (Exception e) {
+            domainEvent.emit(new ServiceErrorEvent("Failed to put core CA certificates to cloud."));
             throw new CloudServiceInteractionException("Failed to put core CA certificates to cloud. Check that the "
                     + "core device's IoT policy grants the greengrass:PutCertificateAuthorities permission.", e);
         }
