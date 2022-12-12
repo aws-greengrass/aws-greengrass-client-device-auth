@@ -11,6 +11,7 @@ import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.exception.InvalidSessionException;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
@@ -52,20 +53,24 @@ public class ClientDevicesAuthServiceApi {
      * @return True if the provided client certificate is trusted.
      */
     public boolean verifyClientDeviceIdentity(String certificatePem) {
-        boolean success;
+        try {
+            boolean success;
 
-        // Allow internal clients to verify their identities
-        if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
-            success = true;
-        } else {
-            success = useCases.get(VerifyIotCertificate.class).apply(certificatePem);
+            // Allow internal clients to verify their identities
+            if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
+                success = true;
+            } else {
+                success = useCases.get(VerifyIotCertificate.class).apply(certificatePem);
+            }
+
+            domainEvents.emit(new VerifyClientDeviceIdentityEvent(success ? VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS
+                    : VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
+
+            return success;
+        } catch (Exception e) {
+            domainEvents.emit(new ServiceErrorEvent());
+            throw e;
         }
-
-        domainEvents.emit(new VerifyClientDeviceIdentityEvent(success
-                ? VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS :
-                VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
-
-        return success;
     }
 
     /**
@@ -101,13 +106,21 @@ public class ClientDevicesAuthServiceApi {
      */
     public boolean authorizeClientDeviceAction(AuthorizationRequest authorizationRequest)
             throws AuthorizationException {
-        boolean isAuthorized = deviceAuthClient.canDevicePerform(authorizationRequest);
+        try {
+            boolean isAuthorized = deviceAuthClient.canDevicePerform(authorizationRequest);
 
-        domainEvents.emit(new AuthorizeClientDeviceActionEvent(isAuthorized
-                ? AuthorizeClientDeviceActionEvent.AuthorizationStatus.SUCCESS :
-                AuthorizeClientDeviceActionEvent.AuthorizationStatus.FAIL));
+            domainEvents.emit(new AuthorizeClientDeviceActionEvent(isAuthorized ? AuthorizeClientDeviceActionEvent
+                    .AuthorizationStatus.SUCCESS : AuthorizeClientDeviceActionEvent.AuthorizationStatus.FAIL));
 
-        return isAuthorized;
+            return isAuthorized;
+        } catch (AuthorizationException e) {
+            domainEvents.emit(new AuthorizeClientDeviceActionEvent(AuthorizeClientDeviceActionEvent
+                    .AuthorizationStatus.FAIL));
+            throw e;
+        } catch (Exception e) {
+            domainEvents.emit(new ServiceErrorEvent());
+            throw e;
+        }
     }
 
     /**
