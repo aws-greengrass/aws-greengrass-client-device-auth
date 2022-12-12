@@ -64,6 +64,7 @@ public class SessionManager {
      * @return session id
      * @throws AuthenticationException if device credentials were not able to be validated
      */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public String createSession(String credentialType, Map<String, String> credentialMap)
             throws AuthenticationException {
         try {

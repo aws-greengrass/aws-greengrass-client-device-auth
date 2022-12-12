@@ -11,7 +11,6 @@ import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
-import com.aws.greengrass.clientdevices.auth.exception.InvalidSessionException;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
@@ -52,6 +51,7 @@ public class ClientDevicesAuthServiceApi {
      * @param certificatePem PEM encoded client certificate.
      * @return True if the provided client certificate is trusted.
      */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public boolean verifyClientDeviceIdentity(String certificatePem) {
         try {
             boolean success;
@@ -104,6 +104,7 @@ public class ClientDevicesAuthServiceApi {
      * @return true if the client action is allowed
      * @throws AuthorizationException if the client action is not allowed
      */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public boolean authorizeClientDeviceAction(AuthorizationRequest authorizationRequest)
             throws AuthorizationException {
         try {
