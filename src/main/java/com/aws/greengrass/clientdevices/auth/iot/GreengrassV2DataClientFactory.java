@@ -38,6 +38,10 @@ public class GreengrassV2DataClientFactory {
         this.deviceConfiguration = deviceConfiguration;
     }
 
+    protected ApacheHttpClient.Builder getHttpClientBuilder() {
+        return ClientConfigurationUtils.getConfiguredClientBuilder(deviceConfiguration);
+    }
+
     /**
      * Provides a new GG v2 Data client without implicit retry policy. Consumer should handle retries when appropriate
      * and maintain the lifecycle of the client. The Nucleus provided V2DataClient has a built in retry policy which
@@ -49,7 +53,7 @@ public class GreengrassV2DataClientFactory {
     public GreengrassV2DataClient getClient() throws DeviceConfigurationException {
         String awsRegion = getAwsRegion(deviceConfiguration);
         String ggServiceEndpoint = ClientConfigurationUtils.getGreengrassServiceEndpoint(deviceConfiguration);
-        ApacheHttpClient.Builder httpClient = ClientConfigurationUtils.getConfiguredClientBuilder(deviceConfiguration);
+        ApacheHttpClient.Builder httpClient = getHttpClientBuilder();
 
         GreengrassV2DataClientBuilder clientBuilder =
                 GreengrassV2DataClient.builder().credentialsProvider(AnonymousCredentialsProvider.create())
