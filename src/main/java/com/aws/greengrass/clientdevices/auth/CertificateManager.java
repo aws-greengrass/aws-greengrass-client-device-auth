@@ -376,7 +376,7 @@ public class CertificateManager {
             // by the next catch block
             throw e;
         } catch (Exception e) {
-            domainEvent.emit(new ServiceErrorEvent("Failed to put core CA certificates to cloud.", e));
+            domainEvent.emit(new ServiceErrorEvent());
             throw new CloudServiceInteractionException("Failed to put core CA certificates to cloud. Check that the "
                     + "core device's IoT policy grants the greengrass:PutCertificateAuthorities permission.", e);
         }
