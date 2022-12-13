@@ -165,7 +165,6 @@ public class CertificateManager {
      * @param getCertificateRequest get certificate request
      * @throws CertificateGenerationException if unable to generate certificate
      */
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void subscribeToCertificateUpdates(GetCertificateRequest getCertificateRequest)
             throws CertificateGenerationException {
         try {
