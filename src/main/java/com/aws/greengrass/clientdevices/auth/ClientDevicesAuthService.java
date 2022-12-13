@@ -20,6 +20,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
+import com.aws.greengrass.clientdevices.auth.metrics.MetricsEmitter;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionEventHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.SessionCreationEventHandler;
@@ -122,6 +123,7 @@ public class ClientDevicesAuthService extends PluginService {
         networkState.registerHandler(context.get(CISShadowMonitor.class));
         networkState.registerHandler(context.get(BackgroundCertificateRefresh.class));
         context.get(BackgroundCertificateRefresh.class).start();
+        context.get(MetricsEmitter.class).start();
 
         // Initialize IPC thread pool
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
@@ -208,6 +210,7 @@ public class ClientDevicesAuthService extends PluginService {
         super.shutdown();
         context.get(CertificateManager.class).stopMonitors();
         context.get(BackgroundCertificateRefresh.class).stop();
+        context.get(MetricsEmitter.class).stop();
     }
 
     @Override
