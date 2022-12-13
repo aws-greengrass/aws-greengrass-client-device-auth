@@ -77,7 +77,7 @@ public class SessionManager {
             domainEvents.emit(new SessionCreationEvent(SessionCreationEvent
                     .SessionCreationStatus.FAILURE));
             throw e;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             domainEvents.emit(new ServiceErrorEvent());
             throw e;
         }

@@ -67,7 +67,7 @@ public class ClientDevicesAuthServiceApi {
                     .VerificationStatus.SUCCESS : VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
 
             return success;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             domainEvents.emit(new ServiceErrorEvent());
             throw e;
         }
@@ -118,7 +118,7 @@ public class ClientDevicesAuthServiceApi {
             domainEvents.emit(new AuthorizeClientDeviceActionEvent(AuthorizeClientDeviceActionEvent
                     .AuthorizationStatus.FAIL));
             throw e;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             domainEvents.emit(new ServiceErrorEvent());
             throw e;
         }

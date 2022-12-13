@@ -195,6 +195,9 @@ public class CertificateManager {
             domainEvent.emit(new CertificateSubscriptionEvent(getCertificateRequest.getCertificateRequestOptions()
                     .getCertificateType(), CertificateSubscriptionEvent.SubscriptionStatus.FAIL));
             throw new CertificateGenerationException(e);
+        } catch (RuntimeException e) {
+            domainEvent.emit(new ServiceErrorEvent());
+            logger.atError().cause(e).log("Unable to subscribe to certificate updates");
         }
     }
 
@@ -376,7 +379,6 @@ public class CertificateManager {
             // by the next catch block
             throw e;
         } catch (Exception e) {
-            domainEvent.emit(new ServiceErrorEvent());
             throw new CloudServiceInteractionException("Failed to put core CA certificates to cloud. Check that the "
                     + "core device's IoT policy grants the greengrass:PutCertificateAuthorities permission.", e);
         }
