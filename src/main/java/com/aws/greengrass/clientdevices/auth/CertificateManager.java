@@ -196,10 +196,6 @@ public class CertificateManager {
             domainEvent.emit(new CertificateSubscriptionEvent(getCertificateRequest.getCertificateRequestOptions()
                     .getCertificateType(), CertificateSubscriptionEvent.SubscriptionStatus.FAIL));
             throw new CertificateGenerationException(e);
-        } catch (RuntimeException e) {
-            domainEvent.emit(new ServiceErrorEvent());
-            logger.atError().cause(e).log("Unable to subscribe to certificate updates");
-            throw e;
         }
     }
 
