@@ -199,6 +199,7 @@ public class CertificateManager {
         } catch (RuntimeException e) {
             domainEvent.emit(new ServiceErrorEvent());
             logger.atError().cause(e).log("Unable to subscribe to certificate updates");
+            throw e;
         }
     }
 
