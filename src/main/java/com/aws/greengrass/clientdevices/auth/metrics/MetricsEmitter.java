@@ -41,7 +41,7 @@ public class MetricsEmitter {
         this.metrics = metrics;
         this.metricsConfiguration = metricsConfiguration;
 
-        if(!metricsConfiguration.getEnableMetrics().isPresent()) {
+        if (!metricsConfiguration.getEnableMetrics().isPresent()) {
             metricsEnabled = false;
         }
 
