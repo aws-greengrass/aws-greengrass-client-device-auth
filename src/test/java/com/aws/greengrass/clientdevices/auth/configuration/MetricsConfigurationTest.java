@@ -15,14 +15,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.EMITTING_FREQUENCY;
 import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.ENABLE_METRICS;
 import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.METRICS_TOPIC;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
