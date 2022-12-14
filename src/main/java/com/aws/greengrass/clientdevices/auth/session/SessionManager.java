@@ -78,7 +78,8 @@ public class SessionManager {
                     .SessionCreationStatus.FAILURE));
             throw e;
         } catch (RuntimeException e) {
-            domainEvents.emit(new ServiceErrorEvent(e, "Unable to create session"));
+            domainEvents.emit(new ServiceErrorEvent());
+            logger.atError().cause(e).log("Unable to create session");
             throw e;
         }
     }

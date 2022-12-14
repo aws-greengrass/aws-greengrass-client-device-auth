@@ -14,6 +14,8 @@ import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationExce
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 
 import java.util.Map;
 import javax.inject.Inject;
@@ -24,6 +26,7 @@ public class ClientDevicesAuthServiceApi {
     private final CertificateManager certificateManager;
     private final UseCases useCases;
     private final DomainEvents domainEvents;
+    private static final Logger logger = LogManager.getLogger(ClientDevicesAuthServiceApi.class);
 
     /**
      * Constructor.
@@ -68,7 +71,8 @@ public class ClientDevicesAuthServiceApi {
 
             return success;
         } catch (RuntimeException e) {
-            domainEvents.emit(new ServiceErrorEvent(e, "Unable to verify client device identity"));
+            domainEvents.emit(new ServiceErrorEvent());
+            logger.atError().cause(e).log("Unable to verify client device identity");
             throw e;
         }
     }
@@ -119,7 +123,8 @@ public class ClientDevicesAuthServiceApi {
                     .AuthorizationStatus.FAIL));
             throw e;
         } catch (RuntimeException e) {
-            domainEvents.emit(new ServiceErrorEvent(e, "Unable to authorize client device action"));
+            domainEvents.emit(new ServiceErrorEvent());
+            logger.atError().cause(e).log("Unable to authorize client device action");
             throw e;
         }
     }
