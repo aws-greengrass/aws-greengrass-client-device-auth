@@ -55,8 +55,8 @@ public final class MetricsConfiguration {
      * @return true if changed, else false
      */
     public boolean hasChanged(MetricsConfiguration config) {
-        return config.getEnableMetrics() != getEnableMetrics() ||
-                config.getEmittingFrequency() != getEmittingFrequency();
+        return config.getEnableMetrics() != getEnableMetrics()
+                || config.getEmittingFrequency() != getEmittingFrequency();
     }
 
     private static Optional<Boolean> getEnableMetricsFlagFromConfiguration(Topics metricsTopic) {
