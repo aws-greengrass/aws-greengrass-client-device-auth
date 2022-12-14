@@ -23,6 +23,7 @@ import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.metrics.MetricsEmitter;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionEventHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.MetricsConfigurationChangedHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.SessionCreationEventHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityEventHandler;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
@@ -147,6 +148,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(VerifyClientDeviceIdentityEventHandler.class).listen();
         context.get(AuthorizeClientDeviceActionsMetricHandler.class).listen();
         context.get(SessionCreationEventHandler.class).listen();
+        context.get(MetricsConfigurationChangedHandler.class).listen();
     }
 
     private void subscribeToConfigChanges() {

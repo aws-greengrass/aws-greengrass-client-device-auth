@@ -20,7 +20,6 @@ public class MetricsEmitter {
     private int periodicAggregateIntervalSec;
     private boolean metricsEnabled = true;
     private final ClientDeviceAuthMetrics metrics;
-    private final MetricsConfiguration metricsConfiguration;
 
     /**
      * Constructor for the MetricsEmitter.
@@ -39,7 +38,6 @@ public class MetricsEmitter {
                            MetricsConfiguration metricsConfiguration, int periodicAggregateIntervalSec) {
         this.ses = ses;
         this.metrics = metrics;
-        this.metricsConfiguration = metricsConfiguration;
 
         if (!metricsConfiguration.getEnableMetrics().isPresent()) {
             metricsEnabled = false;

@@ -22,6 +22,7 @@ import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfigu
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class MetricsConfigurationTest {
@@ -55,7 +56,7 @@ public class MetricsConfigurationTest {
         assertFalse(metricsConfiguration.getEnableMetrics().isPresent());
         configurationTopics.lookup(METRICS_TOPIC, ENABLE_METRICS).withValue(true);
         metricsConfiguration = MetricsConfiguration.from(configurationTopics);
-        assertEquals(true, metricsConfiguration.getEnableMetrics().get());
+        assertTrue(metricsConfiguration.getEnableMetrics().get());
     }
 
     @Test

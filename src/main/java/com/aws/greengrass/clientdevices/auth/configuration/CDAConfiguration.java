@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
+import com.aws.greengrass.clientdevices.auth.configuration.events.MetricsConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.configuration.events.SecurityConfigurationChanged;
 import com.aws.greengrass.config.Topics;
 import lombok.Getter;
@@ -105,6 +106,9 @@ public final class CDAConfiguration {
         if (hasSecurityConfigurationChanged(prev)) {
             domainEvents.emit(new SecurityConfigurationChanged(current.security));
         }
+        if (hasMetricsConfigurationChanged(prev)) {
+            domainEvents.emit(new MetricsConfigurationChanged(current.metricsConfiguration));
+        }
     }
 
     public void updateCACertificates(List<String> caCertificates) {
@@ -130,5 +134,12 @@ public final class CDAConfiguration {
             return true;
         }
         return security.hasChanged(config.security);
+    }
+
+    private boolean hasMetricsConfigurationChanged(CDAConfiguration config) {
+        if (config == null) {
+            return true;
+        }
+        return metricsConfiguration.hasChanged(config.metricsConfiguration);
     }
 }

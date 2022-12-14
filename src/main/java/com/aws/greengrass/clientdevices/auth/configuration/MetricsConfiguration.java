@@ -21,7 +21,7 @@ import java.util.Optional;
  * </p>
  */
 
-public class MetricsConfiguration {
+public final class MetricsConfiguration {
     public static final String METRICS_TOPIC = "metrics";
     public static final String ENABLE_METRICS = "enableMetrics";
     public static final String EMITTING_FREQUENCY = "emittingFrequency";
@@ -46,6 +46,17 @@ public class MetricsConfiguration {
 
         return new MetricsConfiguration(getEnableMetricsFlagFromConfiguration(metricsTopic),
                 getEmittingFrequencyFromConfiguration(metricsTopic));
+    }
+
+    /**
+     * Compares 2 Metric Configurations and returns true if there's been a change.
+     *
+     * @param config Metric Configuration
+     * @return true if changed, else false
+     */
+    public boolean hasChanged(MetricsConfiguration config) {
+        return config.getEnableMetrics() != getEnableMetrics() ||
+                config.getEmittingFrequency() != getEmittingFrequency();
     }
 
     private static Optional<Boolean> getEnableMetricsFlagFromConfiguration(Topics metricsTopic) {
