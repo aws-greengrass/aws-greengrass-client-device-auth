@@ -40,7 +40,7 @@ public class ServiceErrorEventHandler implements Consumer<ServiceErrorEvent> {
 
     @Override
     public void accept(ServiceErrorEvent event) {
-        logger.atError().cause(event.getE()).log(event.getErrorMessage());
+        logger.atError().cause(event.getException()).log(event.getErrorMessage());
         metrics.incrementServiceError();
     }
 }

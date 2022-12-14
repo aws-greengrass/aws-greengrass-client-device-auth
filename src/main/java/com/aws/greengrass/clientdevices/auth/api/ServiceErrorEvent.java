@@ -11,7 +11,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public class ServiceErrorEvent implements DomainEvent {
     @Getter
-    private Exception e;
+    private Exception exception;
     @Getter
     private String errorMessage;
 }
