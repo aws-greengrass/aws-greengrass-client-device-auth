@@ -37,6 +37,9 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
  * |         |---- certificateUri: "..."
  * |         |---- caType: [...]
  * |    |---- certificates: {}
+ * |    |---- metrics:
+ * |         |---- emitMetrics: "..."
+ * |         |---- emittingFrequency: "..."
  * |---- runtime
  * |    |---- ca_passphrase: "..."
  * |    |---- certificates:
@@ -50,14 +53,16 @@ public final class CDAConfiguration {
     private final SecurityConfiguration security;
     @Getter
     private final CAConfiguration certificateAuthorityConfiguration;
+    private final MetricsConfiguration metricsConfiguration;
     private final DomainEvents domainEvents;
 
     private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca,
-                             SecurityConfiguration security) {
+                             SecurityConfiguration security, MetricsConfiguration metricsConfiguration) {
         this.domainEvents = domainEvents;
         this.runtime = runtime;
         this.security = security;
         this.certificateAuthorityConfiguration = ca;
+        this.metricsConfiguration = metricsConfiguration;
     }
 
     /**
@@ -75,7 +80,8 @@ public final class CDAConfiguration {
         DomainEvents domainEvents = topics.getContext().get(DomainEvents.class);
 
         CDAConfiguration newConfig = new CDAConfiguration(domainEvents, RuntimeConfiguration.from(runtimeTopics),
-                CAConfiguration.from(serviceConfiguration), SecurityConfiguration.from(serviceConfiguration));
+                CAConfiguration.from(serviceConfiguration), SecurityConfiguration.from(serviceConfiguration),
+                MetricsConfiguration.from(serviceConfiguration));
 
         newConfig.triggerChanges(newConfig, existingConfig);
 

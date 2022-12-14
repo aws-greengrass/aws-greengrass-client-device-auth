@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.clientdevices.auth.metrics;
 
+import com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration;
+
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -15,30 +17,53 @@ public class MetricsEmitter {
     private final ScheduledExecutorService ses;
     private final Object emitMetricsLock = new Object();
     private static final int DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC = 3_600;
+    private int periodicAggregateIntervalSec;
+    private boolean metricsEnabled = true;
     private final ClientDeviceAuthMetrics metrics;
+    private final MetricsConfiguration metricsConfiguration;
 
     /**
      * Constructor for the MetricsEmitter.
      *
-     * @param ses     {@link ScheduledExecutorService}
-     * @param metrics {@link ClientDeviceAuthMetrics}
+     * @param ses                  {@link ScheduledExecutorService}
+     * @param metrics              {@link ClientDeviceAuthMetrics}
+     * @param metricsConfiguration {@link MetricsConfiguration}
      */
     @Inject
-    public MetricsEmitter(ScheduledExecutorService ses, ClientDeviceAuthMetrics metrics) {
+    public MetricsEmitter(ScheduledExecutorService ses, ClientDeviceAuthMetrics metrics,
+                          MetricsConfiguration metricsConfiguration) {
+        this(ses, metrics, metricsConfiguration, DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC);
+    }
+
+    private MetricsEmitter(ScheduledExecutorService ses, ClientDeviceAuthMetrics metrics,
+                           MetricsConfiguration metricsConfiguration, int periodicAggregateIntervalSec) {
         this.ses = ses;
         this.metrics = metrics;
+        this.metricsConfiguration = metricsConfiguration;
+
+        if(!metricsConfiguration.getEnableMetrics().isPresent()) {
+            metricsEnabled = false;
+        }
+
+        if (metricsEnabled && metricsConfiguration.getEmittingFrequency().isPresent()) {
+            this.periodicAggregateIntervalSec = metricsConfiguration.getEmittingFrequency().get();
+        } else {
+            this.periodicAggregateIntervalSec = periodicAggregateIntervalSec;
+        }
     }
 
     /**
-     * Start emitting metrics with no initial delay.
+     * Start emitting metrics with no initial delay unless specified otherwise by the Metrics Configuration.
      */
     public void start() {
-        synchronized (emitMetricsLock) {
-            // Cancel previously running task
-            stop();
+        if (metricsEnabled) {
+            synchronized (emitMetricsLock) {
+                // Cancel previously running task
+                stop();
 
-            future = ses.scheduleWithFixedDelay(metrics::emitMetrics, 0,
-                    DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC, TimeUnit.SECONDS);
+                future = ses.scheduleWithFixedDelay(metrics::emitMetrics, 0, periodicAggregateIntervalSec,
+                        TimeUnit.SECONDS);
+            }
         }
     }
 
@@ -46,9 +71,11 @@ public class MetricsEmitter {
      * Stop emitting metrics.
      */
     public void stop() {
-        synchronized (emitMetricsLock) {
-            if (future != null) {
-                future.cancel(true);
+        if (metricsEnabled) {
+            synchronized (emitMetricsLock) {
+                if (future != null) {
+                    future.cancel(true);
+                }
             }
         }
     }
