@@ -44,11 +44,11 @@ public class MetricsConfiguration {
     public static MetricsConfiguration from(Topics configurationTopics) {
         Topics metricsTopic = configurationTopics.lookupTopics(METRICS_TOPIC);
 
-        return new MetricsConfiguration(getEmitMetricsFlagFromConfiguration(metricsTopic),
+        return new MetricsConfiguration(getEnableMetricsFlagFromConfiguration(metricsTopic),
                 getEmittingFrequencyFromConfiguration(metricsTopic));
     }
 
-    private static Optional<Boolean> getEmitMetricsFlagFromConfiguration(Topics metricsTopic) {
+    private static Optional<Boolean> getEnableMetricsFlagFromConfiguration(Topics metricsTopic) {
         boolean emit = Coerce.toBoolean(metricsTopic.find(ENABLE_METRICS));
 
         if (emit) {
