@@ -5,6 +5,13 @@
 
 package com.aws.greengrass.clientdevices.auth.api;
 
-public class ServiceErrorEvent implements DomainEvent {
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
+@AllArgsConstructor
+public class ServiceErrorEvent implements DomainEvent {
+    @Getter
+    private Exception e;
+    @Getter
+    private String errorMessage;
 }

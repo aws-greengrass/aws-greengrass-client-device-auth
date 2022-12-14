@@ -68,7 +68,7 @@ public class ClientDevicesAuthServiceApi {
 
             return success;
         } catch (RuntimeException e) {
-            domainEvents.emit(new ServiceErrorEvent());
+            domainEvents.emit(new ServiceErrorEvent(e, "Unable to verify client device identity"));
             throw e;
         }
     }
@@ -119,7 +119,7 @@ public class ClientDevicesAuthServiceApi {
                     .AuthorizationStatus.FAIL));
             throw e;
         } catch (RuntimeException e) {
-            domainEvents.emit(new ServiceErrorEvent());
+            domainEvents.emit(new ServiceErrorEvent(e, "Unable to authorize client device action"));
             throw e;
         }
     }
