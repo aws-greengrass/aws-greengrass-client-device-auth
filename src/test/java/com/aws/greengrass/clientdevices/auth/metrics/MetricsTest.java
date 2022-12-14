@@ -341,9 +341,9 @@ public class MetricsTest {
     @Test
     void GIVEN_serviceErrorEvent_WHEN_eventsEmitted_THEN_serviceErrorMetricCorrectlyEmitted() {
         // Emitting multiple service error events to ensure the metric is incremented correctly
-        domainEvents.emit(new ServiceErrorEvent());
-        domainEvents.emit(new ServiceErrorEvent());
-        domainEvents.emit(new ServiceErrorEvent());
+        domainEvents.emit(new ServiceErrorEvent(new Exception(), "error"));
+        domainEvents.emit(new ServiceErrorEvent(new Exception(), "error"));
+        domainEvents.emit(new ServiceErrorEvent(new Exception(), "error"));
 
         // Checking that the emitter collects the metrics as expected
         Metric metric = Metric.builder()
