@@ -65,10 +65,10 @@ public final class MetricsConfiguration {
     private static int getAggregatePeriodFromConfiguration(Topics metricsTopic) {
         int aggregatePeriod = Coerce.toInt(metricsTopic.find(AGGREGATE_PERIOD));
 
-        if (aggregatePeriod != 0) {
-            return aggregatePeriod;
-        } else {
+        if (aggregatePeriod == 0) {
             return DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC;
+        } else {
+            return aggregatePeriod;
         }
     }
 }
