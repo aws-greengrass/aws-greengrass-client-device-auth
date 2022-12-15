@@ -42,7 +42,7 @@ public class MetricsConfigurationChangedHandler implements Consumer<MetricsConfi
      */
     @Override
     public void accept(MetricsConfigurationChanged event) {
-        metricsEmitter.stop();
-        metricsEmitter.start();
+        metricsEmitter.restart(event.getConfiguration().isDisableMetrics(),
+                event.getConfiguration().getAggregatePeriod());
     }
 }

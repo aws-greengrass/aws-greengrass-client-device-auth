@@ -9,30 +9,29 @@ import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.util.Coerce;
 import lombok.Getter;
 
-import java.util.Optional;
-
 /**
  * Represents the metrics part of the component configuration. Acts as an adapter from the GG topics to the domain.
  * <p>
  * |---- configuration
  * |    |---- metrics:
- * |          |---- emitMetrics
- * |          |---- emittingFrequency
+ * |          |---- disableMetrics
+ * |          |---- aggregatePeriod
  * </p>
  */
 
 public final class MetricsConfiguration {
     public static final String METRICS_TOPIC = "metrics";
-    public static final String ENABLE_METRICS = "enableMetrics";
-    public static final String EMITTING_FREQUENCY = "emittingFrequency";
+    public static final String DISABLE_METRICS = "disableMetrics";
+    public static final String AGGREGATE_PERIOD = "aggregatePeriod";
+    public static final int DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC = 3_600;
     @Getter
-    private Optional<Boolean> enableMetrics;
+    private boolean disableMetrics;
     @Getter
-    private Optional<Integer> emittingFrequency;
+    private int aggregatePeriod;
 
-    private MetricsConfiguration(Optional<Boolean> enableMetrics, Optional<Integer> emittingFrequency) {
-        this.enableMetrics = enableMetrics;
-        this.emittingFrequency = emittingFrequency;
+    private MetricsConfiguration(boolean disableMetrics, int aggregatePeriod) {
+        this.disableMetrics = disableMetrics;
+        this.aggregatePeriod = aggregatePeriod;
     }
 
     /**
@@ -44,8 +43,8 @@ public final class MetricsConfiguration {
     public static MetricsConfiguration from(Topics configurationTopics) {
         Topics metricsTopic = configurationTopics.lookupTopics(METRICS_TOPIC);
 
-        return new MetricsConfiguration(getEnableMetricsFlagFromConfiguration(metricsTopic),
-                getEmittingFrequencyFromConfiguration(metricsTopic));
+        return new MetricsConfiguration(getDisableMetricsFlagFromConfiguration(metricsTopic),
+                getAggregatePeriodFromConfiguration(metricsTopic));
     }
 
     /**
@@ -55,27 +54,21 @@ public final class MetricsConfiguration {
      * @return true if changed, else false
      */
     public boolean hasChanged(MetricsConfiguration config) {
-        return config.getEnableMetrics() != getEnableMetrics()
-                || config.getEmittingFrequency() != getEmittingFrequency();
+        return config.disableMetrics != disableMetrics
+                || config.getAggregatePeriod() != getAggregatePeriod();
     }
 
-    private static Optional<Boolean> getEnableMetricsFlagFromConfiguration(Topics metricsTopic) {
-        boolean emit = Coerce.toBoolean(metricsTopic.find(ENABLE_METRICS));
-
-        if (emit) {
-            return Optional.of(true);
-        } else {
-            return Optional.empty();
-        }
+    private static boolean getDisableMetricsFlagFromConfiguration(Topics metricsTopic) {
+        return Coerce.toBoolean(metricsTopic.find(DISABLE_METRICS));
     }
 
-    private static Optional<Integer> getEmittingFrequencyFromConfiguration(Topics metricsTopic) {
-        int frequency = Coerce.toInt(metricsTopic.find(EMITTING_FREQUENCY));
+    private static int getAggregatePeriodFromConfiguration(Topics metricsTopic) {
+        int aggregatePeriod = Coerce.toInt(metricsTopic.find(AGGREGATE_PERIOD));
 
-        if (frequency > 0) {
-            return Optional.of(frequency);
+        if (aggregatePeriod != 0){
+            return aggregatePeriod;
         } else {
-            return Optional.empty();
+            return DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC;
         }
     }
 }

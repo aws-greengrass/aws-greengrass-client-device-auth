@@ -39,8 +39,8 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
  * |         |---- caType: [...]
  * |    |---- certificates: {}
  * |    |---- metrics:
- * |         |---- emitMetrics: "..."
- * |         |---- emittingFrequency: "..."
+ * |         |---- disableMetrics: "..."
+ * |         |---- aggregatePeriod: "..."
  * |---- runtime
  * |    |---- ca_passphrase: "..."
  * |    |---- certificates:

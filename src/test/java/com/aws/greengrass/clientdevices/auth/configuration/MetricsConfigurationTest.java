@@ -16,8 +16,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 
-import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.EMITTING_FREQUENCY;
-import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.ENABLE_METRICS;
+import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC;
+import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.AGGREGATE_PERIOD;
+import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.DISABLE_METRICS;
 import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.METRICS_TOPIC;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,32 +40,32 @@ public class MetricsConfigurationTest {
     }
 
     @Test
-    public void GIVEN_cdaDefaultConfiguration_WHEN_getEnableMetrics_THEN_returnsNull() {
+    public void GIVEN_cdaDefaultConfiguration_WHEN_getDisableMetrics_THEN_returnsFalse() {
         MetricsConfiguration metricsConfiguration = MetricsConfiguration.from(configurationTopics);
-        assertFalse(metricsConfiguration.getEnableMetrics().isPresent());
+        assertFalse(metricsConfiguration.isDisableMetrics());
     }
 
     @Test
-    public void GIVEN_cdaDefaultConfiguration_WHEN_getEmittingFrequency_THEN_returnsNull() {
+    public void GIVEN_cdaDefaultConfiguration_WHEN_getAggregatePeriod_THEN_returnsDefaultPeriodicAggregateInterval() {
         MetricsConfiguration metricsConfiguration = MetricsConfiguration.from(configurationTopics);
-        assertFalse(metricsConfiguration.getEmittingFrequency().isPresent());
+        assertEquals(DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC, metricsConfiguration.getAggregatePeriod());
     }
 
     @Test
-    public void GIVEN_cdaConfiguration_WHEN_metricsEnabled_THEN_getEnableMetricsReturnsTrue() {
+    public void GIVEN_cdaConfiguration_WHEN_metricsDisabled_THEN_getDisableMetricsReturnsTrue() {
         MetricsConfiguration metricsConfiguration = MetricsConfiguration.from(configurationTopics);
-        assertFalse(metricsConfiguration.getEnableMetrics().isPresent());
-        configurationTopics.lookup(METRICS_TOPIC, ENABLE_METRICS).withValue(true);
+        assertEquals(DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC, metricsConfiguration.getAggregatePeriod());
+        configurationTopics.lookup(METRICS_TOPIC, DISABLE_METRICS).withValue(true);
         metricsConfiguration = MetricsConfiguration.from(configurationTopics);
-        assertTrue(metricsConfiguration.getEnableMetrics().get());
+        assertTrue(metricsConfiguration.isDisableMetrics());
     }
 
     @Test
-    public void GIVEN_cdaConfiguration_WHEN_metricsEnabledAndFrequencyProvided_THEN_getEmittingFrequencyReturnsInt() {
+    public void GIVEN_cdaConfiguration_WHEN_metricsEnabledAndFrequencyProvided_THEN_getAggregatePeriodReturnsInt() {
         MetricsConfiguration metricsConfiguration = MetricsConfiguration.from(configurationTopics);
-        assertFalse(metricsConfiguration.getEmittingFrequency().isPresent());
-        configurationTopics.lookup(METRICS_TOPIC, EMITTING_FREQUENCY).withValue(10_000);
+        assertEquals(DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC, metricsConfiguration.getAggregatePeriod());
+        configurationTopics.lookup(METRICS_TOPIC, AGGREGATE_PERIOD).withValue(10_000);
         metricsConfiguration = MetricsConfiguration.from(configurationTopics);
-        assertEquals(10_000, metricsConfiguration.getEmittingFrequency().get());
+        assertEquals(10_000, metricsConfiguration.getAggregatePeriod());
     }
 }
