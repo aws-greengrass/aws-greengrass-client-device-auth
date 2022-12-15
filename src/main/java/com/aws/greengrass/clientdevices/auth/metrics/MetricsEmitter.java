@@ -45,6 +45,8 @@ public class MetricsEmitter {
 
     /**
      * Start emitting metrics with no initial delay unless specified otherwise by the Metrics Configuration.
+     *
+     * @param periodicAggregateIntervalSec Periodic aggregate interval in seconds
      */
     public void start(int periodicAggregateIntervalSec) {
         synchronized (emitMetricsLock) {
