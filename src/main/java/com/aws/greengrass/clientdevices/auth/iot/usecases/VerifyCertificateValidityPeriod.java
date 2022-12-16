@@ -42,7 +42,6 @@ public class VerifyCertificateValidityPeriod implements UseCases.UseCase<Boolean
     @Override
     public Boolean apply(String certificatePem) {
         CertificateFactory cf = null;
-        boolean isValid = false;
 
         try {
             cf = CertificateFactory.getInstance("X.509");
@@ -56,7 +55,7 @@ public class VerifyCertificateValidityPeriod implements UseCases.UseCase<Boolean
             Date now = Date.from(clock.instant());
             try {
                 cert.checkValidity(now);
-                isValid = true;
+                return true;
             } catch (CertificateExpiredException e) {
                 logger.atWarn().kv("notAfter", cert.getNotAfter()).log("Rejecting expired certificate");
             } catch (CertificateNotYetValidException e) {
@@ -66,6 +65,6 @@ public class VerifyCertificateValidityPeriod implements UseCases.UseCase<Boolean
             logger.atWarn().cause(e).log("Unable to parse client certificate");
         }
 
-        return isValid;
+        return false;
     }
 }
