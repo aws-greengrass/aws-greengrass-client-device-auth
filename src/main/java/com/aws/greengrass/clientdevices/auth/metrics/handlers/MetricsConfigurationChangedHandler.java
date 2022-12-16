@@ -36,7 +36,7 @@ public class MetricsConfigurationChangedHandler implements Consumer<MetricsConfi
     }
 
     /**
-     * Restart the Metrics Emitter to apply new configuration, or stop if metrics have been disabled
+     * Restart the Metrics Emitter to apply new configuration, or stop if metrics have been disabled.
      *
      * @param event Metric configuration changed event
      */
