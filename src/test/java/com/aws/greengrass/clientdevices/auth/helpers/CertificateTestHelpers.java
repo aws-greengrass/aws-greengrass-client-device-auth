@@ -64,7 +64,7 @@ import java.util.List;
 
 
 public final class CertificateTestHelpers {
-    private static final int DEFAULT_TEST_CA_DURATION_SECONDS = 10;
+    private static final int DEFAULT_TEST_CA_DURATION_SECONDS = 3600;
     public static final String KEY_TYPE_RSA = "RSA";
     public static final String RSA_SIGNING_ALGORITHM = "SHA256withRSA";
     public static final String KEY_TYPE_EC = "EC";
@@ -176,7 +176,8 @@ public final class CertificateTestHelpers {
 
     private static Pair<Date, Date> getValidityDateRange() {
         Instant now = Instant.now();
-        Date notBefore = Date.from(now);
+        // TODO: caller should pass a clock or date range in instead
+        Date notBefore = Date.from(now.minusSeconds(1));
         Date notAfter = Date.from(now.plusSeconds(DEFAULT_TEST_CA_DURATION_SECONDS));
         return new Pair(notBefore, notAfter);
     }

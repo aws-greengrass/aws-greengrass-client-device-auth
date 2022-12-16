@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCClient;
 import software.amazon.awssdk.aws.greengrass.model.ClientDeviceCredential;
@@ -45,6 +44,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -54,16 +55,12 @@ import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.mockito.Mockito.when;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
 class RejectExpiredCertificateTest {
     private static GlobalStateChangeListener listener;
-
     @TempDir
     Path rootDir;
-    @Mock
-    Clock mockClock;
     private Kernel kernel;
     private static X509Certificate clientCertificate;
     private static String clientCertificatePem;
@@ -94,7 +91,6 @@ class RejectExpiredCertificateTest {
         IotAuthClientFake iotAuthClientFake = new IotAuthClientFake();
         iotAuthClientFake.activateCert(clientCertificatePem);
         kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
-        kernel.getContext().put(Clock.class, mockClock);
     }
 
     @AfterEach
@@ -126,11 +122,11 @@ class RejectExpiredCertificateTest {
     @Test
     void GIVEN_timeBeforeClientCertificateNotBefore_WHEN_verifyClientIdentity_THEN_returnsNotValid(
             ExtensionContext context) throws Exception {
+        Instant beforeValid = clientCertificate.getNotBefore().toInstant().minusSeconds(1);
+        kernel.getContext().put(Clock.class, Clock.fixed(beforeValid, ZoneId.systemDefault()));
+
         startNucleusWithConfig("cda.yaml");
         ignoreExceptionOfType(context, ValidationException.class);
-
-        // Clock should return instant prior to certificate NotBefore value
-        when(mockClock.instant()).thenReturn(clientCertificate.getNotBefore().toInstant().minusSeconds(1));
 
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerSubscribingToCertUpdates")) {
@@ -147,11 +143,11 @@ class RejectExpiredCertificateTest {
     @Test
     void GIVEN_expiredClientCertificate_WHEN_verifyClientIdentity_THEN_returnsNotValid(ExtensionContext context)
             throws Exception {
+        Instant beforeValid = clientCertificate.getNotAfter().toInstant().plusSeconds(1);
+        kernel.getContext().put(Clock.class, Clock.fixed(beforeValid, ZoneId.systemDefault()));
+
         startNucleusWithConfig("cda.yaml");
         ignoreExceptionOfType(context, ValidationException.class);
-
-        // Clock should return instant prior to certificate NotBefore value
-        when(mockClock.instant()).thenReturn(clientCertificate.getNotAfter().toInstant().plusSeconds(1));
 
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerSubscribingToCertUpdates")) {
