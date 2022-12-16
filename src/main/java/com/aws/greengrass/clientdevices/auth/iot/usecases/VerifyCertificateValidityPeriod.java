@@ -14,7 +14,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateFactory;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.util.Date;
@@ -40,6 +42,7 @@ public class VerifyCertificateValidityPeriod implements UseCases.UseCase<Boolean
     @Override
     public Boolean apply(String certificatePem) {
         CertificateFactory cf = null;
+        boolean isValid = false;
 
         try {
             cf = CertificateFactory.getInstance("X.509");
@@ -51,10 +54,18 @@ public class VerifyCertificateValidityPeriod implements UseCases.UseCase<Boolean
         try (InputStream is = new ByteArrayInputStream(certificatePem.getBytes(StandardCharsets.UTF_8))) {
             X509Certificate cert = (X509Certificate) cf.generateCertificate(is);
             Date now = Date.from(clock.instant());
-            return !cert.getNotBefore().after(now) && cert.getNotAfter().after(now);
+            try {
+                cert.checkValidity(now);
+                isValid = true;
+            } catch (CertificateExpiredException e) {
+                logger.atWarn().kv("notAfter", cert.getNotAfter()).log("Rejecting expired certificate");
+            } catch (CertificateNotYetValidException e) {
+                logger.atWarn().kv("notBefore", cert.getNotBefore()).log("Rejecting not yet valid certificate");
+            }
         } catch (IOException | CertificateException e) {
             logger.atWarn().cause(e).log("Unable to parse client certificate");
-            return false;
         }
+
+        return isValid;
     }
 }
