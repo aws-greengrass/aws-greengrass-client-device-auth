@@ -54,7 +54,7 @@ public final class MetricsConfiguration {
      * @return true if changed, else false
      */
     public boolean hasChanged(MetricsConfiguration config) {
-        return config.disableMetrics != disableMetrics
+        return config.isDisableMetrics() != isDisableMetrics()
                 || config.getAggregatePeriod() != getAggregatePeriod();
     }
 
@@ -65,7 +65,7 @@ public final class MetricsConfiguration {
     private static int getAggregatePeriodFromConfiguration(Topics metricsTopic) {
         int aggregatePeriod = Coerce.toInt(metricsTopic.find(AGGREGATE_PERIOD));
 
-        if (aggregatePeriod == 0) {
+        if (aggregatePeriod <= 0) {
             return DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC;
         } else {
             return aggregatePeriod;

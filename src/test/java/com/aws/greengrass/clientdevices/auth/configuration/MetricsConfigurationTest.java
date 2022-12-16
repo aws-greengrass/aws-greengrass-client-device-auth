@@ -68,4 +68,13 @@ public class MetricsConfigurationTest {
         metricsConfiguration = MetricsConfiguration.from(configurationTopics);
         assertEquals(10_000, metricsConfiguration.getAggregatePeriod());
     }
+
+    @Test
+    public void GIVEN_cdaConfiguration_WHEN_metricsEnabledAndNegativeFrequencyGiven_THEN_useDefaultAggregatePeriod() {
+        MetricsConfiguration metricsConfiguration = MetricsConfiguration.from(configurationTopics);
+        assertEquals(DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC, metricsConfiguration.getAggregatePeriod());
+        configurationTopics.lookup(METRICS_TOPIC, AGGREGATE_PERIOD).withValue(-10_000);
+        metricsConfiguration = MetricsConfiguration.from(configurationTopics);
+        assertEquals(DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC, metricsConfiguration.getAggregatePeriod());
+    }
 }

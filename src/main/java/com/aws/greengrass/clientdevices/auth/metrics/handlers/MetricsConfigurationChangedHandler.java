@@ -36,13 +36,17 @@ public class MetricsConfigurationChangedHandler implements Consumer<MetricsConfi
     }
 
     /**
-     * Restart the Metrics Emitter to apply new configuration.
+     * Restart the Metrics Emitter to apply new configuration, or stop if metrics have been disabled
      *
      * @param event Metric configuration changed event
      */
     @Override
     public void accept(MetricsConfigurationChanged event) {
-        metricsEmitter.restart(event.getConfiguration().isDisableMetrics(),
-                event.getConfiguration().getAggregatePeriod());
+        if (event.getConfiguration().isDisableMetrics()) {
+            metricsEmitter.stop();
+        }
+        else {
+            metricsEmitter.restart(event.getConfiguration().getAggregatePeriod());
+        }
     }
 }

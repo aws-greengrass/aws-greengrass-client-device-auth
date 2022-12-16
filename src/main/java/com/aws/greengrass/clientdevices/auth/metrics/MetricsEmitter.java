@@ -31,20 +31,15 @@ public class MetricsEmitter {
     /**
      * Restart the metrics emitter and apply configurations.
      *
-     * @param disableMetrics               Enable metrics flag
      * @param periodicAggregateIntervalSec Periodic aggregate interval in seconds
      */
-    public void restart(boolean disableMetrics, int periodicAggregateIntervalSec) {
-        if (disableMetrics) {
-            return;
-        }
-
+    public void restart(int periodicAggregateIntervalSec) {
         stop();
         start(periodicAggregateIntervalSec);
     }
 
     /**
-     * Start emitting metrics with no initial delay unless specified otherwise by the Metrics Configuration.
+     * Start emitting metrics with no initial delay.
      *
      * @param periodicAggregateIntervalSec Periodic aggregate interval in seconds
      */
