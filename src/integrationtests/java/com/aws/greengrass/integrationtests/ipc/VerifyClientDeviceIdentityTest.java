@@ -143,6 +143,7 @@ class VerifyClientDeviceIdentityTest {
     @Test
     void GIVEN_requestWithInvalidPem_WHEN_verifyClientIdentity_THEN_returnNotValid(ExtensionContext context)
             throws Exception {
+        ignoreExceptionOfType(context, CertificateException.class);
         ignoreExceptionOfType(context, InvalidCertificateException.class);
         startNucleusWithConfig("cda.yaml");
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
