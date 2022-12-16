@@ -10,23 +10,19 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
+import java.time.ZoneId;
 
 import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class})
 class VerifyCertificateValidityPeriodTest {
-    @Mock
-    Clock mockClock;
-
     @Test
     void GIVEN_invalidCertificate_WHEN_verifyCertificateValid_THEN_returnsFalse() {
         VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(Clock.systemUTC());
@@ -37,9 +33,9 @@ class VerifyCertificateValidityPeriodTest {
     void GIVEN_currentTimeIsBeforeCertificateNotBefore_WHEN_verifyCertificateValid_THEN_returnsFalse()
             throws Exception {
         X509Certificate clientCert = createTestClientCertificate();
-        when(mockClock.instant()).thenReturn(clientCert.getNotBefore().toInstant().minusSeconds(1));
+        Clock fixedClock = Clock.fixed(clientCert.getNotBefore().toInstant().minusSeconds(1), ZoneId.systemDefault());
 
-        VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(mockClock);
+        VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(fixedClock);
         assertThat(useCase.apply(CertificateHelper.toPem(clientCert)), is(false));
     }
 
@@ -47,18 +43,18 @@ class VerifyCertificateValidityPeriodTest {
     void GIVEN_currentTimeIsWithinCertificateValidityPeriod_WHEN_verifyCertificateValid_THEN_returnsTrue()
             throws Exception {
         X509Certificate clientCert = createTestClientCertificate();
-        when(mockClock.instant()).thenReturn(clientCert.getNotBefore().toInstant().plusSeconds(1));
+        Clock fixedClock = Clock.fixed(clientCert.getNotBefore().toInstant().plusSeconds(1), ZoneId.systemDefault());
 
-        VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(mockClock);
+        VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(fixedClock);
         assertThat(useCase.apply(CertificateHelper.toPem(clientCert)), is(true));
     }
 
     @Test
     void GIVEN_currentTimeIsAfterCertificateNotAfter_WHEN_verifyCertificateValid_THEN_returnsFalse() throws Exception {
         X509Certificate clientCert = createTestClientCertificate();
-        when(mockClock.instant()).thenReturn(clientCert.getNotAfter().toInstant().plusSeconds(1));
+        Clock fixedClock = Clock.fixed(clientCert.getNotAfter().toInstant().plusSeconds(1), ZoneId.systemDefault());
 
-        VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(mockClock);
+        VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(fixedClock);
         assertThat(useCase.apply(CertificateHelper.toPem(clientCert)), is(false));
     }
 
