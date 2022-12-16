@@ -20,8 +20,8 @@ import java.time.Clock;
 import java.util.Date;
 import javax.inject.Inject;
 
-public class VerifyCertificateValid implements UseCases.UseCase<Boolean, String> {
-    private static final Logger logger = LogManager.getLogger(VerifyCertificateValid.class);
+public class VerifyCertificateValidityPeriod implements UseCases.UseCase<Boolean, String> {
+    private static final Logger logger = LogManager.getLogger(VerifyCertificateValidityPeriod.class);
     private final Clock clock;
 
     /**
@@ -33,7 +33,7 @@ public class VerifyCertificateValid implements UseCases.UseCase<Boolean, String>
      * @param clock System clock.
      */
     @Inject
-    public VerifyCertificateValid(Clock clock) {
+    public VerifyCertificateValidityPeriod(Clock clock) {
         this.clock = clock;
     }
 
