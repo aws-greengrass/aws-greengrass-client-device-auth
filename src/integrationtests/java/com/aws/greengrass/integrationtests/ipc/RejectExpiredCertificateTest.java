@@ -5,14 +5,14 @@
 
 package com.aws.greengrass.integrationtests.ipc;
 
+import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
+import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.dependency.State;
-import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
-import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.lifecyclemanager.GlobalStateChangeListener;
 import com.aws.greengrass.lifecyclemanager.GreengrassService;
 import com.aws.greengrass.lifecyclemanager.Kernel;
@@ -22,7 +22,6 @@ import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.UniqueRootPathExtension;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,26 +43,27 @@ import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
-class VerifyClientDeviceIdentityTest {
+class RejectExpiredCertificateTest {
     private static GlobalStateChangeListener listener;
     @TempDir
     Path rootDir;
     private Kernel kernel;
-    private static String validClientCertificatePem;
-    private static String invalidClientCertificatePem;
+    private static X509Certificate clientCertificate;
+    private static String clientCertificatePem;
 
     @BeforeAll
     static void beforeAll()
@@ -72,14 +72,10 @@ class VerifyClientDeviceIdentityTest {
         KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
         X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
 
-        X509Certificate validClientX509Certificate =
+        clientCertificate =
                 CertificateTestHelpers.createClientCertificate(rootCA, "Client", clientKeyPair.getPublic(),
                         rootKeyPair.getPrivate());
-        validClientCertificatePem = CertificateHelper.toPem(validClientX509Certificate);
-        X509Certificate invalidClientX509Certificate =
-                CertificateTestHelpers.createClientCertificate(rootCA, "Client", clientKeyPair.getPublic(),
-                        rootKeyPair.getPrivate());
-        invalidClientCertificatePem = CertificateHelper.toPem(invalidClientX509Certificate);
+        clientCertificatePem = CertificateHelper.toPem(clientCertificate);
     }
 
     @BeforeEach
@@ -91,10 +87,9 @@ class VerifyClientDeviceIdentityTest {
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
 
-        // Set up Iot auth client
+        // Set up Iot auth client so that we ensure we're rejecting because the cert is expired
         IotAuthClientFake iotAuthClientFake = new IotAuthClientFake();
-        iotAuthClientFake.activateCert(validClientCertificatePem);
-        iotAuthClientFake.deactivateCert(invalidClientCertificatePem);
+        iotAuthClientFake.activateCert(clientCertificatePem);
         kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
     }
 
@@ -125,33 +120,19 @@ class VerifyClientDeviceIdentityTest {
     }
 
     @Test
-    void GIVEN_requestWithValidCertificate_WHEN_verifyClientIdentity_THEN_returnValid() throws Exception {
+    void GIVEN_timeBeforeClientCertificateNotBefore_WHEN_verifyClientIdentity_THEN_returnsNotValid(
+            ExtensionContext context) throws Exception {
+        Instant beforeValid = clientCertificate.getNotBefore().toInstant().minusSeconds(1);
+        kernel.getContext().put(Clock.class, Clock.fixed(beforeValid, ZoneId.systemDefault()));
+
         startNucleusWithConfig("cda.yaml");
+        ignoreExceptionOfType(context, ValidationException.class);
+
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerSubscribingToCertUpdates")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-
             VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest().withCredential(
-                    new ClientDeviceCredential().withClientDeviceCertificate(validClientCertificatePem));
-
-            CompletableFuture<VerifyClientDeviceIdentityResponse> response =
-                    ipcClient.verifyClientDeviceIdentity(request, Optional.empty()).getResponse();
-            assertTrue(response.get(10, TimeUnit.SECONDS).isIsValidClientDevice());
-        }
-    }
-
-    @Test
-    void GIVEN_requestWithInvalidPem_WHEN_verifyClientIdentity_THEN_returnNotValid(ExtensionContext context)
-            throws Exception {
-        ignoreExceptionOfType(context, CertificateException.class);
-        ignoreExceptionOfType(context, InvalidCertificateException.class);
-        startNucleusWithConfig("cda.yaml");
-        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
-                "BrokerSubscribingToCertUpdates")) {
-            GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-
-            VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest().withCredential(
-                    new ClientDeviceCredential().withClientDeviceCertificate("invalid pem"));
+                    new ClientDeviceCredential().withClientDeviceCertificate(clientCertificatePem));
 
             CompletableFuture<VerifyClientDeviceIdentityResponse> response =
                     ipcClient.verifyClientDeviceIdentity(request, Optional.empty()).getResponse();
@@ -160,31 +141,19 @@ class VerifyClientDeviceIdentityTest {
     }
 
     @Test
-    void GIVEN_unauthorizedClient_WHEN_verifyClientIdentity_THEN_throwsUnauthorizedError()
-            throws ExecutionException, InterruptedException {
-        startNucleusWithConfig("BrokerNotAuthorized.yaml");
-        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
-                "BrokerWithNoConfig")) {
-            GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
-            VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest().withCredential(
-                    new ClientDeviceCredential().withClientDeviceCertificate("abc"));
-
-            Assertions.assertThrows(Exception.class,
-                    () -> ipcClient.verifyClientDeviceIdentity(request, Optional.empty()).getResponse().get());
-        }
-    }
-
-
-    @Test
-    void GIVEN_inactiveClientCertificate_WHEN_verifyClientIdentity_THEN_returnsNotValid(ExtensionContext context)
+    void GIVEN_expiredClientCertificate_WHEN_verifyClientIdentity_THEN_returnsNotValid(ExtensionContext context)
             throws Exception {
+        Instant beforeValid = clientCertificate.getNotAfter().toInstant().plusSeconds(1);
+        kernel.getContext().put(Clock.class, Clock.fixed(beforeValid, ZoneId.systemDefault()));
+
         startNucleusWithConfig("cda.yaml");
         ignoreExceptionOfType(context, ValidationException.class);
+
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerSubscribingToCertUpdates")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
             VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest().withCredential(
-                    new ClientDeviceCredential().withClientDeviceCertificate(invalidClientCertificatePem));
+                    new ClientDeviceCredential().withClientDeviceCertificate(clientCertificatePem));
 
             CompletableFuture<VerifyClientDeviceIdentityResponse> response =
                     ipcClient.verifyClientDeviceIdentity(request, Optional.empty()).getResponse();

@@ -19,8 +19,8 @@ public class MetricsEmitter {
     /**
      * Constructor for the MetricsEmitter.
      *
-     * @param ses                  {@link ScheduledExecutorService}
-     * @param metrics              {@link ClientDeviceAuthMetrics}
+     * @param ses     {@link ScheduledExecutorService}
+     * @param metrics {@link ClientDeviceAuthMetrics}
      */
     @Inject
     public MetricsEmitter(ScheduledExecutorService ses, ClientDeviceAuthMetrics metrics) {
