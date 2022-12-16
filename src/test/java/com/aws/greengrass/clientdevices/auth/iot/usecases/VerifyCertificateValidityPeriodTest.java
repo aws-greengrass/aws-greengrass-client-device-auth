@@ -23,13 +23,13 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class})
-class VerifyCertificateValidTest {
+class VerifyCertificateValidityPeriodTest {
     @Mock
     Clock mockClock;
 
     @Test
     void GIVEN_invalidCertificate_WHEN_verifyCertificateValid_THEN_returnsFalse() {
-        VerifyCertificateValid useCase = new VerifyCertificateValid(Clock.systemUTC());
+        VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(Clock.systemUTC());
         assertThat(useCase.apply("FAKE_PEM"), is(false));
     }
 
@@ -39,7 +39,7 @@ class VerifyCertificateValidTest {
         X509Certificate clientCert = createTestClientCertificate();
         when(mockClock.instant()).thenReturn(clientCert.getNotBefore().toInstant().minusSeconds(1));
 
-        VerifyCertificateValid useCase = new VerifyCertificateValid(mockClock);
+        VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(mockClock);
         assertThat(useCase.apply(CertificateHelper.toPem(clientCert)), is(false));
     }
 
@@ -49,7 +49,7 @@ class VerifyCertificateValidTest {
         X509Certificate clientCert = createTestClientCertificate();
         when(mockClock.instant()).thenReturn(clientCert.getNotBefore().toInstant().plusSeconds(1));
 
-        VerifyCertificateValid useCase = new VerifyCertificateValid(mockClock);
+        VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(mockClock);
         assertThat(useCase.apply(CertificateHelper.toPem(clientCert)), is(true));
     }
 
@@ -58,7 +58,7 @@ class VerifyCertificateValidTest {
         X509Certificate clientCert = createTestClientCertificate();
         when(mockClock.instant()).thenReturn(clientCert.getNotAfter().toInstant().plusSeconds(1));
 
-        VerifyCertificateValid useCase = new VerifyCertificateValid(mockClock);
+        VerifyCertificateValidityPeriod useCase = new VerifyCertificateValidityPeriod(mockClock);
         assertThat(useCase.apply(CertificateHelper.toPem(clientCert)), is(false));
     }
 
