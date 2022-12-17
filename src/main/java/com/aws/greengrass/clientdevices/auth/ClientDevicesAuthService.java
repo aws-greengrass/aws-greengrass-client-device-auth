@@ -17,12 +17,14 @@ import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertifi
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
+import com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.metrics.MetricsEmitter;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionEventHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.MetricsConfigurationChangedHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.SessionCreationEventHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityEventHandler;
 import com.aws.greengrass.clientdevices.auth.session.MqttSessionFactory;
@@ -123,7 +125,7 @@ public class ClientDevicesAuthService extends PluginService {
         networkState.registerHandler(context.get(CISShadowMonitor.class));
         networkState.registerHandler(context.get(BackgroundCertificateRefresh.class));
         context.get(BackgroundCertificateRefresh.class).start();
-        context.get(MetricsEmitter.class).start();
+        context.get(MetricsEmitter.class).start(MetricsConfiguration.DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC);
 
         // Initialize IPC thread pool
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
@@ -147,6 +149,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(VerifyClientDeviceIdentityEventHandler.class).listen();
         context.get(AuthorizeClientDeviceActionsMetricHandler.class).listen();
         context.get(SessionCreationEventHandler.class).listen();
+        context.get(MetricsConfigurationChangedHandler.class).listen();
     }
 
     private void subscribeToConfigChanges() {
