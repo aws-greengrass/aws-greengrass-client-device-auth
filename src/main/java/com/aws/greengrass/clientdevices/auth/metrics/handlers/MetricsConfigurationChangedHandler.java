@@ -45,7 +45,7 @@ public class MetricsConfigurationChangedHandler implements Consumer<MetricsConfi
         if (event.getConfiguration().isDisableMetrics()) {
             metricsEmitter.stop();
         } else {
-            metricsEmitter.restart(event.getConfiguration().getAggregatePeriod());
+            metricsEmitter.start(event.getConfiguration().getAggregatePeriod());
         }
     }
 }

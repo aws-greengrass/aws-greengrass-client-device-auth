@@ -29,17 +29,7 @@ public class MetricsEmitter {
     }
 
     /**
-     * Restart the metrics emitter and apply configurations.
-     *
-     * @param periodicAggregateIntervalSec Periodic aggregate interval in seconds
-     */
-    public void restart(int periodicAggregateIntervalSec) {
-        stop();
-        start(periodicAggregateIntervalSec);
-    }
-
-    /**
-     * Start emitting metrics with no initial delay.
+     * Kill previous task and start emitting metrics with no initial delay.
      *
      * @param periodicAggregateIntervalSec Periodic aggregate interval in seconds
      */
