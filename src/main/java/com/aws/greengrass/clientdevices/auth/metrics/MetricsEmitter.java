@@ -14,7 +14,6 @@ public class MetricsEmitter {
     private ScheduledFuture<?> future;
     private final ScheduledExecutorService ses;
     private final Object emitMetricsLock = new Object();
-    private static final int DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC = 3_600;
     private final ClientDeviceAuthMetrics metrics;
 
     /**
