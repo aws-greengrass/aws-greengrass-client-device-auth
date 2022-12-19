@@ -30,15 +30,16 @@ public class MetricsEmitter {
     }
 
     /**
-     * Start emitting metrics with no initial delay.
+     * Cancel previous task and start emitting metrics with no initial delay.
+     *
+     * @param periodicAggregateIntervalSec Periodic aggregate interval in seconds
      */
-    public void start() {
+    public void start(int periodicAggregateIntervalSec) {
         synchronized (emitMetricsLock) {
             // Cancel previously running task
             stop();
-
-            future = ses.scheduleWithFixedDelay(metrics::emitMetrics, 0,
-                    DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC, TimeUnit.SECONDS);
+            future = ses.scheduleWithFixedDelay(metrics::emitMetrics, 0, periodicAggregateIntervalSec,
+                    TimeUnit.SECONDS);
         }
     }
 
