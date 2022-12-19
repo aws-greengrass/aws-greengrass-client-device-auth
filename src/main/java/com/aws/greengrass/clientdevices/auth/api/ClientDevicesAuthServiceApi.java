@@ -77,12 +77,6 @@ public class ClientDevicesAuthServiceApi {
             logger.atError().cause(e).log("Unable to verify client device identity");
             throw e;
         }
-
-        domainEvents.emit(new VerifyClientDeviceIdentityEvent(success
-                ? VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS :
-                VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
-
-        return success;
     }
 
     /**
