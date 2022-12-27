@@ -15,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdenti
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyCertificateValidityPeriod;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
+import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
@@ -58,20 +59,20 @@ public class ClientDevicesAuthServiceApi {
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public boolean verifyClientDeviceIdentity(String certificatePem) {
         try {
-            boolean success;
+            boolean isVerified;
 
             // Allow internal clients to verify their identities
             if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
-                success = true;
+                isVerified = true;
             } else {
-                success = useCases.get(VerifyCertificateValidityPeriod.class).apply(certificatePem) && useCases.get(
+                isVerified = useCases.get(VerifyCertificateValidityPeriod.class).apply(certificatePem) && useCases.get(
                     VerifyIotCertificate.class).apply(certificatePem);
             }
 
-            domainEvents.emit(new VerifyClientDeviceIdentityEvent(success ? VerifyClientDeviceIdentityEvent
+            domainEvents.emit(new VerifyClientDeviceIdentityEvent(isVerified ? VerifyClientDeviceIdentityEvent
                     .VerificationStatus.SUCCESS : VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
 
-            return success;
+            return isVerified;
         } catch (RuntimeException e) {
             domainEvents.emit(new ServiceErrorEvent());
             logger.atError().cause(e).log("Unable to verify client device identity");
@@ -89,7 +90,13 @@ public class ClientDevicesAuthServiceApi {
      */
     public String getClientDeviceAuthToken(String credentialType, Map<String, String> deviceCredentials)
             throws AuthenticationException {
-        return sessionManager.createSession(credentialType, deviceCredentials);
+        try {
+            return sessionManager.createSession(credentialType, deviceCredentials);
+        } catch (RuntimeException e) {
+            domainEvents.emit(new ServiceErrorEvent());
+            logger.atError().cause(e).log("Unable to create session");
+            throw e;
+        }
     }
 
     /**
