@@ -6,7 +6,6 @@
 package com.aws.greengrass.clientdevices.auth.session;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.api.ServiceErrorEvent;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
 import com.aws.greengrass.logging.api.Logger;
