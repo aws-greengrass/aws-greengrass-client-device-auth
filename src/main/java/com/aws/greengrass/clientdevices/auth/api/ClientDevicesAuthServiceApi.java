@@ -15,7 +15,6 @@ import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdenti
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyCertificateValidityPeriod;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
-import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
@@ -88,6 +87,7 @@ public class ClientDevicesAuthServiceApi {
      * @return client auth token to be used for future authorization requests.
      * @throws AuthenticationException if unable to authenticate client credentials
      */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public String getClientDeviceAuthToken(String credentialType, Map<String, String> deviceCredentials)
             throws AuthenticationException {
         try {
