@@ -27,6 +27,7 @@ public class ClientDeviceAuthMetrics {
     private final AtomicLong authorizeClientDeviceActionFailure = new AtomicLong();
     private final AtomicLong getClientDeviceAuthTokenSuccess = new AtomicLong();
     private final AtomicLong getClientDeviceAuthTokenFailure = new AtomicLong();
+    private final AtomicLong serviceError = new AtomicLong();
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
@@ -46,6 +47,8 @@ public class ClientDeviceAuthMetrics {
             "GetClientDeviceAuthToken.Success";
     static final String METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_FAILURE =
             "GetClientDeviceAuthToken.Failure";
+    static final String METRIC_SERVICE_ERROR =
+            "ServiceError";
 
     /**
      * Constructor for Client Device Auth Metrics.
@@ -157,6 +160,16 @@ public class ClientDeviceAuthMetrics {
                 .build();
         metricsList.add(metric);
 
+        metric = Metric.builder()
+                .namespace(NAMESPACE)
+                .name(METRIC_SERVICE_ERROR)
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(serviceError.getAndSet(0L))
+                .timestamp(timestamp)
+                .build();
+        metricsList.add(metric);
+
         metricsList = metricsList.stream()
                 .filter(m -> !m.getValue().equals(0L))
                 .collect(Collectors.toList());
@@ -218,5 +231,12 @@ public class ClientDeviceAuthMetrics {
      */
     public void authTokenFailure() {
         getClientDeviceAuthTokenFailure.incrementAndGet();
+    }
+
+    /**
+     * Increments the ServiceError metric.
+     */
+    public void incrementServiceError() {
+        serviceError.incrementAndGet();
     }
 }

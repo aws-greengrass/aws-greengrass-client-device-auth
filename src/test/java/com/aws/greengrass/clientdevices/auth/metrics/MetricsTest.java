@@ -8,10 +8,12 @@ package com.aws.greengrass.clientdevices.auth.metrics;
 import com.aws.greengrass.clientdevices.auth.api.AuthorizeClientDeviceActionEvent;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
+import com.aws.greengrass.clientdevices.auth.api.ServiceErrorEvent;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubscriptionEvent;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionEventHandler;
+import com.aws.greengrass.clientdevices.auth.metrics.handlers.ServiceErrorEventHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.SessionCreationEventHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityEventHandler;
 import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
@@ -38,6 +40,7 @@ public class MetricsTest {
     private CertificateSubscriptionEventHandler certificateSubscriptionEventHandler;
     private VerifyClientDeviceIdentityEventHandler verifyClientDeviceIdentityEventHandler;
     private AuthorizeClientDeviceActionsMetricHandler authorizeClientDeviceActionsMetricHandler;
+    private ServiceErrorEventHandler serviceErrorEventHandler;
     private SessionCreationEventHandler sessionCreationEventHandler;
     private Clock clock;
     private DomainEvents domainEvents;
@@ -52,10 +55,12 @@ public class MetricsTest {
         authorizeClientDeviceActionsMetricHandler = new AuthorizeClientDeviceActionsMetricHandler(domainEvents,
                 metrics);
         sessionCreationEventHandler = new SessionCreationEventHandler(domainEvents, metrics);
+        serviceErrorEventHandler = new ServiceErrorEventHandler(domainEvents, metrics);
         certificateSubscriptionEventHandler.listen();
         verifyClientDeviceIdentityEventHandler.listen();
         authorizeClientDeviceActionsMetricHandler.listen();
         sessionCreationEventHandler.listen();
+        serviceErrorEventHandler.listen();
     }
 
     @Test
@@ -331,5 +336,35 @@ public class MetricsTest {
         assertEquals(metric.getAggregation(), getAuthTokenFailure.getAggregation());
         assertEquals(metric.getUnit(), getAuthTokenFailure.getUnit());
         assertEquals(metric.getNamespace(), getAuthTokenFailure.getNamespace());
+    }
+
+    @Test
+    void GIVEN_serviceErrorEvent_WHEN_eventsEmitted_THEN_serviceErrorMetricCorrectlyEmitted() {
+        // Emitting multiple service error events to ensure the metric is incremented correctly
+        domainEvents.emit(new ServiceErrorEvent());
+        domainEvents.emit(new ServiceErrorEvent());
+        domainEvents.emit(new ServiceErrorEvent());
+
+        // Checking that the emitter collects the metrics as expected
+        Metric metric = Metric.builder()
+                .namespace("aws.greengrass.clientdevices.Auth")
+                .name(ClientDeviceAuthMetrics.METRIC_SERVICE_ERROR)
+                .unit(TelemetryUnit.Count)
+                .aggregation(TelemetryAggregation.Sum)
+                .value(3L)
+                .timestamp(Instant.now(clock).toEpochMilli())
+                .build();
+
+        Metric serviceError = metrics.collectMetrics().stream()
+                .filter(m -> m.getName().equals(ClientDeviceAuthMetrics.METRIC_SERVICE_ERROR))
+                .findFirst()
+                .orElseGet(() -> fail("metric not collected"));
+
+        assertEquals(metric.getValue(), serviceError.getValue());
+        assertEquals(metric.getName(), serviceError.getName());
+        assertEquals(metric.getTimestamp(), serviceError.getTimestamp());
+        assertEquals(metric.getAggregation(), serviceError.getAggregation());
+        assertEquals(metric.getUnit(), serviceError.getUnit());
+        assertEquals(metric.getNamespace(), serviceError.getNamespace());
     }
 }
