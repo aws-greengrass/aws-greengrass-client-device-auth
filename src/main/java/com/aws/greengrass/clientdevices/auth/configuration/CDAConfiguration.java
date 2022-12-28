@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
+import com.aws.greengrass.clientdevices.auth.configuration.events.MetricsConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.configuration.events.SecurityConfigurationChanged;
 import com.aws.greengrass.config.Topics;
 import lombok.Getter;
@@ -37,6 +38,9 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
  * |         |---- certificateUri: "..."
  * |         |---- caType: [...]
  * |    |---- certificates: {}
+ * |    |---- metrics:
+ * |         |---- disableMetrics: "..."
+ * |         |---- aggregatePeriod: "..."
  * |---- runtime
  * |    |---- ca_passphrase: "..."
  * |    |---- certificates:
@@ -50,14 +54,16 @@ public final class CDAConfiguration {
     private final SecurityConfiguration security;
     @Getter
     private final CAConfiguration certificateAuthorityConfiguration;
+    private final MetricsConfiguration metricsConfiguration;
     private final DomainEvents domainEvents;
 
     private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca,
-                             SecurityConfiguration security) {
+                             SecurityConfiguration security, MetricsConfiguration metricsConfiguration) {
         this.domainEvents = domainEvents;
         this.runtime = runtime;
         this.security = security;
         this.certificateAuthorityConfiguration = ca;
+        this.metricsConfiguration = metricsConfiguration;
     }
 
     /**
@@ -75,7 +81,8 @@ public final class CDAConfiguration {
         DomainEvents domainEvents = topics.getContext().get(DomainEvents.class);
 
         CDAConfiguration newConfig = new CDAConfiguration(domainEvents, RuntimeConfiguration.from(runtimeTopics),
-                CAConfiguration.from(serviceConfiguration), SecurityConfiguration.from(serviceConfiguration));
+                CAConfiguration.from(serviceConfiguration), SecurityConfiguration.from(serviceConfiguration),
+                MetricsConfiguration.from(serviceConfiguration));
 
         newConfig.triggerChanges(newConfig, existingConfig);
 
@@ -98,6 +105,9 @@ public final class CDAConfiguration {
         }
         if (hasSecurityConfigurationChanged(prev)) {
             domainEvents.emit(new SecurityConfigurationChanged(current.security));
+        }
+        if (hasMetricsConfigurationChanged(prev)) {
+            domainEvents.emit(new MetricsConfigurationChanged(current.metricsConfiguration));
         }
     }
 
@@ -124,5 +134,12 @@ public final class CDAConfiguration {
             return true;
         }
         return security.hasChanged(config.security);
+    }
+
+    private boolean hasMetricsConfigurationChanged(CDAConfiguration config) {
+        if (config == null) {
+            return true;
+        }
+        return metricsConfiguration.hasChanged(config.metricsConfiguration);
     }
 }

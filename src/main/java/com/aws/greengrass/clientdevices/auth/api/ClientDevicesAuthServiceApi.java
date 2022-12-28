@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
+import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyCertificateValidityPeriod;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 
@@ -58,7 +59,8 @@ public class ClientDevicesAuthServiceApi {
         if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
             success = true;
         } else {
-            success = useCases.get(VerifyIotCertificate.class).apply(certificatePem);
+            success = useCases.get(VerifyCertificateValidityPeriod.class).apply(certificatePem) && useCases.get(
+                    VerifyIotCertificate.class).apply(certificatePem);
         }
 
         domainEvents.emit(new VerifyClientDeviceIdentityEvent(success
