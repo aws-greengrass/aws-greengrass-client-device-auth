@@ -15,6 +15,8 @@ import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdenti
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyCertificateValidityPeriod;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 
 import java.util.Map;
 import javax.inject.Inject;
@@ -25,6 +27,7 @@ public class ClientDevicesAuthServiceApi {
     private final CertificateManager certificateManager;
     private final UseCases useCases;
     private final DomainEvents domainEvents;
+    private static final Logger logger = LogManager.getLogger(ClientDevicesAuthServiceApi.class);
 
     /**
      * Constructor.
@@ -52,22 +55,28 @@ public class ClientDevicesAuthServiceApi {
      * @param certificatePem PEM encoded client certificate.
      * @return True if the provided client certificate is trusted.
      */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public boolean verifyClientDeviceIdentity(String certificatePem) {
-        boolean success;
+        try {
+            boolean isVerified;
 
-        // Allow internal clients to verify their identities
-        if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
-            success = true;
-        } else {
-            success = useCases.get(VerifyCertificateValidityPeriod.class).apply(certificatePem) && useCases.get(
+            // Allow internal clients to verify their identities
+            if (deviceAuthClient.isGreengrassComponent(certificatePem)) {
+                isVerified = true;
+            } else {
+                isVerified = useCases.get(VerifyCertificateValidityPeriod.class).apply(certificatePem) && useCases.get(
                     VerifyIotCertificate.class).apply(certificatePem);
+            }
+
+            domainEvents.emit(new VerifyClientDeviceIdentityEvent(isVerified ? VerifyClientDeviceIdentityEvent
+                    .VerificationStatus.SUCCESS : VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
+
+            return isVerified;
+        } catch (RuntimeException e) {
+            domainEvents.emit(new ServiceErrorEvent());
+            logger.atError().cause(e).log("Unable to verify client device identity");
+            throw e;
         }
-
-        domainEvents.emit(new VerifyClientDeviceIdentityEvent(success
-                ? VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS :
-                VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
-
-        return success;
     }
 
     /**
@@ -78,9 +87,16 @@ public class ClientDevicesAuthServiceApi {
      * @return client auth token to be used for future authorization requests.
      * @throws AuthenticationException if unable to authenticate client credentials
      */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public String getClientDeviceAuthToken(String credentialType, Map<String, String> deviceCredentials)
             throws AuthenticationException {
-        return sessionManager.createSession(credentialType, deviceCredentials);
+        try {
+            return sessionManager.createSession(credentialType, deviceCredentials);
+        } catch (RuntimeException e) {
+            domainEvents.emit(new ServiceErrorEvent());
+            logger.atError().cause(e).log("Unable to create session");
+            throw e;
+        }
     }
 
     /**
@@ -101,15 +117,25 @@ public class ClientDevicesAuthServiceApi {
      * @return true if the client action is allowed
      * @throws AuthorizationException if the client action is not allowed
      */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public boolean authorizeClientDeviceAction(AuthorizationRequest authorizationRequest)
             throws AuthorizationException {
-        boolean isAuthorized = deviceAuthClient.canDevicePerform(authorizationRequest);
+        try {
+            boolean isAuthorized = deviceAuthClient.canDevicePerform(authorizationRequest);
 
-        domainEvents.emit(new AuthorizeClientDeviceActionEvent(isAuthorized
-                ? AuthorizeClientDeviceActionEvent.AuthorizationStatus.SUCCESS :
-                AuthorizeClientDeviceActionEvent.AuthorizationStatus.FAIL));
+            domainEvents.emit(new AuthorizeClientDeviceActionEvent(isAuthorized ? AuthorizeClientDeviceActionEvent
+                    .AuthorizationStatus.SUCCESS : AuthorizeClientDeviceActionEvent.AuthorizationStatus.FAIL));
 
-        return isAuthorized;
+            return isAuthorized;
+        } catch (AuthorizationException e) {
+            domainEvents.emit(new AuthorizeClientDeviceActionEvent(AuthorizeClientDeviceActionEvent
+                    .AuthorizationStatus.FAIL));
+            throw e;
+        } catch (RuntimeException e) {
+            domainEvents.emit(new ServiceErrorEvent());
+            logger.atError().cause(e).log("Unable to authorize client device action");
+            throw e;
+        }
     }
 
     /**

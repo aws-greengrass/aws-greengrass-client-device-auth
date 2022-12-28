@@ -29,7 +29,7 @@ public class MetricsEmitter {
     }
 
     /**
-     * Kill previous task and start emitting metrics with no initial delay.
+     * Cancel previous task and start emitting metrics with no initial delay.
      *
      * @param periodicAggregateIntervalSec Periodic aggregate interval in seconds
      */
