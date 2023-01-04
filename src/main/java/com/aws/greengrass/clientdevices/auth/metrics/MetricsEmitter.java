@@ -73,7 +73,7 @@ public class MetricsEmitter {
         GeneratedAbstractPutComponentMetricOperationHandler handler =
                 componentMetricIPCAgent.getPutComponentMetricHandler(context);
         PutComponentMetricResponse response = handler.handleRequest(request);
-        handler.close();
+        handler.closeStream();
         return response;
     }
 }
