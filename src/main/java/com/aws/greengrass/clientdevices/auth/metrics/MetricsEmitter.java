@@ -9,6 +9,7 @@ import com.aws.greengrass.builtin.services.telemetry.ComponentMetricIPCEventStre
 import software.amazon.awssdk.aws.greengrass.GeneratedAbstractPutComponentMetricOperationHandler;
 import software.amazon.awssdk.aws.greengrass.model.PutComponentMetricRequest;
 import software.amazon.awssdk.aws.greengrass.model.PutComponentMetricResponse;
+import software.amazon.awssdk.aws.greengrass.model.UnauthorizedError;
 import software.amazon.awssdk.eventstreamrpc.OperationContinuationHandlerContext;
 
 import java.util.concurrent.ScheduledExecutorService;
@@ -72,9 +73,13 @@ public class MetricsEmitter {
         request.setMetrics(metrics.collectMetrics());
         GeneratedAbstractPutComponentMetricOperationHandler handler =
                 componentMetricIPCAgent.getPutComponentMetricHandler(context);
-        PutComponentMetricResponse response = handler.handleRequest(request);
-        handler.closeStream();
-        handler.close();
-        return response;
+        try {
+            PutComponentMetricResponse response = handler.handleRequest(request);
+            handler.closeStream();
+            return response;
+        } catch (Error e) {
+            handler.closeStream();
+            throw e;
+        }
     }
 }
