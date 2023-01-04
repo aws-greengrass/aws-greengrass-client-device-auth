@@ -49,9 +49,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
 
 import java.net.URISyntaxException;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;

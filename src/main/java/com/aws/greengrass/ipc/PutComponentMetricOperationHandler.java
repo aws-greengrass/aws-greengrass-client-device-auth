@@ -52,6 +52,7 @@ public class PutComponentMetricOperationHandler extends GeneratedAbstractPutComp
     }
 
     @Override
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public PutComponentMetricResponse handleRequest(PutComponentMetricRequest request) {
         logger.atDebug().log("Received putComponentMetricRequest from component " + serviceName);
 

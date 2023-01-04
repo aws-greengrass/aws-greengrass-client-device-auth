@@ -5,15 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth.metrics;
 
-import com.aws.greengrass.builtin.services.telemetry.ComponentMetricIPCEventStreamAgent;
 import com.aws.greengrass.ipc.PutComponentMetricOperationHandler;
-import software.amazon.awssdk.aws.greengrass.GeneratedAbstractPutComponentMetricOperationHandler;
-import software.amazon.awssdk.aws.greengrass.model.Metric;
 import software.amazon.awssdk.aws.greengrass.model.PutComponentMetricRequest;
-import software.amazon.awssdk.aws.greengrass.model.PutComponentMetricResponse;
-import software.amazon.awssdk.eventstreamrpc.OperationContinuationHandlerContext;
 
-import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
