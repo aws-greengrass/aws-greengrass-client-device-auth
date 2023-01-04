@@ -39,7 +39,6 @@ import com.aws.greengrass.config.WhatHappened;
 import com.aws.greengrass.dependency.ImplementsService;
 import com.aws.greengrass.ipc.AuthorizeClientDeviceActionOperationHandler;
 import com.aws.greengrass.ipc.GetClientDeviceAuthTokenOperationHandler;
-import com.aws.greengrass.ipc.PutComponentMetricOperationHandler;
 import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
 import com.aws.greengrass.ipc.VerifyClientDeviceIdentityOperationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
@@ -247,8 +246,6 @@ public class ClientDevicesAuthService extends PluginService {
                         cloudCallThreadPool));
         greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(
                 context -> new AuthorizeClientDeviceActionOperationHandler(context, serviceApi, authorizationHandler));
-        greengrassCoreIPCService.setPutComponentMetricHandler(
-                context -> new PutComponentMetricOperationHandler(context));
     }
 
     public CertificateManager getCertificateManager() {
