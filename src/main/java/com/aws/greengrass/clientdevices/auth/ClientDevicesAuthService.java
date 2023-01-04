@@ -39,6 +39,7 @@ import com.aws.greengrass.config.WhatHappened;
 import com.aws.greengrass.dependency.ImplementsService;
 import com.aws.greengrass.ipc.AuthorizeClientDeviceActionOperationHandler;
 import com.aws.greengrass.ipc.GetClientDeviceAuthTokenOperationHandler;
+import com.aws.greengrass.ipc.PutComponentMetricOperationHandler;
 import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
 import com.aws.greengrass.ipc.VerifyClientDeviceIdentityOperationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
@@ -48,6 +49,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
 
 import java.net.URISyntaxException;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -246,6 +250,8 @@ public class ClientDevicesAuthService extends PluginService {
                         cloudCallThreadPool));
         greengrassCoreIPCService.setAuthorizeClientDeviceActionHandler(
                 context -> new AuthorizeClientDeviceActionOperationHandler(context, serviceApi, authorizationHandler));
+        greengrassCoreIPCService.setPutComponentMetricHandler(
+                context -> new PutComponentMetricOperationHandler(context));
     }
 
     public CertificateManager getCertificateManager() {

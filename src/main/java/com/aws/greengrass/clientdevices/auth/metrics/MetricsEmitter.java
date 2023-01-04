@@ -5,6 +5,15 @@
 
 package com.aws.greengrass.clientdevices.auth.metrics;
 
+import com.aws.greengrass.builtin.services.telemetry.ComponentMetricIPCEventStreamAgent;
+import com.aws.greengrass.ipc.PutComponentMetricOperationHandler;
+import software.amazon.awssdk.aws.greengrass.GeneratedAbstractPutComponentMetricOperationHandler;
+import software.amazon.awssdk.aws.greengrass.model.Metric;
+import software.amazon.awssdk.aws.greengrass.model.PutComponentMetricRequest;
+import software.amazon.awssdk.aws.greengrass.model.PutComponentMetricResponse;
+import software.amazon.awssdk.eventstreamrpc.OperationContinuationHandlerContext;
+
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -15,6 +24,7 @@ public class MetricsEmitter {
     private final ScheduledExecutorService ses;
     private final Object emitMetricsLock = new Object();
     private final ClientDeviceAuthMetrics metrics;
+    private final PutComponentMetricOperationHandler putComponentMetricOperationHandler;
 
     /**
      * Constructor for the MetricsEmitter.
@@ -23,9 +33,11 @@ public class MetricsEmitter {
      * @param metrics {@link ClientDeviceAuthMetrics}
      */
     @Inject
-    public MetricsEmitter(ScheduledExecutorService ses, ClientDeviceAuthMetrics metrics) {
+    public MetricsEmitter(ScheduledExecutorService ses, ClientDeviceAuthMetrics metrics,
+                          PutComponentMetricOperationHandler putComponentMetricOperationHandler) {
         this.ses = ses;
         this.metrics = metrics;
+        this.putComponentMetricOperationHandler = putComponentMetricOperationHandler;
     }
 
     /**
@@ -37,8 +49,10 @@ public class MetricsEmitter {
         synchronized (emitMetricsLock) {
             // Cancel previously running task
             stop();
-            future = ses.scheduleWithFixedDelay(metrics::emitMetrics, 0, periodicAggregateIntervalSec,
-                    TimeUnit.SECONDS);
+            PutComponentMetricRequest request = new PutComponentMetricRequest();
+            request.setMetrics(metrics.collectMetrics());
+            future = ses.scheduleWithFixedDelay((Runnable) putComponentMetricOperationHandler.handleRequest(request),
+                    0, periodicAggregateIntervalSec, TimeUnit.SECONDS);
         }
     }
 

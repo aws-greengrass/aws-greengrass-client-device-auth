@@ -17,18 +17,14 @@ import com.aws.greengrass.clientdevices.auth.metrics.handlers.ServiceErrorEventH
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.SessionCreationEventHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityEventHandler;
 import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
-import com.aws.greengrass.telemetry.impl.Metric;
-import com.aws.greengrass.telemetry.models.TelemetryAggregation;
-import com.aws.greengrass.telemetry.models.TelemetryUnit;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.aws.greengrass.model.Metric;
+import software.amazon.awssdk.aws.greengrass.model.MetricUnitType;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneId;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,14 +38,12 @@ public class MetricsTest {
     private AuthorizeClientDeviceActionsMetricHandler authorizeClientDeviceActionsMetricHandler;
     private ServiceErrorEventHandler serviceErrorEventHandler;
     private SessionCreationEventHandler sessionCreationEventHandler;
-    private Clock clock;
     private DomainEvents domainEvents;
 
     @BeforeEach
     void beforeEach() {
-        clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
         domainEvents = new DomainEvents();
-        metrics = new ClientDeviceAuthMetrics(clock);
+        metrics = new ClientDeviceAuthMetrics();
         certificateSubscriptionEventHandler = new CertificateSubscriptionEventHandler(domainEvents, metrics);
         verifyClientDeviceIdentityEventHandler = new VerifyClientDeviceIdentityEventHandler(domainEvents, metrics);
         authorizeClientDeviceActionsMetricHandler = new AuthorizeClientDeviceActionsMetricHandler(domainEvents,
@@ -78,7 +72,7 @@ public class MetricsTest {
 
         // Checking if any metrics with a value of 0 are included in the list
         long numZeroValueMetrics = collectedMetrics.stream()
-                .filter(m -> m.getValue().equals(0L))
+                .filter(m -> m.getValue().equals(0.0))
                 .count();
         assertEquals(0, numZeroValueMetrics);
 
@@ -97,14 +91,10 @@ public class MetricsTest {
                 CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS));
 
         // Checking that the emitter collects the metrics as expected
-        Metric metric = Metric.builder()
-                .namespace("aws.greengrass.clientdevices.Auth")
-                .name(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(3L)
-                .timestamp(Instant.now(clock).toEpochMilli())
-                .build();
+        Metric metric = new Metric();
+        metric.setName(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS);
+        metric.setValue(3.0);
+        metric.setUnit(MetricUnitType.COUNT);
 
         Metric subscribeSuccess = metrics.collectMetrics().stream()
                 .filter(m -> m.getName().equals(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS))
@@ -113,10 +103,7 @@ public class MetricsTest {
 
         assertEquals(metric.getValue(), subscribeSuccess.getValue());
         assertEquals(metric.getName(), subscribeSuccess.getName());
-        assertEquals(metric.getTimestamp(), subscribeSuccess.getTimestamp());
-        assertEquals(metric.getAggregation(), subscribeSuccess.getAggregation());
         assertEquals(metric.getUnit(), subscribeSuccess.getUnit());
-        assertEquals(metric.getNamespace(), subscribeSuccess.getNamespace());
     }
 
     @Test
@@ -130,14 +117,10 @@ public class MetricsTest {
                 CertificateSubscriptionEvent.SubscriptionStatus.FAIL));
 
         // Checking that the emitter collects the metrics as expected
-        Metric metric = Metric.builder()
-                .namespace("aws.greengrass.clientdevices.Auth")
-                .name(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(3L)
-                .timestamp(Instant.now(clock).toEpochMilli())
-                .build();
+        Metric metric = new Metric();
+        metric.setName(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE);
+        metric.setValue(3.0);
+        metric.setUnit(MetricUnitType.COUNT);
 
         Metric subscribeFail = metrics.collectMetrics().stream()
                 .filter(m -> m.getName().equals(ClientDeviceAuthMetrics.METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE))
@@ -146,10 +129,7 @@ public class MetricsTest {
 
         assertEquals(metric.getValue(), subscribeFail.getValue());
         assertEquals(metric.getName(), subscribeFail.getName());
-        assertEquals(metric.getTimestamp(), subscribeFail.getTimestamp());
-        assertEquals(metric.getAggregation(), subscribeFail.getAggregation());
         assertEquals(metric.getUnit(), subscribeFail.getUnit());
-        assertEquals(metric.getNamespace(), subscribeFail.getNamespace());
     }
 
     @Test
@@ -160,14 +140,10 @@ public class MetricsTest {
         domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent.VerificationStatus.SUCCESS));
 
         // Checking that the emitter collects the metrics as expected
-        Metric metric = Metric.builder()
-                .namespace("aws.greengrass.clientdevices.Auth")
-                .name(ClientDeviceAuthMetrics.METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(3L)
-                .timestamp(Instant.now(clock).toEpochMilli())
-                .build();
+        Metric metric = new Metric();
+        metric.setName(ClientDeviceAuthMetrics.METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS);
+        metric.setValue(3.0);
+        metric.setUnit(MetricUnitType.COUNT);
 
         Metric verifyDeviceIdentitySuccess = metrics.collectMetrics().stream()
                 .filter(m -> m.getName().equals(ClientDeviceAuthMetrics.METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS))
@@ -176,10 +152,7 @@ public class MetricsTest {
 
         assertEquals(metric.getValue(), verifyDeviceIdentitySuccess.getValue());
         assertEquals(metric.getName(), verifyDeviceIdentitySuccess.getName());
-        assertEquals(metric.getTimestamp(), verifyDeviceIdentitySuccess.getTimestamp());
-        assertEquals(metric.getAggregation(), verifyDeviceIdentitySuccess.getAggregation());
         assertEquals(metric.getUnit(), verifyDeviceIdentitySuccess.getUnit());
-        assertEquals(metric.getNamespace(), verifyDeviceIdentitySuccess.getNamespace());
     }
 
     @Test
@@ -190,14 +163,10 @@ public class MetricsTest {
         domainEvents.emit(new VerifyClientDeviceIdentityEvent(VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
 
         // Checking that the emitter collects the metrics as expected
-        Metric metric = Metric.builder()
-                .namespace("aws.greengrass.clientdevices.Auth")
-                .name(ClientDeviceAuthMetrics.METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(3L)
-                .timestamp(Instant.now(clock).toEpochMilli())
-                .build();
+        Metric metric = new Metric();
+        metric.setName(ClientDeviceAuthMetrics.METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE);
+        metric.setValue(3.0);
+        metric.setUnit(MetricUnitType.COUNT);
 
         Metric verifyDeviceIdentityFail = metrics.collectMetrics().stream()
                 .filter(m -> m.getName().equals(ClientDeviceAuthMetrics.METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE))
@@ -206,10 +175,7 @@ public class MetricsTest {
 
         assertEquals(metric.getValue(), verifyDeviceIdentityFail.getValue());
         assertEquals(metric.getName(), verifyDeviceIdentityFail.getName());
-        assertEquals(metric.getTimestamp(), verifyDeviceIdentityFail.getTimestamp());
-        assertEquals(metric.getAggregation(), verifyDeviceIdentityFail.getAggregation());
         assertEquals(metric.getUnit(), verifyDeviceIdentityFail.getUnit());
-        assertEquals(metric.getNamespace(), verifyDeviceIdentityFail.getNamespace());
     }
 
     @Test
@@ -223,14 +189,10 @@ public class MetricsTest {
                 .AuthorizationStatus.SUCCESS));
 
         // Checking that the emitter collects the metrics as expected
-        Metric metric = Metric.builder()
-                .namespace("aws.greengrass.clientdevices.Auth")
-                .name(ClientDeviceAuthMetrics.METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(3L)
-                .timestamp(Instant.now(clock).toEpochMilli())
-                .build();
+        Metric metric = new Metric();
+        metric.setName(ClientDeviceAuthMetrics.METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS);
+        metric.setValue(3.0);
+        metric.setUnit(MetricUnitType.COUNT);
 
         Metric authorizeClientDeviceActionSuccess = metrics.collectMetrics().stream()
                 .filter(m -> m.getName().equals(ClientDeviceAuthMetrics.METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS))
@@ -239,10 +201,7 @@ public class MetricsTest {
 
         assertEquals(metric.getValue(), authorizeClientDeviceActionSuccess.getValue());
         assertEquals(metric.getName(), authorizeClientDeviceActionSuccess.getName());
-        assertEquals(metric.getTimestamp(), authorizeClientDeviceActionSuccess.getTimestamp());
-        assertEquals(metric.getAggregation(), authorizeClientDeviceActionSuccess.getAggregation());
         assertEquals(metric.getUnit(), authorizeClientDeviceActionSuccess.getUnit());
-        assertEquals(metric.getNamespace(), authorizeClientDeviceActionSuccess.getNamespace());
     }
 
     @Test
@@ -256,14 +215,10 @@ public class MetricsTest {
                 .AuthorizationStatus.FAIL));
 
         // Checking that the emitter collects the metrics as expected
-        Metric metric = Metric.builder()
-                .namespace("aws.greengrass.clientdevices.Auth")
-                .name(ClientDeviceAuthMetrics.METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_FAILURE)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(3L)
-                .timestamp(Instant.now(clock).toEpochMilli())
-                .build();
+        Metric metric = new Metric();
+        metric.setName(ClientDeviceAuthMetrics.METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_FAILURE);
+        metric.setValue(3.0);
+        metric.setUnit(MetricUnitType.COUNT);
 
         Metric authorizeClientDeviceActionFailure = metrics.collectMetrics().stream()
                 .filter(m -> m.getName().equals(ClientDeviceAuthMetrics.METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_FAILURE))
@@ -272,10 +227,7 @@ public class MetricsTest {
 
         assertEquals(metric.getValue(), authorizeClientDeviceActionFailure.getValue());
         assertEquals(metric.getName(), authorizeClientDeviceActionFailure.getName());
-        assertEquals(metric.getTimestamp(), authorizeClientDeviceActionFailure.getTimestamp());
-        assertEquals(metric.getAggregation(), authorizeClientDeviceActionFailure.getAggregation());
         assertEquals(metric.getUnit(), authorizeClientDeviceActionFailure.getUnit());
-        assertEquals(metric.getNamespace(), authorizeClientDeviceActionFailure.getNamespace());
     }
 
     @Test
@@ -286,14 +238,10 @@ public class MetricsTest {
         domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.SUCCESS));
 
         // Checking that the emitter collects the metrics as expected
-        Metric metric = Metric.builder()
-                .namespace("aws.greengrass.clientdevices.Auth")
-                .name(ClientDeviceAuthMetrics.METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(3L)
-                .timestamp(Instant.now(clock).toEpochMilli())
-                .build();
+        Metric metric = new Metric();
+        metric.setName(ClientDeviceAuthMetrics.METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS);
+        metric.setValue(3.0);
+        metric.setUnit(MetricUnitType.COUNT);
 
         Metric getAuthTokenSuccess = metrics.collectMetrics().stream()
                 .filter(m -> m.getName().equals(ClientDeviceAuthMetrics.METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS))
@@ -302,10 +250,7 @@ public class MetricsTest {
 
         assertEquals(metric.getValue(), getAuthTokenSuccess.getValue());
         assertEquals(metric.getName(), getAuthTokenSuccess.getName());
-        assertEquals(metric.getTimestamp(), getAuthTokenSuccess.getTimestamp());
-        assertEquals(metric.getAggregation(), getAuthTokenSuccess.getAggregation());
         assertEquals(metric.getUnit(), getAuthTokenSuccess.getUnit());
-        assertEquals(metric.getNamespace(), getAuthTokenSuccess.getNamespace());
     }
 
     @Test
@@ -316,14 +261,10 @@ public class MetricsTest {
         domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.FAILURE));
 
         // Checking that the emitter collects the metrics as expected
-        Metric metric = Metric.builder()
-                .namespace("aws.greengrass.clientdevices.Auth")
-                .name(ClientDeviceAuthMetrics.METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_FAILURE)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(3L)
-                .timestamp(Instant.now(clock).toEpochMilli())
-                .build();
+        Metric metric = new Metric();
+        metric.setName(ClientDeviceAuthMetrics.METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_FAILURE);
+        metric.setValue(3.0);
+        metric.setUnit(MetricUnitType.COUNT);
 
         Metric getAuthTokenFailure = metrics.collectMetrics().stream()
                 .filter(m -> m.getName().equals(ClientDeviceAuthMetrics.METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_FAILURE))
@@ -332,10 +273,7 @@ public class MetricsTest {
 
         assertEquals(metric.getValue(), getAuthTokenFailure.getValue());
         assertEquals(metric.getName(), getAuthTokenFailure.getName());
-        assertEquals(metric.getTimestamp(), getAuthTokenFailure.getTimestamp());
-        assertEquals(metric.getAggregation(), getAuthTokenFailure.getAggregation());
         assertEquals(metric.getUnit(), getAuthTokenFailure.getUnit());
-        assertEquals(metric.getNamespace(), getAuthTokenFailure.getNamespace());
     }
 
     @Test
@@ -346,14 +284,10 @@ public class MetricsTest {
         domainEvents.emit(new ServiceErrorEvent());
 
         // Checking that the emitter collects the metrics as expected
-        Metric metric = Metric.builder()
-                .namespace("aws.greengrass.clientdevices.Auth")
-                .name(ClientDeviceAuthMetrics.METRIC_SERVICE_ERROR)
-                .unit(TelemetryUnit.Count)
-                .aggregation(TelemetryAggregation.Sum)
-                .value(3L)
-                .timestamp(Instant.now(clock).toEpochMilli())
-                .build();
+        Metric metric = new Metric();
+        metric.setName(ClientDeviceAuthMetrics.METRIC_SERVICE_ERROR);
+        metric.setValue(3.0);
+        metric.setUnit(MetricUnitType.COUNT);
 
         Metric serviceError = metrics.collectMetrics().stream()
                 .filter(m -> m.getName().equals(ClientDeviceAuthMetrics.METRIC_SERVICE_ERROR))
@@ -362,9 +296,6 @@ public class MetricsTest {
 
         assertEquals(metric.getValue(), serviceError.getValue());
         assertEquals(metric.getName(), serviceError.getName());
-        assertEquals(metric.getTimestamp(), serviceError.getTimestamp());
-        assertEquals(metric.getAggregation(), serviceError.getAggregation());
         assertEquals(metric.getUnit(), serviceError.getUnit());
-        assertEquals(metric.getNamespace(), serviceError.getNamespace());
     }
 }
