@@ -11,6 +11,7 @@ import software.amazon.awssdk.aws.greengrass.model.MetricUnitType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 public class ClientDeviceAuthMetrics {
     private final AtomicLong subscribeToCertificateUpdatesSuccess = new AtomicLong();
@@ -91,6 +92,10 @@ public class ClientDeviceAuthMetrics {
         metricsList.add(createMetric(
                 METRIC_SERVICE_ERROR, MetricUnitType.COUNT, serviceError.doubleValue()
         ));
+
+        metricsList = metricsList.stream()
+                .filter(m -> !m.getValue().equals(0.0))
+                .collect(Collectors.toList());
 
         return metricsList;
     }

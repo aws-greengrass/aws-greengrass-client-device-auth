@@ -75,6 +75,7 @@ public class MetricsEmitter {
     private PutComponentMetricResponse emitMetrics() {
         if (unauthorized) {
             //Avoid trying to repeatedly publish when unauthorized
+            stop();
             return new PutComponentMetricResponse();
         }
 
