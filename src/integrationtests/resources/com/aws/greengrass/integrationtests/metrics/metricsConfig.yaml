@@ -1,0 +1,26 @@
+---
+services:
+  aws.greengrass.Nucleus:
+    configuration:
+      runWithDefault:
+        posixUser: nobody
+        windowsUser: integ-tester
+      logging:
+        level: "DEBUG"
+  aws.greengrass.clientdevices.Auth:
+    configuration:
+      deviceGroups:
+        formatVersion: "2021-03-05"
+        definitions:
+          devices:
+            selectionRule: "*"
+            policyName: "allowPublishMetrics"
+        policies:
+          allowPublishMetrics:
+            policyStatement1:
+              statementDescription: "publish metrics"
+              operations: "*"
+              resources: "*"
+      metrics:
+        disableMetrics: "false"
+        aggregatePeriod: "2"
