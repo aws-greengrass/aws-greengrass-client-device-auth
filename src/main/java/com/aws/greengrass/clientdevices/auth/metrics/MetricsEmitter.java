@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.metrics;
 
 import com.aws.greengrass.builtin.services.telemetry.ComponentMetricIPCEventStreamAgent;
+import lombok.Getter;
 import software.amazon.awssdk.aws.greengrass.GeneratedAbstractPutComponentMetricOperationHandler;
 import software.amazon.awssdk.aws.greengrass.model.PutComponentMetricRequest;
 import software.amazon.awssdk.aws.greengrass.model.PutComponentMetricResponse;
@@ -18,12 +19,14 @@ import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
 public class MetricsEmitter {
+    @Getter
     private ScheduledFuture<?> future;
     private final ComponentMetricIPCEventStreamAgent componentMetricIPCAgent;
     private final OperationContinuationHandlerContext context;
     private final ScheduledExecutorService ses;
     private final Object emitMetricsLock = new Object();
     private final ClientDeviceAuthMetrics metrics;
+    private boolean unauthorized = false;
 
     /**
      * Constructor for the MetricsEmitter.
@@ -52,8 +55,8 @@ public class MetricsEmitter {
         synchronized (emitMetricsLock) {
             // Cancel previously running task
             stop();
-            future = ses.scheduleWithFixedDelay((Runnable) emitMetrics(),
-                    0, periodicAggregateIntervalSec, TimeUnit.SECONDS);
+            future = ses.scheduleWithFixedDelay(this::emitMetrics, 0, periodicAggregateIntervalSec,
+                    TimeUnit.SECONDS);
         }
     }
 
@@ -68,7 +71,13 @@ public class MetricsEmitter {
         }
     }
 
+    @SuppressWarnings("PMD.CloseResource")
     private PutComponentMetricResponse emitMetrics() {
+        if (unauthorized) {
+            //Avoid trying to repeatedly publish when unauthorized
+            return new PutComponentMetricResponse();
+        }
+
         PutComponentMetricRequest request = new PutComponentMetricRequest();
         request.setMetrics(metrics.collectMetrics());
         GeneratedAbstractPutComponentMetricOperationHandler handler =
@@ -77,6 +86,10 @@ public class MetricsEmitter {
             PutComponentMetricResponse response = handler.handleRequest(request);
             handler.closeStream();
             return response;
+        } catch (UnauthorizedError e) {
+            handler.closeStream();
+            unauthorized = true;
+            throw e;
         } catch (Error e) {
             handler.closeStream();
             throw e;
