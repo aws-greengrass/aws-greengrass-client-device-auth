@@ -38,14 +38,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.ScopedMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -60,6 +65,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -67,6 +74,8 @@ public class MetricsEmitterTest {
     private static final String MOCK_THING_NAME = "mockThing";
     private static final long TEST_TIME_OUT_SEC = 10L;
     private static final long AGGREGATE_INTERVAL = 2L;
+    private static final int DEFAULT_PUBLISH_INTERVAL = 86_400;
+    private Optional<MockedStatic<Clock>> clockMock;
     private Kernel kernel;
     private DomainEvents domainEvents;
     @Mock
@@ -76,6 +85,7 @@ public class MetricsEmitterTest {
 
     @BeforeEach
     void beforeEach() {
+        clockMock = Optional.empty();
         domainEvents = new DomainEvents();
         kernel = new Kernel();
         kernel.getContext().put(DomainEvents.class, domainEvents);
@@ -90,6 +100,7 @@ public class MetricsEmitterTest {
 
     @AfterEach
     void afterEach() {
+        this.clockMock.ifPresent(ScopedMock::close);
         if (kernel != null) {
             kernel.shutdown();
         }
@@ -108,6 +119,17 @@ public class MetricsEmitterTest {
         kernel.launch();
         assertThat(authServiceRunning.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS), is(true));
     }
+
+    private void mockInstant(long expected) {
+        this.clockMock.ifPresent(ScopedMock::close);
+        Clock spyClock = spy(Clock.class);
+        MockedStatic<Clock> clockMock;
+        clockMock = mockStatic(Clock.class);
+        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
+        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
+        this.clockMock = Optional.of(clockMock);
+    }
+
 
     @Test
     void GIVEN_kernelRunningWithMetricsConfig_WHEN_launched_THEN_metricsArePublished(ExtensionContext context)
@@ -139,9 +161,9 @@ public class MetricsEmitterTest {
         long delay = kernel.getContext().get(MetricsEmitter.class).getFuture().getDelay(TimeUnit.SECONDS);
         assertEquals(delay, periodicAggregateIntervalSec);
 
-        //wait for the first publish
-        Thread.sleep(3000);
-
+        //move clock one day ahead to trigger publish
+        Instant aDayLater = Instant.now().plusSeconds(DEFAULT_PUBLISH_INTERVAL);
+        mockInstant(aDayLater.toEpochMilli());
 
         //check for telemetry logs in ~root/telemetry
         assertEquals(kernel.getNucleusPaths().rootPath().resolve("telemetry"),
