@@ -134,12 +134,11 @@ public class MetricsEmitterTest {
     private AggregatedMetric buildMetric(String name) {
         Map<String, Object> value = new HashMap<>();
         value.put("Sum", 1);
-        AggregatedMetric m = AggregatedMetric.builder()
+        return AggregatedMetric.builder()
                 .name(name)
                 .unit(TelemetryUnit.Count)
                 .value(value)
                 .build();
-        return m;
     }
 
     @Test
