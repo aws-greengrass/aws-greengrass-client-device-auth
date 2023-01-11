@@ -1,5 +1,11 @@
 ---
 services:
+  main:
+    lifecycle:
+      install:
+        all: echo All installed
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
   aws.greengrass.Nucleus:
     configuration:
       runWithDefault:
