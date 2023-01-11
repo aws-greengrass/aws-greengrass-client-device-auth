@@ -367,11 +367,4 @@ public class MetricsTest {
         assertEquals(metric.getUnit(), serviceError.getUnit());
         assertEquals(metric.getNamespace(), serviceError.getNamespace());
     }
-
-    @Test
-    void placeholder() {
-        domainEvents.emit(new ServiceErrorEvent());
-        domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.FAILURE));
-        metrics.emitMetrics();
-    }
 }

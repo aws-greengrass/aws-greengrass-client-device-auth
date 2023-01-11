@@ -26,8 +26,11 @@ import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.mqttclient.PublishRequest;
+import com.aws.greengrass.telemetry.AggregatedMetric;
+import com.aws.greengrass.telemetry.AggregatedNamespaceData;
 import com.aws.greengrass.telemetry.MetricsPayload;
 import com.aws.greengrass.telemetry.impl.config.TelemetryConfig;
+import com.aws.greengrass.telemetry.models.TelemetryUnit;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.exceptions.TLSAuthException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,8 +41,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.ScopedMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
@@ -47,14 +48,24 @@ import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.Instant;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics.METRIC_SERVICE_ERROR;
+import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
+        .METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS;
+import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
+        .METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS;
+import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
+        .METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS;
+import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
+        .METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS;
 import static com.aws.greengrass.telemetry.TelemetryAgent.DEFAULT_TELEMETRY_METRICS_PUBLISH_TOPIC;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -65,8 +76,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -75,7 +84,7 @@ public class MetricsEmitterTest {
     private static final long TEST_TIME_OUT_SEC = 10L;
     private static final long AGGREGATE_INTERVAL = 2L;
     private static final int DEFAULT_PUBLISH_INTERVAL = 86_400;
-    private Optional<MockedStatic<Clock>> clockMock;
+    private Clock clock;
     private Kernel kernel;
     private DomainEvents domainEvents;
     @Mock
@@ -85,10 +94,13 @@ public class MetricsEmitterTest {
 
     @BeforeEach
     void beforeEach() {
-        clockMock = Optional.empty();
+        //Set this property for kernel to scan its own classpath to find plugins
+        System.setProperty("aws.greengrass.scanSelfClasspath", "true");
+        clock = Clock.systemUTC();
         domainEvents = new DomainEvents();
         kernel = new Kernel();
         kernel.getContext().put(DomainEvents.class, domainEvents);
+        kernel.getContext().put(Clock.class, clock);
         kernel.getContext().get(CertificateSubscriptionEventHandler.class).listen();
         kernel.getContext().get(VerifyClientDeviceIdentityEventHandler.class).listen();
         kernel.getContext().get(AuthorizeClientDeviceActionsMetricHandler.class).listen();
@@ -100,7 +112,6 @@ public class MetricsEmitterTest {
 
     @AfterEach
     void afterEach() {
-        this.clockMock.ifPresent(ScopedMock::close);
         if (kernel != null) {
             kernel.shutdown();
         }
@@ -120,21 +131,20 @@ public class MetricsEmitterTest {
         assertThat(authServiceRunning.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS), is(true));
     }
 
-    @SuppressWarnings("PMD.CloseResource")
-    private void mockInstant(long expected) {
-        this.clockMock.ifPresent(ScopedMock::close);
-        Clock spyClock = spy(Clock.class);
-        MockedStatic<Clock> clockMock;
-        clockMock = mockStatic(Clock.class);
-        clockMock.when(Clock::systemUTC).thenReturn(spyClock);
-        when(spyClock.instant()).thenReturn(Instant.ofEpochMilli(expected));
-        this.clockMock = Optional.of(clockMock);
+    private AggregatedMetric buildMetric(String name) {
+        Map<String, Object> value = new HashMap<>();
+        value.put("Sum", 1);
+        AggregatedMetric m = AggregatedMetric.builder()
+                .name(name)
+                .unit(TelemetryUnit.Count)
+                .value(value)
+                .build();
+        return m;
     }
-
 
     @Test
     void GIVEN_kernelRunningWithMetricsConfig_WHEN_launched_THEN_metricsArePublished(ExtensionContext context)
-            throws DeviceConfigurationException, InterruptedException {
+            throws DeviceConfigurationException, InterruptedException, IOException {
         ignoreExceptionOfType(context, SdkClientException.class);
         ignoreExceptionOfType(context, TLSAuthException.class);
         //GIVEN
@@ -153,9 +163,20 @@ public class MetricsEmitterTest {
         domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.SUCCESS));
         domainEvents.emit(new ServiceErrorEvent());
 
+        //Build expected metrics
+        AggregatedMetric expectedCertSubscribeSuccess = buildMetric(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS);
+        AggregatedMetric expectedAuthorizeClientDeviceActionSuccess =
+                buildMetric(METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS);
+        AggregatedMetric expectedVerifyClientDeviceIdentitySuccess =
+                buildMetric(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS);
+        AggregatedMetric expectedGetClientDeviceAuthTokenSuccess =
+                buildMetric(METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS);
+        AggregatedMetric expectedServiceError = buildMetric(METRIC_SERVICE_ERROR);
+
         //WHEN
         startNucleusWithConfig("metricsConfig.yaml");
-        int periodicAggregateIntervalSec = kernel.getContext().get(MetricsConfiguration.class).getAggregatePeriod();
+        int periodicAggregateIntervalSec = kernel.getContext().get(MetricsConfiguration.class)
+                .getAggregationPeriodSeconds();
         assertEquals(AGGREGATE_INTERVAL, periodicAggregateIntervalSec);
         assertNotNull(kernel.getContext().get(MetricsEmitter.class).getFuture(),
                 "periodic publish future is not scheduled");
@@ -163,12 +184,7 @@ public class MetricsEmitterTest {
         assertEquals(delay, periodicAggregateIntervalSec);
 
         //move clock one day ahead to trigger publish
-        Instant aDayLater = Instant.now().plusSeconds(DEFAULT_PUBLISH_INTERVAL);
-        mockInstant(aDayLater.toEpochMilli());
-
-        //check for telemetry logs in ~root/telemetry
-        assertEquals(kernel.getNucleusPaths().rootPath().resolve("telemetry"),
-                TelemetryConfig.getTelemetryDirectory());
+        clock = Clock.offset(clock, Duration.ofSeconds(DEFAULT_PUBLISH_INTERVAL));
 
         //THEN
         boolean telemetryMessageVerified = false;
@@ -187,21 +203,67 @@ public class MetricsEmitterTest {
         });
         assertTrue(metricsPublished.await(30, TimeUnit.SECONDS), "Metrics not published");
 
+        List<AggregatedMetric> metrics = new ArrayList<>();
         for (PublishRequest request : requests) {
             if (!telemetryPublishTopic.equals(request.getTopic())) {
                 continue;
             }
-            try {
-                MetricsPayload mp = new ObjectMapper().readValue(request.getPayload(), MetricsPayload.class);
-                assertEquals(QualityOfService.AT_LEAST_ONCE, request.getQos());
-                assertEquals("2022-06-30", mp.getSchema());
-                telemetryMessageVerified = true;
-                break;
-            } catch (IOException e) {
-                fail("The message received at this topic is not of MetricsPayload type.", e);
-            }
+            MetricsPayload mp = new ObjectMapper().readValue(request.getPayload(), MetricsPayload.class);
+            assertEquals(QualityOfService.AT_LEAST_ONCE, request.getQos());
+            assertEquals("2022-06-30", mp.getSchema());
+            telemetryMessageVerified = true;
+
+            //The first aggregated namespace data should contain the metrics emitted
+            List<AggregatedNamespaceData> aggregatedNamespaceData = mp.getAggregatedNamespaceData();
+            metrics = aggregatedNamespaceData.get(0).getMetrics();
         }
         assertTrue(telemetryMessageVerified, "Did not see any message published to telemetry metrics topic");
+
+        //Validate that the metrics were published correctly
+        AggregatedMetric certSubscribeSuccess = metrics.stream()
+                .filter(m -> m.getName().equals(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS))
+                .findFirst()
+                .orElseGet(() -> fail("Subscribe to certificate updates success metric not published"));
+        assertEquals(expectedCertSubscribeSuccess.getName(), certSubscribeSuccess.getName());
+        assertEquals(expectedCertSubscribeSuccess.getUnit(), certSubscribeSuccess.getUnit());
+        assertEquals(expectedCertSubscribeSuccess.getValue().get("Sum"), certSubscribeSuccess.getValue().get("Sum"));
+
+        AggregatedMetric verifyClientDeviceIdentitySuccess = metrics.stream()
+                .filter(m -> m.getName().equals(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS))
+                .findFirst()
+                .orElseGet(() -> fail("Verify client device identity success metric not published"));
+        assertEquals(expectedVerifyClientDeviceIdentitySuccess.getName(), verifyClientDeviceIdentitySuccess.getName());
+        assertEquals(expectedVerifyClientDeviceIdentitySuccess.getUnit(), verifyClientDeviceIdentitySuccess.getUnit());
+        assertEquals(expectedVerifyClientDeviceIdentitySuccess.getValue().get("Sum"),
+                verifyClientDeviceIdentitySuccess.getValue().get("Sum"));
+
+        AggregatedMetric authorizeClientDeviceActionSuccess = metrics.stream()
+                .filter(m -> m.getName().equals(METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS))
+                .findFirst()
+                .orElseGet(() -> fail("Authorize client device action success metric not published"));
+        assertEquals(expectedAuthorizeClientDeviceActionSuccess.getName(),
+                authorizeClientDeviceActionSuccess.getName());
+        assertEquals(expectedAuthorizeClientDeviceActionSuccess.getUnit(),
+                authorizeClientDeviceActionSuccess.getUnit());
+        assertEquals(expectedAuthorizeClientDeviceActionSuccess.getValue().get("Sum"),
+                authorizeClientDeviceActionSuccess.getValue().get("Sum"));
+
+        AggregatedMetric getClientDeviceAuthToken = metrics.stream()
+                .filter(m -> m.getName().equals(METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS))
+                .findFirst()
+                .orElseGet(() -> fail("Get client device auth token success metric not published"));
+        assertEquals(expectedGetClientDeviceAuthTokenSuccess.getName(), getClientDeviceAuthToken.getName());
+        assertEquals(expectedGetClientDeviceAuthTokenSuccess.getUnit(), getClientDeviceAuthToken.getUnit());
+        assertEquals(expectedGetClientDeviceAuthTokenSuccess.getValue().get("Sum"),
+                getClientDeviceAuthToken.getValue().get("Sum"));
+
+        AggregatedMetric serviceError = metrics.stream()
+                .filter(m -> m.getName().equals(METRIC_SERVICE_ERROR))
+                .findFirst()
+                .orElseGet(() -> fail("Service error metric not published"));
+        assertEquals(expectedServiceError.getName(), serviceError.getName());
+        assertEquals(expectedServiceError.getUnit(), serviceError.getUnit());
+        assertEquals(expectedServiceError.getValue().get("Sum"), serviceError.getValue().get("Sum"));
     }
 
 }

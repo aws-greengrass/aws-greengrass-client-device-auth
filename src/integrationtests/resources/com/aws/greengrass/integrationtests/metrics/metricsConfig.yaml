@@ -23,4 +23,4 @@ services:
               resources: "*"
       metrics:
         disableMetrics: "false"
-        aggregatePeriod: "2"
+        aggregationPeriodSeconds: "2"
