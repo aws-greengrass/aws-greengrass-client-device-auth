@@ -19,14 +19,22 @@ services:
         formatVersion: "2021-03-05"
         definitions:
           devices:
-            selectionRule: "*"
+            selectionRule: "thingName: mockThing"
             policyName: "allowPublishMetrics"
         policies:
           allowPublishMetrics:
-            policyStatement1:
-              statementDescription: "publish metrics"
-              operations: "*"
-              resources: "*"
+            allowConnect:
+              statementDescription: "allow client devices to connect"
+              operations:
+                - "mqtt:connect"
+              resources:
+                - "*"
+            allowPublish:
+              statementDescription: "allow client devices to publish to all topics"
+              operations:
+                - "mqtt:publish"
+              resources:
+                - "*"
       metrics:
         disableMetrics: "false"
         aggregationPeriodSeconds: "2"

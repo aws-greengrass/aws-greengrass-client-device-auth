@@ -54,6 +54,7 @@ public final class CDAConfiguration {
     private final SecurityConfiguration security;
     @Getter
     private final CAConfiguration certificateAuthorityConfiguration;
+    @Getter
     private final MetricsConfiguration metricsConfiguration;
     private final DomainEvents domainEvents;
 

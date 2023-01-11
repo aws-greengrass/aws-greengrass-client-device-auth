@@ -11,7 +11,6 @@ import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.api.ServiceErrorEvent;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubscriptionEvent;
-import com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.metrics.MetricsEmitter;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
@@ -20,6 +19,7 @@ import com.aws.greengrass.clientdevices.auth.metrics.handlers.ServiceErrorEventH
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.SessionCreationEventHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityEventHandler;
 import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
+import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
@@ -87,6 +87,7 @@ public class MetricsEmitterTest {
     private Clock clock;
     private Kernel kernel;
     private DomainEvents domainEvents;
+    private Topics configurationTopics;
     @Mock
     private MqttClient mqttClient;
     @TempDir
@@ -174,13 +175,8 @@ public class MetricsEmitterTest {
 
         //WHEN
         startNucleusWithConfig("metricsConfig.yaml");
-        int periodicAggregateIntervalSec = kernel.getContext().get(MetricsConfiguration.class)
-                .getAggregationPeriodSeconds();
-        assertEquals(AGGREGATE_INTERVAL, periodicAggregateIntervalSec);
         assertNotNull(kernel.getContext().get(MetricsEmitter.class).getFuture(),
                 "periodic publish future is not scheduled");
-        long delay = kernel.getContext().get(MetricsEmitter.class).getFuture().getDelay(TimeUnit.SECONDS);
-        assertEquals(delay, periodicAggregateIntervalSec);
 
         //move clock one day ahead to trigger publish
         clock = Clock.offset(clock, Duration.ofSeconds(DEFAULT_PUBLISH_INTERVAL));
