@@ -1,9 +1,6 @@
 ---
 services:
   main:
-    lifecycle:
-      install:
-        all: echo All installed
     dependencies:
       - aws.greengrass.clientdevices.Auth
       - BrokerSubscribingToCertUpdates
@@ -12,12 +9,6 @@ services:
   BrokerSubscribingToCertUpdates:
     dependencies:
       - aws.greengrass.clientdevices.Auth
-    lifecycle:
-      run:
-        windows:
-          powershell -command sleep 1
-        posix:
-          sleep 1
     configuration:
       accessControl:
         aws.greengrass.clientdevices.Auth:
@@ -37,12 +28,6 @@ services:
   BrokerWithGetClientDeviceAuthTokenPermission:
     dependencies:
       - aws.greengrass.clientdevices.Auth
-    lifecycle:
-      run:
-        windows:
-          powershell -command sleep 1
-        posix:
-          sleep 1
     configuration:
       accessControl:
         aws.greengrass.clientdevices.Auth:
@@ -55,12 +40,6 @@ services:
   BrokerWithAuthorizeClientDeviceActionPermission:
     dependencies:
       - aws.greengrass.clientdevices.Auth
-    lifecycle:
-      run:
-        windows:
-          powershell -command sleep 1
-        posix:
-          sleep 1
     configuration:
       accessControl:
         aws.greengrass.clientdevices.Auth:
@@ -76,7 +55,7 @@ services:
         posixUser: nobody
         windowsUser: integ-tester
       logging:
-        level: "DEBUG"
+        level: "INFO"
   aws.greengrass.clientdevices.Auth:
     configuration:
       deviceGroups:
