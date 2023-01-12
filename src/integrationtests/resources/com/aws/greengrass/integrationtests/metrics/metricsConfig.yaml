@@ -6,6 +6,70 @@ services:
         all: echo All installed
     dependencies:
       - aws.greengrass.clientdevices.Auth
+      - BrokerSubscribingToCertUpdates
+      - BrokerWithGetClientDeviceAuthTokenPermission
+      - BrokerWithAuthorizeClientDeviceActionPermission
+  BrokerSubscribingToCertUpdates:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    lifecycle:
+      run:
+        windows:
+          powershell -command sleep 1
+        posix:
+          sleep 1
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          policyId1:
+            policyDescription: access to certificate updates
+            operations:
+              - '*'
+            resources:
+              - '*'
+        aws.greengrass.ipc.pubsub:
+          policyId2:
+            policyDescription: access to pubsub topics for ServiceName
+            operations:
+              - '*'
+            resources:
+              - '*'
+  BrokerWithGetClientDeviceAuthTokenPermission:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    lifecycle:
+      run:
+        windows:
+          powershell -command sleep 1
+        posix:
+          sleep 1
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          GetClientDeviceAuthTokenPolicy:
+            policyDescription: access to certificate updates
+            operations:
+              - 'aws.greengrass#GetClientDeviceAuthToken'
+            resources:
+              - '*'
+  BrokerWithAuthorizeClientDeviceActionPermission:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    lifecycle:
+      run:
+        windows:
+          powershell -command sleep 1
+        posix:
+          sleep 1
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          BrokerWithAuthorizeClientDeviceActionPermission:
+            policyDescription: access to certificate updates
+            operations:
+              - 'aws.greengrass#AuthorizeClientDeviceAction'
+            resources:
+              - '*'
   aws.greengrass.Nucleus:
     configuration:
       runWithDefault:

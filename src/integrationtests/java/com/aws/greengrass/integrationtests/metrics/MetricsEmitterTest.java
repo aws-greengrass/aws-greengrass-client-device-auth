@@ -5,35 +5,36 @@
 
 package com.aws.greengrass.integrationtests.metrics;
 
+import com.aws.greengrass.clientdevices.auth.AuthorizationRequest;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
+import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
 import com.aws.greengrass.clientdevices.auth.api.AuthorizeClientDeviceActionEvent;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
 import com.aws.greengrass.clientdevices.auth.api.ServiceErrorEvent;
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
+import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubscriptionEvent;
+import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
+import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
+import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
+import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
 import com.aws.greengrass.clientdevices.auth.metrics.MetricsEmitter;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionEventHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.ServiceErrorEventHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.SessionCreationEventHandler;
-import com.aws.greengrass.clientdevices.auth.metrics.handlers.VerifyClientDeviceIdentityEventHandler;
+import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
-import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.State;
-import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
+import com.aws.greengrass.integrationtests.ipc.IPCTestUtils;
 import com.aws.greengrass.lifecyclemanager.Kernel;
-import com.aws.greengrass.mqttclient.MqttClient;
-import com.aws.greengrass.mqttclient.PublishRequest;
-import com.aws.greengrass.telemetry.AggregatedMetric;
-import com.aws.greengrass.telemetry.AggregatedNamespaceData;
-import com.aws.greengrass.telemetry.MetricsPayload;
-import com.aws.greengrass.telemetry.impl.config.TelemetryConfig;
+import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
+import com.aws.greengrass.telemetry.impl.Metric;
+import com.aws.greengrass.telemetry.models.TelemetryAggregation;
 import com.aws.greengrass.telemetry.models.TelemetryUnit;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import com.aws.greengrass.util.exceptions.TLSAuthException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import com.aws.greengrass.util.Pair;
+import lombok.Getter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,21 +42,45 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.stubbing.Answer;
+import software.amazon.awssdk.aws.greengrass.AuthorizeClientDeviceActionResponseHandler;
+import software.amazon.awssdk.aws.greengrass.GetClientDeviceAuthTokenResponseHandler;
+import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCClient;
+import software.amazon.awssdk.aws.greengrass.model.AuthorizeClientDeviceActionRequest;
+import software.amazon.awssdk.aws.greengrass.model.AuthorizeClientDeviceActionResponse;
+import software.amazon.awssdk.aws.greengrass.model.CertificateOptions;
+import software.amazon.awssdk.aws.greengrass.model.CertificateType;
+import software.amazon.awssdk.aws.greengrass.model.CertificateUpdate;
+import software.amazon.awssdk.aws.greengrass.model.CertificateUpdateEvent;
+import software.amazon.awssdk.aws.greengrass.model.ClientDeviceCredential;
+import software.amazon.awssdk.aws.greengrass.model.CredentialDocument;
+import software.amazon.awssdk.aws.greengrass.model.GetClientDeviceAuthTokenRequest;
+import software.amazon.awssdk.aws.greengrass.model.GetClientDeviceAuthTokenResponse;
+import software.amazon.awssdk.aws.greengrass.model.MQTTCredential;
+import software.amazon.awssdk.aws.greengrass.model.SubscribeToCertificateUpdatesRequest;
+import software.amazon.awssdk.aws.greengrass.model.VerifyClientDeviceIdentityRequest;
 import software.amazon.awssdk.core.exception.SdkClientException;
-import software.amazon.awssdk.crt.mqtt.QualityOfService;
+import software.amazon.awssdk.eventstreamrpc.EventStreamRPCConnection;
+import software.amazon.awssdk.eventstreamrpc.StreamResponseHandler;
+import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
+import software.amazon.awssdk.utils.ImmutableMap;
 
-import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.security.KeyPair;
+import java.security.cert.X509Certificate;
 import java.time.Clock;
-import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics.METRIC_SERVICE_ERROR;
 import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
@@ -66,49 +91,68 @@ import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetr
         .METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS;
 import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
         .METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS;
-import static com.aws.greengrass.telemetry.TelemetryAgent.DEFAULT_TELEMETRY_METRICS_PUBLISH_TOPIC;
+import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics.NAMESPACE;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
+import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssertOnConsumer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class MetricsEmitterTest {
-    private static final String MOCK_THING_NAME = "mockThing";
     private static final long TEST_TIME_OUT_SEC = 10L;
-    private static final long AGGREGATE_INTERVAL = 2L;
-    private static final int DEFAULT_PUBLISH_INTERVAL = 86_400;
     private Clock clock;
     private Kernel kernel;
     private DomainEvents domainEvents;
-    private Topics configurationTopics;
+    private ClientDeviceAuthMetrics metricSpy;
     @Mock
-    private MqttClient mqttClient;
+    private GreengrassServiceClientFactory clientFactory;
+    @Mock
+    private GreengrassV2DataClient client;
+    @Mock
+    private SessionManager sessionManager;
+    @Mock
+    private DeviceAuthClient deviceAuthClient;
+
     @TempDir
     Path rootDir;
 
+    //Result captor class created to save and verify the results of scheduled emitting calls
+    private class ResultCaptor<T> implements Answer {
+        @Getter
+        private T result = null;
+
+        @Override
+        public T answer(InvocationOnMock invocationOnMock) throws Throwable {
+            result = (T) invocationOnMock.callRealMethod();
+            return result;
+        }
+    }
+
     @BeforeEach
-    void beforeEach() {
+    void beforeEach(ExtensionContext context) throws DeviceConfigurationException {
+        ignoreExceptionOfType(context, SdkClientException.class);
+        ignoreExceptionOfType(context, SpoolerStoreException.class);
+        ignoreExceptionOfType(context, NoSuchFileException.class); // Loading CA keystore
+
         //Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         clock = Clock.systemUTC();
+        metricSpy = spy(new ClientDeviceAuthMetrics(clock));
         domainEvents = new DomainEvents();
         kernel = new Kernel();
         kernel.getContext().put(DomainEvents.class, domainEvents);
         kernel.getContext().put(Clock.class, clock);
-        kernel.getContext().get(CertificateSubscriptionEventHandler.class).listen();
-        kernel.getContext().get(VerifyClientDeviceIdentityEventHandler.class).listen();
-        kernel.getContext().get(AuthorizeClientDeviceActionsMetricHandler.class).listen();
-        kernel.getContext().get(SessionCreationEventHandler.class).listen();
-        kernel.getContext().get(ServiceErrorEventHandler.class).listen();
-        TelemetryConfig.getInstance().telemetryLoggerNamesSet.clear();
-        lenient().when(mqttClient.publish(any())).thenReturn(CompletableFuture.completedFuture(0));
+        kernel.getContext().put(ClientDeviceAuthMetrics.class, metricSpy);
+        kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
+        lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
     }
 
     @AfterEach
@@ -132,26 +176,70 @@ public class MetricsEmitterTest {
         assertThat(authServiceRunning.await(TEST_TIME_OUT_SEC, TimeUnit.SECONDS), is(true));
     }
 
-    private AggregatedMetric buildMetric(String name) {
-        Map<String, Object> value = new HashMap<>();
-        value.put("Sum", 1);
-        return AggregatedMetric.builder()
+    private Metric buildMetric(String name) {
+        return Metric.builder()
+                .namespace(NAMESPACE)
                 .name(name)
                 .unit(TelemetryUnit.Count)
-                .value(value)
+                .aggregation((TelemetryAggregation.Sum))
+                .value(1L)
+                .timestamp(Instant.now(clock).toEpochMilli())
                 .build();
     }
 
+    private static void subscribeToCertUpdates(GreengrassCoreIPCClient ipcClient,
+                                               SubscribeToCertificateUpdatesRequest request,
+                                               Consumer<CertificateUpdate> consumer) throws Exception {
+        ipcClient.subscribeToCertificateUpdates(request,
+                Optional.of(new StreamResponseHandler<CertificateUpdateEvent>() {
+                    @Override
+                    public void onStreamEvent(CertificateUpdateEvent certificateUpdateEvent) {
+                        consumer.accept(certificateUpdateEvent.getCertificateUpdate());
+                    }
+
+                    @Override
+                    public boolean onStreamError(Throwable error) {
+                        return false;
+                    }
+
+                    @Override
+                    public void onStreamClosed() {
+                    }
+                })).getResponse().get(10, TimeUnit.SECONDS);
+    }
+
+    private static SubscribeToCertificateUpdatesRequest getSampleSubsRequest() {
+        SubscribeToCertificateUpdatesRequest subscribeToCertificateUpdatesRequest =
+                new SubscribeToCertificateUpdatesRequest();
+        subscribeToCertificateUpdatesRequest.setCertificateOptions(
+                new CertificateOptions().withCertificateType(CertificateType.SERVER));
+        return subscribeToCertificateUpdatesRequest;
+    }
+
+    private static void clientDeviceAuthToken(GreengrassCoreIPCClient ipcClient,
+                                              GetClientDeviceAuthTokenRequest request,
+                                              Consumer<GetClientDeviceAuthTokenResponse> consumer) throws Exception {
+        GetClientDeviceAuthTokenResponseHandler handler = ipcClient.getClientDeviceAuthToken(request, Optional.empty());
+        GetClientDeviceAuthTokenResponse response = handler.getResponse().get(10, TimeUnit.SECONDS);
+        consumer.accept(response);
+    }
+
+    private static void authzClientDeviceAction(GreengrassCoreIPCClient ipcClient,
+                                                AuthorizeClientDeviceActionRequest request,
+                                                Consumer<AuthorizeClientDeviceActionResponse> consumer)
+            throws Exception {
+        AuthorizeClientDeviceActionResponseHandler handler =
+                ipcClient.authorizeClientDeviceAction(request, Optional.empty());
+        AuthorizeClientDeviceActionResponse response = handler.getResponse().get(1, TimeUnit.SECONDS);
+        consumer.accept(response);
+    }
+
     @Test
-    void GIVEN_kernelRunningWithMetricsConfig_WHEN_launched_THEN_metricsArePublished(ExtensionContext context)
-            throws DeviceConfigurationException, InterruptedException, IOException {
-        ignoreExceptionOfType(context, SdkClientException.class);
-        ignoreExceptionOfType(context, TLSAuthException.class);
-        //GIVEN
-        kernel.getContext().put(MqttClient.class, mqttClient);
-        kernel.getContext().put(DeviceConfiguration.class,
-                new DeviceConfiguration(kernel, MOCK_THING_NAME, "us-east-1", "us-east-1", "mock", "mock", "mock",
-                        "us-east-1", "mock"));
+    void GIVEN_kernelRunningWithMetricsConfig_WHEN_launched_THEN_metricsCorrectlyEmittedAtAggregationInterval()
+            throws InterruptedException {
+        startNucleusWithConfig("metricsConfig.yaml");
+        assertNotNull(kernel.getContext().get(MetricsEmitter.class).getFuture(),
+                "periodic publish future is not scheduled");
 
         //Emit metric events
         domainEvents.emit(new CertificateSubscriptionEvent(GetCertificateRequestOptions.CertificateType.SERVER,
@@ -163,102 +251,195 @@ public class MetricsEmitterTest {
         domainEvents.emit(new SessionCreationEvent(SessionCreationEvent.SessionCreationStatus.SUCCESS));
         domainEvents.emit(new ServiceErrorEvent());
 
-        //Build expected metrics
-        AggregatedMetric expectedCertSubscribeSuccess = buildMetric(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS);
-        AggregatedMetric expectedAuthorizeClientDeviceActionSuccess =
-                buildMetric(METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS);
-        AggregatedMetric expectedVerifyClientDeviceIdentitySuccess =
-                buildMetric(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS);
-        AggregatedMetric expectedGetClientDeviceAuthTokenSuccess =
-                buildMetric(METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS);
-        AggregatedMetric expectedServiceError = buildMetric(METRIC_SERVICE_ERROR);
+        //Create list of expected metrics to validate the metrics collected at the aggregation interval
+        List<Metric> expectedMetrics = new ArrayList<>();
+        expectedMetrics.add(buildMetric(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS));
+        expectedMetrics.add(buildMetric(METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS));
+        expectedMetrics.add(buildMetric(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS));
+        expectedMetrics.add(buildMetric(METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS));
+        expectedMetrics.add(buildMetric(METRIC_SERVICE_ERROR));
 
-        //WHEN
-        startNucleusWithConfig("metricsConfig.yaml");
-        assertNotNull(kernel.getContext().get(MetricsEmitter.class).getFuture(),
-                "periodic publish future is not scheduled");
+        //Capture the emitted metrics when the emitter runs
+        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
+        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
 
-        //move clock one day ahead to trigger publish
-        clock = Clock.offset(clock, Duration.ofSeconds(DEFAULT_PUBLISH_INTERVAL));
+        //Wait for emitter to run
+        Thread.sleep(2000);
 
-        //THEN
-        boolean telemetryMessageVerified = false;
-        String telemetryPublishTopic = DEFAULT_TELEMETRY_METRICS_PUBLISH_TOPIC
-                .replace("{thingName}", MOCK_THING_NAME);
-        CountDownLatch metricsPublished = new CountDownLatch(1);
-        List<PublishRequest> requests = new ArrayList<>();
-        when(mqttClient.publish(any(PublishRequest.class))).thenAnswer(i -> {
-            Object argument = i.getArgument(0);
-            PublishRequest publishRequest = (PublishRequest) argument;
-            if (telemetryPublishTopic.equals(publishRequest.getTopic())) {
-                requests.add(publishRequest);
-                metricsPublished.countDown();
-            }
-            return CompletableFuture.completedFuture(0);
-        });
-        assertTrue(metricsPublished.await(30, TimeUnit.SECONDS), "Metrics not published");
-
-        List<AggregatedMetric> metrics = new ArrayList<>();
-        for (PublishRequest request : requests) {
-            if (!telemetryPublishTopic.equals(request.getTopic())) {
-                continue;
-            }
-            MetricsPayload mp = new ObjectMapper().readValue(request.getPayload(), MetricsPayload.class);
-            assertEquals(QualityOfService.AT_LEAST_ONCE, request.getQos());
-            assertEquals("2022-06-30", mp.getSchema());
-            telemetryMessageVerified = true;
-
-            //The first aggregated namespace data should contain the metrics emitted
-            List<AggregatedNamespaceData> aggregatedNamespaceData = mp.getAggregatedNamespaceData();
-            metrics = aggregatedNamespaceData.get(0).getMetrics();
+        //Verify that the correct metrics were emitted at startup
+        verify(metricSpy, times(2)).emitMetrics();
+        List<Metric> collectedMetrics = resultMetrics.getResult();
+        assertEquals(expectedMetrics.size(), collectedMetrics.size());
+        for (int i = 0; i < expectedMetrics.size(); i++) {
+            assertEquals(expectedMetrics.get(i).getValue(), collectedMetrics.get(i).getValue());
+            assertEquals(expectedMetrics.get(i).getNamespace(), collectedMetrics.get(i).getNamespace());
+            assertEquals(expectedMetrics.get(i).getUnit(), collectedMetrics.get(i).getUnit());
+            assertEquals(expectedMetrics.get(i).getAggregation(), collectedMetrics.get(i).getAggregation());
         }
-        assertTrue(telemetryMessageVerified, "Did not see any message published to telemetry metrics topic");
-
-        //Validate that the metrics were published correctly
-        AggregatedMetric certSubscribeSuccess = metrics.stream()
-                .filter(m -> m.getName().equals(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS))
-                .findFirst()
-                .orElseGet(() -> fail("Subscribe to certificate updates success metric not published"));
-        assertEquals(expectedCertSubscribeSuccess.getName(), certSubscribeSuccess.getName());
-        assertEquals(expectedCertSubscribeSuccess.getUnit(), certSubscribeSuccess.getUnit());
-        assertEquals(expectedCertSubscribeSuccess.getValue().get("Sum"), certSubscribeSuccess.getValue().get("Sum"));
-
-        AggregatedMetric verifyClientDeviceIdentitySuccess = metrics.stream()
-                .filter(m -> m.getName().equals(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS))
-                .findFirst()
-                .orElseGet(() -> fail("Verify client device identity success metric not published"));
-        assertEquals(expectedVerifyClientDeviceIdentitySuccess.getName(), verifyClientDeviceIdentitySuccess.getName());
-        assertEquals(expectedVerifyClientDeviceIdentitySuccess.getUnit(), verifyClientDeviceIdentitySuccess.getUnit());
-        assertEquals(expectedVerifyClientDeviceIdentitySuccess.getValue().get("Sum"),
-                verifyClientDeviceIdentitySuccess.getValue().get("Sum"));
-
-        AggregatedMetric authorizeClientDeviceActionSuccess = metrics.stream()
-                .filter(m -> m.getName().equals(METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS))
-                .findFirst()
-                .orElseGet(() -> fail("Authorize client device action success metric not published"));
-        assertEquals(expectedAuthorizeClientDeviceActionSuccess.getName(),
-                authorizeClientDeviceActionSuccess.getName());
-        assertEquals(expectedAuthorizeClientDeviceActionSuccess.getUnit(),
-                authorizeClientDeviceActionSuccess.getUnit());
-        assertEquals(expectedAuthorizeClientDeviceActionSuccess.getValue().get("Sum"),
-                authorizeClientDeviceActionSuccess.getValue().get("Sum"));
-
-        AggregatedMetric getClientDeviceAuthToken = metrics.stream()
-                .filter(m -> m.getName().equals(METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS))
-                .findFirst()
-                .orElseGet(() -> fail("Get client device auth token success metric not published"));
-        assertEquals(expectedGetClientDeviceAuthTokenSuccess.getName(), getClientDeviceAuthToken.getName());
-        assertEquals(expectedGetClientDeviceAuthTokenSuccess.getUnit(), getClientDeviceAuthToken.getUnit());
-        assertEquals(expectedGetClientDeviceAuthTokenSuccess.getValue().get("Sum"),
-                getClientDeviceAuthToken.getValue().get("Sum"));
-
-        AggregatedMetric serviceError = metrics.stream()
-                .filter(m -> m.getName().equals(METRIC_SERVICE_ERROR))
-                .findFirst()
-                .orElseGet(() -> fail("Service error metric not published"));
-        assertEquals(expectedServiceError.getName(), serviceError.getName());
-        assertEquals(expectedServiceError.getUnit(), serviceError.getUnit());
-        assertEquals(expectedServiceError.getValue().get("Sum"), serviceError.getValue().get("Sum"));
     }
 
+    @Test
+    void GIVEN_kernelRunningWithMetricsConfig_WHEN_subscribeToCertificateUpdate_THEN_correctMetricEmitted()
+            throws Exception {
+        startNucleusWithConfig("metricsConfig.yaml");
+
+        Metric expectedMetric = buildMetric(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS);
+
+        //Subscribe to certificate updates
+        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
+                "BrokerSubscribingToCertUpdates")) {
+            GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
+            SubscribeToCertificateUpdatesRequest request = getSampleSubsRequest();
+            Pair<CompletableFuture<Void>, Consumer<CertificateUpdate>> cb = asyncAssertOnConsumer((m) -> {});
+            subscribeToCertUpdates(ipcClient, request, cb.getRight());
+        }
+
+        //Capture the emitted metrics when the emitter runs
+        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
+        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
+
+        //Wait for emitter to run
+        Thread.sleep(2000);
+
+        List<Metric> collectedMetrics = resultMetrics.getResult();
+        assertEquals(1, collectedMetrics.size());
+        assertEquals(expectedMetric.getName(), collectedMetrics.get(0).getName());
+        assertEquals(expectedMetric.getUnit(), collectedMetrics.get(0).getUnit());
+        assertEquals(expectedMetric.getValue(), collectedMetrics.get(0).getValue());
+        assertEquals(expectedMetric.getNamespace(), collectedMetrics.get(0).getNamespace());
+        assertEquals(expectedMetric.getAggregation(), collectedMetrics.get(0).getAggregation());
+    }
+
+    @Test
+    void GIVEN_kernelRunningWithMetricsConfig_WHEN_verifyClientDeviceIdentity_THEN_correctMetricEmitted()
+            throws Exception {
+        //Setup
+        KeyPair rootKeyPair = CertificateStore.newRSAKeyPair(2048);
+        KeyPair clientKeyPair = CertificateStore.newRSAKeyPair(2048);
+        X509Certificate rootCA = CertificateTestHelpers.createRootCertificateAuthority("root", rootKeyPair);
+
+        X509Certificate validClientX509Certificate =
+                CertificateTestHelpers.createClientCertificate(rootCA, "Client", clientKeyPair.getPublic(),
+                        rootKeyPair.getPrivate());
+        String validClientCertificatePem = CertificateHelper.toPem(validClientX509Certificate);
+        IotAuthClientFake iotAuthClientFake = new IotAuthClientFake();
+        iotAuthClientFake.activateCert(validClientCertificatePem);
+        kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
+
+        Metric expectedMetric = buildMetric(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS);
+        startNucleusWithConfig("metricsConfig.yaml");
+
+        //Verify client device identity
+        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
+                "BrokerSubscribingToCertUpdates")) {
+            GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
+
+            VerifyClientDeviceIdentityRequest request = new VerifyClientDeviceIdentityRequest().withCredential(
+                    new ClientDeviceCredential().withClientDeviceCertificate(validClientCertificatePem));
+
+            ipcClient.verifyClientDeviceIdentity(request, Optional.empty()).getResponse();
+        }
+
+        //Capture the emitted metrics when the emitter runs
+        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
+        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
+
+        //Wait for emitter to run
+        Thread.sleep(2000);
+
+        List<Metric> collectedMetrics = resultMetrics.getResult();
+        assertEquals(1, collectedMetrics.size());
+        assertEquals(expectedMetric.getName(), collectedMetrics.get(0).getName());
+        assertEquals(expectedMetric.getUnit(), collectedMetrics.get(0).getUnit());
+        assertEquals(expectedMetric.getValue(), collectedMetrics.get(0).getValue());
+        assertEquals(expectedMetric.getNamespace(), collectedMetrics.get(0).getNamespace());
+        assertEquals(expectedMetric.getAggregation(), collectedMetrics.get(0).getAggregation());
+    }
+
+    @Test
+    void GIVEN_kernelRunningWithMetricsConfig_WHEN_getClientDeviceAuthToken_THEN_correctMetricEmitted()
+        throws Exception {
+        //Setup
+        IotAuthClientFake iotAuthClientFake = new IotAuthClientFake();
+        kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
+        kernel.getContext().put(SessionManager.class, sessionManager);
+        Map<String, String> mqttCredentialMap =
+                ImmutableMap.of("clientId", "some-client-id", "username", null, "password", null, "certificatePem",
+                        "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM=" + System.lineSeparator()
+                                + "-----END CERTIFICATE-----" + System.lineSeparator());
+
+        when(sessionManager.createSession("mqtt", mqttCredentialMap)).thenReturn("some-session-uuid");
+
+        Metric expectedMetric = buildMetric(METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS);
+        startNucleusWithConfig("metricsConfig.yaml");
+
+        //Get client device auth token
+        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
+                "BrokerWithGetClientDeviceAuthTokenPermission")) {
+            GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
+            MQTTCredential mqttCredential =
+                    new MQTTCredential().withClientId("some-client-id").withCertificatePem("PEM");
+            CredentialDocument cd = new CredentialDocument().withMqttCredential(mqttCredential);
+            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(cd);
+            Pair<CompletableFuture<Void>, Consumer<GetClientDeviceAuthTokenResponse>> cb =
+                    asyncAssertOnConsumer((m) -> {});
+            clientDeviceAuthToken(ipcClient, request, cb.getRight());
+        }
+
+        //Capture the emitted metrics when the emitter runs
+        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
+        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
+
+        //Wait for emitter to run
+        Thread.sleep(2000);
+
+        List<Metric> collectedMetrics = resultMetrics.getResult();
+        assertEquals(1, collectedMetrics.size());
+        assertEquals(expectedMetric.getName(), collectedMetrics.get(0).getName());
+        assertEquals(expectedMetric.getUnit(), collectedMetrics.get(0).getUnit());
+        assertEquals(expectedMetric.getValue(), collectedMetrics.get(0).getValue());
+        assertEquals(expectedMetric.getNamespace(), collectedMetrics.get(0).getNamespace());
+        assertEquals(expectedMetric.getAggregation(), collectedMetrics.get(0).getAggregation());
+    }
+
+    @Test
+    void GIVEN_kernelRunningWithMetricsConfig_WHEN_authorizeClientDeviceAction_THEN_correctMetricEmitted()
+        throws Exception {
+        //Setup
+        IotAuthClientFake iotAuthClientFake = new IotAuthClientFake();
+        kernel.getContext().put(IotAuthClient.class, iotAuthClientFake);
+        kernel.getContext().put(DeviceAuthClient.class, deviceAuthClient);
+
+        Metric expectedMetric = buildMetric(METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS);
+        startNucleusWithConfig("metricsConfig.yaml");
+
+        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
+                "BrokerWithAuthorizeClientDeviceActionPermission")) {
+            GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
+            AuthorizeClientDeviceActionRequest request =
+                    new AuthorizeClientDeviceActionRequest().withOperation("some-action").withResource("some-resource")
+                            .withClientDeviceAuthToken("some-token");
+            AuthorizationRequest authzReq = AuthorizationRequest.builder().sessionId(request.getClientDeviceAuthToken())
+                    .operation(request.getOperation()).resource(request.getResource()).build();
+            when(deviceAuthClient.canDevicePerform(authzReq)).thenReturn(true);
+            Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
+                    asyncAssertOnConsumer((m) -> {});
+            authzClientDeviceAction(ipcClient, request, cb.getRight());
+        }
+
+        //Capture the emitted metrics when the emitter runs
+        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
+        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
+
+        //Wait for emitter to run
+        Thread.sleep(2000);
+
+        List<Metric> collectedMetrics = resultMetrics.getResult();
+        assertEquals(1, collectedMetrics.size());
+        assertEquals(expectedMetric.getName(), collectedMetrics.get(0).getName());
+        assertEquals(expectedMetric.getUnit(), collectedMetrics.get(0).getUnit());
+        assertEquals(expectedMetric.getValue(), collectedMetrics.get(0).getValue());
+        assertEquals(expectedMetric.getNamespace(), collectedMetrics.get(0).getNamespace());
+        assertEquals(expectedMetric.getAggregation(), collectedMetrics.get(0).getAggregation());
+    }
 }

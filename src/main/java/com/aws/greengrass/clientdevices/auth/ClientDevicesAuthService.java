@@ -129,7 +129,6 @@ public class ClientDevicesAuthService extends PluginService {
         networkState.registerHandler(context.get(CISShadowMonitor.class));
         networkState.registerHandler(context.get(BackgroundCertificateRefresh.class));
         context.get(BackgroundCertificateRefresh.class).start();
-        context.get(MetricsEmitter.class).start(MetricsConfiguration.DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC);
 
         // Initialize IPC thread pool
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
