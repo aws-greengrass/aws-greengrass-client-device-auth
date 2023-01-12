@@ -181,7 +181,7 @@ public class MetricsEmitterTest {
                 .namespace(NAMESPACE)
                 .name(name)
                 .unit(TelemetryUnit.Count)
-                .aggregation((TelemetryAggregation.Sum))
+                .aggregation(TelemetryAggregation.Sum)
                 .value(1L)
                 .timestamp(Instant.now(clock).toEpochMilli())
                 .build();
