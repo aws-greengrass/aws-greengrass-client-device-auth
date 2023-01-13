@@ -20,7 +20,6 @@ import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
-import com.aws.greengrass.clientdevices.auth.metrics.MetricsEmitter;
 import com.aws.greengrass.clientdevices.auth.session.events.SessionCreationEvent;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
@@ -89,7 +88,6 @@ import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssert
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.spy;
