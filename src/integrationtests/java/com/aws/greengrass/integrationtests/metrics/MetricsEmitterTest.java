@@ -220,8 +220,6 @@ public class MetricsEmitterTest {
     void GIVEN_kernelRunningWithMetricsConfig_WHEN_launched_THEN_metricsCorrectlyEmittedAtAggregationInterval()
             throws InterruptedException {
         startNucleusWithConfig("metricsConfig.yaml");
-        assertNotNull(kernel.getContext().get(MetricsEmitter.class).getFuture(),
-                "periodic publish future is not scheduled");
 
         //Emit metric events
         domainEvents.emit(new CertificateSubscriptionEvent(GetCertificateRequestOptions.CertificateType.SERVER,

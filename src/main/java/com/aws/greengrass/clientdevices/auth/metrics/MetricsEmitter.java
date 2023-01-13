@@ -5,15 +5,12 @@
 
 package com.aws.greengrass.clientdevices.auth.metrics;
 
-import lombok.Getter;
-
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
 public class MetricsEmitter {
-    @Getter
     private ScheduledFuture<?> future;
     private final ScheduledExecutorService ses;
     private final Object emitMetricsLock = new Object();
