@@ -33,7 +33,6 @@ public class MqttSessionFactory implements SessionFactory {
 
     @Override
     public Session createSession(Map<String, String> credentialMap) throws AuthenticationException {
-        // TODO: replace with jackson object mapper
         MqttCredential mqttCredential = new MqttCredential(credentialMap);
 
         boolean isGreengrassComponent = deviceAuthClient.isGreengrassComponent(mqttCredential.certificatePem);
@@ -53,7 +52,8 @@ public class MqttSessionFactory implements SessionFactory {
     }
 
     private Session createGreengrassComponentSession() {
-        return new SessionImpl(new Component());
+        // TODO: Need to extract this from the certificate
+        return new SessionImpl(Component.of("aws.greengrass.clientdevices.mqtt.Bridge"));
     }
 
     private static class MqttCredential {

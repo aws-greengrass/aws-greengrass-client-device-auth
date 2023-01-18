@@ -71,7 +71,7 @@ public class DeviceAuthClient {
                 List<X509Certificate> leafCertificate;
 
                 // Note: We are just reading the leaf certificate (the one that CDA signed and provided to the
-                // client/server component) and checking that one against out leaf level core CA certificate.
+                // client/server component) and checking that one against our leaf level core CA certificate.
                 if (is.available() > 0) {
                     try {
                         leafCertificate = Arrays.asList((X509Certificate) cf.generateCertificate(is));
@@ -135,6 +135,7 @@ public class DeviceAuthClient {
         if (session == null) {
             throw new InvalidSessionException(String.format("Invalid session ID (%s)", request.getSessionId()));
         }
+        // TODO: This can also be removed once we have proper authZ for components
         // Allow all operations from internal components
         // Keep the workaround above (ALLOW_ALL_SESSION) for Moquette since it is using the older session management
         if (session.getSessionAttribute(Component.NAMESPACE, "component") != null) {

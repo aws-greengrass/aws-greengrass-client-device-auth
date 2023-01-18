@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class DeviceAuthClientTest {
+    private static final String componentName = "aws.greengrass.clientdevices.testComponent";
 
     @InjectMocks
     private DeviceAuthClient authClient;
@@ -96,7 +97,7 @@ public class DeviceAuthClientTest {
 
     @Test
     void GIVEN_internalClientSession_WHEN_canDevicePerform_THEN_authorizationReturnTrue() throws Exception {
-        Session session = new SessionImpl(new Component());
+        Session session = new SessionImpl(Component.of(componentName));
         when(sessionManager.findSession("sessionId")).thenReturn(session);
 
         boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());
