@@ -77,6 +77,15 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <!-- NOTE: before considering merging this into main, consider
+               what this means for our nucleus dependency and what happens
+               if CDA is running with an older Nucleus -->
+            <groupId>software.amazon.awssdk.iotdevicesdk</groupId>
+            <artifactId>aws-iot-device-sdk</artifactId>
+            <version>1.11.2-CLIENT-CERT-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>com.aws.greengrass</groupId>
             <artifactId>nucleus</artifactId>
             <version>2.6.0-SNAPSHOT</version>
