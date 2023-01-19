@@ -92,13 +92,14 @@ public class SubscribeToCertificateUpdatesOperationHandler
             GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
             CertificateType certificateType = getCertificateTypeFromCertificateOptions(
                     subscribeToCertificateUpdatesRequest.getCertificateOptions());
-            if (CertificateType.SERVER.equals(certificateType)){
+            if (CertificateType.SERVER.equals(certificateType)) {
                 requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.SERVER);
             } else if (CertificateType.CLIENT.equals(certificateType)) {
                 requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CLIENT);
             }
             try {
-                getCertificateRequest = new GetCertificateRequest(serviceName, requestOptions, serverCertificateCallback);
+                getCertificateRequest = new GetCertificateRequest(
+                        serviceName, requestOptions, serverCertificateCallback);
                 certificateManager.subscribeToCertificateUpdates(getCertificateRequest);
             } catch (CertificateGenerationException e) {
                 logger.atError().cause(e).log("Unable to subscribe to the certificate updates.");
@@ -199,10 +200,7 @@ public class SubscribeToCertificateUpdatesOperationHandler
 
     @Override
     protected void onStreamClosed() {
-        if (getCertificateRequest == null) {
-            logger.atInfo().log("Certificate already released");
-        }
-        else {
+        if (getCertificateRequest != null) {
             certificateManager.unsubscribeFromCertificateUpdates(getCertificateRequest);
         }
     }
