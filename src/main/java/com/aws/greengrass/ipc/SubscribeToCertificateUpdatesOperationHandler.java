@@ -56,7 +56,7 @@ public class SubscribeToCertificateUpdatesOperationHandler
     private final AtomicBoolean subscriptionResponseSent = new AtomicBoolean(false);
     private final AtomicReference<CertificateUpdateEvent> firstStreamingEvent = new AtomicReference<>(null);
     private final AuthorizationHandler authorizationHandler;
-    private final GetCertificateRequest getCertificateRequest;
+    private GetCertificateRequest getCertificateRequest;
     private final Consumer<com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent> serverCertificateCallback =
             this::forwardServerCertificates;
 
@@ -74,9 +74,6 @@ public class SubscribeToCertificateUpdatesOperationHandler
         serviceName = context.getAuthenticationData().getIdentityLabel();
         this.certificateManager = certificateManager;
         this.authorizationHandler = authorizationHandler;
-        GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
-        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.SERVER);
-        getCertificateRequest = new GetCertificateRequest(serviceName, requestOptions, serverCertificateCallback);
     }
 
 
@@ -92,16 +89,21 @@ public class SubscribeToCertificateUpdatesOperationHandler
                 throw new UnauthorizedError(e.getMessage());
             }
 
+            GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
             CertificateType certificateType = getCertificateTypeFromCertificateOptions(
                     subscribeToCertificateUpdatesRequest.getCertificateOptions());
-            if (CertificateType.SERVER.equals(certificateType)) {
-                try {
-                    certificateManager.subscribeToCertificateUpdates(getCertificateRequest);
-                } catch (CertificateGenerationException e) {
-                    logger.atError().cause(e).log("Unable to subscribe to the certificate updates.");
-                    throw new ServiceError(
-                            "Subscribe to certificate updates failed. Check Greengrass log for details.");
-                }
+            if (CertificateType.SERVER.equals(certificateType)){
+                requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.SERVER);
+            } else if (CertificateType.CLIENT.equals(certificateType)) {
+                requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CLIENT);
+            }
+            try {
+                getCertificateRequest = new GetCertificateRequest(serviceName, requestOptions, serverCertificateCallback);
+                certificateManager.subscribeToCertificateUpdates(getCertificateRequest);
+            } catch (CertificateGenerationException e) {
+                logger.atError().cause(e).log("Unable to subscribe to the certificate updates.");
+                throw new ServiceError(
+                        "Subscribe to certificate updates failed. Check Greengrass log for details.");
             }
             return new SubscribeToCertificateUpdatesResponse();
         });
@@ -197,6 +199,11 @@ public class SubscribeToCertificateUpdatesOperationHandler
 
     @Override
     protected void onStreamClosed() {
-        certificateManager.unsubscribeFromCertificateUpdates(getCertificateRequest);
+        if (getCertificateRequest == null) {
+            logger.atInfo().log("Certificate already released");
+        }
+        else {
+            certificateManager.unsubscribeFromCertificateUpdates(getCertificateRequest);
+        }
     }
 }
