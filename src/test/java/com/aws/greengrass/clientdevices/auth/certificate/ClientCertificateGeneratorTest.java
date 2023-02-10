@@ -6,12 +6,13 @@
 package com.aws.greengrass.clientdevices.auth.certificate;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
+import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
-import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.security.SecurityService;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.junit.jupiter.api.AfterEach;
@@ -82,7 +83,8 @@ public class ClientCertificateGeneratorTest {
 
         X509Certificate generatedCert = certificateGenerator.getCertificate();
         assertThat(generatedCert.getSubjectX500Principal().getName(), is(SUBJECT_PRINCIPAL));
-        assertThat(new KeyPurposeId(generatedCert.getExtendedKeyUsage().get(0)), is(KeyPurposeId.id_kp_clientAuth));
+        assertThat(KeyPurposeId.getInstance(new ASN1ObjectIdentifier(generatedCert.getExtendedKeyUsage().get(0))),
+                is(KeyPurposeId.id_kp_clientAuth));
         assertThat(generatedCert.getPublicKey(), is(publicKey));
         verify(mockCallback, times(1)).accept(generatedCert, certificateStore.getCaCertificateChain());
 
