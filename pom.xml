@@ -103,8 +103,8 @@
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcpkix-fips</artifactId>
-            <version>1.0.7</version>
+            <artifactId>bcpkix-jdk15on</artifactId>
+            <version>1.66</version>
         </dependency>
     </dependencies>
     <pluginRepositories>

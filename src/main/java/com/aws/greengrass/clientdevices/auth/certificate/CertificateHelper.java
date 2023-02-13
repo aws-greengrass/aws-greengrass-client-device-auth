@@ -22,7 +22,7 @@ import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -76,10 +76,10 @@ public final class CertificateHelper {
     }
 
     static {
-        // If not added "BCFIPS" is not recognized as the security provider
-        Security.addProvider(new BouncyCastleFipsProvider());
+        // If not added "BC" is not recognized as the security provider
+        Security.addProvider(new BouncyCastleProvider());
         // Configure the default provider
-        providers.put(ProviderType.DEFAULT, "BCFIPS");
+        providers.put(ProviderType.DEFAULT, "BC");
     }
 
     public enum ProviderType {
