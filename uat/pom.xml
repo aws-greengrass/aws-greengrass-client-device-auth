@@ -154,8 +154,8 @@
                     <maxAllowedViolations>0</maxAllowedViolations>
                     <printFailingErrors>true</printFailingErrors>
                     <rulesets>
-                        <ruleset>codestyle/pmd-eg-ruleset.xml</ruleset>
-                        <ruleset>codestyle/pmd-eg-tests-ruleset.xml</ruleset>
+                        <ruleset>../codestyle/pmd-eg-ruleset.xml</ruleset>
+                        <ruleset>../codestyle/pmd-eg-tests-ruleset.xml</ruleset>
                     </rulesets>
                     <includeTests>true</includeTests>
                     <!-- Exclude auto-generated JavaCC code -->
@@ -180,14 +180,13 @@
                 <configuration>
                     <licenseSets>
                         <licenseSet>
-                            <header>.license/header.txt</header>
+                            <header>../.license/header.txt</header>
                             <headerDefinitions>
-                                <headerDefinition>.license/style.xml</headerDefinition>
+                                <headerDefinition>../.license/style.xml</headerDefinition>
                             </headerDefinitions>
                             <useDefaultExcludes>true</useDefaultExcludes>
                             <excludes>
                                 <exclude>*</exclude>
-                                <exclude>codestyle/**</exclude>
                                 <exclude>src/*/resources/**</exclude>
                             </excludes>
                         </licenseSet>
@@ -216,7 +215,7 @@
                     <!-- Reports all bugs (other values are medium and max) -->
                     <threshold>Low</threshold>
                     <xmlOutput>true</xmlOutput>
-                    <excludeFilterFile>codestyle/findbugs-exclude.xml</excludeFilterFile>
+                    <excludeFilterFile>../codestyle/findbugs-exclude.xml</excludeFilterFile>
                 </configuration>
                 <executions>
                     <execution>
@@ -240,7 +239,7 @@
                 </dependencies>
                 <configuration>
                     <logViolationsToConsole>true</logViolationsToConsole>
-                    <configLocation>codestyle/checkstyle.xml</configLocation>
+                    <configLocation>../codestyle/checkstyle.xml</configLocation>
                     <violationSeverity>warning</violationSeverity>
                     <maxAllowedViolations>0</maxAllowedViolations>
                     <excludes>**/clientdevices/auth/configuration/parser/*.java</excludes>
