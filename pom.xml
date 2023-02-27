@@ -220,6 +220,7 @@
                             <useDefaultExcludes>true</useDefaultExcludes>
                             <excludes>
                                 <exclude>*</exclude>
+                                <exclude>uat/**</exclude>
                                 <exclude>codestyle/**</exclude>
                                 <exclude>src/*/resources/**</exclude>
                             </excludes>

@@ -1,0 +1,166 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.aws.greengrass.testing.mqtt.client";
+option java_outer_classname = "ClientProto";
+
+import "google/protobuf/empty.proto";
+
+package ClientControl;
+
+
+// Discovery part
+/**
+ * The discovery service definition.
+ * Server implemented on OTF side, client on MQTT client side.
+ */
+service MqttAgentDiscovery {
+    // Register MQTT client
+    rpc RegisterAgent(RegisterRequest) returns (DiscoveryReply) {}
+
+    // Discovery MQTT client address
+    rpc DiscoveryAgent(DiscoveryRequest) returns (google.protobuf.Empty) {}
+
+    // Unregister MQTT client address
+    rpc UnregisterAgent(UnregisterRequest) returns (google.protobuf.Empty) {}
+
+    // called when client receives MQTT message on subscription
+    rpc OnReceiveMqttMessage(ReceivedMqttMessage) returns (google.protobuf.Empty) {}
+}
+
+// The request message containing the client id.
+message RegisterRequest {
+    string agentId = 1;
+}
+
+// The request message containing the client's service address.
+message DiscoveryRequest {
+    string agentId = 1;
+    string address = 2;
+    int32 port = 3;
+}
+
+message UnregisterRequest {
+    string agentId = 1;
+    string reason = 2;
+}
+
+// The response message containing the response code and client's address
+message DiscoveryReply {
+    string address = 1;
+}
+
+// see also ReceivedMqttMessage
+
+// End of discovery part
+
+// MQTT client contol part
+/**
+ * The MQTT control service definition.
+ * Server implemented on MQTT client side, client on OTF side.
+ */
+service MqttClientControl {
+    // request to terminate agent
+    rpc ShutdownAgent(ShutdownRequest) returns (google.protobuf.Empty) {}
+
+    // connection
+    rpc CreateMqttConnection(MqttConnectRequest) returns (MqttConnectionId) {}
+    rpc CloseMqttConnection(MqttCloseRequest) returns (google.protobuf.Empty) {}
+
+    // subscription(s)
+    rpc SubscribeMqtt(MqttSubscribeRequest) returns (google.protobuf.Empty) {}
+    rpc UnsubscribeMqtt(MqttUnsubscribeRequest) returns (google.protobuf.Empty) {}
+
+    // publishing
+    rpc PublishMqtt(MqttPublishRequest) returns (google.protobuf.Empty) {}
+}
+
+enum MqttProtoVersion {
+    MQTT_PROTOCOL_V0    = 0;
+    MQTT_PROTOCOL_V31   = 3;
+    MQTT_PROTOCOL_V311  = 4;
+    MQTT_PROTOCOL_V50   = 5;         // only that is supported
+};
+
+enum MqttQoS {
+    MQTT_QOS_0 = 0;
+    MQTT_QOS_1 = 1;
+    MQTT_QOS_2 = 2;
+    MQTT_QOS_3 = 3;
+};
+
+message MqttConnectionId {
+    int32 connectionId = 1;
+};
+
+message Mqtt5Properties {
+    // TODO:
+    int32 stub = 1;
+};
+
+message Mqtt5Message {
+    string topic = 1;
+    bytes payload = 2;
+    MqttQoS qos = 3;
+    bool retain = 4;
+    Mqtt5Properties properties = 5;
+};
+
+message TLSSettings {
+    string ca = 1;
+    string cert = 2;
+    string key = 3;
+};
+
+// request to shutdown client has a reason field
+message ShutdownRequest {
+    string reason = 1;
+}
+
+
+message MqttConnectRequest {
+    string clientId = 1;                                // MQTT id of client
+    string host = 2;                                    // host of MQTT broker
+    int32 port = 3;                                     // port of MQTT broker
+    int32 keepalive = 4;                                // MQTT keep alive interval in seconds
+    bool cleanSession = 5;                              // clean sesions flag
+    MqttProtoVersion protocolVersion = 6;               // version of MQTT protocol to use, currently only 5 is supported
+    optional Mqtt5Properties properties = 7;            // CONNECT packet MQTT 5 properties
+    optional TLSSettings tls = 8;                       // TLS settings for secured connection
+    optional Mqtt5Message willMessage = 9;              // will message to set
+}
+
+
+message MqttCloseRequest {
+    MqttConnectionId connectionId = 1;
+    int32 reason = 2;
+    optional Mqtt5Properties properties = 3;      // DISCONNECT packet MQTT 5 properties
+}
+
+message ReceivedMqttMessage {
+    string agentId = 1;
+    MqttConnectionId connectionId = 2;
+    // TODO: received MQTT message fields and metadata
+}
+
+message MqttSubscribeRequest {
+    MqttConnectionId connectionId = 1;
+    // TODO: topics and other parameters
+}
+
+message MqttUnsubscribeRequest {
+    MqttConnectionId connectionId = 1;
+    // TODO: id of subscription inside connection
+}
+
+message MqttPublishRequest {
+    // TODO: connection handler
+    MqttConnectionId connectionId = 1;
+    Mqtt5Message msg = 2;
+}
+// end of MQTT client contol part
