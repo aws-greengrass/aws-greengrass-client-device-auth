@@ -78,11 +78,11 @@ public class Main {
                 if (port < PORT_MIN || port > PORT_MAX) {
                     throw new IllegalArgumentException("Invalid port value %s, expected [1..65535]");
                 }
-                // fallthru
+                // fallthrough
             case 2:
                 // agent_id ip
                 address = args[1];
-                // fallthru
+                // fallthrough
             case 1:
                 // agent_id
                 agentId = args[0];
