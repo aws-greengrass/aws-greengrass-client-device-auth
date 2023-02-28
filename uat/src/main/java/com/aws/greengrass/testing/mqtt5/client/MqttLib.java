@@ -6,25 +6,33 @@
 package com.aws.greengrass.testing.mqtt5.client;
 
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
+import lombok.Builder;
+import lombok.Data;
 
 /**
  * Interface of MQTT5 library.
  */
 public interface MqttLib {
+
+    @Data
+    @Builder
+    class ConnectRequest {
+        private String clientId;
+        private String host;
+        private int port;
+        private int keepalive;
+        private boolean cleanSession;
+        private String ca;
+        private String cert;
+        private String key;
+    }
+
     /**
-     * Create a MQTT5 connection.
+     * Creates a MQTT5 connection.
      *
-     * @param clientId MQTT client id
-     * @param host hostname or IP address of MQTT broker
-     * @param port port of MQTT broker
-     * @param keepalive keep alive interval
-     * @param cleanSession clean session flag
-     * @param ca CA content, can be null or empty
-     * @param cert client's certificate content, can be null or empty
-     * @param key client's key content, can be null or empty
+     * @param connectionRequest connect arguments
      * @return MqttConnection on success
      * @throws MqttException on errors
      */
-    MqttConnection createConnection(String clientId, String host, int port, int keepalive, boolean cleanSession,
-                                    String ca, String cert, String key) throws MqttException;
+    MqttConnection createConnection(ConnectRequest connectionRequest) throws MqttException;
 }

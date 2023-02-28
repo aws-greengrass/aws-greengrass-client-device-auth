@@ -6,6 +6,7 @@
 package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
+import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 
 /**
@@ -13,20 +14,13 @@ import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
  */
 public class MqttConnectionImpl implements MqttConnection {
     /**
-     * Create a MQTT5 connection.
+     * Creates a MQTT5 connection.
      *
-     * @param clientId MQTT client id
-     * @param host hostname of IP address of MQTT broker
-     * @param port port of MQTT broker
-     * @param keepalive keep alive interval
-     * @param cleanSession clean session flag
-     * @param ca pointer to CA content, can be NULL
-     * @param cert pointer to client's certificate content, can be NULL
-     * @param key pointer to client's key content, can be NULL
+     * @param connectionRequest connect arguments
      * @throws MqttException on errors
      */
-    public MqttConnectionImpl(String clientId, String host, int port, int keepalive, boolean cleanSession, String ca,
-                                String cert, String key) throws MqttException {
+    @SuppressWarnings("PMD.UnusedFormalParameter") // TODO: remove
+    public MqttConnectionImpl(MqttLib.ConnectRequest connectionRequest) throws MqttException {
     }
 
     /**
@@ -34,6 +28,7 @@ public class MqttConnectionImpl implements MqttConnection {
      *
      * @param reasonCode reason why connection is closed
      */
-    public void disconnect(short reasonCode) {
+    @Override
+    public void disconnect(int reasonCode) {
     }
 }

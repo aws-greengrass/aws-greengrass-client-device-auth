@@ -17,5 +17,5 @@ public interface MqttConnection {
      * @param reasonCode reason why connection is closed
      * @throws MqttException on errors
      */
-    void disconnect(short reasonCode) throws MqttException;
+    void disconnect(int reasonCode) throws MqttException;
 }

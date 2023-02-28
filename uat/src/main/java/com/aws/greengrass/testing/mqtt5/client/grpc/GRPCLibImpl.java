@@ -22,6 +22,7 @@ public class GRPCLibImpl implements GRPCLib {
      * @return connection handler
      * @throws GRPCException on errors
      */
+    @Override
     public GRPCLink makeLink(String agentId, String host, int port) throws GRPCException {
         return new GRPCLinkImpl(agentId, host, port);
     }

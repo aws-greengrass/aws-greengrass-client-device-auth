@@ -7,11 +7,10 @@ package com.aws.greengrass.testing.mqtt5.client;
 
 import com.aws.greengrass.testing.mqtt5.client.exceptions.ClientException;
 import com.aws.greengrass.testing.mqtt5.client.grpc.GRPCLibImpl;
-import com.aws.greengrass.testing.mqtt5.client.grpc.GRPCLinkImpl;
-import com.aws.greengrass.testing.mqtt5.client.sdkmqtt.MqttConnectionImpl;
 import com.aws.greengrass.testing.mqtt5.client.sdkmqtt.MqttLibImpl;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.experimental.UtilityClass;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -19,14 +18,16 @@ import java.util.logging.Logger;
 /**
  * Main class of application.
  */
-//@SuppressWarnings("PMD.UseUtilityClass")
+@UtilityClass
 public class Main {
 
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     private static final String DEFAULT_GRPC_SERVER_IP = "127.0.0.1";
-    private static final int DEFAULT_GRPC_SERVER_PORT = 47619;
+    private static final int DEFAULT_GRPC_SERVER_PORT = 47_619;
 
     private static final int PORT_MIN = 1;
     private static final int PORT_MAX = 65_535;
+
     private static final Logger logger = Logger.getLogger(Main.class.getName());
 
 
@@ -43,24 +44,29 @@ public class Main {
      * The main method of application.
      *
      * @param args program's arguments
+     * @throws InterruptedException when main thread was interrupted
      */
-    public static void main(String[] args) {
+    @SuppressWarnings("PMD.DoNotCallSystemExit")
+    public static void main(String[] args) throws InterruptedException {
+        int rc;
         try {
             doAll(args);
             logger.log(Level.INFO, "Execution done");
-            System.exit(0);
+            rc = 0;
         } catch (IllegalArgumentException ex) {
             logger.log(Level.WARNING, "Invalid arguments", ex);
             printUsage();
-            System.exit(1);
+            rc = 1;
         } catch (ClientException ex) {
             logger.log(Level.WARNING, "ClientException", ex);
-            System.exit(1);
+            rc = 2;
         }
+        System.exit(rc);
     }
 
 
-    private static Arguments parseArgs(String[] args) throws IllegalArgumentException {
+    @SuppressWarnings("PMD.MissingBreakInSwitch")
+    private static Arguments parseArgs(String... args) {
         String agentId;
         String address = DEFAULT_GRPC_SERVER_IP;
         int port = DEFAULT_GRPC_SERVER_PORT;
@@ -82,12 +88,13 @@ public class Main {
                 agentId = args[0];
                 break;
             default:
-                throw new IllegalArgumentException("Invalid number of arguments, expected [1..3]");
+                throw new IllegalArgumentException("Invalid number of arguments, expected [1..3] but got "
+                                                        + args.length);
         }
         return new Arguments(agentId, address, port);
     }
 
-    private static void doAll(String[] args) throws IllegalArgumentException, ClientException {
+    private static void doAll(String... args) throws InterruptedException, ClientException {
         Arguments arguments = parseArgs(args);
 
         GRPCLib gprcLib = new GRPCLibImpl();
