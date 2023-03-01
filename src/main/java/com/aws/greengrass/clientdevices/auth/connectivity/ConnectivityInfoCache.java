@@ -23,17 +23,29 @@ public class ConnectivityInfoCache {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final String HOST_ADDRESSES_TOPIC = "hostAddresses";
+    private static final String HOST_ADDRESSES_DELIMITER = ",";
 
     @Setter
     private Topics runtimeTopics;
 
+    /**
+     * Cache connectivity information by source.
+     *
+     * @param source           source
+     * @param connectivityInfo connectivity information
+     */
     public void put(String source, Set<HostAddress> connectivityInfo) {
         runtimeTopics.lookupTopics(HOST_ADDRESSES_TOPIC).lookup(source)
                 .withValue(connectivityInfo.stream()
                         .map(HostAddress::getHost)
-                        .collect(Collectors.joining(",")));
+                        .collect(Collectors.joining(HOST_ADDRESSES_DELIMITER)));
     }
 
+    /**
+     * Get aggregated connectivity information from cache.
+     *
+     * @return connectivity information
+     */
     public Set<HostAddress> getAll() {
         Topics hostAddressesTopics = runtimeTopics.lookupTopics(HOST_ADDRESSES_TOPIC);
         if (hostAddressesTopics == null) {
@@ -51,7 +63,7 @@ public class ConnectivityInfoCache {
 
         return hostAddresses.values().stream()
                 .filter(Utils::isNotEmpty)
-                .map(addrs -> Arrays.asList(addrs.split(",")))
+                .map(addrs -> Arrays.asList(addrs.split(HOST_ADDRESSES_DELIMITER)))
                 .flatMap(List::stream)
                 .map(HostAddress::of)
                 .collect(Collectors.toSet());
