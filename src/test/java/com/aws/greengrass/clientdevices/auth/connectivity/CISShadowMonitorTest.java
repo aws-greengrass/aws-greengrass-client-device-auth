@@ -525,6 +525,7 @@ public class CISShadowMonitorTest {
         }
     }
 
+
     static class FakeConnectivityInformation extends ConnectivityInformation {
 
         private final AtomicReference<List<ConnectivityInfo>> CONNECTIVITY_INFO_SAMPLE =
@@ -532,6 +533,7 @@ public class CISShadowMonitorTest {
         private final Set<Integer> responseHashes = new CopyOnWriteArraySet<>();
         private final AtomicReference<Mode> mode = new AtomicReference<>(Mode.RANDOM);
         private final AtomicBoolean failed = new AtomicBoolean();
+        private List<String> cachedHostAddresses;
 
         enum Mode {
             /**
