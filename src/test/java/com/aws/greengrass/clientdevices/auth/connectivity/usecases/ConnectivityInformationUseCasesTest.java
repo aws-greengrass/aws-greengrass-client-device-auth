@@ -6,10 +6,15 @@
 package com.aws.greengrass.clientdevices.auth.connectivity.usecases;
 
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfigurationReference;
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformationSource;
 import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
 import com.aws.greengrass.clientdevices.auth.connectivity.RecordConnectivityChangesRequest;
 import com.aws.greengrass.clientdevices.auth.connectivity.RecordConnectivityChangesResponse;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
+import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.deployment.DeviceConfiguration;
@@ -18,7 +23,6 @@ import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
@@ -31,6 +35,8 @@ import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURA
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 
 
 @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
@@ -50,12 +56,18 @@ public class ConnectivityInformationUseCasesTest {
     public void setup() {
         context = new Context();
 
-        // Note: these can be removed once ConnectivityInformation no longer requires these objects
-        context.put(DeviceConfiguration.class, Mockito.mock(DeviceConfiguration.class));
-        context.put(GreengrassServiceClientFactory.class, Mockito.mock(GreengrassServiceClientFactory.class));
-
         Topics topics = Topics.of(context, CONFIGURATION_CONFIG_KEY, null);
         this.useCases = new UseCases(topics.getContext());
+
+        // Note: these can be removed once ConnectivityInformation no longer requires these objects
+        context.put(DeviceConfiguration.class, mock(DeviceConfiguration.class));
+        context.put(GreengrassServiceClientFactory.class, mock(GreengrassServiceClientFactory.class));
+        context.put(NetworkStateProvider.class, new NetworkStateFake());
+        CDAConfiguration mockConfig = mock(CDAConfiguration.class);
+        lenient().when(mockConfig.getRuntime()).thenReturn(mock(RuntimeConfiguration.class));
+        context.put(CDAConfigurationReference.class, new CDAConfigurationReference(mockConfig));
+        context.put(UseCases.class, useCases);
+
         this.useCases.init(topics.getContext());
     }
 

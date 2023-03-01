@@ -15,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRot
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.SecurityConfigurationChangedHandler;
 import com.aws.greengrass.clientdevices.auth.certificate.infra.BackgroundCertificateRefresh;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfigurationReference;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration;
@@ -56,6 +57,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.inject.Inject;
 
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
@@ -83,17 +85,19 @@ public class ClientDevicesAuthService extends PluginService {
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private ThreadPoolExecutor cloudCallThreadPool;
     private int cloudCallQueueSize;
-    private CDAConfiguration cdaConfiguration;
+    private final CDAConfigurationReference cdaConfiguration;
 
 
     /**
      * Constructor.
      *
      * @param topics Root Configuration topic for this service
+     * @param cdaConfiguration cda configuration wrapper
      */
     @Inject
-    public ClientDevicesAuthService(Topics topics) {
+    public ClientDevicesAuthService(Topics topics, CDAConfigurationReference cdaConfiguration) {
         super(topics);
+        this.cdaConfiguration = cdaConfiguration;
     }
 
     @Override
@@ -162,10 +166,17 @@ public class ClientDevicesAuthService extends PluginService {
     }
 
     private void onConfigurationChanged() {
-        try {
-            cdaConfiguration = CDAConfiguration.from(cdaConfiguration, getConfig());
-        } catch (URISyntaxException e) {
-            serviceErrored(e);
+        AtomicReference<Exception> err = new AtomicReference<>();
+        cdaConfiguration.updateAndGet(c -> {
+            try {
+                return CDAConfiguration.from(c, getConfig());
+            } catch (URISyntaxException e) {
+                err.set(e);
+                return c;
+            }
+        });
+        if (err.get() != null) {
+            serviceErrored(err.get());
         }
     }
 
@@ -270,7 +281,7 @@ public class ClientDevicesAuthService extends PluginService {
 
     void updateCACertificateConfig(List<String> caCerts) {
         // NOTE: This shouldn't exist - This is just being exposed for test shouldn't be public API
-        cdaConfiguration.updateCACertificates(caCerts);
+        cdaConfiguration.get().updateCACertificates(caCerts);
     }
 
     @Override

@@ -53,11 +53,13 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
  */
 public final class CDAConfiguration {
 
+    @Getter
     private final RuntimeConfiguration runtime;
     private final SecurityConfiguration security;
     @Getter
     private final CAConfiguration certificateAuthorityConfiguration;
     private final MetricsConfiguration metricsConfiguration;
+    @Getter
     private final ConnectivityConfiguration connectivityConfiguration;
     private final DomainEvents domainEvents;
 

@@ -5,12 +5,14 @@
 
 package com.aws.greengrass.clientdevices.auth.connectivity;
 
+import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
-import com.aws.greengrass.clientdevices.auth.configuration.ConnectivityConfiguration;
+import com.aws.greengrass.clientdevices.auth.connectivity.usecases.CacheConnectivityInformationUseCase;
 import com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase;
 import com.aws.greengrass.clientdevices.auth.connectivity.usecases.RecordConnectivityChangesUseCase;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
+import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.Utils;
@@ -95,10 +97,11 @@ public class CISShadowMonitorTest {
     private final MqttClientConnection shadowClientConnection = shadowClient.getConnection();
     private final ExecutorService executor = TestUtils.synchronousExecutorService();
     private final FakeConnectivityInformation connectivityInfoProvider = new FakeConnectivityInformation();
+    private final UseCases useCases = mock(UseCases.class);
     private final GetConnectivityInformationUseCase getConnectivityInformationUseCase =
-            new GetConnectivityInformationUseCase(connectivityInfoProvider);
+            new GetConnectivityInformationUseCase(connectivityInfoProvider, new NetworkStateFake(), useCases);
     private final RecordConnectivityChangesUseCase recordConnectivityChangesUseCase =
-            new RecordConnectivityChangesUseCase(connectivityInfoProvider, mock(ConnectivityConfiguration.class));
+            new RecordConnectivityChangesUseCase(connectivityInfoProvider, useCases);
 
     @Mock
     CertificateGenerator certificateGenerator;
@@ -107,6 +110,7 @@ public class CISShadowMonitorTest {
 
     @BeforeEach
     void setup() {
+        when(useCases.get(CacheConnectivityInformationUseCase.class)).thenReturn(mock(CacheConnectivityInformationUseCase.class));
         cisShadowMonitor = new CISShadowMonitor(shadowClientConnection, shadowClient, executor, SHADOW_NAME,
                 connectivityInfoProvider, getConnectivityInformationUseCase, recordConnectivityChangesUseCase);
     }

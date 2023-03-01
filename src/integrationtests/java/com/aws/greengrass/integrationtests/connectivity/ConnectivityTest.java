@@ -15,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
+import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.dependency.Crashable;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.integrationtests.ipc.IPCTestUtils;
@@ -52,7 +53,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
@@ -65,16 +65,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
 public class ConnectivityTest {
 
-    private static final NetworkStateProvider NETWORK_DOWN = new NetworkStateProvider() {
-        @Override
-        public void registerHandler(Consumer<ConnectionState> networkChangeHandler) {
-        }
-
-        @Override
-        public ConnectionState getConnectionState() {
-            return ConnectionState.NETWORK_DOWN;
-        }
-    };
+    private static final NetworkStateFake NETWORK_DOWN = new NetworkStateFake();
+    static {
+        NETWORK_DOWN.goOffline();
+    }
 
     @TempDir
     Path rootDir;
@@ -95,6 +89,7 @@ public class ConnectivityTest {
     }
 
     @Test
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     void GIVEN_cda_starts_up_and_connectivity_information_is_acquired_WHEN_cda_restarts_offline_THEN_cached_connectivity_information_is_used() throws Exception {
         String confFile = "config.yaml";
         String serviceNameIpc = "BrokerSubscribingToCertUpdates";
@@ -178,6 +173,7 @@ public class ConnectivityTest {
         }
     }
 
+    @SuppressWarnings("PMD.AvoidCatchingThrowable")
     private void withServerCert(String serviceNameIpc, CrashableFunction<X509Certificate, Crashable, Exception> operation)
             throws Exception {
         withIPCClient(serviceNameIpc, client -> {
@@ -210,10 +206,10 @@ public class ConnectivityTest {
     private void withIPCClient(String serviceName, CrashableFunction<GreengrassCoreIPCClientV2, Void, Exception> action)
             throws Exception {
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
-                serviceName)) {
-            GreengrassCoreIPCClientV2 client = GreengrassCoreIPCClientV2.builder()
-                    .withClient(new GreengrassCoreIPCClient(connection))
-                    .build();
+                serviceName);
+             GreengrassCoreIPCClientV2 client = GreengrassCoreIPCClientV2.builder()
+                     .withClient(new GreengrassCoreIPCClient(connection))
+                     .build()) {
             action.apply(client);
         }
     }

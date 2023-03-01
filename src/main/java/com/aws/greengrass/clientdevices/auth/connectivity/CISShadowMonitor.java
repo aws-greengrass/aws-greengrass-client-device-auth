@@ -83,11 +83,12 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     /**
      * Constructor.
      *
-     * @param mqttClient                IoT MQTT client
-     * @param executorService           Executor service
-     * @param deviceConfiguration       Device configuration
-     * @param connectivityInformation   get connectivity information use case
-     * @param recordConnectivityUseCase record connectivity information use case
+     * @param mqttClient                     IoT MQTT client
+     * @param executorService                Executor service
+     * @param deviceConfiguration            Device configuration
+     * @param connectivityInformation        connectivity information
+     * @param connectivityInformationUseCase get connectivity information use case
+     * @param recordConnectivityUseCase      record connectivity information use case
      */
     @Inject
     public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,

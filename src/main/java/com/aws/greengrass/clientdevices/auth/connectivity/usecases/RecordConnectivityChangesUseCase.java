@@ -6,14 +6,11 @@
 package com.aws.greengrass.clientdevices.auth.connectivity.usecases;
 
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
-import com.aws.greengrass.clientdevices.auth.configuration.ConnectivityConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
-import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformationSource;
 import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
 import com.aws.greengrass.clientdevices.auth.connectivity.RecordConnectivityChangesRequest;
 import com.aws.greengrass.clientdevices.auth.connectivity.RecordConnectivityChangesResponse;
 
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
@@ -27,13 +24,13 @@ import javax.inject.Inject;
 public class RecordConnectivityChangesUseCase
         implements UseCases.UseCase<RecordConnectivityChangesResponse, RecordConnectivityChangesRequest> {
     private final ConnectivityInformation connectivityInformation;
-    private final ConnectivityConfiguration config;
+    private final UseCases useCases;
 
     @Inject
     public RecordConnectivityChangesUseCase(ConnectivityInformation connectivityInformation,
-                                            ConnectivityConfiguration config) {
+                                            UseCases useCases) {
         this.connectivityInformation = connectivityInformation;
-        this.config = config;
+        this.useCases = useCases;
     }
 
     @Override
@@ -41,17 +38,11 @@ public class RecordConnectivityChangesUseCase
         // TODO: Consider pushing some of this logic to compute diff into the domain. Being able to retrieve
         // connectivity information for a single source may also be useful.
         Set<HostAddress> previousConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
-        Set<HostAddress> previousConnectivityInfoConfigSource =
-                connectivityInformation.getConnectivityInformationForSource(
-                        ConnectivityInformationSource.CONFIGURATION);
 
         connectivityInformation.recordConnectivityInformationForSource(recordChangesRequest.getSource(),
                 recordChangesRequest.getConnectivityInformation());
 
         Set<HostAddress> newConnectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
-        Set<HostAddress> newConnectivityInfoConfigSource =
-                connectivityInformation.getConnectivityInformationForSource(
-                        ConnectivityInformationSource.CONFIGURATION);
 
         Set<HostAddress> addedAddresses =
                 newConnectivityInfo.stream().filter((item) -> !previousConnectivityInfo.contains(item))
@@ -60,9 +51,7 @@ public class RecordConnectivityChangesUseCase
                 previousConnectivityInfo.stream().filter((item) -> !newConnectivityInfo.contains(item))
                         .collect(Collectors.toSet());
 
-        if (!Objects.equals(previousConnectivityInfoConfigSource, newConnectivityInfoConfigSource)) {
-            config.setHostAddresses(newConnectivityInfoConfigSource);
-        }
+        useCases.get(CacheConnectivityInformationUseCase.class).apply(null);
 
         return new RecordConnectivityChangesResponse(addedAddresses, removedAddresses);
     }
