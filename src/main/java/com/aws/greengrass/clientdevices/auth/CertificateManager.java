@@ -20,7 +20,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubsc
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRotationHandler;
 import com.aws.greengrass.clientdevices.auth.configuration.CAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
-import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
+import com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateChainLoadingException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
@@ -60,9 +60,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import javax.inject.Inject;
 
+import static com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase.LEGACY_GET_CACHED_HOST_ADDRESSES;
+
 public class CertificateManager {
     private final CertificateStore certificateStore;
-    private final ConnectivityInformation connectivityInformation;
+    private final GetConnectivityInformationUseCase connectivityInformation;
     private final CertificateExpiryMonitor certExpiryMonitor;
     private final CISShadowMonitor cisShadowMonitor;
     private final CertificateRotationHandler caConfigurationMonitor;
@@ -79,7 +81,7 @@ public class CertificateManager {
      * Construct a new CertificateManager.
      *
      * @param certificateStore        Helper class for managing certificate authorities
-     * @param connectivityInformation Connectivity Info Provider
+     * @param connectivityInformation get connectivity information use case
      * @param certExpiryMonitor       Certificate Expiry Monitor
      * @param cisShadowMonitor        CIS Shadow Monitor
      * @param clock                   clock
@@ -89,7 +91,8 @@ public class CertificateManager {
      * @param domainEvent             Metric event emitter
      */
     @Inject
-    public CertificateManager(CertificateStore certificateStore, ConnectivityInformation connectivityInformation,
+    public CertificateManager(CertificateStore certificateStore,
+                              GetConnectivityInformationUseCase connectivityInformation,
                               CertificateExpiryMonitor certExpiryMonitor, CISShadowMonitor cisShadowMonitor,
                               Clock clock, GreengrassServiceClientFactory clientFactory,
                               SecurityService securityService, CertificateRotationHandler caConfigurationMonitor,
@@ -224,7 +227,8 @@ public class CertificateManager {
         caConfigurationMonitor.addToMonitor(certificateGenerator);
 
         if (certificateStore.isReady()) {
-            certificateGenerator.generateCertificate(connectivityInformation::getCachedHostAddresses,
+            certificateGenerator.generateCertificate(
+                    LEGACY_GET_CACHED_HOST_ADDRESSES.apply(connectivityInformation),
                     "initialization of server cert subscription");
         }
 

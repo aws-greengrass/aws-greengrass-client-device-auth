@@ -6,7 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.certificate;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
-import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
+import com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
@@ -66,7 +66,7 @@ public class CertificateExpiryMonitorTest {
         certificateStore.update(TEST_PASSPHRASE, CertificateStore.CAType.RSA_2048);
 
         certExpiryMonitor =
-                new CertificateExpiryMonitor(mock(ScheduledExecutorService.class), mock(ConnectivityInformation.class),
+                new CertificateExpiryMonitor(mock(ScheduledExecutorService.class), mock(GetConnectivityInformationUseCase.class),
                         Clock.systemUTC());
     }
 

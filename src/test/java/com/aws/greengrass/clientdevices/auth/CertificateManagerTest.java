@@ -17,7 +17,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
-import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
+import com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.config.Topics;
@@ -86,7 +86,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class CertificateManagerTest {
     @Mock
-    ConnectivityInformation mockConnectivityInformation;
+    GetConnectivityInformationUseCase mockConnectivityInformation;
 
     @Mock
     CertificateExpiryMonitor mockCertExpiryMonitor;

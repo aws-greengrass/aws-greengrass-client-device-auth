@@ -8,7 +8,7 @@ package com.aws.greengrass.clientdevices.auth.certificate.handlers;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CACertificateChainChanged;
-import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
+import com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -18,13 +18,15 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
+import static com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase.LEGACY_GET_CACHED_HOST_ADDRESSES;
+
 
 // TODO: This class is a pseudo handler that stores the state of subscriptions. We are injecting it into the certificate
 //  manager for now to avoid having to refactor how we store the subscriptions. In the future this handler will listen
 //  to multiple events, call a use case and not store state.
 public class CertificateRotationHandler implements Consumer<CACertificateChainChanged> {
     private static final Logger logger = LogManager.getLogger(CertificateRotationHandler.class);
-    private final ConnectivityInformation connectivityInformation;
+    private final GetConnectivityInformationUseCase connectivityInformation;
 
     private final Set<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArraySet<>();
     private final DomainEvents domainEvents;
@@ -32,11 +34,12 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
     /**
      * Construct a new ConfigurationMonitor.
      *
-     * @param connectivityInformation Connectivity Info Provider
+     * @param connectivityInformation get connectivity information use case
      * @param domainEvents            domain events service
      */
     @Inject
-    public CertificateRotationHandler(ConnectivityInformation connectivityInformation, DomainEvents domainEvents) {
+    public CertificateRotationHandler(GetConnectivityInformationUseCase connectivityInformation,
+                                      DomainEvents domainEvents) {
         this.connectivityInformation = connectivityInformation;
         this.domainEvents = domainEvents;
     }
@@ -77,7 +80,8 @@ public class CertificateRotationHandler implements Consumer<CACertificateChainCh
 
         for (CertificateGenerator generator : monitoredCertificateGenerators) {
             try {
-                generator.generateCertificate(connectivityInformation::getCachedHostAddresses,
+                generator.generateCertificate(
+                        LEGACY_GET_CACHED_HOST_ADDRESSES.apply(connectivityInformation),
                         "Certificate Configuration Changed");
             } catch (CertificateGenerationException e) {
                 logger.atError().cause(e).log("Failed to rotate server certificate");

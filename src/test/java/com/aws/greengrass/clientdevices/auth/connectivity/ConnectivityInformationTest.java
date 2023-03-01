@@ -107,24 +107,6 @@ public class ConnectivityInformationTest {
     }
 
     @Test
-    void GIVEN_cached_connectivity_info_WHEN_get_cached_connectivity_info_THEN_connectivity_info_returned() {
-        ConnectivityInfo connectivityInfo =
-                ConnectivityInfo.builder().hostAddress("172.8.8.10").metadata("").id("172.8.8.10").portNumber(8883)
-                        .build();
-        ConnectivityInfo connectivityInfo1 =
-                ConnectivityInfo.builder().hostAddress("localhost").metadata("").id("localhost").portNumber(8883)
-                        .build();
-        GetConnectivityInfoResponse getConnectivityInfoResponse = GetConnectivityInfoResponse.builder()
-                .connectivityInfo(Arrays.asList(connectivityInfo, connectivityInfo1)).build();
-        doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
-                .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
-
-        connectivityInformation.getConnectivityInfo();
-        List<String> connectivityInfos = connectivityInformation.getCachedHostAddresses();
-        assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
-    }
-
-    @Test
     void GIVEN_missingConnectivityInfo_WHEN_getConnectivityInformation_THEN_returnEmptySet() {
         Set<HostAddress> connectivityInfo = connectivityInformation.getAggregatedConnectivityInformation();
         assertThat(connectivityInfo, is(empty()));

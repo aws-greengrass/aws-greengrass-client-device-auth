@@ -16,7 +16,6 @@ import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInf
 import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,10 +32,6 @@ public class ConnectivityInformation {
 
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassServiceClientFactory clientFactory;
-
-    // TODO: Legacy structure to be removed later
-    protected volatile List<String> cachedHostAddresses = Collections.emptyList();
-
     private final Map<String, Set<HostAddress>> connectivityInformationMap = new ConcurrentHashMap<>();
 
 
@@ -51,15 +46,6 @@ public class ConnectivityInformation {
                                    GreengrassServiceClientFactory clientFactory) {
         this.deviceConfiguration = deviceConfiguration;
         this.clientFactory = clientFactory;
-    }
-
-    /**
-     * Get cached connectivity info.
-     *
-     * @return list of cached connectivity info items
-     */
-    public List<String> getCachedHostAddresses() {
-        return cachedHostAddresses;
     }
 
     /**
@@ -79,8 +65,6 @@ public class ConnectivityInformation {
             if (getConnectivityInfoResponse.hasConnectivityInfo()) {
                 // Filter out port and metadata since it is not needed
                 connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
-                cachedHostAddresses = new ArrayList<>(
-                        connectivityInfoList.stream().map(ci -> ci.hostAddress()).collect(Collectors.toSet()));
             }
         } catch (ValidationException | ResourceNotFoundException e) {
             LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
@@ -106,7 +90,7 @@ public class ConnectivityInformation {
      * @return set of connectivity information from all connectivity sources.
      */
     public Set<HostAddress> getAggregatedConnectivityInformation() {
-        return connectivityInformationMap.entrySet().stream().map(Map.Entry::getValue).flatMap(Set::stream)
+        return connectivityInformationMap.values().stream().flatMap(Set::stream)
                 .collect(Collectors.toSet());
     }
 
@@ -120,6 +104,5 @@ public class ConnectivityInformation {
         LOGGER.atInfo().kv("source", source).kv("connectivityInformation", sourceConnectivityInfo)
                 .log("Updating connectivity information");
         connectivityInformationMap.put(source, sourceConnectivityInfo);
-        cachedHostAddresses = sourceConnectivityInfo.stream().map(HostAddress::getHost).collect(Collectors.toList());
     }
 }

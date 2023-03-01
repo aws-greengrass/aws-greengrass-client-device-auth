@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -92,6 +93,8 @@ public class CISShadowMonitorTest {
     private final MqttClientConnection shadowClientConnection = shadowClient.getConnection();
     private final ExecutorService executor = TestUtils.synchronousExecutorService();
     private final FakeConnectivityInformation connectivityInfoProvider = new FakeConnectivityInformation();
+    private final GetConnectivityInformationUseCase getConnectivityInformationUseCase =
+            new GetConnectivityInformationUseCase(connectivityInfoProvider);
 
     @Mock
     CertificateGenerator certificateGenerator;
@@ -101,7 +104,7 @@ public class CISShadowMonitorTest {
     @BeforeEach
     void setup() {
         cisShadowMonitor = new CISShadowMonitor(shadowClientConnection, shadowClient, executor, SHADOW_NAME,
-                connectivityInfoProvider);
+                connectivityInfoProvider, getConnectivityInformationUseCase);
     }
 
     @AfterEach
@@ -569,7 +572,7 @@ public class CISShadowMonitorTest {
         @Override
         public List<ConnectivityInfo> getConnectivityInfo() {
             List<ConnectivityInfo> connectivityInfo = doGetConnectivityInfo();
-            cachedHostAddresses = connectivityInfo.stream().map(ConnectivityInfo::hostAddress).distinct()
+            List<String> cachedHostAddresses = connectivityInfo.stream().map(ConnectivityInfo::hostAddress).distinct()
                     .collect(Collectors.toList());
             responseHashes.add(cachedHostAddresses.hashCode());
             return connectivityInfo;

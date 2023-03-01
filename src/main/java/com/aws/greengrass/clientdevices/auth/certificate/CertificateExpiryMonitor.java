@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.certificate;
 
-import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformation;
+import com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -24,6 +24,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 
+import static com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase.LEGACY_GET_CACHED_HOST_ADDRESSES;
+
 public class CertificateExpiryMonitor {
     private static final Logger LOGGER = LogManager.getLogger(CertificateExpiryMonitor.class);
     private static final long DEFAULT_CERT_EXPIRY_CHECK_SECONDS = 30;
@@ -33,7 +35,7 @@ public class CertificateExpiryMonitor {
 
     private final ScheduledExecutorService ses;
 
-    private final ConnectivityInformation connectivityInformation;
+    private final GetConnectivityInformationUseCase connectivityInformation;
 
     private final Set<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArraySet<>();
 
@@ -43,11 +45,12 @@ public class CertificateExpiryMonitor {
      * Construct a new CertificateExpiryMonitor.
      *
      * @param ses                     ScheduledExecutorService to schedule cert expiry checks
-     * @param connectivityInformation Connectivity Info Provider
+     * @param connectivityInformation get connectivity information use case
      * @param clock                   clock
      */
     @Inject
-    public CertificateExpiryMonitor(ScheduledExecutorService ses, ConnectivityInformation connectivityInformation,
+    public CertificateExpiryMonitor(ScheduledExecutorService ses,
+                                    GetConnectivityInformationUseCase connectivityInformation,
                                     Clock clock) {
         this.ses = ses;
         this.connectivityInformation = connectivityInformation;
@@ -73,7 +76,9 @@ public class CertificateExpiryMonitor {
         for (CertificateGenerator cg : monitoredCertificateGenerators) {
             new CertRotationDecider(cg, clock).rotationReady().ifPresent(reason -> {
                 try {
-                    cg.generateCertificate(connectivityInformation::getCachedHostAddresses, reason);
+                    cg.generateCertificate(
+                            LEGACY_GET_CACHED_HOST_ADDRESSES.apply(connectivityInformation),
+                            reason);
                 } catch (CertificateGenerationException e) {
                     LOGGER.atError().cause(e).log("Error generating certificate. Will be retried after {} seconds",
                             DEFAULT_CERT_EXPIRY_CHECK_SECONDS);
