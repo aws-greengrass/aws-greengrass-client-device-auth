@@ -30,14 +30,6 @@ public class HostAddress {
     }
 
     /**
-     * Checks if the address represented by this HostAddress is valid.
-     * @return true if valid
-     */
-    public boolean isValid() {
-        return isIPAddress() || "localhost".equals(host);
-    }
-
-    /**
      * Checks if the connectivity information is a valid IPv4 or IPv6 address.
      *
      * @return true if valid IPv4 or IPv6 address, else false

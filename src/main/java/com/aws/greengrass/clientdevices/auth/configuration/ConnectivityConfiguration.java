@@ -51,7 +51,6 @@ public final class ConnectivityConfiguration {
         return new HashSet<>(Coerce.toStringList(config.findOrDefault("", HOST_ADDRESSES_TOPIC)))
                 .stream()
                 .map(HostAddress::new)
-                .filter(HostAddress::isValid)
                 .collect(Collectors.toSet());
     }
 
