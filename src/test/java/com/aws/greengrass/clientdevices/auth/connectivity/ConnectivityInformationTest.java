@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.config.Topic;
+import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.deployment.DeviceConfiguration;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -56,6 +57,8 @@ public class ConnectivityInformationTest {
     @Mock
     private GreengrassServiceClientFactory clientFactory;
 
+    private ConnectivityInfoCache connectivityInfoCache;
+
     @Mock
     protected Context context;
 
@@ -64,7 +67,8 @@ public class ConnectivityInformationTest {
         Topic thingNameTopic = Topic.of(context, DEVICE_PARAM_THING_NAME, "testThing");
         lenient().doReturn(thingNameTopic).when(deviceConfiguration).getThingName();
         lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(greengrassV2DataClient);
-        connectivityInformation = new ConnectivityInformation(deviceConfiguration, clientFactory);
+        connectivityInfoCache = new ConnectivityInfoCache(Topics.of(context, "", null));
+        connectivityInformation = new ConnectivityInformation(deviceConfiguration, clientFactory, connectivityInfoCache);
     }
 
     @Test

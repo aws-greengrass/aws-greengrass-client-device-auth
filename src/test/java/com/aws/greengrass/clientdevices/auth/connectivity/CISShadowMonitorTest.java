@@ -550,7 +550,7 @@ public class CISShadowMonitorTest {
         }
 
         FakeConnectivityInformation() {
-            super(null, null);
+            super(null, null, null);
         }
 
         void setMode(Mode mode) {
