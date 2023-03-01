@@ -6,24 +6,21 @@
 package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.config.Topics;
-import com.aws.greengrass.util.Utils;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.aws.greengrass.config.UpdateBehaviorTree;
 import lombok.Setter;
 
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ConnectivityInfoCache {
-
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
     private static final String HOST_ADDRESSES_TOPIC = "hostAddresses";
-    private static final String HOST_ADDRESSES_DELIMITER = ",";
+    private static final UpdateBehaviorTree HOST_ADDRESSES_UPDATE_BEHAVIOR =
+            new UpdateBehaviorTree(UpdateBehaviorTree.UpdateBehavior.REPLACE, System.currentTimeMillis());
 
     @Setter
     private Topics runtimeTopics;
@@ -35,10 +32,12 @@ public class ConnectivityInfoCache {
      * @param connectivityInfo connectivity information
      */
     public void put(String source, Set<HostAddress> connectivityInfo) {
-        runtimeTopics.lookupTopics(HOST_ADDRESSES_TOPIC).lookup(source)
-                .withValue(connectivityInfo.stream()
-                        .map(HostAddress::getHost)
-                        .collect(Collectors.joining(HOST_ADDRESSES_DELIMITER)));
+        Map<String, Object> hostAddressesToMerge = new HashMap<>();
+        hostAddressesToMerge.put(
+                source,
+                connectivityInfo.stream().map(HostAddress::getHost).collect(Collectors.toList()));
+        runtimeTopics.lookupTopics(HOST_ADDRESSES_TOPIC, source)
+                .updateFromMap(hostAddressesToMerge, HOST_ADDRESSES_UPDATE_BEHAVIOR);
     }
 
     /**
@@ -52,20 +51,23 @@ public class ConnectivityInfoCache {
             return Collections.emptySet();
         }
 
-        Map<String, String> hostAddresses;
-        try {
-            hostAddresses = MAPPER.convertValue(hostAddressesTopics.toPOJO(),
-                    new TypeReference<Map<String, String>>() {
-                    });
-        } catch (IllegalArgumentException e) {
-            return Collections.emptySet();
+        Set<HostAddress> connectivityInfo = new HashSet<>();
+        for (Object addrsBySource : hostAddressesTopics.toPOJO().values()) {
+            if (!(addrsBySource instanceof Map)) {
+                continue;
+            }
+            for (Object addrs : ((Map<?,?>) addrsBySource).values()) {
+                if (!(addrs instanceof Collection)) {
+                    continue;
+                }
+                for (Object addr : (Collection<?>) addrs) {
+                    if (!(addr instanceof String)) {
+                        continue;
+                    }
+                    connectivityInfo.add(HostAddress.of((String) addr));
+                }
+            }
         }
-
-        return hostAddresses.values().stream()
-                .filter(Utils::isNotEmpty)
-                .map(addrs -> Arrays.asList(addrs.split(HOST_ADDRESSES_DELIMITER)))
-                .flatMap(List::stream)
-                .map(HostAddress::of)
-                .collect(Collectors.toSet());
+        return connectivityInfo;
     }
 }
