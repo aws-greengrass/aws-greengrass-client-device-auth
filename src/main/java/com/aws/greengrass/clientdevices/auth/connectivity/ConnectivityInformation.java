@@ -16,7 +16,6 @@ import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInf
 import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +32,7 @@ public class ConnectivityInformation {
 
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassServiceClientFactory clientFactory;
-
-    // TODO: Legacy structure to be removed later
-    protected volatile List<String> cachedHostAddresses = Collections.emptyList();
+    private final ConnectivityInfoCache connectivityInfoCache;
 
     private final Map<String, Set<HostAddress>> connectivityInformationMap = new ConcurrentHashMap<>();
 
@@ -43,14 +40,17 @@ public class ConnectivityInformation {
     /**
      * Constructor.
      *
-     * @param deviceConfiguration client to get the device details
-     * @param clientFactory       factory to get data plane client
+     * @param deviceConfiguration   client to get the device details
+     * @param clientFactory         factory to get data plane client
+     * @param connectivityInfoCache connectivity info cache
      */
     @Inject
     public ConnectivityInformation(DeviceConfiguration deviceConfiguration,
-                                   GreengrassServiceClientFactory clientFactory) {
+                                   GreengrassServiceClientFactory clientFactory,
+                                   ConnectivityInfoCache connectivityInfoCache) {
         this.deviceConfiguration = deviceConfiguration;
         this.clientFactory = clientFactory;
+        this.connectivityInfoCache = connectivityInfoCache;
     }
 
     /**
@@ -59,7 +59,7 @@ public class ConnectivityInformation {
      * @return list of cached connectivity info items
      */
     public List<String> getCachedHostAddresses() {
-        return cachedHostAddresses;
+        return connectivityInfoCache.getAll().stream().map(HostAddress::getHost).collect(Collectors.toList());
     }
 
     /**
@@ -79,8 +79,6 @@ public class ConnectivityInformation {
             if (getConnectivityInfoResponse.hasConnectivityInfo()) {
                 // Filter out port and metadata since it is not needed
                 connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
-                cachedHostAddresses = new ArrayList<>(
-                        connectivityInfoList.stream().map(ci -> ci.hostAddress()).collect(Collectors.toSet()));
             }
         } catch (ValidationException | ResourceNotFoundException e) {
             LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
@@ -120,5 +118,6 @@ public class ConnectivityInformation {
         LOGGER.atInfo().kv("source", source).kv("connectivityInformation", sourceConnectivityInfo)
                 .log("Updating connectivity information");
         connectivityInformationMap.put(source, sourceConnectivityInfo);
+        connectivityInfoCache.put(source, sourceConnectivityInfo);
     }
 }
