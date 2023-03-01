@@ -70,17 +70,6 @@ public class ConnectivityInformation {
             LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
         }
 
-        // NOTE: Eventually this code will move into infrastructure and connectivity information
-        // will be updated as part of RecordConnectivityChangesUseCase. That migration can happen
-        // in phases.
-        // Phase 1) Call recordConnectivityChangesForSource here so that GetConnectivityInformationUseCase
-        //   returns the expected data after we receive a CIS update.
-        // Phase 2) Introduce new certificate rotation workflows that use GetConnectivityInformationUseCase
-        //   instead of getCachedHostAddresses(). This will decouple cert rotation and connectivity info domains.
-        // Phase 3) Remove this code entirely. CISShadowMonitor will update via RecordConnectivityChangesUseCase.
-        Set<HostAddress> hostAddresses = connectivityInfoList.stream().map(HostAddress::of).collect(Collectors.toSet());
-        recordConnectivityInformationForSource("connectivity-information-service", hostAddresses);
-
         return connectivityInfoList;
     }
 
