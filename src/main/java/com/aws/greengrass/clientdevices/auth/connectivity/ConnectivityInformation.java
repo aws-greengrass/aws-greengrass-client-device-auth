@@ -120,5 +120,6 @@ public class ConnectivityInformation {
         LOGGER.atInfo().kv("source", source).kv("connectivityInformation", sourceConnectivityInfo)
                 .log("Updating connectivity information");
         connectivityInformationMap.put(source, sourceConnectivityInfo);
+        cachedHostAddresses = sourceConnectivityInfo.stream().map(HostAddress::getHost).collect(Collectors.toList());
     }
 }
