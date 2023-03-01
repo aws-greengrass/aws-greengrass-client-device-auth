@@ -7,6 +7,7 @@ package com.aws.greengrass.integrationtests.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformationSource;
 import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
 import com.aws.greengrass.clientdevices.auth.connectivity.RecordConnectivityChangesRequest;
 import com.aws.greengrass.clientdevices.auth.connectivity.usecases.RecordConnectivityChangesUseCase;
@@ -112,7 +113,7 @@ public class ConnectivityTest {
         // update connectivity info
         // TODO replace with CIS shadow update to make this more of an integration test
         kernel.getContext().get(UseCases.class).get(RecordConnectivityChangesUseCase.class)
-                .apply(new RecordConnectivityChangesRequest("source", updatedConnectivityInfo));
+                .apply(new RecordConnectivityChangesRequest(ConnectivityInformationSource.CONNECTIVITY_INFORMATION_SERVICE, updatedConnectivityInfo));
 
         // wait until server certificate is generated.
         // ensure that it has the ip address we configure

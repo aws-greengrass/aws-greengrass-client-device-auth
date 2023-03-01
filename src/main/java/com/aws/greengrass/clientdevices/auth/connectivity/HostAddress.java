@@ -10,8 +10,16 @@ import org.apache.http.conn.util.InetAddressUtils;
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 
 @Value
-public final class HostAddress {
-    private final String host;
+public class HostAddress {
+    String host;
+
+    public HostAddress(String host) {
+        this.host = host;
+    }
+
+    public HostAddress(HostAddress other) {
+        this.host = other.getHost();
+    }
 
     public static HostAddress of(String hostAddress) {
         return new HostAddress(hostAddress);

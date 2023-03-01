@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.connectivity.usecases;
 
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInformationSource;
 import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
 import com.aws.greengrass.clientdevices.auth.connectivity.RecordConnectivityChangesRequest;
 import com.aws.greengrass.clientdevices.auth.connectivity.RecordConnectivityChangesResponse;
@@ -37,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ConnectivityInformationUseCasesTest {
     private Context context;
 
-    private static final String defaultSource = "source";
+    private static final ConnectivityInformationSource defaultSource = ConnectivityInformationSource.CONNECTIVITY_INFORMATION_SERVICE;
     private static final HostAddress supersetHost = HostAddress.of("127.0.0.2");
     private static final Set<HostAddress> sourceConnectivityInfo =
             Stream.of("localhost", "127.0.0.1").map(HostAddress::of).collect(Collectors.toSet());
@@ -143,7 +144,7 @@ public class ConnectivityInformationUseCasesTest {
         RecordConnectivityChangesResponse recordChangeResponse = recordChangeUseCase.apply(request);
         assertTrue(recordChangeResponse.didChange()); // Do something with initial response to prevent PMD violation
 
-        request = new RecordConnectivityChangesRequest("source2", sourceConnectivityInfo);
+        request = new RecordConnectivityChangesRequest(ConnectivityInformationSource.CONFIGURATION, sourceConnectivityInfo);
 
         recordChangeResponse = recordChangeUseCase.apply(request);
         assertFalse(recordChangeResponse.didChange());

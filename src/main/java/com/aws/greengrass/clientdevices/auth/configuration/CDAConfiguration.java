@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationChanged;
+import com.aws.greengrass.clientdevices.auth.configuration.events.ConnectivityConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.configuration.events.MetricsConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.configuration.events.SecurityConfigurationChanged;
 import com.aws.greengrass.config.Topics;
@@ -41,6 +42,8 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
  * |    |---- metrics:
  * |         |---- disableMetrics: "..."
  * |         |---- aggregatePeriod: "..."
+ * |    |---- connectivity:
+ * |         |---- hostAddresses: [...]
  * |---- runtime
  * |    |---- ca_passphrase: "..."
  * |    |---- certificates:
@@ -55,15 +58,18 @@ public final class CDAConfiguration {
     @Getter
     private final CAConfiguration certificateAuthorityConfiguration;
     private final MetricsConfiguration metricsConfiguration;
+    private final ConnectivityConfiguration connectivityConfiguration;
     private final DomainEvents domainEvents;
 
     private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca,
-                             SecurityConfiguration security, MetricsConfiguration metricsConfiguration) {
+                             SecurityConfiguration security, MetricsConfiguration metricsConfiguration,
+                             ConnectivityConfiguration connectivityConfiguration) {
         this.domainEvents = domainEvents;
         this.runtime = runtime;
         this.security = security;
         this.certificateAuthorityConfiguration = ca;
         this.metricsConfiguration = metricsConfiguration;
+        this.connectivityConfiguration = connectivityConfiguration;
     }
 
     /**
@@ -80,9 +86,14 @@ public final class CDAConfiguration {
 
         DomainEvents domainEvents = topics.getContext().get(DomainEvents.class);
 
-        CDAConfiguration newConfig = new CDAConfiguration(domainEvents, RuntimeConfiguration.from(runtimeTopics),
-                CAConfiguration.from(serviceConfiguration), SecurityConfiguration.from(serviceConfiguration),
-                MetricsConfiguration.from(serviceConfiguration));
+        CDAConfiguration newConfig = new CDAConfiguration(
+                domainEvents,
+                RuntimeConfiguration.from(runtimeTopics),
+                CAConfiguration.from(serviceConfiguration),
+                SecurityConfiguration.from(serviceConfiguration),
+                MetricsConfiguration.from(serviceConfiguration),
+                ConnectivityConfiguration.from(serviceConfiguration)
+        );
 
         newConfig.triggerChanges(newConfig, existingConfig);
 
@@ -108,6 +119,9 @@ public final class CDAConfiguration {
         }
         if (hasMetricsConfigurationChanged(prev)) {
             domainEvents.emit(new MetricsConfigurationChanged(current.metricsConfiguration));
+        }
+        if (hasConnectivityConfigurationChanged(prev)) {
+            domainEvents.emit(new ConnectivityConfigurationChanged(current.connectivityConfiguration));
         }
     }
 
@@ -141,5 +155,12 @@ public final class CDAConfiguration {
             return true;
         }
         return metricsConfiguration.hasChanged(config.metricsConfiguration);
+    }
+
+    private boolean hasConnectivityConfigurationChanged(CDAConfiguration config) {
+        if (config == null) {
+            return true;
+        }
+        return connectivityConfiguration.hasChanged(config.connectivityConfiguration);
     }
 }

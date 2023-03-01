@@ -240,7 +240,8 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, () -> {
                             List<ConnectivityInfo> connectivityInfo = connectivityInformation.getConnectivityInfo();
                             return recordConnectivityUseCase.apply(
-                                    new RecordConnectivityChangesRequest("connectivity-information-service",
+                                    new RecordConnectivityChangesRequest(
+                                            ConnectivityInformationSource.CONNECTIVITY_INFORMATION_SERVICE,
                                             connectivityInfo.stream()
                                                     .map(HostAddress::of)
                                                     .collect(Collectors.toSet())));

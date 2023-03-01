@@ -32,7 +32,8 @@ public class ConnectivityInformation {
 
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassServiceClientFactory clientFactory;
-    private final Map<String, Set<HostAddress>> connectivityInformationMap = new ConcurrentHashMap<>();
+    private final Map<ConnectivityInformationSource, Set<HostAddress>> connectivityInformationMap
+            = new ConcurrentHashMap<>();
 
 
     /**
@@ -89,7 +90,7 @@ public class ConnectivityInformation {
      * @param source                 connectivity information source.
      * @param sourceConnectivityInfo connectivity information.
      */
-    public void recordConnectivityInformationForSource(String source, Set<HostAddress> sourceConnectivityInfo) {
+    public void recordConnectivityInformationForSource(ConnectivityInformationSource source, Set<HostAddress> sourceConnectivityInfo) {
         LOGGER.atInfo().kv("source", source).kv("connectivityInformation", sourceConnectivityInfo)
                 .log("Updating connectivity information");
         connectivityInformationMap.put(source, sourceConnectivityInfo);
