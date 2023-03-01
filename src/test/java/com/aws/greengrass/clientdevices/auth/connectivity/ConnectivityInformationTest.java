@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.connectivity;
 
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
@@ -68,7 +69,7 @@ public class ConnectivityInformationTest {
         lenient().doReturn(thingNameTopic).when(deviceConfiguration).getThingName();
         lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(greengrassV2DataClient);
         connectivityInfoCache = new ConnectivityInfoCache();
-        connectivityInfoCache.setRuntimeTopics(Topics.of(context, "runtime", null));
+        connectivityInfoCache.setRuntimeConfiguration(RuntimeConfiguration.from(Topics.of(context, "runtime", null)));
         connectivityInformation = new ConnectivityInformation(deviceConfiguration, clientFactory, connectivityInfoCache);
     }
 

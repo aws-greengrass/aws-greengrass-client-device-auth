@@ -102,8 +102,6 @@ public class ClientDevicesAuthService extends PluginService {
 
         context.get(UseCases.class).init(context);
         context.get(CertificateManager.class).updateCertificatesConfiguration(new CertificatesConfig(getConfig()));
-        context.get(ConnectivityInfoCache.class)
-                .setRuntimeTopics(getConfig().lookupTopics(RUNTIME_STORE_NAMESPACE_TOPIC));
         initializeInfrastructure();
         initializeHandlers();
         subscribeToConfigChanges();
@@ -124,7 +122,9 @@ public class ClientDevicesAuthService extends PluginService {
 
     private void initializeInfrastructure() {
         // Infra setup
-        context.put(RuntimeConfiguration.class, RuntimeConfiguration.from(getRuntimeConfig()));
+        RuntimeConfiguration runtimeConfiguration = RuntimeConfiguration.from(getRuntimeConfig());
+        context.put(RuntimeConfiguration.class, runtimeConfiguration);
+        context.get(ConnectivityInfoCache.class).setRuntimeConfiguration(runtimeConfiguration);
         NetworkStateProvider networkState = context.get(NetworkStateProvider.class);
         networkState.registerHandler(context.get(CISShadowMonitor.class));
         networkState.registerHandler(context.get(BackgroundCertificateRefresh.class));

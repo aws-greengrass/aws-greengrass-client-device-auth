@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.connectivity.usecases;
 
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
+import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoCache;
 import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
 import com.aws.greengrass.clientdevices.auth.connectivity.RecordConnectivityChangesRequest;
@@ -58,7 +59,7 @@ public class ConnectivityInformationUseCasesTest {
         this.useCases = new UseCases(topics.getContext());
         this.useCases.init(topics.getContext());
 
-        context.get(ConnectivityInfoCache.class).setRuntimeTopics(Topics.of(context, "runtime", null));
+        context.get(ConnectivityInfoCache.class).setRuntimeConfiguration(RuntimeConfiguration.from(Topics.of(context, "runtime", null)));
     }
 
     @Test
