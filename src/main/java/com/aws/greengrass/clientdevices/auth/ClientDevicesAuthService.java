@@ -20,6 +20,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
+import com.aws.greengrass.clientdevices.auth.connectivity.handlers.ConnectivityConfigurationChangedHandler;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.metrics.MetricsEmitter;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
@@ -152,6 +153,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(SessionCreationEventHandler.class).listen();
         context.get(ServiceErrorEventHandler.class).listen();
         context.get(MetricsConfigurationChangedHandler.class).listen();
+        context.get(ConnectivityConfigurationChangedHandler.class).listen();
     }
 
     private void subscribeToConfigChanges() {
