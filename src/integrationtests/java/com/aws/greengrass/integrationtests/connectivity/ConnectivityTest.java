@@ -65,20 +65,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
 public class ConnectivityTest {
 
-    private static final NetworkStateFake NETWORK_DOWN = new NetworkStateFake();
-    static {
-        NETWORK_DOWN.goOffline();
-    }
-
+    NetworkStateFake networkState;
     @TempDir
     Path rootDir;
-    private Kernel kernel;
+    Kernel kernel;
 
     @BeforeEach
     void beforeEach(ExtensionContext context) {
         ignoreExceptionOfType(context, SpoolerStoreException.class);
         // expected when creating the keystore for the first time
         ignoreExceptionOfType(context, NoSuchFileException.class);
+        networkState = new NetworkStateFake();
         setupNewKernel();
     }
 
@@ -119,7 +116,8 @@ public class ConnectivityTest {
         kernel.shutdown();
 
         // take greengrass offline
-        kernel.getContext().put(NetworkStateProvider.class, NETWORK_DOWN);
+        networkState.goOffline();
+        kernel.getContext().put(NetworkStateProvider.class, networkState);
 
         // start the nucleus offline
         restartNucleus();
