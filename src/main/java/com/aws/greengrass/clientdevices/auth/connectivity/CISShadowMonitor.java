@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase;
+import com.aws.greengrass.clientdevices.auth.connectivity.usecases.RecordConnectivityChangesUseCase;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.deployment.DeviceConfiguration;
@@ -27,6 +28,7 @@ import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedSubscriptionRequest;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowState;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
@@ -45,6 +47,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 import static com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase.LEGACY_GET_CACHED_HOST_ADDRESSES;
@@ -75,23 +78,26 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     private final String shadowName;
     private final ConnectivityInformation connectivityInformation;
     private final GetConnectivityInformationUseCase connectivityInformationUseCase;
+    private final RecordConnectivityChangesUseCase recordConnectivityUseCase;
 
     /**
      * Constructor.
      *
-     * @param mqttClient              IoT MQTT client
-     * @param executorService         Executor service
-     * @param deviceConfiguration     Device configuration
-     * @param connectivityInformation get connectivity information use case
+     * @param mqttClient                IoT MQTT client
+     * @param executorService           Executor service
+     * @param deviceConfiguration       Device configuration
+     * @param connectivityInformation   get connectivity information use case
+     * @param recordConnectivityUseCase record connectivity information use case
      */
     @Inject
     public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
                             DeviceConfiguration deviceConfiguration,
                             ConnectivityInformation connectivityInformation,
-                            GetConnectivityInformationUseCase connectivityInformationUseCase) {
+                            GetConnectivityInformationUseCase connectivityInformationUseCase,
+                            RecordConnectivityChangesUseCase recordConnectivityUseCase) {
         this(null, null, executorService,
                 Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX,
-                connectivityInformation, connectivityInformationUseCase);
+                connectivityInformation, connectivityInformationUseCase, recordConnectivityUseCase);
         this.connection = new WrapperMqttClientConnection(mqttClient);
         this.iotShadowClient = new IotShadowClient(this.connection);
     }
@@ -99,13 +105,15 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     CISShadowMonitor(MqttClientConnection connection, IotShadowClient iotShadowClient, ExecutorService executorService,
                      String shadowName,
                      ConnectivityInformation connectivityInformation,
-                     GetConnectivityInformationUseCase connectivityInformationUseCase) {
+                     GetConnectivityInformationUseCase connectivityInformationUseCase,
+                     RecordConnectivityChangesUseCase recordConnectivityUseCase) {
         this.connection = connection;
         this.iotShadowClient = iotShadowClient;
         this.executorService = executorService;
         this.shadowName = shadowName;
         this.connectivityInformation = connectivityInformation;
         this.connectivityInformationUseCase = connectivityInformationUseCase;
+        this.recordConnectivityUseCase = recordConnectivityUseCase;
     }
 
     /**
@@ -229,7 +237,14 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         // to avoid blocking other MQTT subscribers in the Nucleus
         CompletableFuture.runAsync(() -> {
             try {
-                RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInformation::getConnectivityInfo,
+                RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, () -> {
+                            List<ConnectivityInfo> connectivityInfo = connectivityInformation.getConnectivityInfo();
+                            return recordConnectivityUseCase.apply(
+                                    new RecordConnectivityChangesRequest("connectivity-information-service",
+                                            connectivityInfo.stream()
+                                                    .map(HostAddress::of)
+                                                    .collect(Collectors.toSet())));
+                        },
                         "get-connectivity", LOGGER);
             } catch (InterruptedException e) {
                 LOGGER.atDebug().kv(VERSION, version).cause(e)

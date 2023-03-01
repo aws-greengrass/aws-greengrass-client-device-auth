@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.connectivity.usecases.GetConnectivityInformationUseCase;
+import com.aws.greengrass.clientdevices.auth.connectivity.usecases.RecordConnectivityChangesUseCase;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
@@ -95,6 +96,8 @@ public class CISShadowMonitorTest {
     private final FakeConnectivityInformation connectivityInfoProvider = new FakeConnectivityInformation();
     private final GetConnectivityInformationUseCase getConnectivityInformationUseCase =
             new GetConnectivityInformationUseCase(connectivityInfoProvider);
+    private final RecordConnectivityChangesUseCase recordConnectivityChangesUseCase =
+            new RecordConnectivityChangesUseCase(connectivityInfoProvider);
 
     @Mock
     CertificateGenerator certificateGenerator;
@@ -104,7 +107,7 @@ public class CISShadowMonitorTest {
     @BeforeEach
     void setup() {
         cisShadowMonitor = new CISShadowMonitor(shadowClientConnection, shadowClient, executor, SHADOW_NAME,
-                connectivityInfoProvider, getConnectivityInformationUseCase);
+                connectivityInfoProvider, getConnectivityInformationUseCase, recordConnectivityChangesUseCase);
     }
 
     @AfterEach
