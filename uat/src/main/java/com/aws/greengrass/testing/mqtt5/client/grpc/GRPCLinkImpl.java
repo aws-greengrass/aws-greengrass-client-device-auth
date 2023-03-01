@@ -37,7 +37,7 @@ public class GRPCLinkImpl implements GRPCLink  {
         logger.log(Level.INFO, "Making gPRC link with {0}:{1} as {2}",
                     new Object[]{host, String.valueOf(port), agentId});
 
-        String otfAddress = GRPCControlServer.buildAddress(host, port);
+        String otfAddress = buildAddress(host, port);
         GRPCDiscoveryClient client = new GRPCDiscoveryClient(agentId, otfAddress);
         String localIP = client.registerAgent();
         logger.log(Level.INFO, "Local address is {0}", localIP);
@@ -81,4 +81,17 @@ public class GRPCLinkImpl implements GRPCLink  {
         server.close();
         client.close();
     }
+
+    /**
+     * Build gRPC address string from host and port.
+     *
+     * @param host host part of gRPC address
+     * @param port port part of gRPC address
+     * @return address of gRPC service
+     */
+    private static String buildAddress(String host, int port) {
+        return host + ":" + port;
+    }
+
+
 }

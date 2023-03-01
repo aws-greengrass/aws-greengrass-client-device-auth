@@ -45,7 +45,6 @@
             <groupId>software.amazon.awssdk.iotdevicesdk</groupId>
             <artifactId>aws-iot-device-sdk</artifactId>
             <version>${iot.device.sdk.version}</version>
-            <type>pom</type>
             <scope>compile</scope>
         </dependency>
         <dependency>

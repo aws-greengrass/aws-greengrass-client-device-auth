@@ -12,11 +12,11 @@ import lombok.Data;
 /**
  * Interface of MQTT5 library.
  */
-public interface MqttLib {
+public interface MqttLib extends AutoCloseable {
 
     @Data
     @Builder
-    class ConnectRequest {
+    class ConnectionParams {
         private String clientId;
         private String host;
         private int port;
@@ -25,14 +25,39 @@ public interface MqttLib {
         private String ca;
         private String cert;
         private String key;
+        private int connectTimeout;
     }
 
     /**
-     * Creates a MQTT5 connection.
+     * Creates a MQTT connection.
      *
-     * @param connectionRequest connect arguments
+     * @param connectionParams connection parameters
      * @return MqttConnection on success
      * @throws MqttException on errors
      */
-    MqttConnection createConnection(ConnectRequest connectionRequest) throws MqttException;
+    MqttConnection createConnection(ConnectionParams connectionParams) throws MqttException;
+
+    /**
+     * Register the MQTT connection.
+     *
+     * @param mqttConnection connection to register
+     * @return id of connection
+     */
+    int registerConnection(MqttConnection mqttConnection);
+
+    /**
+     * Get a MQTT connection.
+     *
+     * @param connectionId id of connection
+     * @return MqttConnection on success and null when connection does not found
+     */
+    MqttConnection getConnection(int connectionId);
+
+    /**
+     * Get MQTT connection and remove from list.
+     *
+     * @param connectionId id of connection
+     * @return MqttConnection on success and null when connection does not found
+     */
+    MqttConnection unregisterConnection(int connectionId);
 }

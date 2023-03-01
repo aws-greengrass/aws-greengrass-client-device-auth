@@ -44,10 +44,10 @@ public class Main {
      * The main method of application.
      *
      * @param args program's arguments
-     * @throws InterruptedException when main thread was interrupted
+     * @throws Exception on errors
      */
     @SuppressWarnings("PMD.DoNotCallSystemExit")
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws Exception {
         int rc;
         try {
             doAll(args);
@@ -76,7 +76,7 @@ public class Main {
                 // agent_id ip port
                 port = Integer.parseInt(args[2]);
                 if (port < PORT_MIN || port > PORT_MAX) {
-                    throw new IllegalArgumentException("Invalid port value %s, expected [1..65535]");
+                    throw new IllegalArgumentException("Invalid port value " + port + " , expected [1..65535]");
                 }
                 // fallthrough
             case 2:
@@ -94,15 +94,16 @@ public class Main {
         return new Arguments(agentId, address, port);
     }
 
-    private static void doAll(String... args) throws InterruptedException, ClientException {
+    private static void doAll(String... args) throws Exception {
         Arguments arguments = parseArgs(args);
 
         GRPCLib gprcLib = new GRPCLibImpl();
         GRPCLink link = gprcLib.makeLink(arguments.getAgentId(), arguments.getHost(), arguments.getPort());
 
-        MqttLib mqttLib = new MqttLibImpl();
-        String reason = link.handleRequests(mqttLib);
-        link.shutdown(reason);
+        try (MqttLib mqttLib = new MqttLibImpl()) {
+            String reason = link.handleRequests(mqttLib);
+            link.shutdown(reason);
+        }
     }
 
     private static void printUsage() {

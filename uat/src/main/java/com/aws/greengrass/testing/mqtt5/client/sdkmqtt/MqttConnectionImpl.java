@@ -8,19 +8,121 @@ package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
+import software.amazon.awssdk.crt.CRT;
+import software.amazon.awssdk.crt.mqtt5.Mqtt5Client;
+import software.amazon.awssdk.crt.mqtt5.Mqtt5ClientOptions;
+import software.amazon.awssdk.crt.mqtt5.OnAttemptingConnectReturn;
+import software.amazon.awssdk.crt.mqtt5.OnConnectionFailureReturn;
+import software.amazon.awssdk.crt.mqtt5.OnConnectionSuccessReturn;
+import software.amazon.awssdk.crt.mqtt5.OnDisconnectionReturn;
+import software.amazon.awssdk.crt.mqtt5.OnStoppedReturn;
+import software.amazon.awssdk.crt.mqtt5.PublishReturn;
+import software.amazon.awssdk.crt.mqtt5.packets.ConnectPacket;
+import software.amazon.awssdk.crt.mqtt5.packets.DisconnectPacket;
+import software.amazon.awssdk.iot.AwsIotMqtt5ClientBuilder;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Interface of MQTT5 connection.
  */
 public class MqttConnectionImpl implements MqttConnection {
+    private static final Logger logger = Logger.getLogger(MqttConnectionImpl.class.getName());
+
+    private final AtomicBoolean isClosed = new AtomicBoolean();
+
+    private final ClientsLifecycleEvents lifecycleEvents = new ClientsLifecycleEvents();
+    private final ClientsPublishEvents publishEvents = new ClientsPublishEvents();
+    private final Mqtt5Client client;
+
+    private class ClientsLifecycleEvents implements Mqtt5ClientOptions.LifecycleEvents {
+        CompletableFuture<Void> connectedFuture = new CompletableFuture<>();
+        CompletableFuture<Void> stoppedFuture = new CompletableFuture<>();
+
+        @Override
+        public void onAttemptingConnect(Mqtt5Client client, OnAttemptingConnectReturn onAttemptingConnectReturn) {
+            logger.log(Level.INFO, "Attempting to connect...");
+        }
+
+        @Override
+        public void onConnectionSuccess(Mqtt5Client client, OnConnectionSuccessReturn onConnectionSuccessReturn) {
+            logger.log(Level.INFO, "Connection success, client id {0}",
+                        onConnectionSuccessReturn.getNegotiatedSettings().getAssignedClientID());
+            connectedFuture.complete(null);
+        }
+
+        @Override
+        public void onConnectionFailure(Mqtt5Client client, OnConnectionFailureReturn onConnectionFailureReturn) {
+            String errorString = CRT.awsErrorString(onConnectionFailureReturn.getErrorCode());
+            logger.log(Level.INFO, "Connection failed with error: " + errorString);
+            connectedFuture.completeExceptionally(new MqttException("Could not connect: " + errorString));
+        }
+
+        @Override
+        public void onDisconnection(Mqtt5Client client, OnDisconnectionReturn onDisconnectionReturn) {
+            logger.log(Level.INFO, "Disconnected!");
+        }
+
+        @Override
+        public void onStopped(Mqtt5Client client, OnStoppedReturn onStoppedReturn) {
+            logger.log(Level.INFO, "Stopped!");
+            stoppedFuture.complete(null);
+        }
+    }
+
+    private class ClientsPublishEvents implements Mqtt5ClientOptions.PublishEvents {
+        @Override
+        public void onMessageReceived(Mqtt5Client client, PublishReturn result) {
+            logger.log(Level.INFO, "Message received!");
+        }
+    }
+
     /**
      * Creates a MQTT5 connection.
      *
-     * @param connectionRequest connect arguments
+     * @param connectionParams connection parameters
      * @throws MqttException on errors
      */
-    @SuppressWarnings("PMD.UnusedFormalParameter") // TODO: remove
-    public MqttConnectionImpl(MqttLib.ConnectRequest connectionRequest) throws MqttException {
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    public MqttConnectionImpl(MqttLib.ConnectionParams connectionParams) throws MqttException {
+        super();
+        if (connectionParams.getCa() == null
+                || connectionParams.getCert() == null
+                || connectionParams.getKey() == null) {
+            throw new MqttException("IoT device SDK MQTT client requires TLS credentials");
+        }
+
+        try (AwsIotMqtt5ClientBuilder builder =
+                AwsIotMqtt5ClientBuilder.newDirectMqttBuilderWithMtlsFromMemory(
+                        connectionParams.getHost(),
+                        connectionParams.getCert(),
+                        connectionParams.getKey())) {
+
+            ConnectPacket.ConnectPacketBuilder connectProperties = new ConnectPacket.ConnectPacketBuilder()
+                .withClientId(connectionParams.getClientId())
+                .withKeepAliveIntervalSeconds(Long.valueOf(connectionParams.getKeepalive()));
+
+            builder.withConnectProperties(connectProperties)
+                .withPort(Long.valueOf(connectionParams.getPort()))
+                .withCertificateAuthority(connectionParams.getCa())
+                .withLifeCycleEvents(lifecycleEvents)
+                .withPublishEvents(publishEvents);
+
+            // TODO: cleanSession
+            // TODO: SDK custom reconnect settings
+            client = builder.build();
+        }
+
+        client.start();
+        try {
+            lifecycleEvents.connectedFuture.get(connectionParams.getConnectTimeout(), TimeUnit.SECONDS);
+        } catch (Exception ex) {
+            throw new MqttException("Exception occurred during connect", ex);
+        }
     }
 
     /**
@@ -28,7 +130,24 @@ public class MqttConnectionImpl implements MqttConnection {
      *
      * @param reasonCode reason why connection is closed
      */
+    @SuppressWarnings({"PMD.UseTryWithResources", "PMD.AvoidCatchingGenericException"})
     @Override
-    public void disconnect(int reasonCode) {
+    public void disconnect(int reasonCode) throws MqttException {
+        if (!isClosed.getAndSet(true)) {
+            DisconnectPacket.DisconnectPacketBuilder disconnectBuilder = new DisconnectPacket.DisconnectPacketBuilder();
+            DisconnectPacket.DisconnectReasonCode disconnectReason
+                = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
+            DisconnectPacket disconnectPacket = disconnectBuilder.withReasonCode(disconnectReason).build();
+            // TODO: withUserProperties()
+            client.stop(disconnectPacket);
+            try {
+                lifecycleEvents.stoppedFuture.get(60, TimeUnit.SECONDS); // TODO: tune timeout
+            } catch (Exception ex) {
+                logger.log(Level.WARNING, "Failed during disconnecting from MQTT broker", ex);
+                throw new MqttException("Could not disconnect", ex);
+            } finally {
+                client.close();
+            }
+        }
     }
 }

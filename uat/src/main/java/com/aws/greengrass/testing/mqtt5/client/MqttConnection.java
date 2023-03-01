@@ -11,6 +11,8 @@ import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
  * Interface of MQTT5 connection.
  */
 public interface MqttConnection {
+    int DEFAULT_DISCONNECT_REASON = 4;
+
     /**
      * Close MQTT connection.
      *
