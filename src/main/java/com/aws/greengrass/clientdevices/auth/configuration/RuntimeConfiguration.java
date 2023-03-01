@@ -62,7 +62,6 @@ public final class RuntimeConfiguration {
     static final String CERTS_STATUS_KEY = "s";
     static final String CERTS_STATUS_UPDATED_KEY = "l";
     private static final String HOST_ADDRESSES_KEY = "hostAddresses";
-            ;
 
     private final Topics config;
 
