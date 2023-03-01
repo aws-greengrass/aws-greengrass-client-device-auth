@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundEx
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -82,6 +83,20 @@ public class ConnectivityInformation {
     public Set<HostAddress> getAggregatedConnectivityInformation() {
         return connectivityInformationMap.values().stream().flatMap(Set::stream)
                 .collect(Collectors.toSet());
+    }
+
+    public Map<ConnectivityInformationSource, Set<HostAddress>> getConnectivityInformationBySource() {
+        return new HashMap<>(connectivityInformationMap);
+    }
+
+    /**
+     * Get connectivity information for a single source
+     *
+     * @param source connectivity information source
+     * @return set of connectivity information from the given source
+     */
+    public Set<HostAddress> getConnectivityInformationForSource(ConnectivityInformationSource source) {
+        return connectivityInformationMap.getOrDefault(source, Collections.emptySet());
     }
 
     /**

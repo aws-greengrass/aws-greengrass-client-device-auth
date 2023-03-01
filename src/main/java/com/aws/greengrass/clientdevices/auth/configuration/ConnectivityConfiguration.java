@@ -35,6 +35,10 @@ public class ConnectivityConfiguration {
         return null; // TODO
     }
 
+    public void setHostAddresses(Set<HostAddress> addresses) {
+        // TODO
+    }
+
     public boolean hasChanged(ConnectivityConfiguration config) {
         return !Objects.equals(config.getHostAddresses(), getHostAddresses());
     }
