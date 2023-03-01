@@ -261,7 +261,7 @@ public final class RuntimeConfiguration {
     }
 
     /**
-     * Put hostAddresses config
+     * Put hostAddresses config.
      *
      * @param source         connectivity information source
      * @param hostAddresses  host addresses
@@ -276,7 +276,7 @@ public final class RuntimeConfiguration {
     }
 
     /**
-     * Get aggregated hostAddresses config
+     * Get aggregated hostAddresses config.
      *
      * @return set of host addresses
      */
