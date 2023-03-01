@@ -34,9 +34,6 @@ public class ConnectivityInformation {
     private final GreengrassServiceClientFactory clientFactory;
     private final ConnectivityInfoCache connectivityInfoCache;
 
-    // TODO: Legacy structure to be removed later
-    protected volatile List<String> cachedHostAddresses = Collections.emptyList();
-
     private final Map<String, Set<HostAddress>> connectivityInformationMap = new ConcurrentHashMap<>();
 
 
