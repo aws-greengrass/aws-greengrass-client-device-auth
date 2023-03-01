@@ -376,8 +376,7 @@ public class CISShadowMonitorTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_delta_duplicate_received_THEN_delta_processing_is_deduped(
-            ExtensionContext context) throws Exception {
+    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_delta_duplicate_received_THEN_delta_processing_is_deduped() throws Exception {
         // make connectivity call yield the same response each time,
         // to match scenario where we receive same shadow delta version multiple times.
         connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.CONSTANT);
@@ -401,10 +400,10 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
         // trigger update delta subscription callbacks
-        AtomicInteger version = new AtomicInteger(1);
+        int version = 1;
 
         ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-        deltaUpdatedEvent.version = version.getAndIncrement();
+        deltaUpdatedEvent.version = version;
         deltaUpdatedEvent.state = new HashMap<>(delta);
 
 
@@ -413,6 +412,51 @@ public class CISShadowMonitorTest {
             wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, i > 0).ifPresent(
                     resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
         }
+
+        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
+        verifyCertsRotatedWhenConnectivityChanges();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void GIVEN_CISShadowMonitor_WHEN_connectivity_info_does_not_change_across_multiple_deltas_received_THEN_extra_processing_is_ignored() throws Exception {
+        // make connectivity call yield the same response each time,
+        // to match scenario where we receive same shadow delta version multiple times.
+        connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.CONSTANT);
+
+        // capture the subscription callback for shadow delta update
+        ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
+        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
+                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+
+        // generated list of deltas to feed to the shadow monitor
+        List<Map<String, Object>> deltas =
+                IntStream.range(0, 5).mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
+                        .collect(Collectors.toList());
+        Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
+
+        // notify when last shadow update is published
+        WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
+                .expectedReportedState(lastDelta) // reported state updated to desired state
+                .expectedDesiredState(null) // desired state isn't modified
+                .build();
+        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean())).thenAnswer(
+                whenUpdateIsPublished);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        // trigger update delta subscription callbacks
+        AtomicInteger version = new AtomicInteger(1);
+        deltas.forEach(delta -> {
+            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
+            deltaUpdatedEvent.version = version.getAndIncrement();
+            deltaUpdatedEvent.state = new HashMap<>(delta);
+
+            // original message
+            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(
+                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
+        });
 
         assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
         verifyCertsRotatedWhenConnectivityChanges();
@@ -580,8 +624,8 @@ public class CISShadowMonitorTest {
         @Override
         public List<ConnectivityInfo> getConnectivityInfo() {
             List<ConnectivityInfo> connectivityInfo = doGetConnectivityInfo();
-            List<String> cachedHostAddresses = connectivityInfo.stream().map(ConnectivityInfo::hostAddress).distinct()
-                    .collect(Collectors.toList());
+            Set<String> cachedHostAddresses = connectivityInfo.stream().map(ConnectivityInfo::hostAddress)
+                    .collect(Collectors.toSet());
             responseHashes.add(cachedHostAddresses.hashCode());
             return connectivityInfo;
         }

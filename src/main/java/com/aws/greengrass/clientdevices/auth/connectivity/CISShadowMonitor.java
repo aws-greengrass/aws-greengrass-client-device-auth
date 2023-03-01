@@ -28,7 +28,6 @@ import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedSubscriptionRequest;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowState;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
-import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
@@ -39,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -236,18 +236,16 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         // NOTE: This method executes in an MQTT CRT thread. Since certificate generation is a compute intensive
         // operation (particularly on low end devices) it is imperative that we process this event asynchronously
         // to avoid blocking other MQTT subscribers in the Nucleus
-        CompletableFuture.runAsync(() -> {
+        CompletableFuture.runAsync(() -> { // TODO make this operation cancelable on network down event
+            Set<HostAddress> fetchedConnectivityInfo;
             try {
-                RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, () -> {
-                            List<ConnectivityInfo> connectivityInfo = connectivityInformation.getConnectivityInfo();
-                            return recordConnectivityUseCase.apply(
-                                    new RecordConnectivityChangesRequest(
-                                            ConnectivityInformationSource.CONNECTIVITY_INFORMATION_SERVICE,
-                                            connectivityInfo.stream()
-                                                    .map(HostAddress::of)
-                                                    .collect(Collectors.toSet())));
-                        },
-                        "get-connectivity", LOGGER);
+                fetchedConnectivityInfo = RetryUtils.runWithRetry(
+                        GET_CONNECTIVITY_RETRY_CONFIG,
+                        () -> connectivityInformation.getConnectivityInfo().stream()
+                                .map(HostAddress::of)
+                                .collect(Collectors.toSet()),
+                        "get-connectivity",
+                        LOGGER);
             } catch (InterruptedException e) {
                 LOGGER.atDebug().kv(VERSION, version).cause(e)
                         .log("Retry workflow for getting connectivity info interrupted");
@@ -257,6 +255,15 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 LOGGER.atError().kv(VERSION, version).cause(e)
                         .log("Failed to get connectivity info from cloud. Check that the core device's IoT policy "
                                 + "grants the greengrass:GetConnectivityInfo permission");
+                return;
+            }
+
+            RecordConnectivityChangesResponse recordResp = recordConnectivityUseCase.apply(
+                    new RecordConnectivityChangesRequest(
+                            ConnectivityInformationSource.CONNECTIVITY_INFORMATION_SERVICE,
+                            fetchedConnectivityInfo));
+            if (!recordResp.didChange()) {
+                updateCISShadowReportedState(desiredState);
                 return;
             }
 
