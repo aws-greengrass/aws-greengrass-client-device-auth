@@ -62,8 +62,7 @@ public final class RuntimeConfiguration {
     static final String CERTS_STATUS_KEY = "s";
     static final String CERTS_STATUS_UPDATED_KEY = "l";
     private static final String HOST_ADDRESSES_KEY = "hostAddresses";
-    private static final UpdateBehaviorTree HOST_ADDRESSES_UPDATE_BEHAVIOR =
-            new UpdateBehaviorTree(UpdateBehaviorTree.UpdateBehavior.REPLACE, System.currentTimeMillis());
+            ;
 
     private final Topics config;
 
@@ -272,7 +271,9 @@ public final class RuntimeConfiguration {
                 source,
                 hostAddresses.stream().map(HostAddress::getHost).collect(Collectors.toList()));
         config.lookupTopics(HOST_ADDRESSES_KEY, source)
-                .updateFromMap(hostAddressesToMerge, HOST_ADDRESSES_UPDATE_BEHAVIOR);
+                .updateFromMap(hostAddressesToMerge,
+                        new UpdateBehaviorTree(UpdateBehaviorTree.UpdateBehavior.REPLACE,
+                                System.currentTimeMillis()));
     }
 
     /**
