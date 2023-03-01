@@ -67,7 +67,8 @@ public class ConnectivityInformationTest {
         Topic thingNameTopic = Topic.of(context, DEVICE_PARAM_THING_NAME, "testThing");
         lenient().doReturn(thingNameTopic).when(deviceConfiguration).getThingName();
         lenient().when(clientFactory.getGreengrassV2DataClient()).thenReturn(greengrassV2DataClient);
-        connectivityInfoCache = new ConnectivityInfoCache(Topics.of(context, "", null));
+        connectivityInfoCache = new ConnectivityInfoCache();
+        connectivityInfoCache.setRuntimeTopics(Topics.of(context, "runtime", null));
         connectivityInformation = new ConnectivityInformation(deviceConfiguration, clientFactory, connectivityInfoCache);
     }
 
