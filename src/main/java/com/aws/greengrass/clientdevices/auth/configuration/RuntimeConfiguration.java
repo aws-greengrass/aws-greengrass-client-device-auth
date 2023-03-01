@@ -5,19 +5,25 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
+import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
 import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1DTO;
 import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.config.UpdateBehaviorTree;
 import com.aws.greengrass.util.Coerce;
 import lombok.NonNull;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -39,6 +45,9 @@ import java.util.stream.Stream;
  * |                |---- certificateId:
  * |                      |---- "s": status
  * |                      |---- "l": lastUpdated
+ * |    |---- "hostAddresses":
+ *            |---- <source>:
+ *                 |---- [...]
  * </p>
  */
 public final class RuntimeConfiguration {
@@ -52,6 +61,7 @@ public final class RuntimeConfiguration {
     static final String CERTS_V1_KEY = "v1";
     static final String CERTS_STATUS_KEY = "s";
     static final String CERTS_STATUS_UPDATED_KEY = "l";
+    private static final String HOST_ADDRESSES_KEY = "hostAddresses";
 
     private final Topics config;
 
@@ -246,5 +256,53 @@ public final class RuntimeConfiguration {
 
         return v1CertTopics.children.keySet().stream().map(Coerce::toString).map(this::getCertificateV1)
                 .map(Optional::get);
+    }
+
+    /**
+     * Put hostAddresses config.
+     *
+     * @param source         connectivity information source
+     * @param hostAddresses  host addresses
+     */
+    public void putHostAddressForSource(String source, Set<HostAddress> hostAddresses) {
+        Map<String, Object> hostAddressesToMerge = new HashMap<>();
+        hostAddressesToMerge.put(
+                source,
+                hostAddresses.stream().map(HostAddress::getHost).collect(Collectors.toList()));
+        config.lookupTopics(HOST_ADDRESSES_KEY, source)
+                .updateFromMap(hostAddressesToMerge,
+                        new UpdateBehaviorTree(UpdateBehaviorTree.UpdateBehavior.REPLACE,
+                                System.currentTimeMillis()));
+    }
+
+    /**
+     * Get aggregated hostAddresses config.
+     *
+     * @return set of host addresses
+     */
+    public Set<HostAddress> getAggregatedHostAddresses() {
+        Topics hostAddressesTopics = config.lookupTopics(HOST_ADDRESSES_KEY);
+        if (hostAddressesTopics == null) {
+            return Collections.emptySet();
+        }
+
+        Set<HostAddress> connectivityInfo = new HashSet<>();
+        for (Object addrsBySource : hostAddressesTopics.toPOJO().values()) {
+            if (!(addrsBySource instanceof Map)) {
+                continue;
+            }
+            for (Object addrs : ((Map<?,?>) addrsBySource).values()) {
+                if (!(addrs instanceof Collection)) {
+                    continue;
+                }
+                for (Object addr : (Collection<?>) addrs) {
+                    if (!(addr instanceof String)) {
+                        continue;
+                    }
+                    connectivityInfo.add(HostAddress.of((String) addr));
+                }
+            }
+        }
+        return connectivityInfo;
     }
 }
