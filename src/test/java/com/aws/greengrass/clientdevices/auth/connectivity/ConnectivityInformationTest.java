@@ -35,6 +35,7 @@ import static com.aws.greengrass.deployment.DeviceConfiguration.DEVICE_PARAM_THI
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
@@ -103,13 +104,12 @@ public class ConnectivityInformationTest {
     }
 
     @Test
-    void GIVEN_cloudThrowValidationException_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned(
+    void GIVEN_cloudThrowValidationException_WHEN_get_connectivity_info_THEN_exception_thrown(
             ExtensionContext context) {
         ignoreExceptionOfType(context, ValidationException.class);
         when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class))).thenThrow(
                 ValidationException.class);
-
-        assertThat(connectivityInformation.getConnectivityInfo(), is(empty()));
+        assertThrows(ValidationException.class, () -> connectivityInformation.getConnectivityInfo());
     }
 
     @Test
@@ -127,6 +127,34 @@ public class ConnectivityInformationTest {
 
         connectivityInformation.getConnectivityInfo();
         List<String> connectivityInfos = connectivityInformation.getCachedHostAddresses();
+        assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
+    }
+
+    @Test
+    void GIVEN_cached_connectivity_info_WHEN_cis_call_fails_THEN_cached_connectivity_remains() {
+        ConnectivityInfo connectivityInfo =
+                ConnectivityInfo.builder().hostAddress("172.8.8.10").metadata("").id("172.8.8.10").portNumber(8883)
+                        .build();
+        ConnectivityInfo connectivityInfo1 =
+                ConnectivityInfo.builder().hostAddress("localhost").metadata("").id("localhost").portNumber(8883)
+                        .build();
+        GetConnectivityInfoResponse getConnectivityInfoResponse = GetConnectivityInfoResponse.builder()
+                .connectivityInfo(Arrays.asList(connectivityInfo, connectivityInfo1)).build();
+        doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
+                .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
+
+        // ensure connectivity info is cached
+        connectivityInformation.getConnectivityInfo();
+        List<String> connectivityInfos = connectivityInformation.getCachedHostAddresses();
+        assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
+
+        // simulate cis call failing
+        when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class))).thenThrow(
+                ValidationException.class);
+        assertThrows(ValidationException.class, () -> connectivityInformation.getConnectivityInfo());
+
+        // ensure cached info is still there
+        connectivityInfos = connectivityInformation.getCachedHostAddresses();
         assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
     }
 

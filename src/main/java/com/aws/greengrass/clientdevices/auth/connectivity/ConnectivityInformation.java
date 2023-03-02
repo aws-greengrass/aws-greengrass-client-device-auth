@@ -13,8 +13,6 @@ import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoResponse;
-import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
-import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
 import java.util.Collections;
 import java.util.List;
@@ -66,6 +64,8 @@ public class ConnectivityInformation {
      * Get connectivity info.
      *
      * @return list of connectivity info items
+     * @throws software.amazon.awssdk.services.greengrassv2data.model.GreengrassV2DataException
+     * if getConnectivityInfo call fails
      */
     public List<ConnectivityInfo> getConnectivityInfo() {
         GetConnectivityInfoRequest getConnectivityInfoRequest =
@@ -73,15 +73,11 @@ public class ConnectivityInformation {
                         .build();
         List<ConnectivityInfo> connectivityInfoList = Collections.emptyList();
 
-        try {
-            GetConnectivityInfoResponse getConnectivityInfoResponse =
-                    clientFactory.getGreengrassV2DataClient().getConnectivityInfo(getConnectivityInfoRequest);
-            if (getConnectivityInfoResponse.hasConnectivityInfo()) {
-                // Filter out port and metadata since it is not needed
-                connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
-            }
-        } catch (ValidationException | ResourceNotFoundException e) {
-            LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
+        GetConnectivityInfoResponse getConnectivityInfoResponse =
+                clientFactory.getGreengrassV2DataClient().getConnectivityInfo(getConnectivityInfoRequest);
+        if (getConnectivityInfoResponse.hasConnectivityInfo()) {
+            // Filter out port and metadata since it is not needed
+            connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
         }
 
         // NOTE: Eventually this code will move into infrastructure and connectivity information

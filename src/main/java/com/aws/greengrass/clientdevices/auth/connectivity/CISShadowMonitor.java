@@ -27,7 +27,9 @@ import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedSubscription
 import software.amazon.awssdk.iot.iotshadow.model.ShadowState;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
+import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
+import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -225,6 +227,14 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 LOGGER.atDebug().kv(VERSION, version).cause(e)
                         .log("Retry workflow for getting connectivity info interrupted");
                 Thread.currentThread().interrupt();
+                return;
+            } catch (ValidationException | ResourceNotFoundException e) {
+                LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
+                try {
+                    updateCISShadowReportedState(desiredState);
+                } finally {
+                    lastVersion = version;
+                }
                 return;
             } catch (Exception e) {
                 LOGGER.atError().kv(VERSION, version).cause(e)
