@@ -31,13 +31,16 @@ import software.amazon.awssdk.services.greengrassv2data.model.InternalServerExce
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -221,7 +224,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         // to avoid blocking other MQTT subscribers in the Nucleus
         CompletableFuture.runAsync(() -> {
 
-            List<String> prevCachedHostAddresses = connectivityInformation.getCachedHostAddresses();
+            Set<String> prevCachedHostAddresses = new HashSet<>(connectivityInformation.getCachedHostAddresses());
 
             Optional<List<ConnectivityInfo>> connectivityInfo;
             try {
@@ -259,7 +262,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
             }
 
             // skip cert rotation if connectivity info hasn't changed
-            List<String> cachedHostAddresses = connectivityInformation.getCachedHostAddresses();
+            Set<String> cachedHostAddresses = new HashSet<>(connectivityInformation.getCachedHostAddresses());
             if (Objects.equals(prevCachedHostAddresses, cachedHostAddresses)) {
                 try {
                     LOGGER.atInfo().kv(VERSION, version)
@@ -276,7 +279,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
 
             try {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
-                    cg.generateCertificate(() -> cachedHostAddresses, "connectivity info was updated");
+                    cg.generateCertificate(() -> new ArrayList<>(cachedHostAddresses), "connectivity info was updated");
                 }
             } catch (CertificateGenerationException e) {
                 LOGGER.atError().kv(VERSION, version).cause(e).log("Failed to generate new certificates");
