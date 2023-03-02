@@ -26,6 +26,7 @@ import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedSubscriptionRequest;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowState;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
@@ -35,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -218,9 +220,14 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         // operation (particularly on low end devices) it is imperative that we process this event asynchronously
         // to avoid blocking other MQTT subscribers in the Nucleus
         CompletableFuture.runAsync(() -> {
+            Optional<List<ConnectivityInfo>> connectivityInfo;
             try {
-                RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInformation::getConnectivityInfo,
-                        "get-connectivity", LOGGER);
+                connectivityInfo = RetryUtils.runWithRetry(
+                        GET_CONNECTIVITY_RETRY_CONFIG,
+                        connectivityInformation::getConnectivityInfo,
+                        "get-connectivity",
+                        LOGGER
+                );
             } catch (InterruptedException e) {
                 LOGGER.atDebug().kv(VERSION, version).cause(e)
                         .log("Retry workflow for getting connectivity info interrupted");
@@ -230,6 +237,19 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 LOGGER.atError().kv(VERSION, version).cause(e)
                         .log("Failed to get connectivity info from cloud. Check that the core device's IoT policy "
                                 + "grants the greengrass:GetConnectivityInfo permission");
+                return;
+            }
+
+            if (!connectivityInfo.isPresent()) {
+                // CIS call failed for either ValidationException or ResourceNotFoundException.
+                // We won't retry in this case, but we will update the CIS shadow reported state
+                // to signal that we have fully processed this version.
+                try {
+                    updateCISShadowReportedState(desiredState);
+                } finally {
+                    // Don't process the same version again
+                    lastVersion = version;
+                }
                 return;
             }
 

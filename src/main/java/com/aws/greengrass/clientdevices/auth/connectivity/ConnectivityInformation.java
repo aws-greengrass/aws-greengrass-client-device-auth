@@ -19,6 +19,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.ValidationExceptio
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -65,9 +66,9 @@ public class ConnectivityInformation {
     /**
      * Get connectivity info.
      *
-     * @return list of connectivity info items
+     * @return list of connectivity info items, or empty if connectivity info does not exist
      */
-    public List<ConnectivityInfo> getConnectivityInfo() {
+    public Optional<List<ConnectivityInfo>> getConnectivityInfo() {
         GetConnectivityInfoRequest getConnectivityInfoRequest =
                 GetConnectivityInfoRequest.builder().thingName(Coerce.toString(deviceConfiguration.getThingName()))
                         .build();
@@ -82,6 +83,7 @@ public class ConnectivityInformation {
             }
         } catch (ValidationException | ResourceNotFoundException e) {
             LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
+            return Optional.empty();
         }
 
         // NOTE: Eventually this code will move into infrastructure and connectivity information
@@ -95,7 +97,7 @@ public class ConnectivityInformation {
         Set<HostAddress> hostAddresses = connectivityInfoList.stream().map(HostAddress::of).collect(Collectors.toSet());
         recordConnectivityInformationForSource("connectivity-information-service", hostAddresses);
 
-        return connectivityInfoList;
+        return Optional.of(connectivityInfoList);
     }
 
     /**
