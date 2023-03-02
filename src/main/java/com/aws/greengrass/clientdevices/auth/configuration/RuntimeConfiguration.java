@@ -11,7 +11,6 @@ import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
 import com.aws.greengrass.config.Topics;
-import com.aws.greengrass.config.UpdateBehaviorTree;
 import com.aws.greengrass.util.Coerce;
 import lombok.NonNull;
 
