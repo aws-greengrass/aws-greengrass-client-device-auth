@@ -93,6 +93,7 @@ public class Main {
         return new Arguments(agentId, address, port);
     }
 
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
     private static void doAll(String... args) throws Exception {
         Arguments arguments = parseArgs(args);
 
