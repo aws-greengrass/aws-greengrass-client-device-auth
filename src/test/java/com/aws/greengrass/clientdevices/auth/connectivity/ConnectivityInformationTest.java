@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.ValidationExceptio
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -35,7 +36,6 @@ import static com.aws.greengrass.deployment.DeviceConfiguration.DEVICE_PARAM_THI
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
@@ -87,9 +87,9 @@ public class ConnectivityInformationTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        List<ConnectivityInfo> connectivityInfos = connectivityInformation.getConnectivityInfo();
+        Optional<List<ConnectivityInfo>> connectivityInfos = connectivityInformation.getConnectivityInfo();
         verify(greengrassV2DataClient, times(1)).getConnectivityInfo(any(GetConnectivityInfoRequest.class));
-        assertThat(connectivityInfos, containsInAnyOrder(connectivityInfo, connectivityInfo1));
+        assertThat(connectivityInfos.get(), containsInAnyOrder(connectivityInfo, connectivityInfo1));
     }
 
     @Test
@@ -98,18 +98,18 @@ public class ConnectivityInformationTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        List<ConnectivityInfo> connectivityInfos = connectivityInformation.getConnectivityInfo();
+        Optional<List<ConnectivityInfo>> connectivityInfos = connectivityInformation.getConnectivityInfo();
         verify(greengrassV2DataClient, times(1)).getConnectivityInfo(any(GetConnectivityInfoRequest.class));
-        assertThat(connectivityInfos, is(empty()));
+        assertThat(connectivityInfos.get(), is(empty()));
     }
 
     @Test
-    void GIVEN_cloudThrowValidationException_WHEN_get_connectivity_info_THEN_exception_thrown(
+    void GIVEN_cloudThrowValidationException_WHEN_get_connectivity_info_THEN_no_connectivity_info_returned(
             ExtensionContext context) {
         ignoreExceptionOfType(context, ValidationException.class);
         when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class))).thenThrow(
                 ValidationException.class);
-        assertThrows(ValidationException.class, () -> connectivityInformation.getConnectivityInfo());
+        assertThat(connectivityInformation.getConnectivityInfo().isPresent(), is(false));
     }
 
     @Test
@@ -131,7 +131,8 @@ public class ConnectivityInformationTest {
     }
 
     @Test
-    void GIVEN_cached_connectivity_info_WHEN_cis_call_fails_THEN_cached_connectivity_remains() {
+    void GIVEN_cached_connectivity_info_WHEN_cis_call_fails_THEN_cached_connectivity_remains(ExtensionContext context) {
+        ignoreExceptionOfType(context, ValidationException.class);
         ConnectivityInfo connectivityInfo =
                 ConnectivityInfo.builder().hostAddress("172.8.8.10").metadata("").id("172.8.8.10").portNumber(8883)
                         .build();
@@ -151,7 +152,7 @@ public class ConnectivityInformationTest {
         // simulate cis call failing
         when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class))).thenThrow(
                 ValidationException.class);
-        assertThrows(ValidationException.class, () -> connectivityInformation.getConnectivityInfo());
+        connectivityInformation.getConnectivityInfo();
 
         // ensure cached info is still there
         connectivityInfos = connectivityInformation.getCachedHostAddresses();

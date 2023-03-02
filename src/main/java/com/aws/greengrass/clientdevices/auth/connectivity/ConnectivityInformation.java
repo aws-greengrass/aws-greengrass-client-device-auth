@@ -13,10 +13,13 @@ import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoResponse;
+import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -63,21 +66,24 @@ public class ConnectivityInformation {
     /**
      * Get connectivity info.
      *
-     * @return list of connectivity info items
-     * @throws software.amazon.awssdk.services.greengrassv2data.model.GreengrassV2DataException
-     * if getConnectivityInfo call fails
+     * @return list of connectivity info items, or empty if connectivity info does not exist
      */
-    public List<ConnectivityInfo> getConnectivityInfo() {
+    public Optional<List<ConnectivityInfo>> getConnectivityInfo() {
         GetConnectivityInfoRequest getConnectivityInfoRequest =
                 GetConnectivityInfoRequest.builder().thingName(Coerce.toString(deviceConfiguration.getThingName()))
                         .build();
         List<ConnectivityInfo> connectivityInfoList = Collections.emptyList();
 
-        GetConnectivityInfoResponse getConnectivityInfoResponse =
-                clientFactory.getGreengrassV2DataClient().getConnectivityInfo(getConnectivityInfoRequest);
-        if (getConnectivityInfoResponse.hasConnectivityInfo()) {
-            // Filter out port and metadata since it is not needed
-            connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
+        try {
+            GetConnectivityInfoResponse getConnectivityInfoResponse =
+                    clientFactory.getGreengrassV2DataClient().getConnectivityInfo(getConnectivityInfoRequest);
+            if (getConnectivityInfoResponse.hasConnectivityInfo()) {
+                // Filter out port and metadata since it is not needed
+                connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
+            }
+        } catch (ValidationException | ResourceNotFoundException e) {
+            LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
+            return Optional.empty();
         }
 
         // NOTE: Eventually this code will move into infrastructure and connectivity information
@@ -91,7 +97,7 @@ public class ConnectivityInformation {
         Set<HostAddress> hostAddresses = connectivityInfoList.stream().map(HostAddress::of).collect(Collectors.toSet());
         recordConnectivityInformationForSource("connectivity-information-service", hostAddresses);
 
-        return connectivityInfoList;
+        return Optional.of(connectivityInfoList);
     }
 
     /**

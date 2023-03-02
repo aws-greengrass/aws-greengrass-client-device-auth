@@ -594,7 +594,7 @@ public class CISShadowMonitorTest {
              */
             FAIL_ONCE,
             /**
-             * Throw a {@link software.amazon.awssdk.services.greengrassv2data.model.ValidationException}
+             * Simulate CIS throwing a validation exception.
              */
             THROW_VALIDATION_EXCEPTION
         }
@@ -617,12 +617,14 @@ public class CISShadowMonitorTest {
         }
 
         @Override
-        public List<ConnectivityInfo> getConnectivityInfo() {
+        public Optional<List<ConnectivityInfo>> getConnectivityInfo() {
             List<ConnectivityInfo> connectivityInfo = doGetConnectivityInfo();
-            cachedHostAddresses = connectivityInfo.stream().map(ConnectivityInfo::hostAddress).distinct()
-                    .collect(Collectors.toList());
-            responseHashes.add(cachedHostAddresses.hashCode());
-            return connectivityInfo;
+            if (connectivityInfo != null) {
+                cachedHostAddresses = connectivityInfo.stream().map(ConnectivityInfo::hostAddress).distinct()
+                        .collect(Collectors.toList());
+                responseHashes.add(cachedHostAddresses.hashCode());
+            }
+            return Optional.ofNullable(connectivityInfo);
         }
 
         private List<ConnectivityInfo> doGetConnectivityInfo() {
@@ -637,8 +639,8 @@ public class CISShadowMonitorTest {
                 case CONSTANT:
                     return CONNECTIVITY_INFO_SAMPLE.get();
                 case THROW_VALIDATION_EXCEPTION:
-                    // ValidationException is private, so mocking
-                    throw mock(ValidationException.class);
+                    // represents no info received
+                    return null;
                 default:
                     return Collections.emptyList();
             }

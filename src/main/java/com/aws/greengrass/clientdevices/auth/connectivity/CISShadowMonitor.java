@@ -26,10 +26,9 @@ import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedSubscriptionRequest;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowState;
 import software.amazon.awssdk.iot.iotshadow.model.UpdateShadowRequest;
+import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
-import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
-import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -37,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -220,26 +220,32 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         // operation (particularly on low end devices) it is imperative that we process this event asynchronously
         // to avoid blocking other MQTT subscribers in the Nucleus
         CompletableFuture.runAsync(() -> {
+            Optional<List<ConnectivityInfo>> connectivityInfo;
             try {
-                RetryUtils.runWithRetry(GET_CONNECTIVITY_RETRY_CONFIG, connectivityInformation::getConnectivityInfo,
-                        "get-connectivity", LOGGER);
+                connectivityInfo = RetryUtils.runWithRetry(
+                        GET_CONNECTIVITY_RETRY_CONFIG,
+                        connectivityInformation::getConnectivityInfo,
+                        "get-connectivity",
+                        LOGGER
+                );
             } catch (InterruptedException e) {
                 LOGGER.atDebug().kv(VERSION, version).cause(e)
                         .log("Retry workflow for getting connectivity info interrupted");
                 Thread.currentThread().interrupt();
                 return;
-            } catch (ValidationException | ResourceNotFoundException e) {
-                LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
+            } catch (Exception e) {
+                LOGGER.atError().kv(VERSION, version).cause(e)
+                        .log("Failed to get connectivity info from cloud. Check that the core device's IoT policy "
+                                + "grants the greengrass:GetConnectivityInfo permission");
+                return;
+            }
+
+            if (!connectivityInfo.isPresent()) {
                 try {
                     updateCISShadowReportedState(desiredState);
                 } finally {
                     lastVersion = version;
                 }
-                return;
-            } catch (Exception e) {
-                LOGGER.atError().kv(VERSION, version).cause(e)
-                        .log("Failed to get connectivity info from cloud. Check that the core device's IoT policy "
-                                + "grants the greengrass:GetConnectivityInfo permission");
                 return;
             }
 
