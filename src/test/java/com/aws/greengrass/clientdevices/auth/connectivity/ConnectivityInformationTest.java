@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.ValidationExceptio
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -86,9 +87,9 @@ public class ConnectivityInformationTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        List<ConnectivityInfo> connectivityInfos = connectivityInformation.getConnectivityInfo();
+        Optional<List<ConnectivityInfo>> connectivityInfos = connectivityInformation.getConnectivityInfo();
         verify(greengrassV2DataClient, times(1)).getConnectivityInfo(any(GetConnectivityInfoRequest.class));
-        assertThat(connectivityInfos, containsInAnyOrder(connectivityInfo, connectivityInfo1));
+        assertThat(connectivityInfos.get(), containsInAnyOrder(connectivityInfo, connectivityInfo1));
     }
 
     @Test
@@ -97,9 +98,9 @@ public class ConnectivityInformationTest {
         doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
                 .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
 
-        List<ConnectivityInfo> connectivityInfos = connectivityInformation.getConnectivityInfo();
+        Optional<List<ConnectivityInfo>> connectivityInfos = connectivityInformation.getConnectivityInfo();
         verify(greengrassV2DataClient, times(1)).getConnectivityInfo(any(GetConnectivityInfoRequest.class));
-        assertThat(connectivityInfos, is(empty()));
+        assertThat(connectivityInfos.get(), is(empty()));
     }
 
     @Test
@@ -108,8 +109,7 @@ public class ConnectivityInformationTest {
         ignoreExceptionOfType(context, ValidationException.class);
         when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class))).thenThrow(
                 ValidationException.class);
-
-        assertThat(connectivityInformation.getConnectivityInfo(), is(empty()));
+        assertThat(connectivityInformation.getConnectivityInfo().isPresent(), is(false));
     }
 
     @Test
@@ -127,6 +127,35 @@ public class ConnectivityInformationTest {
 
         connectivityInformation.getConnectivityInfo();
         List<String> connectivityInfos = connectivityInformation.getCachedHostAddresses();
+        assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
+    }
+
+    @Test
+    void GIVEN_cached_connectivity_info_WHEN_cis_call_fails_THEN_cached_connectivity_remains(ExtensionContext context) {
+        ignoreExceptionOfType(context, ValidationException.class);
+        ConnectivityInfo connectivityInfo =
+                ConnectivityInfo.builder().hostAddress("172.8.8.10").metadata("").id("172.8.8.10").portNumber(8883)
+                        .build();
+        ConnectivityInfo connectivityInfo1 =
+                ConnectivityInfo.builder().hostAddress("localhost").metadata("").id("localhost").portNumber(8883)
+                        .build();
+        GetConnectivityInfoResponse getConnectivityInfoResponse = GetConnectivityInfoResponse.builder()
+                .connectivityInfo(Arrays.asList(connectivityInfo, connectivityInfo1)).build();
+        doReturn(getConnectivityInfoResponse).when(greengrassV2DataClient)
+                .getConnectivityInfo(any(GetConnectivityInfoRequest.class));
+
+        // ensure connectivity info is cached
+        connectivityInformation.getConnectivityInfo();
+        List<String> connectivityInfos = connectivityInformation.getCachedHostAddresses();
+        assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
+
+        // simulate cis call failing
+        when(greengrassV2DataClient.getConnectivityInfo(any(GetConnectivityInfoRequest.class))).thenThrow(
+                ValidationException.class);
+        connectivityInformation.getConnectivityInfo();
+
+        // ensure cached info is still there
+        connectivityInfos = connectivityInformation.getCachedHostAddresses();
         assertThat(connectivityInfos, containsInAnyOrder("172.8.8.10", "localhost"));
     }
 
