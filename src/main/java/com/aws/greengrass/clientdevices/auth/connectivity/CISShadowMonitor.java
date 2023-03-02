@@ -241,9 +241,13 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
             }
 
             if (!connectivityInfo.isPresent()) {
+                // CIS call failed for either ValidationException or ResourceNotFoundException.
+                // We won't retry in this case, but we will update the CIS shadow reported state
+                // to signal that we have fully processed this version.
                 try {
                     updateCISShadowReportedState(desiredState);
                 } finally {
+                    // Don't process the same version again
                     lastVersion = version;
                 }
                 return;
