@@ -11,15 +11,15 @@ import com.aws.greengrass.testing.mqtt5.client.sdkmqtt.MqttLibImpl;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.experimental.UtilityClass;
-
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Main class of application.
  */
 @UtilityClass
 public class Main {
+    private static final Logger logger = LogManager.getLogger(Main.class);
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     private static final String DEFAULT_GRPC_SERVER_IP = "127.0.0.1";
@@ -27,9 +27,6 @@ public class Main {
 
     private static final int PORT_MIN = 1;
     private static final int PORT_MAX = 65_535;
-
-    private static final Logger logger = Logger.getLogger(Main.class.getName());
-
 
     @Data
     @AllArgsConstructor
@@ -44,22 +41,24 @@ public class Main {
      * The main method of application.
      *
      * @param args program's arguments
-     * @throws InterruptedException when main thread was interrupted
      */
-    @SuppressWarnings("PMD.DoNotCallSystemExit")
-    public static void main(String[] args) throws InterruptedException {
+    @SuppressWarnings({"PMD.DoNotCallSystemExit", "PMD.AvoidCatchingGenericException"})
+    public static void main(String[] args) {
         int rc;
         try {
             doAll(args);
-            logger.log(Level.INFO, "Execution done");
+            logger.atInfo().log("Execution done successfully");
             rc = 0;
         } catch (IllegalArgumentException ex) {
-            logger.log(Level.WARNING, "Invalid arguments", ex);
+            logger.atError().withThrowable(ex).log("Invalid arguments");
             printUsage();
             rc = 1;
         } catch (ClientException ex) {
-            logger.log(Level.WARNING, "ClientException", ex);
+            logger.atError().withThrowable(ex).log("ClientException");
             rc = 2;
+        } catch (Exception ex) {
+            logger.atError().withThrowable(ex).log("Exception");
+            rc = 3;
         }
         System.exit(rc);
     }
@@ -76,7 +75,7 @@ public class Main {
                 // agent_id ip port
                 port = Integer.parseInt(args[2]);
                 if (port < PORT_MIN || port > PORT_MAX) {
-                    throw new IllegalArgumentException("Invalid port value %s, expected [1..65535]");
+                    throw new IllegalArgumentException("Invalid port value " + port + " , expected [1..65535]");
                 }
                 // fallthrough
             case 2:
@@ -94,18 +93,20 @@ public class Main {
         return new Arguments(agentId, address, port);
     }
 
-    private static void doAll(String... args) throws InterruptedException, ClientException {
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
+    private static void doAll(String... args) throws Exception {
         Arguments arguments = parseArgs(args);
 
         GRPCLib gprcLib = new GRPCLibImpl();
         GRPCLink link = gprcLib.makeLink(arguments.getAgentId(), arguments.getHost(), arguments.getPort());
 
-        MqttLib mqttLib = new MqttLibImpl();
-        String reason = link.handleRequests(mqttLib);
-        link.shutdown(reason);
+        try (MqttLib mqttLib = new MqttLibImpl()) {
+            String reason = link.handleRequests(mqttLib);
+            link.shutdown(reason);
+        }
     }
 
     private static void printUsage() {
-        logger.log(Level.INFO, "Usage: agent_id [host [port]]");
+        logger.atWarn().log("Usage: agent_id [host [port]]");
     }
 }
