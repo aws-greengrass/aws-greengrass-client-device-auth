@@ -44,10 +44,9 @@ public class Main {
      * The main method of application.
      *
      * @param args program's arguments
-     * @throws Exception on errors
      */
-    @SuppressWarnings("PMD.DoNotCallSystemExit")
-    public static void main(String[] args) throws Exception {
+    @SuppressWarnings({"PMD.DoNotCallSystemExit", "PMD.AvoidCatchingGenericException"})
+    public static void main(String[] args) {
         int rc;
         try {
             doAll(args);
@@ -60,6 +59,9 @@ public class Main {
         } catch (ClientException ex) {
             logger.log(Level.WARNING, "ClientException", ex);
             rc = 2;
+        } catch (Exception ex) {
+            logger.log(Level.WARNING, "Exception", ex);
+            rc = 3;
         }
         System.exit(rc);
     }

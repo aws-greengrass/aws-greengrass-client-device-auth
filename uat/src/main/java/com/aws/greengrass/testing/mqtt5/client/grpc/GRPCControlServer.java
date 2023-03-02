@@ -31,11 +31,11 @@ import java.util.logging.Logger;
  */
 class GRPCControlServer {
     private static final int PORT_MIN = 1;
-    private static final int PORT_MAX = 65535;
+    private static final int PORT_MAX = 65_535;
 
     private static final int KEEPALIVE_OFF = 0;
     private static final int KEEPALIVE_MIN = 5;
-    private static final int KEEPALIVE_MAX = 65535;
+    private static final int KEEPALIVE_MAX = 65_535;
 
     private static final int REASON_MIN = 0;
     private static final int REASON_MAX = 255;
