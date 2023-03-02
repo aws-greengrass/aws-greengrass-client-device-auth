@@ -452,6 +452,51 @@ public class CISShadowMonitorTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void GIVEN_CISShadowMonitor_WHEN_connectivity_info_does_not_change_across_multiple_deltas_received_THEN_extra_processing_is_ignored() throws Exception {
+        // make connectivity call yield the same response each time,
+        // to match scenario where we receive same shadow delta version multiple times.
+        connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.CONSTANT);
+
+        // capture the subscription callback for shadow delta update
+        ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
+        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
+                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+
+        // generated list of deltas to feed to the shadow monitor
+        List<Map<String, Object>> deltas =
+                IntStream.range(0, 5).mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
+                        .collect(Collectors.toList());
+        Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
+
+        // notify when last shadow update is published
+        WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
+                .expectedReportedState(lastDelta) // reported state updated to desired state
+                .expectedDesiredState(null) // desired state isn't modified
+                .build();
+        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean())).thenAnswer(
+                whenUpdateIsPublished);
+
+        cisShadowMonitor.startMonitor();
+        cisShadowMonitor.addToMonitor(certificateGenerator);
+
+        // trigger update delta subscription callbacks
+        AtomicInteger version = new AtomicInteger(1);
+        deltas.forEach(delta -> {
+            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
+            deltaUpdatedEvent.version = version.getAndIncrement();
+            deltaUpdatedEvent.state = new HashMap<>(delta);
+
+            // original message
+            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(
+                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
+        });
+
+        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
+        verifyCertsRotatedWhenConnectivityChanges();
+    }
+
+    @Test
     void GIVEN_CISShadowMonitor_WHEN_stop_monitor_THEN_unsubscribe() {
         AtomicInteger numSubscriptions = new AtomicInteger();
         when(shadowClientConnection.subscribe(any(), any(), any())).thenAnswer(invocation -> {
@@ -570,6 +615,21 @@ public class CISShadowMonitorTest {
     }
 
 
+    static class FakeConnectivityInfoCache extends ConnectivityInfoCache {
+
+        private final Map<String, Set<HostAddress>> cache = new HashMap<>();
+
+        @Override
+        public void put(String source, Set<HostAddress> connectivityInfo) {
+            cache.put(source, connectivityInfo);
+        }
+
+        @Override
+        public Set<HostAddress> getAll() {
+            return cache.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
+        }
+    }
+
     static class FakeConnectivityInformation extends ConnectivityInformation {
 
         private final AtomicReference<List<ConnectivityInfo>> CONNECTIVITY_INFO_SAMPLE =
@@ -577,7 +637,6 @@ public class CISShadowMonitorTest {
         private final Set<Integer> responseHashes = new CopyOnWriteArraySet<>();
         private final AtomicReference<Mode> mode = new AtomicReference<>(Mode.RANDOM);
         private final AtomicBoolean failed = new AtomicBoolean();
-        private List<String> cachedHostAddresses;
 
         enum Mode {
             /**
@@ -600,7 +659,7 @@ public class CISShadowMonitorTest {
         }
 
         FakeConnectivityInformation() {
-            super(null, null, null);
+            super(null, null, new FakeConnectivityInfoCache());
         }
 
         void setMode(Mode mode) {
@@ -620,9 +679,11 @@ public class CISShadowMonitorTest {
         public Optional<List<ConnectivityInfo>> getConnectivityInfo() {
             List<ConnectivityInfo> connectivityInfo = doGetConnectivityInfo();
             if (connectivityInfo != null) {
-                cachedHostAddresses = connectivityInfo.stream().map(ConnectivityInfo::hostAddress).distinct()
-                        .collect(Collectors.toList());
-                responseHashes.add(cachedHostAddresses.hashCode());
+                Set<HostAddress> addresses = connectivityInfo.stream()
+                        .map(HostAddress::of)
+                        .collect(Collectors.toSet());
+                getConnectivityInfoCache().put("source", addresses);
+                responseHashes.add(addresses.hashCode());
             }
             return Optional.ofNullable(connectivityInfo);
         }
