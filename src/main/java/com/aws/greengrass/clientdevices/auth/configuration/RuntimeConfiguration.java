@@ -265,14 +265,8 @@ public final class RuntimeConfiguration {
      * @param hostAddresses  host addresses
      */
     public void putHostAddressForSource(String source, Set<HostAddress> hostAddresses) {
-        Map<String, Object> hostAddressesToMerge = new HashMap<>();
-        hostAddressesToMerge.put(
-                source,
-                hostAddresses.stream().map(HostAddress::getHost).collect(Collectors.toList()));
-        config.lookupTopics(HOST_ADDRESSES_KEY, source)
-                .updateFromMap(hostAddressesToMerge,
-                        new UpdateBehaviorTree(UpdateBehaviorTree.UpdateBehavior.REPLACE,
-                                System.currentTimeMillis()));
+        config.lookupTopics(HOST_ADDRESSES_KEY).lookup(source)
+                .withValue(hostAddresses.stream().map(HostAddress::getHost).collect(Collectors.toList()));
     }
 
     /**
@@ -287,20 +281,15 @@ public final class RuntimeConfiguration {
         }
 
         Set<HostAddress> connectivityInfo = new HashSet<>();
-        for (Object addrsBySource : hostAddressesTopics.toPOJO().values()) {
-            if (!(addrsBySource instanceof Map)) {
+        for (Object addrs : hostAddressesTopics.toPOJO().values()) {
+            if (!(addrs instanceof Collection)) {
                 continue;
             }
-            for (Object addrs : ((Map<?,?>) addrsBySource).values()) {
-                if (!(addrs instanceof Collection)) {
+            for (Object addr : (Collection<?>) addrs) {
+                if (!(addr instanceof String)) {
                     continue;
                 }
-                for (Object addr : (Collection<?>) addrs) {
-                    if (!(addr instanceof String)) {
-                        continue;
-                    }
-                    connectivityInfo.add(HostAddress.of((String) addr));
-                }
+                connectivityInfo.add(HostAddress.of((String) addr));
             }
         }
         return connectivityInfo;
