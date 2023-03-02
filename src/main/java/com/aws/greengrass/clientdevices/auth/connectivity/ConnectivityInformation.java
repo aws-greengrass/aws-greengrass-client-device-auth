@@ -58,7 +58,7 @@ public class ConnectivityInformation {
     }
 
     /**
-     * Get cached connectivity info.
+     * Get cached connectivity info. Items in this list are unique.
      *
      * @return list of cached connectivity info items
      */
