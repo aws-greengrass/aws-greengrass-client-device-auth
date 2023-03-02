@@ -264,7 +264,7 @@ public final class RuntimeConfiguration {
      * @param hostAddresses  host addresses
      */
     public void putHostAddressForSource(String source, Set<HostAddress> hostAddresses) {
-        config.lookupTopics(HOST_ADDRESSES_KEY).lookup(source)
+        config.lookup(HOST_ADDRESSES_KEY, source)
                 .withValue(hostAddresses.stream().map(HostAddress::getHost).collect(Collectors.toList()));
     }
 
