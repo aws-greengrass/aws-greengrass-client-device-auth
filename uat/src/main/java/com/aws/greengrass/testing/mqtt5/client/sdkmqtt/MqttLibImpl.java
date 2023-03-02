@@ -8,17 +8,17 @@ package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Interface of MQTT5 library.
  */
 public class MqttLibImpl implements MqttLib {
-    private static final Logger logger = Logger.getLogger(MqttLibImpl.class.getName());
+    private static final Logger logger = LogManager.getLogger(MqttLibImpl.class);
 
     private final ConcurrentHashMap<Integer, MqttConnection> connections = new ConcurrentHashMap<>();
     private final AtomicInteger nextConnectionId = new AtomicInteger();
@@ -92,7 +92,7 @@ public class MqttLibImpl implements MqttLib {
                     connection.disconnect(MqttConnection.DEFAULT_DISCONNECT_REASON);
                 }
             } catch (MqttException ex) {
-                logger.log(Level.WARNING, "failed during disconnect", ex);
+                logger.atError().withThrowable(ex).log("failed during disconnect");
             }
         });
     }

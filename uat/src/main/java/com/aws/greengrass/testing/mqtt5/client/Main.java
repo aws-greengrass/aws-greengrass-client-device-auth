@@ -11,15 +11,15 @@ import com.aws.greengrass.testing.mqtt5.client.sdkmqtt.MqttLibImpl;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.experimental.UtilityClass;
-
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Main class of application.
  */
 @UtilityClass
 public class Main {
+    private static final Logger logger = LogManager.getLogger(Main.class);
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     private static final String DEFAULT_GRPC_SERVER_IP = "127.0.0.1";
@@ -27,9 +27,6 @@ public class Main {
 
     private static final int PORT_MIN = 1;
     private static final int PORT_MAX = 65_535;
-
-    private static final Logger logger = Logger.getLogger(Main.class.getName());
-
 
     @Data
     @AllArgsConstructor
@@ -50,17 +47,17 @@ public class Main {
         int rc;
         try {
             doAll(args);
-            logger.log(Level.INFO, "Execution done");
+            logger.atInfo().log("Execution done successfully");
             rc = 0;
         } catch (IllegalArgumentException ex) {
-            logger.log(Level.WARNING, "Invalid arguments", ex);
+            logger.atError().withThrowable(ex).log("Invalid arguments");
             printUsage();
             rc = 1;
         } catch (ClientException ex) {
-            logger.log(Level.WARNING, "ClientException", ex);
+            logger.atError().withThrowable(ex).log("ClientException");
             rc = 2;
         } catch (Exception ex) {
-            logger.log(Level.WARNING, "Exception", ex);
+            logger.atError().withThrowable(ex).log("Exception");
             rc = 3;
         }
         System.exit(rc);
@@ -109,6 +106,6 @@ public class Main {
     }
 
     private static void printUsage() {
-        logger.log(Level.INFO, "Usage: agent_id [host [port]]");
+        logger.atWarn().log("Usage: agent_id [host [port]]");
     }
 }

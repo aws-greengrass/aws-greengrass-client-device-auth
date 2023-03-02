@@ -22,10 +22,10 @@ public interface MqttLib extends AutoCloseable {
         private int port;
         private int keepalive;
         private boolean cleanSession;
-        private String ca;
-        private String cert;
-        private String key;
         private int connectTimeout;
+        private String ca;                      // optional
+        private String cert;                    // optional
+        private String key;                     // optional
     }
 
     /**

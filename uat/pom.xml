@@ -41,6 +41,17 @@
             <version>${lombok.version}</version>
             <scope>provided</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-1.2-api</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
         <dependency>
             <groupId>software.amazon.awssdk.iotdevicesdk</groupId>
             <artifactId>aws-iot-device-sdk</artifactId>
@@ -279,6 +290,7 @@
         <jar.name>test-iot-device-sdk-mqtt5-client</jar.name>
         <main.class>com.aws.greengrass.testing.mqtt5.client.Main</main.class>
         <!-- Dependencies versions -->
+        <log4j.version>2.20.0</log4j.version>
         <iot.device.sdk.version>1.11.2</iot.device.sdk.version>
         <protobuf.version>3.21.7</protobuf.version>
         <protoc.version>3.21.7</protoc.version>

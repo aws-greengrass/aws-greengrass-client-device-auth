@@ -8,18 +8,19 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 import com.aws.greengrass.testing.mqtt5.client.GRPCLink;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Implementation of gRPC bidirectional link.
  */
-public class GRPCLinkImpl implements GRPCLink  {
+public class GRPCLinkImpl implements GRPCLink {
+    private static final Logger logger = LogManager.getLogger(GRPCLinkImpl.class);
+
     private static final int AUTOSELECT_PORT = 0;
 
-    private static final Logger logger = Logger.getLogger(GRPCLinkImpl.class.getName());
     private final GRPCDiscoveryClient client;
     private final GRPCControlServer server;
 
@@ -34,13 +35,12 @@ public class GRPCLinkImpl implements GRPCLink  {
      */
     public GRPCLinkImpl(String agentId, String host, int port) throws GRPCException {
         super();
-        logger.log(Level.INFO, "Making gPRC link with {0}:{1} as {2}",
-                    new Object[]{host, String.valueOf(port), agentId});
+        logger.atInfo().log("Making gPRC link with {}:{} as {}", host, port, agentId);
 
         String otfAddress = buildAddress(host, port);
         GRPCDiscoveryClient client = new GRPCDiscoveryClient(agentId, otfAddress);
         String localIP = client.registerAgent();
-        logger.log(Level.INFO, "Local address is {0}", localIP);
+        logger.atInfo().log("Local address is {0}", localIP);
 
         try {
             GRPCControlServer server = new GRPCControlServer(client, localIP, AUTOSELECT_PORT);
@@ -63,7 +63,7 @@ public class GRPCLinkImpl implements GRPCLink  {
      */
     @Override
     public String handleRequests(MqttLib mqttLib) throws GRPCException, InterruptedException {
-        logger.log(Level.INFO, "Handle gRPC requests");
+        logger.atInfo().log("Handle gRPC requests");
         server.waiting(mqttLib);
         return  "Agent shutdown by OTF request '" + server.getShutdownReason() + "'";
     }
@@ -76,7 +76,7 @@ public class GRPCLinkImpl implements GRPCLink  {
      */
     @Override
     public void shutdown(String reason) throws GRPCException {
-        logger.log(Level.INFO, "Shutdown gPRC link");
+        logger.atInfo().log("Shutdown gPRC link");
         client.unregisterAgent(reason);
         server.close();
         client.close();

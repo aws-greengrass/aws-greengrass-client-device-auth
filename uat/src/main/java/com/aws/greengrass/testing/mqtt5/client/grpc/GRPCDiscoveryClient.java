@@ -15,15 +15,14 @@ import io.grpc.Grpc;
 import io.grpc.InsecureChannelCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
-
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Implementation of gRPC client used to discover agent.
  */
 class GRPCDiscoveryClient {
-    private static final Logger logger = Logger.getLogger(GRPCDiscoveryClient.class.getName());
+    private static final Logger logger = LogManager.getLogger(GRPCDiscoveryClient.class);
 
 
     private final String agentId;
@@ -37,6 +36,7 @@ class GRPCDiscoveryClient {
      * @throws GRPCException on errors
      */
     GRPCDiscoveryClient(String agentId, String address) throws GRPCException {
+        super();
         this.agentId = agentId;
         ManagedChannel channel = Grpc.newChannelBuilder(address, InsecureChannelCredentials.create()).build();
         this.blockingStub = MqttAgentDiscoveryGrpc.newBlockingStub(channel);
@@ -57,7 +57,7 @@ class GRPCDiscoveryClient {
         try {
             reply = blockingStub.registerAgent(request);
         } catch (StatusRuntimeException ex) {
-            logger.log(Level.WARNING, "gRPC request failed", ex);
+            logger.atError().withThrowable(ex).log("gRPC request failed");
             throw new GRPCException(ex);
         }
         return reply.getAddress();
@@ -78,7 +78,7 @@ class GRPCDiscoveryClient {
         try {
             blockingStub.discoveryAgent(request);
         } catch (StatusRuntimeException ex) {
-            logger.log(Level.WARNING, "gRPC request failed", ex);
+            logger.atError().withThrowable(ex).log("gRPC request failed");
             throw new GRPCException(ex);
         }
     }
@@ -97,11 +97,12 @@ class GRPCDiscoveryClient {
         try {
             blockingStub.unregisterAgent(request);
         } catch (StatusRuntimeException ex) {
-            logger.log(Level.WARNING, "gRPC request failed", ex);
+            logger.atError().withThrowable(ex).log("gRPC request failed");
             throw new GRPCException(ex);
         }
     }
 
-    public void close() {
+    void close() {
+        // TODO: implement
     }
 }

@@ -132,7 +132,7 @@ message MqttConnectRequest {
     string host = 2;                                    // host of MQTT broker
     int32 port = 3;                                     // port of MQTT broker
     int32 keepalive = 4;                                // MQTT keep alive interval in seconds
-    bool cleanSession = 5;                              // clean sesions flag
+    bool cleanSession = 5;                              // clean sesions (clean start) flag
     MqttProtoVersion protocolVersion = 6;               // version of MQTT protocol to use, currently only 5 is supported
     int32 connectTimeout = 7;                           // connect timeout in seconds
     optional Mqtt5Properties properties = 8;            // CONNECT packet MQTT 5 properties
