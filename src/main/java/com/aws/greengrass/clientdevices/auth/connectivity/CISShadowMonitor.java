@@ -280,7 +280,6 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     /**
      * Task for processing the CIS shadow. The goal is to rotate
      * certificates if we detect that connectivity info has changed.
-     * This task is triggered by
      */
     private class ProcessCISShadowTask implements Runnable {
 
