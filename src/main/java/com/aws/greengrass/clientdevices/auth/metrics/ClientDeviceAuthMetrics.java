@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.clientdevices.auth.metrics;
 
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.telemetry.impl.Metric;
 import com.aws.greengrass.telemetry.impl.MetricFactory;
 import com.aws.greengrass.telemetry.models.TelemetryAggregation;
@@ -30,6 +32,7 @@ public class ClientDeviceAuthMetrics {
     private final AtomicLong serviceError = new AtomicLong();
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
+    private static final Logger logger = LogManager.getLogger(ClientDeviceAuthMetrics.class);
     private static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
     static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS =
             "SubscribeToCertificateUpdates.Success";
@@ -64,8 +67,8 @@ public class ClientDeviceAuthMetrics {
      * Emit metrics using Metric Factory.
      */
     public void emitMetrics() {
-        // TODO need to call this function on a timer
         List<Metric> retrievedMetrics = collectMetrics();
+        logger.atInfo().log("Emitting metrics: ", retrievedMetrics);
         for (Metric retrievedMetric : retrievedMetrics) {
             mf.putMetricData(retrievedMetric);
         }
