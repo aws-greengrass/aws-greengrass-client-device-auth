@@ -538,15 +538,6 @@ public class CISShadowMonitorTest {
         verifyCertsRotatedWhenConnectivityChanges();
     }
 
-    private void waitForSubscriptionToShadowTopics() throws InterruptedException {
-        AtomicInteger numSubscriptions = new AtomicInteger();
-        when(shadowClientConnection.subscribe(any(), any(), any())).thenAnswer(invocation -> {
-            numSubscriptions.incrementAndGet();
-            return DUMMY_PACKET_ID;
-        });
-        TestHelpers.eventuallyTrue(() -> numSubscriptions.get() == 2);
-    }
-
     @Test
     void GIVEN_CISShadowMonitor_WHEN_stop_monitor_THEN_unsubscribe() throws InterruptedException {
         AtomicInteger numSubscriptions = new AtomicInteger();
