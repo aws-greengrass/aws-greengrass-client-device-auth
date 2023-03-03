@@ -46,10 +46,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -80,14 +78,6 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     private IotShadowClient iotShadowClient;
     private Future<?> subscribeTaskFuture;
     /**
-     * Task to process a CIS shadow.
-     */
-    private Future<?> shadowTask;
-    /**
-     * Protects access to {@link CISShadowMonitor#shadowTask}.
-     */
-    private final Object shadowTaskLock = new Object();
-    /**
      * Queue for incoming requests to process the CIS shadow.
      * We receive requests whenever CIS shadow has a delta update, or
      * when we request a shadow (get shadow) during startup or when we
@@ -96,10 +86,9 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      */
     private final CISShadowProcessingQueue queue = new CISShadowProcessingQueue();
     /**
-     * Task that pulls a {@link ProcessCISShadowTask} from the queue
-     * and executes it, if one exists.
+     * Pulls tasks off the {@link CISShadowMonitor#queue} and runs them.
      */
-    private Future<?> processShadowTasks;
+    private final ShadowTaskProcessor processor = new ShadowTaskProcessor();
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
     private final String shadowName;
@@ -149,29 +138,19 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 Thread.currentThread().interrupt();
             }
         });
-        if (processShadowTasks != null) {
-            processShadowTasks.cancel(true);
-        }
-        processShadowTasks = executorService.submit(this::processShadowTasks);
+        processor.start();
     }
 
     /**
      * Stop shadow monitor.
      */
     public void stopMonitor() {
-        if (processShadowTasks != null) {
-            processShadowTasks.cancel(true);
-        }
         if (subscribeTaskFuture != null) {
             subscribeTaskFuture.cancel(true);
         }
         unsubscribeFromShadowTopics();
-        synchronized (shadowTaskLock) {
-            if (shadowTask != null) {
-                shadowTask.cancel(true);
-                queue.clear();
-            }
-        }
+        processor.stop();
+        queue.clear();
     }
 
     /**
@@ -247,41 +226,6 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         queue.queue(new ProcessCISShadowTask(event.version, event.state));
     }
 
-    private void processShadowTasks() {
-        while (!Thread.currentThread().isInterrupted()) {
-            try {
-                waitForShadowTaskToComplete(1000);
-                ProcessCISShadowTask task = queue.poll();
-                synchronized (shadowTaskLock) {
-                    if (!isShadowTaskComplete()) {
-                        queue.queue(task);
-                        continue;
-                    }
-                    shadowTask = executorService.submit(task);
-                }
-            } catch (InterruptedException e) {
-                return;
-            }
-        }
-    }
-
-    // TODO wait on condition instead of sleeping
-    private void waitForShadowTaskToComplete(long timeBetweenChecksMillis) throws InterruptedException {
-        boolean complete = false;
-        while (!complete && !Thread.currentThread().isInterrupted()) {
-            complete = isShadowTaskComplete();
-            if (!complete) {
-                Thread.sleep(timeBetweenChecksMillis);
-            }
-        }
-    }
-
-    private boolean isShadowTaskComplete() {
-        synchronized (shadowTaskLock) {
-            return shadowTask == null || shadowTask.isDone();
-        }
-    }
-
     /**
      * Asynchronously update the CIS shadow's reported state for the given shadow version.
      * We don't rely on reported state, so this method will log on failure and not throw.
@@ -330,93 +274,6 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     public void accept(NetworkStateProvider.ConnectionState state) {
         if (state == NetworkStateProvider.ConnectionState.NETWORK_UP) {
             publishToGetCISShadowTopic();
-        }
-    }
-
-    private static class CISShadowProcessingQueue {
-
-        /**
-         * Lock for ensuring synchronous access to {@link CISShadowProcessingQueue#task}.
-         */
-        private final ReentrantLock lock = new ReentrantLock();
-        /**
-         * Condition to signal threads waiting for queue to contain data.
-         */
-        private final Condition notEmpty = lock.newCondition();
-        /**
-         * Queued-up task.
-         */
-        private ProcessCISShadowTask task;
-
-        /**
-         * Add the task to the queue. This is a non-blocking operation.
-         *
-         * @param task task to queue
-         */
-        void queue(ProcessCISShadowTask task) {
-            lock.lock();
-            try {
-                ProcessCISShadowTask existing = this.task;
-                if (existing == null) {
-                    this.task = task;
-                    signalIfNotEmpty();
-                } else if (task.getShadowVersion() > existing.getShadowVersion()) {
-                    this.task = task;
-                }
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        /**
-         * Pull a task from the queue.  This is a blocking operation.
-         *
-         * @return task
-         * @throws InterruptedException if interrupted while waiting for a task
-         */
-        ProcessCISShadowTask poll() throws InterruptedException {
-            lock.lockInterruptibly();
-            try {
-                waitIfEmpty();
-                ProcessCISShadowTask t = this.task;
-                clear();
-                return t;
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        void clear() {
-            lock.lock();
-            try {
-                this.task = null;
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        /**
-         * Tell thread to wait until the queue is not empty.
-         */
-        private void waitIfEmpty() throws InterruptedException {
-            while (isEmpty()) {
-                notEmpty.await();
-            }
-        }
-
-        private void signalIfNotEmpty() {
-            if (!isEmpty()) {
-                notEmpty.signal();
-            }
-        }
-
-        private boolean isEmpty() {
-            lock.lock();
-            try {
-                return task == null;
-            } finally {
-                lock.unlock();
-            }
         }
     }
 
@@ -506,6 +363,191 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
 
             // update CIS shadow so reported state matches desired state
             updateCISShadowReportedState(desiredState);
+        }
+    }
+
+    /**
+     * Responsible for pulling {@link ProcessCISShadowTask} tasks from the
+     * {@link CISShadowProcessingQueue} and executing them.
+     */
+    private class ShadowTaskProcessor {
+
+        /**
+         * Lock for ensuring synchronous access to {@link ShadowTaskProcessor#shadowTask}.
+         */
+        private final ReentrantLock lock = new ReentrantLock();
+        /**
+         * Condition to signal threads waiting to execute a task.
+         */
+        private final Condition notBusy = lock.newCondition();
+
+        /**
+         * Currently executing {@link ProcessCISShadowTask}.
+         */
+        private Future<?> shadowTask;
+        /**
+         * Task for pulling tasks from the queue and executing them.
+         */
+        private Future<?> processorTask;
+
+        void start() {
+            if (processorTask != null) {
+                processorTask.cancel(true);
+            }
+            processorTask = executorService.submit(this::processShadowTasks);
+        }
+
+        void stop() {
+            if (processorTask != null) {
+                processorTask.cancel(true);
+            }
+            lock.lock();
+            try {
+                if (shadowTask != null) {
+                    shadowTask.cancel(true);
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        private void processShadowTasks() {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    lock.lockInterruptibly();
+                    try {
+                        waitIfBusy();
+                    } finally {
+                        lock.unlock();
+                    }
+
+                    ProcessCISShadowTask task = queue.poll();
+
+                    lock.lockInterruptibly();
+                    try {
+                        waitIfBusy();
+                        shadowTask = executorService.submit(() -> {
+                            try {
+                                task.run();
+                            } finally {
+                                lock.lock();
+                                try {
+                                    notBusy.signal();
+                                } finally {
+                                    lock.unlock();
+                                }
+                            }
+                        });
+                    } finally {
+                        lock.unlock();
+                    }
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
+        }
+
+        private void waitIfBusy() throws InterruptedException {
+            while (isBusy()) {
+                notBusy.await();
+            }
+        }
+
+        private boolean isBusy() {
+            lock.lock();
+            try {
+                return shadowTask != null && !shadowTask.isDone();
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+
+    private static class CISShadowProcessingQueue {
+
+        /**
+         * Lock for ensuring synchronous access to {@link CISShadowProcessingQueue#task}.
+         */
+        private final ReentrantLock lock = new ReentrantLock();
+        /**
+         * Condition to signal threads waiting for queue to contain data.
+         */
+        private final Condition notEmpty = lock.newCondition();
+        /**
+         * Queued-up task.
+         */
+        private ProcessCISShadowTask task;
+
+        /**
+         * Add the task to the queue. This is a non-blocking operation.
+         *
+         * @param task task to queue
+         */
+        void queue(ProcessCISShadowTask task) {
+            lock.lock();
+            try {
+                ProcessCISShadowTask existing = this.task;
+                if (existing == null) {
+                    this.task = task;
+                    signalIfNotEmpty();
+                } else if (task.getShadowVersion() > existing.getShadowVersion()) {
+                    this.task = task;
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        /**
+         * Pull a task from the queue.  This is a blocking operation.
+         *
+         * @return task
+         * @throws InterruptedException if interrupted while waiting for a task
+         */
+        ProcessCISShadowTask poll() throws InterruptedException {
+            lock.lockInterruptibly();
+            try {
+                waitIfEmpty();
+                ProcessCISShadowTask t = this.task;
+                clear();
+                return t;
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        @SuppressWarnings("PMD.NullAssignment")
+        void clear() {
+            lock.lock();
+            try {
+                this.task = null;
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        /**
+         * Tell thread to wait until the queue is not empty.
+         */
+        private void waitIfEmpty() throws InterruptedException {
+            while (isEmpty()) {
+                notEmpty.await();
+            }
+        }
+
+        private void signalIfNotEmpty() {
+            if (!isEmpty()) {
+                notEmpty.signal();
+            }
+        }
+
+        private boolean isEmpty() {
+            lock.lock();
+            try {
+                return task == null;
+            } finally {
+                lock.unlock();
+            }
         }
     }
 }
