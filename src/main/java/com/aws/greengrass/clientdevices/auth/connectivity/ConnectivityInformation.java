@@ -10,16 +10,18 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import lombok.AccessLevel;
+import lombok.Getter;
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoResponse;
 import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.greengrassv2data.model.ValidationException;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -33,9 +35,8 @@ public class ConnectivityInformation {
 
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassServiceClientFactory clientFactory;
-
-    // TODO: Legacy structure to be removed later
-    protected volatile List<String> cachedHostAddresses = Collections.emptyList();
+    @Getter(AccessLevel.PACKAGE) // unit testing
+    private final ConnectivityInfoCache connectivityInfoCache;
 
     private final Map<String, Set<HostAddress>> connectivityInformationMap = new ConcurrentHashMap<>();
 
@@ -43,31 +44,34 @@ public class ConnectivityInformation {
     /**
      * Constructor.
      *
-     * @param deviceConfiguration client to get the device details
-     * @param clientFactory       factory to get data plane client
+     * @param deviceConfiguration   client to get the device details
+     * @param clientFactory         factory to get data plane client
+     * @param connectivityInfoCache connectivity info cache
      */
     @Inject
     public ConnectivityInformation(DeviceConfiguration deviceConfiguration,
-                                   GreengrassServiceClientFactory clientFactory) {
+                                   GreengrassServiceClientFactory clientFactory,
+                                   ConnectivityInfoCache connectivityInfoCache) {
         this.deviceConfiguration = deviceConfiguration;
         this.clientFactory = clientFactory;
+        this.connectivityInfoCache = connectivityInfoCache;
     }
 
     /**
-     * Get cached connectivity info.
+     * Get cached connectivity info. Items in this list are unique.
      *
      * @return list of cached connectivity info items
      */
     public List<String> getCachedHostAddresses() {
-        return cachedHostAddresses;
+        return connectivityInfoCache.getAll().stream().map(HostAddress::getHost).collect(Collectors.toList());
     }
 
     /**
      * Get connectivity info.
      *
-     * @return list of connectivity info items
+     * @return list of connectivity info items, or empty if connectivity info does not exist
      */
-    public List<ConnectivityInfo> getConnectivityInfo() {
+    public Optional<List<ConnectivityInfo>> getConnectivityInfo() {
         GetConnectivityInfoRequest getConnectivityInfoRequest =
                 GetConnectivityInfoRequest.builder().thingName(Coerce.toString(deviceConfiguration.getThingName()))
                         .build();
@@ -79,11 +83,10 @@ public class ConnectivityInformation {
             if (getConnectivityInfoResponse.hasConnectivityInfo()) {
                 // Filter out port and metadata since it is not needed
                 connectivityInfoList = getConnectivityInfoResponse.connectivityInfo();
-                cachedHostAddresses = new ArrayList<>(
-                        connectivityInfoList.stream().map(ci -> ci.hostAddress()).collect(Collectors.toSet()));
             }
         } catch (ValidationException | ResourceNotFoundException e) {
             LOGGER.atWarn().cause(e).log("Connectivity info doesn't exist");
+            return Optional.empty();
         }
 
         // NOTE: Eventually this code will move into infrastructure and connectivity information
@@ -97,7 +100,7 @@ public class ConnectivityInformation {
         Set<HostAddress> hostAddresses = connectivityInfoList.stream().map(HostAddress::of).collect(Collectors.toSet());
         recordConnectivityInformationForSource("connectivity-information-service", hostAddresses);
 
-        return connectivityInfoList;
+        return Optional.of(connectivityInfoList);
     }
 
     /**
@@ -120,5 +123,6 @@ public class ConnectivityInformation {
         LOGGER.atInfo().kv("source", source).kv("connectivityInformation", sourceConnectivityInfo)
                 .log("Updating connectivity information");
         connectivityInformationMap.put(source, sourceConnectivityInfo);
+        connectivityInfoCache.put(source, sourceConnectivityInfo);
     }
 }
