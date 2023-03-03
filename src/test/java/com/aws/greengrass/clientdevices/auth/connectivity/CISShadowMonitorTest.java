@@ -54,6 +54,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -92,6 +94,7 @@ public class CISShadowMonitorTest {
     private final FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
     private final MqttClientConnection shadowClientConnection = shadowClient.getConnection();
     private final ExecutorService executor = TestUtils.synchronousExecutorService();
+    private final ScheduledExecutorService ses = Executors.newScheduledThreadPool(1);
     private final FakeConnectivityInformation connectivityInfoProvider = new FakeConnectivityInformation();
 
     @Mock
@@ -101,13 +104,14 @@ public class CISShadowMonitorTest {
 
     @BeforeEach
     void setup() {
-        cisShadowMonitor = new CISShadowMonitor(shadowClientConnection, shadowClient, executor, SHADOW_NAME,
+        cisShadowMonitor = new CISShadowMonitor(shadowClientConnection, shadowClient, executor, ses, SHADOW_NAME,
                 connectivityInfoProvider);
     }
 
     @AfterEach
     void tearDown() {
         cisShadowMonitor.stopMonitor();
+        ses.shutdownNow();
     }
 
     @Test
@@ -311,6 +315,20 @@ public class CISShadowMonitorTest {
                         .collect(Collectors.toList());
         Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
 
+        AtomicInteger currDeltaMessage = new AtomicInteger(0);
+        Runnable sendNextDeltaMessage = () -> {
+            int deltaIndex = currDeltaMessage.getAndIncrement();
+            if (deltaIndex >= deltas.size()) {
+                return;
+            }
+            Map<String, Object> delta = deltas.get(deltaIndex);
+            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
+            deltaUpdatedEvent.version = deltaIndex + 1;
+            deltaUpdatedEvent.state = new HashMap<>(delta);
+            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(
+                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
+        };
+
         // notify when last shadow update is published
         WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
                 .expectedReportedState(lastDelta) // reported state updated to desired state
@@ -318,39 +336,30 @@ public class CISShadowMonitorTest {
                 .build();
         when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean()))
                 // first time, fail with direct exception
-                .thenThrow(RuntimeException.class)
+                .thenAnswer(invocation -> {
+                    sendNextDeltaMessage.run();
+                    throw new RuntimeException();
+                })
                 // second time, fail with exception nested in the future
                 .thenAnswer(invocation -> {
+                    sendNextDeltaMessage.run();
                     CompletableFuture<Integer> error = new CompletableFuture<>();
                     error.completeExceptionally(new RuntimeException());
                     return error;
                 })
                 // rest of the time, complete normally
-                .thenAnswer(whenUpdateIsPublished);
+                .thenAnswer(invocation -> {
+                    sendNextDeltaMessage.run();
+                    return whenUpdateIsPublished.answer(invocation);
+                });
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
-        // trigger update delta subscription callbacks
-        int version = 1;
-        for (Map<String, Object> delta : deltas) {
-            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-            deltaUpdatedEvent.version = version++;
-            deltaUpdatedEvent.state = new HashMap<>(delta);
+        // send delta message
+        sendNextDeltaMessage.run();
 
-            try {
-                wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(
-                        resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
-            } catch (RuntimeException e) {
-                if (version == 1) {
-                    // expected exception on first publish
-                    continue;
-                }
-                throw e;
-            }
-        }
-
-        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
+        assertTrue(whenUpdateIsPublished.getLatch().await(15L, TimeUnit.SECONDS));
         verifyCertsRotatedWhenConnectivityChanges();
     }
 
