@@ -7,9 +7,9 @@ package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.helpers.TestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import com.aws.greengrass.testcommons.testutilities.TestUtils;
 import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,7 +55,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,7 +64,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -93,8 +91,7 @@ public class CISShadowMonitorTest {
 
     private final FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
     private final MqttClientConnection shadowClientConnection = shadowClient.getConnection();
-    private final ExecutorService executor = TestUtils.synchronousExecutorService();
-    private final ScheduledExecutorService ses = Executors.newScheduledThreadPool(1);
+    private final ExecutorService executor = Executors.newCachedThreadPool();
     private final FakeConnectivityInformation connectivityInfoProvider = new FakeConnectivityInformation();
 
     @Mock
@@ -104,14 +101,14 @@ public class CISShadowMonitorTest {
 
     @BeforeEach
     void setup() {
-        cisShadowMonitor = new CISShadowMonitor(shadowClientConnection, shadowClient, executor, ses, SHADOW_NAME,
+        cisShadowMonitor = new CISShadowMonitor(shadowClientConnection, shadowClient, executor, SHADOW_NAME,
                 connectivityInfoProvider);
     }
 
     @AfterEach
     void tearDown() {
         cisShadowMonitor.stopMonitor();
-        ses.shutdownNow();
+        executor.shutdownNow();
     }
 
     @Test
@@ -120,9 +117,13 @@ public class CISShadowMonitorTest {
         connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.THROW_VALIDATION_EXCEPTION);
 
         // capture the subscription callback for shadow delta update
+        CountDownLatch subscriptionMade = new CountDownLatch(1);
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
         when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+                shadowDeltaUpdatedCallback.capture())).thenAnswer(invocation -> {
+            subscriptionMade.countDown();
+            return DUMMY_PACKET_ID;
+        });
 
         // generated list of deltas to feed to the shadow monitor
         List<Map<String, Object>> deltas =
@@ -140,6 +141,7 @@ public class CISShadowMonitorTest {
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        assertTrue(subscriptionMade.await(5L, TimeUnit.SECONDS));
 
         // trigger update delta subscription callbacks
         AtomicInteger version = new AtomicInteger(1);
@@ -216,9 +218,13 @@ public class CISShadowMonitorTest {
     void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changes_THEN_delta_is_processed() throws Exception {
 
         // capture the subscription callback for shadow delta update
+        CountDownLatch subscriptionMade = new CountDownLatch(1);
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
         when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+                shadowDeltaUpdatedCallback.capture())).thenAnswer(invocation -> {
+            subscriptionMade.countDown();
+            return DUMMY_PACKET_ID;
+        });
 
         // generated list of deltas to feed to the shadow monitor
         List<Map<String, Object>> deltas =
@@ -236,6 +242,7 @@ public class CISShadowMonitorTest {
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        assertTrue(subscriptionMade.await(5L, TimeUnit.SECONDS));
 
         // trigger update delta subscription callbacks
         AtomicInteger version = new AtomicInteger(1);
@@ -257,9 +264,13 @@ public class CISShadowMonitorTest {
             throws Exception {
 
         // capture the subscription callback for shadow delta update
+        CountDownLatch subscriptionMade = new CountDownLatch(1);
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
         when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+                shadowDeltaUpdatedCallback.capture())).thenAnswer(invocation -> {
+            subscriptionMade.countDown();
+            return DUMMY_PACKET_ID;
+        });
 
         // generated list of deltas to feed to the shadow monitor
         List<Map<String, Object>> deltas =
@@ -277,6 +288,7 @@ public class CISShadowMonitorTest {
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        assertTrue(subscriptionMade.await(5L, TimeUnit.SECONDS));
 
         // trigger update delta subscription callbacks
         AtomicInteger version = new AtomicInteger(1);
@@ -305,9 +317,13 @@ public class CISShadowMonitorTest {
         ignoreExceptionOfType(context, CompletionException.class);
 
         // capture the subscription callback for shadow delta update
+        CountDownLatch subscriptionMade = new CountDownLatch(1);
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
         when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+                shadowDeltaUpdatedCallback.capture())).thenAnswer(invocation -> {
+            subscriptionMade.countDown();
+            return DUMMY_PACKET_ID;
+        });
 
         // generated list of deltas to feed to the shadow monitor
         List<Map<String, Object>> deltas =
@@ -356,6 +372,8 @@ public class CISShadowMonitorTest {
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
 
+        assertTrue(subscriptionMade.await(5L, TimeUnit.SECONDS));
+
         // send delta message
         sendNextDeltaMessage.run();
 
@@ -373,9 +391,13 @@ public class CISShadowMonitorTest {
         connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.FAIL_ONCE);
 
         // capture the subscription callback for shadow delta update
+        CountDownLatch subscriptionMade = new CountDownLatch(1);
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
         when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+                shadowDeltaUpdatedCallback.capture())).thenAnswer(invocation -> {
+            subscriptionMade.countDown();
+            return DUMMY_PACKET_ID;
+        });
 
         // generated list of deltas to feed to the shadow monitor
         List<Map<String, Object>> deltas =
@@ -393,6 +415,7 @@ public class CISShadowMonitorTest {
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        assertTrue(subscriptionMade.await(5L, TimeUnit.SECONDS));
 
         // trigger update delta subscription callbacks
         AtomicInteger version = new AtomicInteger(1);
@@ -425,9 +448,13 @@ public class CISShadowMonitorTest {
         connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.CONSTANT);
 
         // capture the subscription callback for shadow delta update
+        CountDownLatch subscriptionMade = new CountDownLatch(1);
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
         when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+                shadowDeltaUpdatedCallback.capture())).thenAnswer(invocation -> {
+                    subscriptionMade.countDown();
+                    return DUMMY_PACKET_ID;
+                });
 
         Map<String, Object> delta = Utils.immutableMap("version", "1");
 
@@ -441,6 +468,7 @@ public class CISShadowMonitorTest {
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        assertTrue(subscriptionMade.await(5L, TimeUnit.SECONDS));
 
         // trigger update delta subscription callbacks
         AtomicInteger version = new AtomicInteger(1);
@@ -468,9 +496,13 @@ public class CISShadowMonitorTest {
         connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.CONSTANT);
 
         // capture the subscription callback for shadow delta update
+        CountDownLatch subscriptionMade = new CountDownLatch(1);
         ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
         when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+                shadowDeltaUpdatedCallback.capture())).thenAnswer(invocation -> {
+            subscriptionMade.countDown();
+            return DUMMY_PACKET_ID;
+        });
 
         // generated list of deltas to feed to the shadow monitor
         List<Map<String, Object>> deltas =
@@ -488,6 +520,7 @@ public class CISShadowMonitorTest {
 
         cisShadowMonitor.startMonitor();
         cisShadowMonitor.addToMonitor(certificateGenerator);
+        assertTrue(subscriptionMade.await(5L, TimeUnit.SECONDS));
 
         // trigger update delta subscription callbacks
         AtomicInteger version = new AtomicInteger(1);
@@ -505,8 +538,17 @@ public class CISShadowMonitorTest {
         verifyCertsRotatedWhenConnectivityChanges();
     }
 
+    private void waitForSubscriptionToShadowTopics() throws InterruptedException {
+        AtomicInteger numSubscriptions = new AtomicInteger();
+        when(shadowClientConnection.subscribe(any(), any(), any())).thenAnswer(invocation -> {
+            numSubscriptions.incrementAndGet();
+            return DUMMY_PACKET_ID;
+        });
+        TestHelpers.eventuallyTrue(() -> numSubscriptions.get() == 2);
+    }
+
     @Test
-    void GIVEN_CISShadowMonitor_WHEN_stop_monitor_THEN_unsubscribe() {
+    void GIVEN_CISShadowMonitor_WHEN_stop_monitor_THEN_unsubscribe() throws InterruptedException {
         AtomicInteger numSubscriptions = new AtomicInteger();
         when(shadowClientConnection.subscribe(any(), any(), any())).thenAnswer(invocation -> {
             numSubscriptions.incrementAndGet();
@@ -519,10 +561,10 @@ public class CISShadowMonitorTest {
 
 
         cisShadowMonitor.startMonitor();
-        assertTrue(numSubscriptions.get() > 0);
+        TestHelpers.eventuallyTrue(() -> numSubscriptions.get() > 0);
 
         cisShadowMonitor.stopMonitor();
-        assertEquals(0, numSubscriptions.get());
+        TestHelpers.eventuallyTrue(() -> numSubscriptions.get() == 0);
     }
 
     /**

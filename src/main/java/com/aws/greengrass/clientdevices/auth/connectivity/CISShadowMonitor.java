@@ -47,10 +47,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 
@@ -87,39 +88,36 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      */
     private final Object shadowTaskLock = new Object();
     /**
-     * Acts as a queue for incoming requests to process the CIS shadow.
+     * Queue for incoming requests to process the CIS shadow.
      * We receive requests whenever CIS shadow has a delta update, or
      * when we request a shadow (get shadow) during startup or when we
      * regain network connectivity.  If processing of a task fails,
      * it's put back on the queue to retry.
-     *
-     * <p>This "queue" is read on a schedule.
      */
-    private final AtomicReference<ProcessCISShadowTask> requestedShadowTask = new AtomicReference<>();
+    private final CISShadowProcessingQueue queue = new CISShadowProcessingQueue();
     /**
      * Task that pulls a {@link ProcessCISShadowTask} from the queue
      * and executes it, if one exists.
      */
-    private ScheduledFuture<?> shadowTaskExecutionSchedule;
+    private Future<?> processShadowTasks;
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
-    private final ScheduledExecutorService ses;
     private final String shadowName;
     private final ConnectivityInformation connectivityInformation;
+
 
     /**
      * Constructor.
      *
      * @param mqttClient              IoT MQTT client
      * @param executorService         Executor service
-     * @param ses                     Scheduled Executor Service
      * @param deviceConfiguration     Device configuration
      * @param connectivityInformation Connectivity Info Provider
      */
     @Inject
-    public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService, ScheduledExecutorService ses,
+    public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
                             DeviceConfiguration deviceConfiguration, ConnectivityInformation connectivityInformation) {
-        this(null, null, executorService, ses,
+        this(null, null, executorService,
                 Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX,
                 connectivityInformation);
         this.connection = new WrapperMqttClientConnection(mqttClient);
@@ -127,11 +125,10 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     }
 
     CISShadowMonitor(MqttClientConnection connection, IotShadowClient iotShadowClient, ExecutorService executorService,
-                     ScheduledExecutorService ses, String shadowName, ConnectivityInformation connectivityInformation) {
+                     String shadowName, ConnectivityInformation connectivityInformation) {
         this.connection = connection;
         this.iotShadowClient = iotShadowClient;
         this.executorService = executorService;
-        this.ses = ses;
         this.shadowName = shadowName;
         this.connectivityInformation = connectivityInformation;
     }
@@ -152,17 +149,18 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 Thread.currentThread().interrupt();
             }
         });
-
-        shadowTaskExecutionSchedule = ses.scheduleWithFixedDelay(
-                this::executeQueuedShadowTask, 0, 1, TimeUnit.SECONDS);
+        if (processShadowTasks != null) {
+            processShadowTasks.cancel(true);
+        }
+        processShadowTasks = executorService.submit(this::processShadowTasks);
     }
 
     /**
      * Stop shadow monitor.
      */
     public void stopMonitor() {
-        if (shadowTaskExecutionSchedule != null) {
-            shadowTaskExecutionSchedule.cancel(true);
+        if (processShadowTasks != null) {
+            processShadowTasks.cancel(true);
         }
         if (subscribeTaskFuture != null) {
             subscribeTaskFuture.cancel(true);
@@ -171,7 +169,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         synchronized (shadowTaskLock) {
             if (shadowTask != null) {
                 shadowTask.cancel(true);
-                requestedShadowTask.updateAndGet(t -> null);
+                queue.clear();
             }
         }
     }
@@ -241,36 +239,46 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
 
     private void processCISShadow(GetShadowResponse response) {
         // this method is run on a CRT thread, we must not block
-        queueShadowTask(new ProcessCISShadowTask(response.version, response.state.desired));
+        queue.queue(new ProcessCISShadowTask(response.version, response.state.desired));
     }
 
     private void processCISShadow(ShadowDeltaUpdatedEvent event) {
         // this method is run on a CRT thread, we must not block
-        queueShadowTask(new ProcessCISShadowTask(event.version, event.state));
+        queue.queue(new ProcessCISShadowTask(event.version, event.state));
     }
 
-    private void queueShadowTask(ProcessCISShadowTask task) {
-        requestedShadowTask.updateAndGet(existing -> {
-            if (existing == null) {
-                return task;
+    private void processShadowTasks() {
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                waitForShadowTaskToComplete(1000);
+                ProcessCISShadowTask task = queue.poll();
+                synchronized (shadowTaskLock) {
+                    if (!isShadowTaskComplete()) {
+                        queue.queue(task);
+                        continue;
+                    }
+                    shadowTask = executorService.submit(task);
+                }
+            } catch (InterruptedException e) {
+                return;
             }
-            if (task.getShadowVersion() > existing.getShadowVersion()) {
-                return task;
-            }
-            return existing;
-        });
+        }
     }
 
-    private void executeQueuedShadowTask() {
+    // TODO wait on condition instead of sleeping
+    private void waitForShadowTaskToComplete(long timeBetweenChecksMillis) throws InterruptedException {
+        boolean complete = false;
+        while (!complete && !Thread.currentThread().isInterrupted()) {
+            complete = isShadowTaskComplete();
+            if (!complete) {
+                Thread.sleep(timeBetweenChecksMillis);
+            }
+        }
+    }
+
+    private boolean isShadowTaskComplete() {
         synchronized (shadowTaskLock) {
-            if (!(shadowTask == null || shadowTask.isDone())) {
-                return;
-            }
-            ProcessCISShadowTask task = requestedShadowTask.getAndUpdate(t -> null);
-            if (task == null) {
-                return;
-            }
-            shadowTask = executorService.submit(task);
+            return shadowTask == null || shadowTask.isDone();
         }
     }
 
@@ -325,6 +333,93 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         }
     }
 
+    private static class CISShadowProcessingQueue {
+
+        /**
+         * Lock for ensuring synchronous access to {@link CISShadowProcessingQueue#task}.
+         */
+        private final ReentrantLock lock = new ReentrantLock();
+        /**
+         * Condition to signal threads waiting for queue to contain data.
+         */
+        private final Condition notEmpty = lock.newCondition();
+        /**
+         * Queued-up task.
+         */
+        private ProcessCISShadowTask task;
+
+        /**
+         * Add the task to the queue. This is a non-blocking operation.
+         *
+         * @param task task to queue
+         */
+        void queue(ProcessCISShadowTask task) {
+            lock.lock();
+            try {
+                ProcessCISShadowTask existing = this.task;
+                if (existing == null) {
+                    this.task = task;
+                    signalIfNotEmpty();
+                } else if (task.getShadowVersion() > existing.getShadowVersion()) {
+                    this.task = task;
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        /**
+         * Pull a task from the queue.  This is a blocking operation.
+         *
+         * @return task
+         * @throws InterruptedException if interrupted while waiting for a task
+         */
+        ProcessCISShadowTask poll() throws InterruptedException {
+            lock.lockInterruptibly();
+            try {
+                waitIfEmpty();
+                ProcessCISShadowTask t = this.task;
+                clear();
+                return t;
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        void clear() {
+            lock.lock();
+            try {
+                this.task = null;
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        /**
+         * Tell thread to wait until the queue is not empty.
+         */
+        private void waitIfEmpty() throws InterruptedException {
+            while (isEmpty()) {
+                notEmpty.await();
+            }
+        }
+
+        private void signalIfNotEmpty() {
+            if (!isEmpty()) {
+                notEmpty.signal();
+            }
+        }
+
+        private boolean isEmpty() {
+            lock.lock();
+            try {
+                return task == null;
+            } finally {
+                lock.unlock();
+            }
+        }
+    }
+
     /**
      * Task for processing the CIS shadow. The goal is to rotate
      * certificates if we detect that connectivity info has changed.
@@ -350,7 +445,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 // logged in processCISShadow
             } catch (Exception e) {
                 // retry
-                queueShadowTask(this);
+                queue.queue(this);
             }
         }
 
