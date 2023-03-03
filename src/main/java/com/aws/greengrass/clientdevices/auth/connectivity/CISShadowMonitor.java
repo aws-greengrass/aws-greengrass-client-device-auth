@@ -31,13 +31,16 @@ import software.amazon.awssdk.services.greengrassv2data.model.InternalServerExce
 import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingException;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -201,7 +204,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         processCISShadow(cisVersion, event.state);
     }
 
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.PrematureDeclaration"})
     private synchronized void processCISShadow(String version, Map<String, Object> desiredState) {
         if (version == null) {
             LOGGER.atWarn().log("Ignoring CIS shadow response, version is missing");
@@ -220,6 +223,9 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         // operation (particularly on low end devices) it is imperative that we process this event asynchronously
         // to avoid blocking other MQTT subscribers in the Nucleus
         CompletableFuture.runAsync(() -> {
+
+            Set<String> prevCachedHostAddresses = new HashSet<>(connectivityInformation.getCachedHostAddresses());
+
             Optional<List<ConnectivityInfo>> connectivityInfo;
             try {
                 connectivityInfo = RetryUtils.runWithRetry(
@@ -245,6 +251,24 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 // We won't retry in this case, but we will update the CIS shadow reported state
                 // to signal that we have fully processed this version.
                 try {
+                    LOGGER.atInfo().kv(VERSION, version)
+                            .log("No connectivity info found. Skipping cert re-generation");
+                    updateCISShadowReportedState(desiredState);
+                } finally {
+                    // Don't process the same version again
+                    lastVersion = version;
+                }
+                return;
+            }
+
+            // skip cert rotation if connectivity info hasn't changed
+            Set<String> cachedHostAddresses = new HashSet<>(connectivityInformation.getCachedHostAddresses());
+            if (Objects.equals(prevCachedHostAddresses, cachedHostAddresses)) {
+                try {
+                    LOGGER.atInfo().kv(VERSION, version)
+                            .log("Connectivity info hasn't changed. Skipping cert re-generation");
+                    // update the CIS shadow reported state
+                    // to signal that we have fully processed this version.
                     updateCISShadowReportedState(desiredState);
                 } finally {
                     // Don't process the same version again
@@ -255,8 +279,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
 
             try {
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
-                    cg.generateCertificate(connectivityInformation::getCachedHostAddresses,
-                            "connectivity info was updated");
+                    cg.generateCertificate(() -> new ArrayList<>(cachedHostAddresses), "connectivity info was updated");
                 }
             } catch (CertificateGenerationException e) {
                 LOGGER.atError().kv(VERSION, version).cause(e).log("Failed to generate new certificates");
@@ -267,6 +290,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 // update CIS shadow so reported state matches desired state
                 updateCISShadowReportedState(desiredState);
             } finally {
+                // Don't process the same version again
                 lastVersion = version;
             }
         }, executorService).exceptionally(e -> {
