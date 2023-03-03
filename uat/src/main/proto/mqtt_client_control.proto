@@ -134,27 +134,28 @@ message MqttConnectRequest {
     int32 keepalive = 4;                                // MQTT keep alive interval in seconds
     bool cleanSession = 5;                              // clean sesions (clean start) flag
     MqttProtoVersion protocolVersion = 6;               // version of MQTT protocol to use, currently only 5 is supported
-    int32 connectTimeout = 7;                           // connect timeout in seconds
+    int32 timeout = 7;                                  // connect timeout in seconds
     optional Mqtt5Properties properties = 8;            // CONNECT packet MQTT 5 properties
     optional TLSSettings tls = 9;                       // TLS settings for secured connection
-    optional Mqtt5Message willMessage = 10;              // will message to set
+    optional Mqtt5Message willMessage = 10;             // will message to set
 }
 
 
 message MqttCloseRequest {
-    MqttConnectionId connectionId = 1;
+    MqttConnectionId connectionId = 1;                  // id of connection to disconnect
     int32 reason = 2;
-    optional Mqtt5Properties properties = 3;      // DISCONNECT packet MQTT 5 properties
+    int32 timeout = 3;                                  // disconnect timeout in seconds
+    optional Mqtt5Properties properties = 4;            // DISCONNECT packet MQTT 5 properties
 }
 
 message ReceivedMqttMessage {
-    string agentId = 1;
-    MqttConnectionId connectionId = 2;
+    string agentId = 1;                                 // really required ?
+    MqttConnectionId connectionId = 2;                  // id of connection which received the message
     // TODO: received MQTT message fields and metadata
 }
 
 message MqttSubscribeRequest {
-    MqttConnectionId connectionId = 1;
+    MqttConnectionId connectionId = 1;                  // id of connection to subscribe
     // TODO: topics and other parameters
 }
 
@@ -165,7 +166,8 @@ message MqttUnsubscribeRequest {
 
 message MqttPublishRequest {
     // TODO: connection handler
-    MqttConnectionId connectionId = 1;
-    Mqtt5Message msg = 2;
+    MqttConnectionId connectionId = 1;                  // id of connection to publish
+    int32 timeout = 2;                                  // publish timeout in seconds\
+    Mqtt5Message msg = 3;
 }
 // end of MQTT client contol part

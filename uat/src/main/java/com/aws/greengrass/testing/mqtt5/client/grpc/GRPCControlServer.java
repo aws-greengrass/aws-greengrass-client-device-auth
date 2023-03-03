@@ -5,11 +5,13 @@
 
 package com.aws.greengrass.testing.mqtt5.client.grpc;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.MqttClientControlGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttCloseRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttProtoVersion;
+import com.aws.greengrass.testing.mqtt.client.MqttPublishRequest;
 import com.aws.greengrass.testing.mqtt.client.ShutdownRequest;
 import com.aws.greengrass.testing.mqtt.client.TLSSettings;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
@@ -42,11 +44,10 @@ class GRPCControlServer {
     private static final int REASON_MIN = 0;
     private static final int REASON_MAX = 255;
 
-    private static final int CONNECT_TIMEOUT_MIN = 1;
+    private static final int TIMEOUT_MIN = 1;
 
 
-
-    @SuppressWarnings("PMD.UnusedPrivateField") // TODO: remove
+    @SuppressWarnings("PMD.UnusedPrivateField") // TODO: remove after use client
     private final GRPCDiscoveryClient client;
     private final Server server;
     private final int boundPort;
@@ -128,11 +129,11 @@ class GRPCControlServer {
             }
 
 
-            int connectTimeout = request.getConnectTimeout();
-            if (connectTimeout < CONNECT_TIMEOUT_MIN) {
-                logger.atWarn().log("invalid connectTimeout, must be >= {}", CONNECT_TIMEOUT_MIN);
+            int timeout = request.getTimeout();
+            if (timeout < TIMEOUT_MIN) {
+                logger.atWarn().log("invalid timeout, must be >= {}", TIMEOUT_MIN);
                 responseObserver.onError(Status.INVALID_ARGUMENT
-                                            .withDescription("invalid connectTimeout, must be >= 1")
+                                            .withDescription("invalid timeout, must be >= 1")
                                             .asRuntimeException());
                 return;
             }
@@ -143,7 +144,7 @@ class GRPCControlServer {
                             .port(port)
                             .keepalive(keepalive)
                             .cleanSession(request.getCleanSession())
-                            .connectTimeout(connectTimeout);
+                            .timeout(timeout);
 
             // check TLS optional settings
             if (request.hasTls()) {
@@ -203,16 +204,25 @@ class GRPCControlServer {
             logger.atInfo().log("closeMqttConnection: connectionId {} reason {}", connectionId, reason);
 
             if (reason < REASON_MIN || reason > REASON_MAX) {
-                logger.atWarn().log("invalid reason, must be in range [{}, {0}]", REASON_MIN, REASON_MAX);
+                logger.atWarn().log("invalid reason, must be in range [{}, {}]", REASON_MIN, REASON_MAX);
                 responseObserver.onError(Status.INVALID_ARGUMENT
                                             .withDescription("invalid reason, must be in range [0, 255]")
                                             .asRuntimeException());
                 return;
             }
 
+            int timeout = request.getTimeout();
+            if (timeout < TIMEOUT_MIN) {
+                logger.atWarn().log("invalid timeout, must be >= {}", TIMEOUT_MIN);
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                                            .withDescription("invalid timeout, must be >= 1")
+                                            .asRuntimeException());
+                return;
+            }
+
             MqttConnection connection = mqttLib.unregisterConnection(connectionId);
             if (connection == null) {
-                logger.atWarn().log("connection with id {0} doesn't found");
+                logger.atWarn().log("connection with id {} doesn't found", connectionId);
                 responseObserver.onError(Status.NOT_FOUND
                                             .withDescription("connection doesn't found")
                                             .asRuntimeException());
@@ -221,9 +231,68 @@ class GRPCControlServer {
 
             try {
                 // TODO: pass also DISCONNECT properties
-                connection.disconnect(reason);
+                connection.disconnect(reason, timeout);
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during disconnect");
+                responseObserver.onError(ex);
+                return;
+            }
+
+            Empty reply = Empty.newBuilder().build();
+            responseObserver.onNext(reply);
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void publishMqtt(MqttPublishRequest request, StreamObserver<Empty> responseObserver) {
+
+            int connectionId = request.getConnectionId().getConnectionId();
+            Mqtt5Message message = request.getMsg();
+            String topic = message.getTopic();
+            int qos = message.getQos().getNumber();
+
+            logger.atInfo().log("publishMqtt: connectionId {} QoS {} topic {}", connectionId, qos, topic);
+
+
+            if (qos < 0 || qos > 3) {
+                logger.atWarn().log("qos is invalid can be in range [0,3] but is {}", qos);
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                                            .withDescription("qos is invalid can be in range [0,3]")
+                                            .asRuntimeException());
+                return;
+            }
+
+            if (topic == null || topic.isEmpty()) {
+                logger.atWarn().log("topic can't be empty");
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                                            .withDescription("topic can't be empty")
+                                            .asRuntimeException());
+                return;
+            }
+
+            int timeout = request.getTimeout();
+            if (timeout < TIMEOUT_MIN) {
+                logger.atWarn().log("invalid timeout, must be >= {}", TIMEOUT_MIN);
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                                            .withDescription("invalid timeout, must be >= 1")
+                                            .asRuntimeException());
+                return;
+            }
+
+            MqttConnection connection = mqttLib.getConnection(connectionId);
+            if (connection == null) {
+                logger.atWarn().log("connection with id {} doesn't found", connectionId);
+                responseObserver.onError(Status.NOT_FOUND
+                                            .withDescription("connection doesn't found")
+                                            .asRuntimeException());
+                return;
+            }
+
+            try {
+                // TODO: pass also user's properties
+                connection.publish(message.getRetain(), qos, timeout, topic, message.getPayload().toByteArray());
+            } catch (MqttException ex) {
+                logger.atError().withThrowable(ex).log("exception during publish");
                 responseObserver.onError(ex);
                 return;
             }
