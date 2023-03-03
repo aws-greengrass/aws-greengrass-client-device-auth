@@ -10,6 +10,8 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
+import lombok.AccessLevel;
+import lombok.Getter;
 import software.amazon.awssdk.services.greengrassv2data.model.ConnectivityInfo;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoRequest;
 import software.amazon.awssdk.services.greengrassv2data.model.GetConnectivityInfoResponse;
@@ -33,6 +35,7 @@ public class ConnectivityInformation {
 
     private final DeviceConfiguration deviceConfiguration;
     private final GreengrassServiceClientFactory clientFactory;
+    @Getter(AccessLevel.PACKAGE) // unit testing
     private final ConnectivityInfoCache connectivityInfoCache;
 
     private final Map<String, Set<HostAddress>> connectivityInformationMap = new ConcurrentHashMap<>();
@@ -55,7 +58,7 @@ public class ConnectivityInformation {
     }
 
     /**
-     * Get cached connectivity info.
+     * Get cached connectivity info. Items in this list are unique.
      *
      * @return list of cached connectivity info items
      */
