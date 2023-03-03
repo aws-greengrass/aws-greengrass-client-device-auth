@@ -11,6 +11,7 @@ import com.aws.greengrass.testing.mqtt.client.MqttCloseRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttProtoVersion;
+import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishRequest;
 import com.aws.greengrass.testing.mqtt.client.ShutdownRequest;
 import com.aws.greengrass.testing.mqtt.client.TLSSettings;
@@ -244,7 +245,7 @@ class GRPCControlServer {
         }
 
         @Override
-        public void publishMqtt(MqttPublishRequest request, StreamObserver<Empty> responseObserver) {
+        public void publishMqtt(MqttPublishRequest request, StreamObserver<MqttPublishReply> responseObserver) {
 
             int connectionId = request.getConnectionId().getConnectionId();
             Mqtt5Message message = request.getMsg();
@@ -288,17 +289,25 @@ class GRPCControlServer {
                 return;
             }
 
+            MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
             try {
                 // TODO: pass also user's properties
-                connection.publish(message.getRetain(), qos, timeout, topic, message.getPayload().toByteArray());
+                MqttConnection.PubAckInfo pubAckInfo = connection.publish(message.getRetain(), qos, timeout, topic,
+                                                            message.getPayload().toByteArray());
+                if (pubAckInfo != null) {
+                    builder.setReasonCode(pubAckInfo.getReasonCode());
+                    String reasonString = pubAckInfo.getReasonString();
+                    if (reasonString != null) {
+                        builder.setReasonString(reasonString);
+                    }
+                }
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during publish");
                 responseObserver.onError(ex);
                 return;
             }
 
-            Empty reply = Empty.newBuilder().build();
-            responseObserver.onNext(reply);
+            responseObserver.onNext(builder.build());
             responseObserver.onCompleted();
         }
     }

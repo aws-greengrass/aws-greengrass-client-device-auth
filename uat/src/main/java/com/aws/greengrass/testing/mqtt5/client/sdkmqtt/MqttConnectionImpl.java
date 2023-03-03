@@ -24,6 +24,7 @@ import software.amazon.awssdk.crt.mqtt5.PublishReturn;
 import software.amazon.awssdk.crt.mqtt5.QOS;
 import software.amazon.awssdk.crt.mqtt5.packets.ConnectPacket;
 import software.amazon.awssdk.crt.mqtt5.packets.DisconnectPacket;
+import software.amazon.awssdk.crt.mqtt5.packets.PubAckPacket;
 import software.amazon.awssdk.crt.mqtt5.packets.PublishPacket;
 import software.amazon.awssdk.iot.AwsIotMqtt5ClientBuilder;
 
@@ -137,7 +138,8 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public void publish(boolean retain, int qos, long timeout, String topic, byte[] content) throws MqttException {
+    public PubAckInfo publish(boolean retain, int qos, long timeout, String topic, byte[] content)
+                    throws MqttException {
         if (isClosing.get() || !isConnected.get()) {
             throw new MqttException("Invalid connection state");
         }
@@ -151,7 +153,6 @@ public class MqttConnectionImpl implements MqttConnection {
                     withCorrelationData() - ???
         */
         QOS qosEnum = QOS.getEnumValueFromInteger(qos);
-        logger.atInfo().log("publish QOS is {}", qosEnum);
         PublishPacket publishPacket = new PublishPacket.PublishPacketBuilder()
                                             .withTopic(topic)
                                             .withQOS(qosEnum)
@@ -160,9 +161,13 @@ public class MqttConnectionImpl implements MqttConnection {
                                             .build();
         CompletableFuture<PublishResult> publishFuture = client.publish(publishPacket);
         try {
-            // PublishResult result = publishFuture.get(timeout, TimeUnit.SECONDS);
-            // TODO: handle PubAckPacket if any
-            publishFuture.get(timeout, TimeUnit.SECONDS);
+            PublishResult result = publishFuture.get(timeout, TimeUnit.SECONDS);
+            if (result == null || result.getType() != PublishResult.PublishResultType.PUBACK) {
+                return null;
+            }
+            PubAckPacket pubAckPacket = result.getResultPubAck();
+            // TODO: handler also user's properties of PUBACK
+            return new PubAckInfo(pubAckPacket.getReasonCode().getValue(), pubAckPacket.getReasonString());
         } catch (Exception ex) {
                 logger.atError().withThrowable(ex).log("Failed during publishing message");
                 throw new MqttException("Could not publish message", ex);

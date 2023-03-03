@@ -14,18 +14,38 @@ import lombok.Data;
  */
 public interface MqttLib extends AutoCloseable {
 
+    /**
+     * MQTT connection parameters.
+     */
     @Data
     @Builder
     class ConnectionParams {
+        /** MQTT client id. */
         private String clientId;
+
+        /** Host name of IP address of MQTT broker. */
         private String host;
+
+        /** Port of MQTT broker. */
         private int port;
+
+        /** Connection keep alive interval in seconds. */
         private int keepalive;
+
+        /** Clean session (clean start) flag of CONNECT packet. */
         private boolean cleanSession;
+
+        /** Connection timeout in seconds. */
         private int timeout;
-        private String ca;                      // optional
-        private String cert;                    // optional
-        private String key;                     // optional
+
+        /** Content of CA, optional. */
+        private String ca;
+
+        /** Content of MQTT client's certificate, optional. */
+        private String cert;
+
+        /** Content of MQTT client's private key, optional. */
+        private String key;
     }
 
     /**
