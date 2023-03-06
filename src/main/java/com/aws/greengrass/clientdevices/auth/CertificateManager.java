@@ -180,6 +180,7 @@ public class CertificateManager {
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
+                logger.atInfo().log("Successfully subscribed to certificate update");
                 domainEvent.emit(new CertificateSubscriptionEvent(certificateType,
                         CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS));
             } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
@@ -191,6 +192,7 @@ public class CertificateManager {
                 subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
         } catch (NoSuchAlgorithmException e) {
+            logger.atError().cause(e).log("Failed to subscribe to certificate update");
             domainEvent.emit(new CertificateSubscriptionEvent(getCertificateRequest.getCertificateRequestOptions()
                     .getCertificateType(), CertificateSubscriptionEvent.SubscriptionStatus.FAIL));
             throw new CertificateGenerationException(e);

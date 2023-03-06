@@ -67,7 +67,7 @@ public class ClientDevicesAuthServiceApi {
                 isVerified = useCases.get(VerifyCertificateValidityPeriod.class).apply(certificatePem) && useCases.get(
                     VerifyIotCertificate.class).apply(certificatePem);
             }
-
+            logger.atInfo().log("Successfully verified client device identity");
             domainEvents.emit(new VerifyClientDeviceIdentityEvent(isVerified ? VerifyClientDeviceIdentityEvent
                     .VerificationStatus.SUCCESS : VerifyClientDeviceIdentityEvent.VerificationStatus.FAIL));
 
@@ -122,7 +122,7 @@ public class ClientDevicesAuthServiceApi {
             throws AuthorizationException {
         try {
             boolean isAuthorized = deviceAuthClient.canDevicePerform(authorizationRequest);
-
+            logger.atInfo().log("Successfully authorized client device action");
             domainEvents.emit(new AuthorizeClientDeviceActionEvent(isAuthorized ? AuthorizeClientDeviceActionEvent
                     .AuthorizationStatus.SUCCESS : AuthorizeClientDeviceActionEvent.AuthorizationStatus.FAIL));
 
