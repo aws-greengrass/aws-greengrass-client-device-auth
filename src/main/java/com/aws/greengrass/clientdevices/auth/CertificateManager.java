@@ -180,7 +180,7 @@ public class CertificateManager {
                     getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
                 subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
-                logger.atInfo().log("Successfully subscribed to certificate update");
+                logger.atDebug().log("Successfully subscribed to certificate update");
                 domainEvent.emit(new CertificateSubscriptionEvent(certificateType,
                         CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS));
             } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
