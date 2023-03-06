@@ -68,7 +68,7 @@ public class ClientDeviceAuthMetrics {
      */
     public void emitMetrics() {
         List<Metric> retrievedMetrics = collectMetrics();
-        logger.atDebug().kv("Emitting metrics: ", retrievedMetrics);
+        logger.atDebug().kv("metrics", retrievedMetrics).log("Emitting CDA metrics");
         for (Metric retrievedMetric : retrievedMetrics) {
             mf.putMetricData(retrievedMetric);
         }
