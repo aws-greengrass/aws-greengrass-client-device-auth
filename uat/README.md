@@ -1,17 +1,22 @@
 # Test MQTT5 client bases on AWS IoT Device SDK for Java v2
 
-The test controlled MQTT v5.0 client based on AWS IoT Device SDK for Java v2 is used to test Greengrass v2 MQTT v5.0 compatibility.
+The controlled test MQTT v5.0 client based on AWS IoT Device SDK for Java v2 is used to test Greengrass v2 MQTT v5.0 compatibility.
 
 ## How to compile
-
-To complie this client, use the following command:
+To compile this client, use the following command:
 
 ```sh
 mvn clean license:check checkstyle:check pmd:check package
 ```
 
+# How to test
+To run integrated with sources tests, use the following command:
+```sh
+mvn -ntp -U clean verify
+```
+
 # How to run
-To Run this client use the following command:
+To run this client use the following command:
 ```sh
 mvn exec:java
 ```
