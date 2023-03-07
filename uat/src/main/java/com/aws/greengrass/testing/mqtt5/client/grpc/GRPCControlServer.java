@@ -248,7 +248,7 @@ class GRPCControlServer {
             logger.atInfo().log("closeMqttConnection: connectionId {} reason {}", connectionId, reason);
             try {
                 // TODO: pass also DISCONNECT properties
-                connection.disconnect(reason, timeout);
+                connection.disconnect(timeout, reason);
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during disconnect");
                 responseObserver.onError(ex);
@@ -303,14 +303,19 @@ class GRPCControlServer {
             }
 
             boolean isRetain = message.getRetain();
-            logger.atInfo().log("Publish: connectionId {} topic {} QOS {} retain {}",
+            logger.atInfo().log("Publish: connectionId {} topic {} QoS {} retain {}",
                                     connectionId, topic, qos, isRetain);
 
+            MqttConnection.Message internalMessage = MqttConnection.Message.builder()
+                                .qos(qos)
+                                .retain(isRetain)
+                                .topic(topic)
+                                .payload(message.getPayload().toByteArray())
+                                .build();
             MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
             try {
                 // TODO: pass also user's properties
-                MqttConnection.PubAckInfo pubAckInfo = connection.publish(isRetain, qos, timeout, topic,
-                                                            message.getPayload().toByteArray());
+                MqttConnection.PubAckInfo pubAckInfo = connection.publish(timeout, internalMessage);
                 if (pubAckInfo != null) {
                     int reasonCode = pubAckInfo.getReasonCode();
                     builder.setReasonCode(reasonCode);

@@ -91,7 +91,7 @@ public class MqttConnectionImpl implements MqttConnection {
     private class ClientsPublishEvents implements Mqtt5ClientOptions.PublishEvents {
         @Override
         public void onMessageReceived(Mqtt5Client client, PublishReturn result) {
-            logger.atInfo().log("MQTT message received");
+            // logger.atInfo().log("Received MQTT message: topic {} QoS {}", topic, qos);
             // TODO: handle
         }
     }
@@ -122,7 +122,8 @@ public class MqttConnectionImpl implements MqttConnection {
      */
     @SuppressWarnings({"PMD.UseTryWithResources", "PMD.AvoidCatchingGenericException"})
     @Override
-    public void disconnect(int reasonCode, long timeout) throws MqttException {
+    public void disconnect(long timeout, int reasonCode) throws MqttException {
+
         if (!isClosing.getAndSet(true)) {
             DisconnectPacket.DisconnectReasonCode disconnectReason
                 = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
@@ -144,11 +145,10 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public PubAckInfo publish(boolean retain, int qos, long timeout, String topic, byte[] content)
+    public PubAckInfo publish(long timeout, final Message message)
                     throws MqttException {
-        if (isClosing.get() || !isConnected.get()) {
-            throw new MqttException("Invalid connection state");
-        }
+
+        stateCheck();
 
         /* TODO: use also
                     withUserProperties()
@@ -158,12 +158,12 @@ public class MqttConnectionImpl implements MqttConnection {
                     withContentType()
                     withCorrelationData() - ???
         */
-        QOS qosEnum = QOS.getEnumValueFromInteger(qos);
+        QOS qosEnum = QOS.getEnumValueFromInteger(message.getQos());
         PublishPacket publishPacket = new PublishPacket.PublishPacketBuilder()
-                                            .withTopic(topic)
+                                            .withTopic(message.getTopic())
                                             .withQOS(qosEnum)
-                                            .withRetain(retain)
-                                            .withPayload(content)
+                                            .withRetain(message.isRetain())
+                                            .withPayload(message.getPayload())
                                             .build();
         CompletableFuture<PublishResult> publishFuture = client.publish(publishPacket);
         try {
@@ -182,8 +182,10 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public SubAckInfo subscribe(long timeout, Integer subscriptionId, List<Subscription> subscriptions)
+    public SubAckInfo subscribe(long timeout, final Integer subscriptionId, final List<Subscription> subscriptions)
             throws MqttException {
+
+        stateCheck();
 
         SubscribePacket.SubscribePacketBuilder builder = new SubscribePacket.SubscribePacketBuilder();
         if (subscriptionId != null) {
@@ -222,8 +224,10 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public SubAckInfo unsubscribe(long timeout, List<String> filters)
+    public SubAckInfo unsubscribe(long timeout, final List<String> filters)
             throws MqttException {
+
+        stateCheck();
 
         UnsubscribePacket.UnsubscribePacketBuilder builder = new UnsubscribePacket.UnsubscribePacketBuilder();
         filters.stream().forEach(filter -> builder.withSubscription(filter));
@@ -294,4 +298,11 @@ public class MqttConnectionImpl implements MqttConnection {
                 .withCertificateAuthority(connectionParams.getCa());
         }
     }
+
+    private void stateCheck() throws MqttException {
+        if (isClosing.get() || !isConnected.get()) {
+            throw new MqttException("Invalid connection state");
+        }
+    }
+
 }

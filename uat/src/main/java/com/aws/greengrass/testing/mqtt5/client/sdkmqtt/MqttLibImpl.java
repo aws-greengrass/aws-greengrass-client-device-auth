@@ -89,8 +89,8 @@ public class MqttLibImpl implements MqttLib {
             try {
                 // delete if value is up to date, otherwise leave for next round
                 if (connections.remove(key, connection)) {
-                    connection.disconnect(MqttConnection.DEFAULT_DISCONNECT_REASON,
-                                            MqttConnection.DEFAULT_DISCONNECT_TIMEOUT);
+                    connection.disconnect(MqttConnection.DEFAULT_DISCONNECT_TIMEOUT,
+                                            MqttConnection.DEFAULT_DISCONNECT_REASON);
                 }
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("failed during disconnect");
