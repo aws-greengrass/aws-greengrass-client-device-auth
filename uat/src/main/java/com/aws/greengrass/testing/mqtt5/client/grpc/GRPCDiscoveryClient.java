@@ -5,9 +5,9 @@
 
 package com.aws.greengrass.testing.mqtt5.client.grpc;
 
-import com.aws.greengrass.testing.mqtt.client.DiscoveryReply;
 import com.aws.greengrass.testing.mqtt.client.DiscoveryRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttAgentDiscoveryGrpc;
+import com.aws.greengrass.testing.mqtt.client.RegisterReply;
 import com.aws.greengrass.testing.mqtt.client.RegisterRequest;
 import com.aws.greengrass.testing.mqtt.client.UnregisterRequest;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
@@ -52,7 +52,7 @@ class GRPCDiscoveryClient {
         RegisterRequest request = RegisterRequest.newBuilder()
                                         .setAgentId(agentId)
                                         .build();
-        DiscoveryReply reply;
+        RegisterReply reply;
 
         try {
             reply = blockingStub.registerAgent(request);

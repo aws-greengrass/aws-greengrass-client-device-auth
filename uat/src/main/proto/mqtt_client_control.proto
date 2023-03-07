@@ -21,7 +21,7 @@ package ClientControl;
  */
 service MqttAgentDiscovery {
     // Register MQTT client
-    rpc RegisterAgent(RegisterRequest) returns (DiscoveryReply) {}
+    rpc RegisterAgent(RegisterRequest) returns (RegisterReply) {}
 
     // Discovery MQTT client address
     rpc DiscoveryAgent(DiscoveryRequest) returns (google.protobuf.Empty) {}
@@ -33,25 +33,26 @@ service MqttAgentDiscovery {
     rpc OnReceiveMqttMessage(ReceivedMqttMessage) returns (google.protobuf.Empty) {}
 }
 
-// The request message containing the client id.
+// Request to register new agent, contains the agent id.
 message RegisterRequest {
     string agentId = 1;
 }
 
-// The request message containing the client's service address.
+// Request to register service address of agent, contains the agent's service address and port.
 message DiscoveryRequest {
     string agentId = 1;
     string address = 2;
     int32 port = 3;
 }
 
+// Request to unregister agent, contains agent id and reason
 message UnregisterRequest {
     string agentId = 1;
     string reason = 2;
 }
 
-// The response message containing the response code and client's address
-message DiscoveryReply {
+// Response to Register request contains address of agent's client as visible from OFT side
+message RegisterReply {
     string address = 1;
 }
 
@@ -81,9 +82,10 @@ service MqttClientControl {
     rpc UnsubscribeMqtt(MqttUnsubscribeRequest) returns (google.protobuf.Empty) {}
 
     // publish MQTT message
-    rpc PublishMqtt(MqttPublishRequest) returns (google.protobuf.Empty) {}
+    rpc PublishMqtt(MqttPublishRequest) returns (MqttPublishReply) {}
 }
 
+// Versions of MQTT protocol, used for compatibility, only MQTT_PROTOCOL_V50 actually supported
 enum MqttProtoVersion {
     MQTT_PROTOCOL_V0    = 0;
     MQTT_PROTOCOL_V31   = 3;
@@ -91,6 +93,7 @@ enum MqttProtoVersion {
     MQTT_PROTOCOL_V50   = 5;         // only that is supported
 };
 
+// MQTT QoS values
 enum MqttQoS {
     MQTT_QOS_0 = 0;
     MQTT_QOS_1 = 1;
@@ -98,15 +101,18 @@ enum MqttQoS {
     MQTT_QOS_3 = 3;
 };
 
+// logical Id of MQTT connection, unique for a agent, but not over
 message MqttConnectionId {
     int32 connectionId = 1;
 };
 
+// MQTT 5.0 user's properties used in most of packets
 message Mqtt5Properties {
     // TODO:
     int32 stub = 1;
 };
 
+// The MQTT v5.0 message
 message Mqtt5Message {
     string topic = 1;
     bytes payload = 2;
@@ -115,18 +121,20 @@ message Mqtt5Message {
     Mqtt5Properties properties = 5;
 };
 
+// Optional TLS settings for MQTT connection
 message TLSSettings {
     string ca = 1;
     string cert = 2;
     string key = 3;
 };
 
-// request to shutdown client has a reason field
+// Request to shutdown client has a reason field
 message ShutdownRequest {
     string reason = 1;
 }
 
 
+// Request to create new MQTT connection with broker
 message MqttConnectRequest {
     string clientId = 1;                                // MQTT id of client
     string host = 2;                                    // host of MQTT broker
@@ -134,38 +142,52 @@ message MqttConnectRequest {
     int32 keepalive = 4;                                // MQTT keep alive interval in seconds
     bool cleanSession = 5;                              // clean sesions (clean start) flag
     MqttProtoVersion protocolVersion = 6;               // version of MQTT protocol to use, currently only 5 is supported
-    int32 connectTimeout = 7;                           // connect timeout in seconds
+    int32 timeout = 7;                                  // connect timeout in seconds
     optional Mqtt5Properties properties = 8;            // CONNECT packet MQTT 5 properties
     optional TLSSettings tls = 9;                       // TLS settings for secured connection
-    optional Mqtt5Message willMessage = 10;              // will message to set
+    optional Mqtt5Message willMessage = 10;             // will message to set
 }
 
 
+// Request to close MQTT connection
 message MqttCloseRequest {
-    MqttConnectionId connectionId = 1;
+    MqttConnectionId connectionId = 1;                  // id of connection to disconnect
     int32 reason = 2;
-    optional Mqtt5Properties properties = 3;      // DISCONNECT packet MQTT 5 properties
+    int32 timeout = 3;                                  // disconnect timeout in seconds
+    optional Mqtt5Properties properties = 4;            // DISCONNECT packet MQTT v5.0 properties
 }
 
+// MQTT message received by agent
 message ReceivedMqttMessage {
-    string agentId = 1;
-    MqttConnectionId connectionId = 2;
+    string agentId = 1;                                 // really required ?
+    MqttConnectionId connectionId = 2;                  // id of connection which received the message
     // TODO: received MQTT message fields and metadata
 }
 
+// Request to subscribe to MQTT topic(s)
 message MqttSubscribeRequest {
-    MqttConnectionId connectionId = 1;
+    MqttConnectionId connectionId = 1;                  // id of connection to subscribe
     // TODO: topics and other parameters
 }
 
+// Request to unsubscribe from MQTT topic(s)
 message MqttUnsubscribeRequest {
     MqttConnectionId connectionId = 1;
     // TODO: id of subscription inside connection
 }
 
+// Request to publish MQTT message
 message MqttPublishRequest {
-    // TODO: connection handler
-    MqttConnectionId connectionId = 1;
-    Mqtt5Message msg = 2;
+    MqttConnectionId connectionId = 1;                  // id of connection to publish
+    int32 timeout = 2;                                  // publish timeout in seconds\
+    Mqtt5Message msg = 3;
 }
+
+// Response to publish request
+message MqttPublishReply {
+    optional int32 reasonCode = 1;                      // MQTT v5.0 PUBACK reason code
+    optional string reasonString = 2;                   // MQTT v5.0 PUBACK reason string
+    optional Mqtt5Properties properties = 3;            // MQTT v5.0 PUBACK user's properties
+}
+
 // end of MQTT client contol part

@@ -19,9 +19,13 @@ import software.amazon.awssdk.crt.mqtt5.OnConnectionFailureReturn;
 import software.amazon.awssdk.crt.mqtt5.OnConnectionSuccessReturn;
 import software.amazon.awssdk.crt.mqtt5.OnDisconnectionReturn;
 import software.amazon.awssdk.crt.mqtt5.OnStoppedReturn;
+import software.amazon.awssdk.crt.mqtt5.PublishResult;
 import software.amazon.awssdk.crt.mqtt5.PublishReturn;
+import software.amazon.awssdk.crt.mqtt5.QOS;
 import software.amazon.awssdk.crt.mqtt5.packets.ConnectPacket;
 import software.amazon.awssdk.crt.mqtt5.packets.DisconnectPacket;
+import software.amazon.awssdk.crt.mqtt5.packets.PubAckPacket;
+import software.amazon.awssdk.crt.mqtt5.packets.PublishPacket;
 import software.amazon.awssdk.iot.AwsIotMqtt5ClientBuilder;
 
 import java.util.concurrent.CompletableFuture;
@@ -34,7 +38,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class MqttConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(MqttConnectionImpl.class);
 
-    private final AtomicBoolean isClosed = new AtomicBoolean();
+    private final AtomicBoolean isClosing = new AtomicBoolean();
+    private final AtomicBoolean isConnected = new AtomicBoolean();
 
     private final ClientsLifecycleEvents lifecycleEvents = new ClientsLifecycleEvents();
     private final ClientsPublishEvents publishEvents = new ClientsPublishEvents();
@@ -53,6 +58,7 @@ public class MqttConnectionImpl implements MqttConnection {
         public void onConnectionSuccess(Mqtt5Client client, OnConnectionSuccessReturn onConnectionSuccessReturn) {
             String clientId = onConnectionSuccessReturn.getNegotiatedSettings().getAssignedClientID();
             logger.atInfo().log("Connection success, client id {}", clientId);
+            isConnected.set(true);
             connectedFuture.complete(null);
         }
 
@@ -65,6 +71,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
         @Override
         public void onDisconnection(Mqtt5Client client, OnDisconnectionReturn onDisconnectionReturn) {
+            isConnected.set(false);
             logger.atInfo().log("Disconnected");
         }
 
@@ -79,6 +86,7 @@ public class MqttConnectionImpl implements MqttConnection {
         @Override
         public void onMessageReceived(Mqtt5Client client, PublishReturn result) {
             logger.atInfo().log("Message received");
+            // TODO: handle
         }
     }
 
@@ -95,7 +103,7 @@ public class MqttConnectionImpl implements MqttConnection {
         client = createClient(connectionParams);
         client.start();
         try {
-            lifecycleEvents.connectedFuture.get(connectionParams.getConnectTimeout(), TimeUnit.SECONDS);
+            lifecycleEvents.connectedFuture.get(connectionParams.getTimeout(), TimeUnit.SECONDS);
         } catch (Exception ex) {
             throw new MqttException("Exception occurred during connect", ex);
         }
@@ -108,22 +116,61 @@ public class MqttConnectionImpl implements MqttConnection {
      */
     @SuppressWarnings({"PMD.UseTryWithResources", "PMD.AvoidCatchingGenericException"})
     @Override
-    public void disconnect(int reasonCode) throws MqttException {
-        if (!isClosed.getAndSet(true)) {
-            DisconnectPacket.DisconnectPacketBuilder disconnectBuilder = new DisconnectPacket.DisconnectPacketBuilder();
+    public void disconnect(int reasonCode, long timeout) throws MqttException {
+        if (!isClosing.getAndSet(true)) {
             DisconnectPacket.DisconnectReasonCode disconnectReason
                 = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
+            DisconnectPacket.DisconnectPacketBuilder disconnectBuilder = new DisconnectPacket.DisconnectPacketBuilder();
             DisconnectPacket disconnectPacket = disconnectBuilder.withReasonCode(disconnectReason).build();
-            // TODO: withUserProperties()
+            // TODO: use withUserProperties()
             client.stop(disconnectPacket);
             try {
-                lifecycleEvents.stoppedFuture.get(60, TimeUnit.SECONDS); // TODO: tune timeout
+                lifecycleEvents.stoppedFuture.get(timeout, TimeUnit.SECONDS);
             } catch (Exception ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnecting from MQTT broker");
                 throw new MqttException("Could not disconnect", ex);
             } finally {
                 client.close();
             }
+        }
+    }
+
+
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    @Override
+    public PubAckInfo publish(boolean retain, int qos, long timeout, String topic, byte[] content)
+                    throws MqttException {
+        if (isClosing.get() || !isConnected.get()) {
+            throw new MqttException("Invalid connection state");
+        }
+
+        /* TODO: use also
+                    withUserProperties()
+                    withResponseTopic()
+                    withPayloadFormat()
+                    withMessageExpiryIntervalSeconds()
+                    withContentType()
+                    withCorrelationData() - ???
+        */
+        QOS qosEnum = QOS.getEnumValueFromInteger(qos);
+        PublishPacket publishPacket = new PublishPacket.PublishPacketBuilder()
+                                            .withTopic(topic)
+                                            .withQOS(qosEnum)
+                                            .withRetain(retain)
+                                            .withPayload(content)
+                                            .build();
+        CompletableFuture<PublishResult> publishFuture = client.publish(publishPacket);
+        try {
+            PublishResult result = publishFuture.get(timeout, TimeUnit.SECONDS);
+            if (result == null || result.getType() != PublishResult.PublishResultType.PUBACK) {
+                return null;
+            }
+            PubAckPacket pubAckPacket = result.getResultPubAck();
+            // TODO: handler also user's properties of PUBACK
+            return new PubAckInfo(pubAckPacket.getReasonCode().getValue(), pubAckPacket.getReasonString());
+        } catch (Exception ex) {
+                logger.atError().withThrowable(ex).log("Failed during publishing message");
+                throw new MqttException("Could not publish message", ex);
         }
     }
 
