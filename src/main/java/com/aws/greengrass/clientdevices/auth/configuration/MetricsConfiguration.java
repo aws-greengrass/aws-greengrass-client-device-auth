@@ -15,14 +15,14 @@ import lombok.Getter;
  * |---- configuration
  * |    |---- metrics:
  * |          |---- disableMetrics
- * |          |---- aggregatePeriod
+ * |          |---- aggregatePeriodSeconds
  * </p>
  */
 
 public final class MetricsConfiguration {
     public static final String METRICS_TOPIC = "metrics";
     public static final String DISABLE_METRICS = "disableMetrics";
-    public static final String AGGREGATE_PERIOD = "aggregatePeriod";
+    public static final String AGGREGATE_PERIOD = "aggregatePeriodSeconds";
     public static final int DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC = 3_600;
     @Getter
     private boolean disableMetrics;
