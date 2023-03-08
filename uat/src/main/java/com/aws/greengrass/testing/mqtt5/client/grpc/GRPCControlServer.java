@@ -19,8 +19,11 @@ import com.aws.greengrass.testing.mqtt.client.MqttSubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttUnsubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.ShutdownRequest;
 import com.aws.greengrass.testing.mqtt.client.TLSSettings;
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
+import com.aws.greengrass.testing.mqtt5.client.MqttReceivedMessage;
+import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import com.google.protobuf.Empty;
 import io.grpc.Grpc;
@@ -34,6 +37,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 /**
  * Implementation of gRPC server handles requests of OTF.
@@ -66,10 +70,10 @@ class GRPCControlServer {
     private static final int RETAIN_HANDLING_MIN = 0;
     private static final int RETAIN_HANDLING_MAX = 2;
 
-    @SuppressWarnings("PMD.UnusedPrivateField") // TODO: remove after use client
-    private final GRPCDiscoveryClient client;
+    private final BiConsumer<Integer, MqttReceivedMessage> messageConsumer;
     private final Server server;
     private final int boundPort;
+
     private MqttLib mqttLib;
     private String shutdownReason;
 
@@ -201,8 +205,9 @@ class GRPCControlServer {
             logger.atInfo().log("createMqttConnection: clientId {} broker {}:{}", clientId, host, port);
             int connectionId;
             try {
-                MqttConnection connection = mqttLib.createConnection(builder.build());
+                MqttConnection connection = mqttLib.createConnection(builder.build(), messageConsumer);
                 connectionId = mqttLib.registerConnection(connection);
+                connection.start(connectionId);
             } catch (MqttException ex) {
                 logger.atWarn().withThrowable(ex).log("Exception during connect");
                 responseObserver.onError(ex);
@@ -518,12 +523,20 @@ class GRPCControlServer {
      * @param port bind port, or 0 to autoselect
      * @throws IOException on errors
      */
-    public GRPCControlServer(GRPCDiscoveryClient client, String host, int port) throws IOException {
+    public GRPCControlServer(GRPCClient client, String host, int port) throws IOException {
         super();
-        this.client = client;
+        this.messageConsumer = (connectionId, message) -> {
+                if (client != null) {
+                    try {
+                        client.onReceiveMqttMessage(connectionId, message);
+                    } catch (GRPCException ex) {
+                        logger.atError().withThrowable(ex).log("Couldn't send received MQTT message to gRPC server");
+                    }
+                }
+            };
 
         // TODO: Java implementation of gRPC server has no usage of host
-        server = Grpc.newServerBuilderForPort(port, InsecureServerCredentials.create())
+        this.server = Grpc.newServerBuilderForPort(port, InsecureServerCredentials.create())
                     .addService(new MqttClientControlImpl())
                     .build()
                     .start();

@@ -20,7 +20,7 @@ public interface MqttConnection {
     long DEFAULT_DISCONNECT_TIMEOUT = 10;
 
     /**
-     * Contains information about MQTT v5.0 message.
+     * Contains information about publishing MQTT v5.0 message.
      */
     @Data
     @Builder
@@ -79,24 +79,12 @@ public interface MqttConnection {
     }
 
     /**
-     * Closes MQTT connection.
+     * Starts MQTT connection.
      *
-     * @param timeout disconnect operation timeout in seconds
-     * @param reasonCode reason why connection is closed
+     * @param connectionId connection id
      * @throws MqttException on errors
      */
-    void disconnect(long timeout, int reasonCode) throws MqttException;
-
-
-    /**
-     * Publishes MQTT message.
-     *
-     * @param timeout publish operation timeout in seconds
-     * @param message message to publish
-     * @return useful information from PUBACK packet or null of no PUBACK has been received (as for QoS 0)
-     * @throws MqttException on errors
-     */
-    PubAckInfo publish(long timeout, final Message message) throws MqttException;
+    void start(int connectionId) throws MqttException;
 
     /**
      * Subscribes to topics.
@@ -110,6 +98,17 @@ public interface MqttConnection {
     SubAckInfo subscribe(long timeout, final Integer subscriptionId, final List<Subscription> subscriptions)
             throws MqttException;
 
+
+    /**
+     * Publishes MQTT message.
+     *
+     * @param timeout publish operation timeout in seconds
+     * @param message message to publish
+     * @return useful information from PUBACK packet or null of no PUBACK has been received (as for QoS 0)
+     * @throws MqttException on errors
+     */
+    PubAckInfo publish(long timeout, final Message message) throws MqttException;
+
     /**
      * Unsubscribes from topics.
      *
@@ -119,4 +118,13 @@ public interface MqttConnection {
      * @throws MqttException on errors
      */
     SubAckInfo unsubscribe(long timeout, final List<String> filters) throws MqttException;
+
+    /**
+     * Closes MQTT connection.
+     *
+     * @param timeout disconnect operation timeout in seconds
+     * @param reasonCode reason why connection is closed
+     * @throws MqttException on errors
+     */
+    void disconnect(long timeout, int reasonCode) throws MqttException;
 }

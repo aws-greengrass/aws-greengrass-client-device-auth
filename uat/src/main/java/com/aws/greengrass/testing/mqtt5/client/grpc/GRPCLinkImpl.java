@@ -92,6 +92,4 @@ public class GRPCLinkImpl implements GRPCLink {
     private static String buildAddress(String host, int port) {
         return host + ":" + port;
     }
-
-
 }

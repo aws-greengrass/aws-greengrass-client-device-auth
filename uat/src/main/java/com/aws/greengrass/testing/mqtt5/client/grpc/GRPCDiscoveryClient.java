@@ -6,11 +6,18 @@
 package com.aws.greengrass.testing.mqtt5.client.grpc;
 
 import com.aws.greengrass.testing.mqtt.client.DiscoveryRequest;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.MqttAgentDiscoveryGrpc;
+import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
+import com.aws.greengrass.testing.mqtt.client.MqttQoS;
+import com.aws.greengrass.testing.mqtt.client.OnReceiveMessageRequest;
 import com.aws.greengrass.testing.mqtt.client.RegisterReply;
 import com.aws.greengrass.testing.mqtt.client.RegisterRequest;
 import com.aws.greengrass.testing.mqtt.client.UnregisterRequest;
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
+import com.aws.greengrass.testing.mqtt5.client.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
+import com.google.protobuf.ByteString;
 import io.grpc.Grpc;
 import io.grpc.InsecureChannelCredentials;
 import io.grpc.ManagedChannel;
@@ -21,9 +28,10 @@ import org.apache.logging.log4j.Logger;
 /**
  * Implementation of gRPC client used to discover agent.
  */
-class GRPCDiscoveryClient {
+class GRPCDiscoveryClient implements GRPCClient {
     private static final Logger logger = LogManager.getLogger(GRPCDiscoveryClient.class);
 
+    private static final String GRPC_REQUEST_FAILED = "gRPC request failed";
 
     private final String agentId;
     private final MqttAgentDiscoveryGrpc.MqttAgentDiscoveryBlockingStub blockingStub;
@@ -57,7 +65,7 @@ class GRPCDiscoveryClient {
         try {
             reply = blockingStub.registerAgent(request);
         } catch (StatusRuntimeException ex) {
-            logger.atError().withThrowable(ex).log("gRPC request failed");
+            logger.atError().withThrowable(ex).log(GRPC_REQUEST_FAILED);
             throw new GRPCException(ex);
         }
         return reply.getAddress();
@@ -78,7 +86,7 @@ class GRPCDiscoveryClient {
         try {
             blockingStub.discoveryAgent(request);
         } catch (StatusRuntimeException ex) {
-            logger.atError().withThrowable(ex).log("gRPC request failed");
+            logger.atError().withThrowable(ex).log(GRPC_REQUEST_FAILED);
             throw new GRPCException(ex);
         }
     }
@@ -97,7 +105,30 @@ class GRPCDiscoveryClient {
         try {
             blockingStub.unregisterAgent(request);
         } catch (StatusRuntimeException ex) {
-            logger.atError().withThrowable(ex).log("gRPC request failed");
+            logger.atError().withThrowable(ex).log(GRPC_REQUEST_FAILED);
+            throw new GRPCException(ex);
+        }
+    }
+
+
+    @Override
+    public void onReceiveMqttMessage(int connectionId, MqttReceivedMessage message) throws GRPCException {
+        Mqtt5Message msg = Mqtt5Message.newBuilder()
+                                        .setTopic(message.getTopic())
+                                        .setPayload(ByteString.copyFrom(message.getPayload()))
+                                        .setQos(MqttQoS.valueOf(message.getQos()))
+                                        .setRetain(message.isRetain())
+                                        .build();
+
+        OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
+                        .setAgentId(agentId)
+                        .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
+                        .setMsg(msg)
+                        .build();
+        try {
+            blockingStub.onReceiveMessage(request);
+        } catch (StatusRuntimeException ex) {
+            logger.atError().withThrowable(ex).log(GRPC_REQUEST_FAILED);
             throw new GRPCException(ex);
         }
     }

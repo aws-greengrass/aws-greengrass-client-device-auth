@@ -7,12 +7,14 @@ package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
+import com.aws.greengrass.testing.mqtt5.client.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 
 /**
  * Interface of MQTT5 library.
@@ -27,12 +29,15 @@ public class MqttLibImpl implements MqttLib {
      * Creates a MQTT5 connection.
      *
      * @param connectionParams connection parameters
+     * @param messageConsumer consumer of received messages
      * @return MqttConnection on success
      * @throws MqttException on errors
      */
     @Override
-    public MqttConnection createConnection(ConnectionParams connectionParams) throws MqttException {
-        return new MqttConnectionImpl(connectionParams);
+    public MqttConnection createConnection(ConnectionParams connectionParams,
+                                            BiConsumer<Integer, MqttReceivedMessage> messageConsumer)
+                throws MqttException {
+        return new MqttConnectionImpl(connectionParams, messageConsumer);
     }
 
     /**

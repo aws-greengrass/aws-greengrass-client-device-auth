@@ -30,12 +30,17 @@ service MqttAgentDiscovery {
     rpc UnregisterAgent(UnregisterRequest) returns (google.protobuf.Empty) {}
 
     // called when client receives MQTT message on subscription
-    rpc OnReceiveMqttMessage(ReceivedMqttMessage) returns (google.protobuf.Empty) {}
+    rpc OnReceiveMessage(OnReceiveMessageRequest) returns (google.protobuf.Empty) {}
 }
 
 // Request to register new agent, contains the agent id.
 message RegisterRequest {
     string agentId = 1;
+}
+
+// Response to Register request contains address of agent's client as visible from OTF side
+message RegisterReply {
+    string address = 1;
 }
 
 // Request to register service address of agent, contains the agent's service address and port.
@@ -51,12 +56,12 @@ message UnregisterRequest {
     string reason = 2;
 }
 
-// Response to Register request contains address of agent's client as visible from OFT side
-message RegisterReply {
-    string address = 1;
+// MQTT message received by agent
+message OnReceiveMessageRequest {
+    string agentId = 1;                                 // really required ?
+    MqttConnectionId connectionId = 2;                  // id of connection which received the message
+    Mqtt5Message msg = 3;                               // received MQTT message
 }
-
-// see also ReceivedMqttMessage
 
 // End of discovery part
 
@@ -174,12 +179,6 @@ message MqttCloseRequest {
     optional Mqtt5Properties properties = 4;            // DISCONNECT packet MQTT v5.0 properties
 }
 
-// MQTT message received by agent
-message ReceivedMqttMessage {
-    string agentId = 1;                                 // really required ?
-    MqttConnectionId connectionId = 2;                  // id of connection which received the message
-    // TODO: received MQTT message fields and metadata
-}
 
 // Request to subscribe to MQTT topic(s)
 message MqttSubscribeRequest {
