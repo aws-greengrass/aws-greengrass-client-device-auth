@@ -12,17 +12,17 @@ import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
  */
 public interface GRPCLink {
     /**
-     * Handle gRPC requests.
+     * Handle all gRPC requests received from control.
      *
-     * @param mqttLib MQTT library handler
-     * @return shutdown reason as received from gRPC server
+     * @param mqttLib MQTT library
+     * @return shutdown reason as received from control or null
      * @throws GRPCException on errors
      * @throws InterruptedException when thread has been interrupted
      */
     String handleRequests(MqttLib mqttLib) throws GRPCException, InterruptedException;
 
     /**
-     * Unregister MQTT client control in testing framework.
+     * Unregister agent from control.
      *
      * @param reason reason of shutdown
      * @throws GRPCException on errors

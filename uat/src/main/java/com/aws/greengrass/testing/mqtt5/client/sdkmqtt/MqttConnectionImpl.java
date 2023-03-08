@@ -7,6 +7,7 @@ package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
+import com.aws.greengrass.testing.mqtt5.client.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,10 +37,11 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 /**
- * Interface of MQTT5 connection.
+ * Implementation of MQTT5 connection.
  */
 public class MqttConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(MqttConnectionImpl.class);
@@ -47,9 +49,12 @@ public class MqttConnectionImpl implements MqttConnection {
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final AtomicBoolean isConnected = new AtomicBoolean();
 
+    private final BiConsumer<Integer, MqttReceivedMessage> messageConsumer;
+    private final Mqtt5Client client;
+    private int connectionId = 0;
+
     private final ClientsLifecycleEvents lifecycleEvents = new ClientsLifecycleEvents();
     private final ClientsPublishEvents publishEvents = new ClientsPublishEvents();
-    private final Mqtt5Client client;
 
     private class ClientsLifecycleEvents implements Mqtt5ClientOptions.LifecycleEvents {
         CompletableFuture<Void> connectedFuture = new CompletableFuture<>();
@@ -57,13 +62,13 @@ public class MqttConnectionImpl implements MqttConnection {
 
         @Override
         public void onAttemptingConnect(Mqtt5Client client, OnAttemptingConnectReturn onAttemptingConnectReturn) {
-            logger.atInfo().log("Attempting to MQTT connect...");
+            logger.atInfo().log("MQTT connectionId {} connecting...", connectionId);
         }
 
         @Override
         public void onConnectionSuccess(Mqtt5Client client, OnConnectionSuccessReturn onConnectionSuccessReturn) {
             String clientId = onConnectionSuccessReturn.getNegotiatedSettings().getAssignedClientID();
-            logger.atInfo().log("MQTT connection success, client id {}", clientId);
+            logger.atInfo().log("MQTT connectionId {} connected, client id {}", connectionId, clientId);
             isConnected.set(true);
             connectedFuture.complete(null);
         }
@@ -71,19 +76,19 @@ public class MqttConnectionImpl implements MqttConnection {
         @Override
         public void onConnectionFailure(Mqtt5Client client, OnConnectionFailureReturn onConnectionFailureReturn) {
             String errorString = CRT.awsErrorString(onConnectionFailureReturn.getErrorCode());
-            logger.atInfo().log("MQTT connection failed with error: {}", errorString);
+            logger.atInfo().log("MQTT connectionId {} failed with error: {}", connectionId, errorString);
             connectedFuture.completeExceptionally(new MqttException("Could not connect: " + errorString));
         }
 
         @Override
         public void onDisconnection(Mqtt5Client client, OnDisconnectionReturn onDisconnectionReturn) {
             isConnected.set(false);
-            logger.atInfo().log("MQTT disconnected");
+            logger.atInfo().log("MQTT connectionId {} disconnected", connectionId);
         }
 
         @Override
         public void onStopped(Mqtt5Client client, OnStoppedReturn onStoppedReturn) {
-            logger.atInfo().log("MQTT client stopped");
+            logger.atInfo().log("MQTT connectionId {} stopped", connectionId);
             stoppedFuture.complete(null);
         }
     }
@@ -91,8 +96,25 @@ public class MqttConnectionImpl implements MqttConnection {
     private class ClientsPublishEvents implements Mqtt5ClientOptions.PublishEvents {
         @Override
         public void onMessageReceived(Mqtt5Client client, PublishReturn result) {
-            logger.atInfo().log("MQTT message received");
-            // TODO: handle
+            PublishPacket packet = result.getPublishPacket();
+            if (packet != null) {
+                int qos = packet.getQOS().getValue();
+                String topic = packet.getTopic();
+                boolean isRetain = packet.getRetain();
+
+                if (messageConsumer != null) {
+                    MqttReceivedMessage message = MqttReceivedMessage.builder()
+                                .qos(qos)
+                                .retain(isRetain)
+                                .topic(topic)
+                            .payload(packet.getPayload())
+                                .build();
+                    messageConsumer.accept(connectionId, message);
+                }
+
+                logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
+                                        connectionId, topic, qos, isRetain);
+            }
         }
     }
 
@@ -100,36 +122,41 @@ public class MqttConnectionImpl implements MqttConnection {
      * Creates a MQTT5 connection.
      *
      * @param connectionParams connection parameters
+     * @param messageConsumer consumer of received messages
      * @throws MqttException on errors
      */
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    public MqttConnectionImpl(MqttLib.ConnectionParams connectionParams) throws MqttException {
+    public MqttConnectionImpl(MqttLib.ConnectionParams connectionParams,
+                                BiConsumer<Integer, MqttReceivedMessage> messageConsumer) throws MqttException {
         super();
 
-        client = createClient(connectionParams);
+        this.messageConsumer = messageConsumer;
+        this.client = createClient(connectionParams);
+    }
+
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    @Override
+    public void start(long timeout, int connectionId) throws MqttException {
+        this.connectionId = connectionId;
         client.start();
         try {
-            lifecycleEvents.connectedFuture.get(connectionParams.getTimeout(), TimeUnit.SECONDS);
+            lifecycleEvents.connectedFuture.get(timeout, TimeUnit.SECONDS);
         } catch (Exception ex) {
             throw new MqttException("Exception occurred during connect", ex);
         }
     }
 
-    /**
-     * Close MQTT connection.
-     *
-     * @param reasonCode reason why connection is closed
-     */
     @SuppressWarnings({"PMD.UseTryWithResources", "PMD.AvoidCatchingGenericException"})
     @Override
-    public void disconnect(int reasonCode, long timeout) throws MqttException {
+    public void disconnect(long timeout, int reasonCode) throws MqttException {
+
         if (!isClosing.getAndSet(true)) {
             DisconnectPacket.DisconnectReasonCode disconnectReason
-                = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
+                    = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
             DisconnectPacket.DisconnectPacketBuilder disconnectBuilder = new DisconnectPacket.DisconnectPacketBuilder();
             DisconnectPacket disconnectPacket = disconnectBuilder.withReasonCode(disconnectReason).build();
             // TODO: use withUserProperties()
             client.stop(disconnectPacket);
+
             try {
                 lifecycleEvents.stoppedFuture.get(timeout, TimeUnit.SECONDS);
             } catch (Exception ex) {
@@ -144,11 +171,10 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public PubAckInfo publish(boolean retain, int qos, long timeout, String topic, byte[] content)
+    public PubAckInfo publish(long timeout, final Message message)
                     throws MqttException {
-        if (isClosing.get() || !isConnected.get()) {
-            throw new MqttException("Invalid connection state");
-        }
+
+        stateCheck();
 
         /* TODO: use also
                     withUserProperties()
@@ -158,12 +184,12 @@ public class MqttConnectionImpl implements MqttConnection {
                     withContentType()
                     withCorrelationData() - ???
         */
-        QOS qosEnum = QOS.getEnumValueFromInteger(qos);
+        QOS qosEnum = QOS.getEnumValueFromInteger(message.getQos());
         PublishPacket publishPacket = new PublishPacket.PublishPacketBuilder()
-                                            .withTopic(topic)
+                                            .withTopic(message.getTopic())
                                             .withQOS(qosEnum)
-                                            .withRetain(retain)
-                                            .withPayload(content)
+                                            .withRetain(message.isRetain())
+                                            .withPayload(message.getPayload())
                                             .build();
         CompletableFuture<PublishResult> publishFuture = client.publish(publishPacket);
         try {
@@ -182,8 +208,10 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public SubAckInfo subscribe(long timeout, Integer subscriptionId, List<Subscription> subscriptions)
+    public SubAckInfo subscribe(long timeout, final Integer subscriptionId, final List<Subscription> subscriptions)
             throws MqttException {
+
+        stateCheck();
 
         SubscribePacket.SubscribePacketBuilder builder = new SubscribePacket.SubscribePacketBuilder();
         if (subscriptionId != null) {
@@ -222,8 +250,10 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public SubAckInfo unsubscribe(long timeout, List<String> filters)
+    public UnsubAckInfo unsubscribe(long timeout, final List<String> filters)
             throws MqttException {
+
+        stateCheck();
 
         UnsubscribePacket.UnsubscribePacketBuilder builder = new UnsubscribePacket.UnsubscribePacketBuilder();
         filters.stream().forEach(filter -> builder.withSubscription(filter));
@@ -239,14 +269,19 @@ public class MqttConnectionImpl implements MqttConnection {
             if (codes != null) {
                 resultCodes = codes.stream().map(code -> code.getValue()).collect(Collectors.toList());
             }
-            // TODO: handler also user's properties of SUBACK
-            return new SubAckInfo(resultCodes, result.getReasonString());
+            // TODO: handler also user's properties of UNSUBACK
+            return new UnsubAckInfo(resultCodes, result.getReasonString());
         } catch (Exception ex) {
             logger.atError().withThrowable(ex).log("Failed during unsubscribe");
             throw new MqttException("Could not unsubscribe", ex);
         }
     }
 
+    /**
+     * Creates a MQTT5 client.
+     *
+     * @param connectionParams connection parameters
+     */
     private Mqtt5Client createClient(MqttLib.ConnectionParams connectionParams) {
 
         try (AwsIotMqtt5ClientBuilder builder = getClientBuilder(connectionParams)) {
@@ -281,6 +316,11 @@ public class MqttConnectionImpl implements MqttConnection {
         }
     }
 
+    /**
+     * Creates a MQTT5 client builder.
+     *
+     * @param connectionParams connection parameters
+     */
     private AwsIotMqtt5ClientBuilder getClientBuilder(MqttLib.ConnectionParams connectionParams) {
         if (connectionParams.getKey() == null) {
             logger.atInfo().log("Creating Mqtt5Client without TLS");
@@ -292,6 +332,21 @@ public class MqttConnectionImpl implements MqttConnection {
                     connectionParams.getCert(),
                     connectionParams.getKey())
                 .withCertificateAuthority(connectionParams.getCa());
+        }
+    }
+
+    /**
+     * Checks connection state.
+     *
+     * @throws MqttException when connection state is not allow opertation
+     */
+    private void stateCheck() throws MqttException {
+        if (!isConnected.get()) {
+            throw new MqttException("MQTT client is not in connected state");
+        }
+
+        if (isClosing.get()) {
+            throw new MqttException("MQTT connection is closing");
         }
     }
 }

@@ -19,8 +19,11 @@ import com.aws.greengrass.testing.mqtt.client.MqttSubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttUnsubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.ShutdownRequest;
 import com.aws.greengrass.testing.mqtt.client.TLSSettings;
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
+import com.aws.greengrass.testing.mqtt5.client.MqttReceivedMessage;
+import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import com.google.protobuf.Empty;
 import io.grpc.Grpc;
@@ -34,6 +37,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 /**
  * Implementation of gRPC server handles requests of OTF.
@@ -66,10 +70,10 @@ class GRPCControlServer {
     private static final int RETAIN_HANDLING_MIN = 0;
     private static final int RETAIN_HANDLING_MAX = 2;
 
-    @SuppressWarnings("PMD.UnusedPrivateField") // TODO: remove after use client
-    private final GRPCDiscoveryClient client;
+    private final BiConsumer<Integer, MqttReceivedMessage> messageConsumer;
     private final Server server;
     private final int boundPort;
+
     private MqttLib mqttLib;
     private String shutdownReason;
 
@@ -79,13 +83,19 @@ class GRPCControlServer {
      */
     class MqttClientControlImpl extends MqttClientControlGrpc.MqttClientControlImplBase {
 
+        /**
+         * Handler of ShutdownAgent gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void shutdownAgent(ShutdownRequest request, StreamObserver<Empty> responseObserver) {
             // save reason
             shutdownReason = request.getReason();
 
             // log an event
-            logger.atInfo().log("shutdownAgent: {}", shutdownReason);
+            logger.atInfo().log("shutdownAgent: reason {}", shutdownReason);
 
             Empty reply = Empty.newBuilder().build();
             responseObserver.onNext(reply);
@@ -95,34 +105,37 @@ class GRPCControlServer {
             server.shutdown();
         }
 
+        /**
+         * Handler of CreateMqttConnection gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void createMqttConnection(MqttConnectRequest request,
                                             StreamObserver<MqttConnectionId> responseObserver) {
 
             String clientId = request.getClientId();
-            String host = request.getHost();
-            int port = request.getPort();
-
-            logger.atInfo().log("createMqttConnection: clientId {} broker {}:{}", clientId, host, port);
-
             if (clientId == null || clientId.isEmpty()) {
-                logger.atWarn().log("clientId can't be empty");
+                logger.atWarn().log("empty clientId");
                 responseObserver.onError(Status.INVALID_ARGUMENT
-                                            .withDescription("clientId can't be empty")
+                                            .withDescription("empty clientId")
                                             .asRuntimeException());
                 return;
             }
 
+            String host = request.getHost();
             if (host == null || host.isEmpty()) {
-                logger.atWarn().log("host can't be empty");
+                logger.atWarn().log("empty host");
                 responseObserver.onError(Status.INVALID_ARGUMENT
-                                            .withDescription("host can't be empty")
+                                            .withDescription("empty host")
                                             .asRuntimeException());
                 return;
             }
 
+            int port = request.getPort();
             if (port < PORT_MIN || port > PORT_MAX) {
-                logger.atWarn().log("invalid port, must be in range [{}, {}]", PORT_MIN, PORT_MAX);
+                logger.atWarn().log("invalid port {}, must be in range [{}, {}]", port, PORT_MIN, PORT_MAX);
                 responseObserver.onError(Status.INVALID_ARGUMENT
                                             .withDescription("invalid port, must be in range [1, 65535]")
                                             .asRuntimeException());
@@ -131,26 +144,27 @@ class GRPCControlServer {
 
             MqttProtoVersion version = request.getProtocolVersion();
             if (version != MqttProtoVersion.MQTT_PROTOCOL_V50) {
-                logger.atWarn().log("MQTT_PROTOCOL_V50 is only supported but {} requested", version);
+                logger.atWarn().log("invalid protocolVersion {}, {} is only supported",
+                                        version, MqttProtoVersion.MQTT_PROTOCOL_V50);
                 responseObserver.onError(Status.INVALID_ARGUMENT
-                                .withDescription("invalid protocolVersion, only MQTT_PROTOCOL_V50 is supported")
+                                .withDescription("invalid protocolVersion, only MQTT_PROTOCOL_V50 supported")
                                 .asRuntimeException());
                 return;
             }
 
             int keepalive = request.getKeepalive();
             if (keepalive != KEEPALIVE_OFF && (keepalive < KEEPALIVE_MIN || keepalive > KEEPALIVE_MAX)) {
-                logger.atWarn().log("invalid keepalive, must be in range [{}, {}]", KEEPALIVE_MIN, KEEPALIVE_MAX);
+                logger.atWarn().log("invalDid keepalive {}, must be in range [{}, {}]",
+                                        keepalive, KEEPALIVE_MIN, KEEPALIVE_MAX);
                 responseObserver.onError(Status.INVALID_ARGUMENT
                                             .withDescription("invalid keepalive, must be in range [1, 65535]")
                                             .asRuntimeException());
                 return;
             }
 
-
             int timeout = request.getTimeout();
             if (timeout < TIMEOUT_MIN) {
-                logger.atWarn().log("invalid connect timeout, must be >= {} but {}", TIMEOUT_MIN, timeout);
+                logger.atWarn().log("invalid connect timeout {} must be >= {}", timeout, TIMEOUT_MIN);
                 responseObserver.onError(Status.INVALID_ARGUMENT
                                             .withDescription("invalid connect timeout, must be >= 1")
                                             .asRuntimeException());
@@ -162,8 +176,7 @@ class GRPCControlServer {
                             .host(host)
                             .port(port)
                             .keepalive(keepalive)
-                            .cleanSession(request.getCleanSession())
-                            .timeout(timeout);
+                            .cleanSession(request.getCleanSession());
 
             // check TLS optional settings
             if (request.hasTls()) {
@@ -171,27 +184,27 @@ class GRPCControlServer {
                 String ca = tls.getCa();
 
                 if (ca == null || ca.isEmpty()) {
-                    logger.atWarn().log("ca is empty");
+                    logger.atWarn().log("empty CA");
                     responseObserver.onError(Status.INVALID_ARGUMENT
-                                                .withDescription("CA is empty")
+                                                .withDescription("empty CA")
                                                 .asRuntimeException());
                     return;
                 }
 
                 String cert = tls.getCert();
                 if (cert == null || cert.isEmpty()) {
-                    logger.atWarn().log("cert is empty");
+                    logger.atWarn().log("empty certificate");
                     responseObserver.onError(Status.INVALID_ARGUMENT
-                                                .withDescription("cert is empty")
+                                                .withDescription("empty certificate")
                                                 .asRuntimeException());
                     return;
                 }
 
                 String key = tls.getKey();
                 if (key == null || key.isEmpty()) {
-                    logger.atWarn().log("key is empty");
+                    logger.atWarn().log("empty private key");
                     responseObserver.onError(Status.INVALID_ARGUMENT
-                                                .withDescription("key is empty")
+                                                .withDescription("empty private key")
                                                 .asRuntimeException());
                     return;
                 }
@@ -200,10 +213,12 @@ class GRPCControlServer {
             }
 
 
+            logger.atInfo().log("createMqttConnection: clientId {} broker {}:{}", clientId, host, port);
             int connectionId;
             try {
-                MqttConnection connection = mqttLib.createConnection(builder.build());
+                MqttConnection connection = mqttLib.createConnection(builder.build(), messageConsumer);
                 connectionId = mqttLib.registerConnection(connection);
+                connection.start(timeout, connectionId);
             } catch (MqttException ex) {
                 logger.atWarn().withThrowable(ex).log("Exception during connect");
                 responseObserver.onError(ex);
@@ -215,15 +230,18 @@ class GRPCControlServer {
             responseObserver.onCompleted();
         }
 
+        /**
+         * Handler of CloseMqttConnection gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void closeMqttConnection(MqttCloseRequest request, StreamObserver<Empty> responseObserver) {
 
-            int connectionId = request.getConnectionId().getConnectionId();
             int reason = request.getReason();
-            logger.atInfo().log("closeMqttConnection: connectionId {} reason {}", connectionId, reason);
-
             if (reason < REASON_MIN || reason > REASON_MAX) {
-                logger.atWarn().log("invalid reason, must be in range [{}, {}]", REASON_MIN, REASON_MAX);
+                logger.atWarn().log("invalid reason {}, must be in range [{}, {}]", reason, REASON_MIN, REASON_MAX);
                 responseObserver.onError(Status.INVALID_ARGUMENT
                                             .withDescription("invalid reason, must be in range [0, 255]")
                                             .asRuntimeException());
@@ -232,13 +250,14 @@ class GRPCControlServer {
 
             int timeout = request.getTimeout();
             if (timeout < TIMEOUT_MIN) {
-                logger.atWarn().log("invalid disconnect timeout, must be >= {} but {}", TIMEOUT_MIN, timeout);
+                logger.atWarn().log("invalid disconnect timeout, must be >= {}", timeout, TIMEOUT_MIN);
                 responseObserver.onError(Status.INVALID_ARGUMENT
                                             .withDescription("invalid disconnect timeout, must be >= 1")
                                             .asRuntimeException());
                 return;
             }
 
+            int connectionId = request.getConnectionId().getConnectionId();
             MqttConnection connection = mqttLib.unregisterConnection(connectionId);
             if (connection == null) {
                 logger.atWarn().log(CONNECTION_WITH_DOES_NOT_FOUND, connectionId);
@@ -248,9 +267,10 @@ class GRPCControlServer {
                 return;
             }
 
+            logger.atInfo().log("closeMqttConnection: connectionId {} reason {}", connectionId, reason);
             try {
                 // TODO: pass also DISCONNECT properties
-                connection.disconnect(reason, timeout);
+                connection.disconnect(timeout, reason);
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during disconnect");
                 responseObserver.onError(ex);
@@ -262,33 +282,38 @@ class GRPCControlServer {
             responseObserver.onCompleted();
         }
 
+        /**
+         * Handler of PublishMqtt gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void publishMqtt(MqttPublishRequest request, StreamObserver<MqttPublishReply> responseObserver) {
-            Mqtt5Message message = request.getMsg();
 
-            logger.atDebug().log("publishMqtt");
+            Mqtt5Message message = request.getMsg();
 
             int qos = message.getQosValue();
             if (qos < QOS_MIN || qos > QOS_MAX) {
-                logger.atWarn().log("qos is invalid can be in range [0,3] but is {}", qos);
+                logger.atWarn().log("invalid QoS {}, must be in range [{},{}]", qos, QOS_MIN, QOS_MAX);
                 responseObserver.onError(Status.INVALID_ARGUMENT
-                                            .withDescription("qos is invalid can be in range [0,3]")
+                                            .withDescription("invalid QoS, must be in range [0,3]")
                                             .asRuntimeException());
                 return;
             }
 
             String topic = message.getTopic();
             if (topic == null || topic.isEmpty()) {
-                logger.atWarn().log("topic can't be empty");
+                logger.atWarn().log("empty topic");
                 responseObserver.onError(Status.INVALID_ARGUMENT
-                                            .withDescription("topic can't be empty")
+                                            .withDescription("empty topic")
                                             .asRuntimeException());
                 return;
             }
 
             int timeout = request.getTimeout();
             if (timeout < TIMEOUT_MIN) {
-                logger.atWarn().log("invalid publish timeout, must be >= {} but {}", TIMEOUT_MIN, timeout);
+                logger.atWarn().log("invalid publish timeout {}, must be >= {}", timeout, TIMEOUT_MIN);
                 responseObserver.onError(Status.INVALID_ARGUMENT
                                             .withDescription("invalid publish timeout, must be >= 1")
                                             .asRuntimeException());
@@ -306,14 +331,19 @@ class GRPCControlServer {
             }
 
             boolean isRetain = message.getRetain();
-            logger.atInfo().log("Publish: connectionId {} topic {} QOS {} retain {}",
+            logger.atInfo().log("Publish: connectionId {} topic {} QoS {} retain {}",
                                     connectionId, topic, qos, isRetain);
 
+            MqttConnection.Message internalMessage = MqttConnection.Message.builder()
+                                .qos(qos)
+                                .retain(isRetain)
+                                .topic(topic)
+                                .payload(message.getPayload().toByteArray())
+                                .build();
             MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
             try {
                 // TODO: pass also user's properties
-                MqttConnection.PubAckInfo pubAckInfo = connection.publish(isRetain, qos, timeout, topic,
-                                                            message.getPayload().toByteArray());
+                MqttConnection.PubAckInfo pubAckInfo = connection.publish(timeout, internalMessage);
                 if (pubAckInfo != null) {
                     int reasonCode = pubAckInfo.getReasonCode();
                     builder.setReasonCode(reasonCode);
@@ -321,7 +351,8 @@ class GRPCControlServer {
                     if (reasonString != null) {
                         builder.setReasonString(reasonString);
                     }
-                    logger.atInfo().log("Publish response: reason code {} reason string {}", reasonCode, reasonString);
+                    logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",
+                                            connectionId, reasonCode, reasonString);
                 }
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during publish");
@@ -333,14 +364,19 @@ class GRPCControlServer {
             responseObserver.onCompleted();
         }
 
+
+        /**
+         * Handler of SubscribeMqtt gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void subscribeMqtt(MqttSubscribeRequest request, StreamObserver<MqttSubscribeReply> responseObserver) {
 
-            logger.atDebug().log("subscribeMqtt");
-
             int timeout = request.getTimeout();
             if (timeout < TIMEOUT_MIN) {
-                logger.atWarn().log("invalid subscribe timeout, must be >= {} but {}", TIMEOUT_MIN, timeout);
+                logger.atWarn().log("invalid subscribe timeout {}, must be >= {}", timeout, TIMEOUT_MIN);
                 responseObserver.onError(Status.INVALID_ARGUMENT
                                             .withDescription("invalid subscribe timeout, must be >= 1")
                                             .asRuntimeException());
@@ -351,9 +387,8 @@ class GRPCControlServer {
             if (request.hasSubscriptionId()) {
                 subscriptionId = request.getSubscriptionId();
                 if (subscriptionId < SIBSCRIPTION_ID_MIN || subscriptionId > SIBSCRIPTION_ID_MAX) {
-                    logger.atWarn().log("invalid subscription id, must be >= {} <= {} but {}", SIBSCRIPTION_ID_MIN,
-                                            SIBSCRIPTION_ID_MAX,
-                                            subscriptionId);
+                    logger.atWarn().log("invalid subscription id {} must be >= {} and <= {}", subscriptionId,
+                                            SIBSCRIPTION_ID_MIN, SIBSCRIPTION_ID_MAX);
                     responseObserver.onError(Status.INVALID_ARGUMENT
                                     .withDescription("invalid subscription id, must be >= 1 and <= 268435455")
                                     .asRuntimeException());
@@ -375,27 +410,29 @@ class GRPCControlServer {
             for (Mqtt5Subscription subscription : subscriptions) {
                 String filter = subscription.getFilter();
                 if (filter == null || filter.isEmpty()) {
-                    logger.atWarn().log("filter can't be empty but missing at index {}", index);
+                    logger.atWarn().log("empty filter at subscription index {}", index);
                     responseObserver.onError(Status.INVALID_ARGUMENT
-                                                .withDescription("filter can't be empty")
+                                                .withDescription("empty filter")
                                                 .asRuntimeException());
                     return;
                 }
 
                 int qos = subscription.getQosValue();
                 if (qos < QOS_MIN || qos > QOS_MAX) {
-                    logger.atWarn().log("qos is invalid can be in range [0,3] but is {} at index {}", qos, index);
+                    logger.atWarn().log("invalid QoS {} at subscription index {}, must be in range [{},{}]",
+                                            qos, index, QOS_MIN, QOS_MAX);
                     responseObserver.onError(Status.INVALID_ARGUMENT
-                                                .withDescription("qos is invalid can be in range [0,3]")
+                                                .withDescription("invalid QoS, must be in range [0,3]")
                                                 .asRuntimeException());
                     return;
                 }
 
                 int retainHandling = subscription.getRetainHandlingValue();
                 if (retainHandling < RETAIN_HANDLING_MIN || retainHandling > RETAIN_HANDLING_MAX) {
-                    logger.atWarn().log("qos is invalid can be in range [0,3] but is {} at index {}", qos, index);
+                    logger.atWarn().log("invalid retainHandling {} at subscription index {}, must be in range [{},{}]",
+                                            qos, index, RETAIN_HANDLING_MIN, RETAIN_HANDLING_MAX);
                     responseObserver.onError(Status.INVALID_ARGUMENT
-                                                .withDescription("qos is invalid can be in range [0,3]")
+                                                .withDescription("invalid retainHandling, must be in range [0,2]")
                                                 .asRuntimeException());
                     return;
                 }
@@ -436,7 +473,8 @@ class GRPCControlServer {
                     if (reasonString != null) {
                          builder.setReasonString(reasonString);
                     }
-                    logger.atInfo().log("Subscribe response: reason codes {} reason string {}", codes, reasonString);
+                    logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string {}",
+                                            connectionId, codes, reasonString);
                 }
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during publish");
@@ -448,15 +486,19 @@ class GRPCControlServer {
             responseObserver.onCompleted();
         }
 
+        /**
+         * Handler of UnsubscribeMqtt gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void unsubscribeMqtt(MqttUnsubscribeRequest request,
                                         StreamObserver<MqttSubscribeReply> responseObserver) {
 
-            logger.atDebug().log("unsubscribeMqtt");
-
             int timeout = request.getTimeout();
             if (timeout < TIMEOUT_MIN) {
-                logger.atWarn().log("invalid unsubscribe timeout, must be >= {} but {}", TIMEOUT_MIN, timeout);
+                logger.atWarn().log("invalid unsubscribe timeout {}, must be >= {}", timeout, TIMEOUT_MIN);
                 responseObserver.onError(Status.INVALID_ARGUMENT
                                             .withDescription("invalid unsubscribe timeout, must be >= 1")
                                             .asRuntimeException());
@@ -487,18 +529,19 @@ class GRPCControlServer {
             MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
             try {
                 // TODO: pass also user's properties
-                MqttConnection.SubAckInfo subAckInfo = connection.unsubscribe(timeout, filters);
-                if (subAckInfo != null) {
-                    List<Integer> codes = subAckInfo.getReasonCodes();
+                MqttConnection.UnsubAckInfo unsubAckInfo = connection.unsubscribe(timeout, filters);
+                if (unsubAckInfo != null) {
+                    List<Integer> codes = unsubAckInfo.getReasonCodes();
                     if (codes != null) {
                         builder.addAllReasonCodes(codes);
                     }
 
-                    String reasonString = subAckInfo.getReasonString();
+                    String reasonString = unsubAckInfo.getReasonString();
                     if (reasonString != null) {
                          builder.setReasonString(reasonString);
                     }
-                    logger.atInfo().log("Unsubscribe response: reason codes {} reason string {}", codes, reasonString);
+                    logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string {}",
+                                            connectionId, codes, reasonString);
                 }
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during publish");
@@ -519,12 +562,20 @@ class GRPCControlServer {
      * @param port bind port, or 0 to autoselect
      * @throws IOException on errors
      */
-    public GRPCControlServer(GRPCDiscoveryClient client, String host, int port) throws IOException {
+    public GRPCControlServer(GRPCClient client, String host, int port) throws IOException {
         super();
-        this.client = client;
+        this.messageConsumer = (connectionId, message) -> {
+                if (client != null) {
+                    try {
+                        client.onReceiveMqttMessage(connectionId, message);
+                    } catch (GRPCException ex) {
+                        logger.atError().withThrowable(ex).log("Couldn't send received MQTT message to gRPC server");
+                    }
+                }
+            };
 
         // TODO: Java implementation of gRPC server has no usage of host
-        server = Grpc.newServerBuilderForPort(port, InsecureServerCredentials.create())
+        this.server = Grpc.newServerBuilderForPort(port, InsecureServerCredentials.create())
                     .addService(new MqttClientControlImpl())
                     .build()
                     .start();
@@ -533,15 +584,29 @@ class GRPCControlServer {
         logger.atInfo().log("GRPCControlServer created and listed on {}:{}", host, boundPort);
     }
 
+    /**
+     * Gets actual port where gRPC server is bound.
+     *
+     * @return actual bound port
+     */
     public int getPort() {
         return boundPort;
     }
 
+    /**
+     * Returns shutdown reason if has been shutdown by party requests.
+     *
+     * @return reason of shutdown or null when shutdown was not initiated by party
+     */
     public String getShutdownReason() {
         return shutdownReason;
     }
 
-
+    /**
+     * Handle gRPC requests and wait to server shutdown.
+     *
+     * @param mqttLib reference to MQTT side of the client to handler incoming requests
+     */
     public void waiting(MqttLib mqttLib) throws InterruptedException {
         this.mqttLib = mqttLib;
         logger.atInfo().log("Server awaitTermination");
@@ -549,7 +614,10 @@ class GRPCControlServer {
         logger.atInfo().log("Server awaitTermination done");
     }
 
+    /**
+     * Closes the gRPC server.
+     */
     public void close() {
-        server.shutdown(); // or       shutdownNow()
+        server.shutdown(); // or shutdownNow() ?
     }
 }

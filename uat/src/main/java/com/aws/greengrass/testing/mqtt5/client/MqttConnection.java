@@ -7,6 +7,7 @@ package com.aws.greengrass.testing.mqtt5.client;
 
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 
 import java.util.List;
@@ -17,6 +18,27 @@ import java.util.List;
 public interface MqttConnection {
     int DEFAULT_DISCONNECT_REASON = 4;
     long DEFAULT_DISCONNECT_TIMEOUT = 10;
+
+    /**
+     * Contains information about publishing MQTT v5.0 message.
+     */
+    @Data
+    @Builder
+    class Message {
+        /** QoS value. */
+        int qos;
+
+        /** Retain flag. */
+        boolean retain;
+
+        /** Topic of message. */
+        String topic;
+
+        /** Payload of message. */
+        byte[] payload;
+
+        // TODO: add user's properties and so one
+    }
 
     /**
      * Useful information from PUBACK packet.
@@ -53,7 +75,7 @@ public interface MqttConnection {
     }
 
     /**
-     * Useful information from SUBACK and UNSUBACK packets.
+     * Useful information from SUBACK packet.
      */
     @Data
     @AllArgsConstructor
@@ -65,28 +87,25 @@ public interface MqttConnection {
         // TODO: add user's properties
     }
 
-    /**
-     * Closes MQTT connection.
-     *
-     * @param reasonCode reason why connection is closed
-     * @param timeout disconnect operation timeout in seconds
-     * @throws MqttException on errors
-     */
-    void disconnect(int reasonCode, long timeout) throws MqttException;
-
 
     /**
-     * Publishes MQTT message.
+     * Useful information from UNSUBACK packet.
+     * Actually is the same as SubAckInfo.
+     */
+    class UnsubAckInfo extends SubAckInfo {
+        public UnsubAckInfo(List<Integer> reasonCodes, String reasonString) {
+            super(reasonCodes, reasonString);
+        }
+    }
+
+    /**
+     * Starts MQTT connection.
      *
-     * @param retain if set message will retained
-     * @param qos QoS value to publish message
-     * @param timeout publish operation timeout in seconds
-     * @param topic topic to publish message
-     * @param content message content
-     * @return useful information from PUBACK packet or null of no PUBACK has been received (as for QoS 0)
+     * @param timeout connect operation timeout in seconds
+     * @param connectionId connection id as assigned by MQTT library
      * @throws MqttException on errors
      */
-    PubAckInfo publish(boolean retain, int qos, long timeout, String topic, byte[] content) throws MqttException;
+    void start(long timeout, int connectionId) throws MqttException;
 
     /**
      * Subscribes to topics.
@@ -97,7 +116,19 @@ public interface MqttConnection {
      * @return useful information from SUBACK packet
      * @throws MqttException on errors
      */
-    SubAckInfo subscribe(long timeout, Integer subscriptionId, List<Subscription> subscriptions) throws MqttException;
+    SubAckInfo subscribe(long timeout, final Integer subscriptionId, final List<Subscription> subscriptions)
+            throws MqttException;
+
+
+    /**
+     * Publishes MQTT message.
+     *
+     * @param timeout publish operation timeout in seconds
+     * @param message message to publish
+     * @return useful information from PUBACK packet or null of no PUBACK has been received (as for QoS 0)
+     * @throws MqttException on errors
+     */
+    PubAckInfo publish(long timeout, final Message message) throws MqttException;
 
     /**
      * Unsubscribes from topics.
@@ -107,5 +138,14 @@ public interface MqttConnection {
      * @return useful information from UNSUBACK packet
      * @throws MqttException on errors
      */
-    SubAckInfo unsubscribe(long timeout, List<String> filters) throws MqttException;
+    UnsubAckInfo unsubscribe(long timeout, final List<String> filters) throws MqttException;
+
+    /**
+     * Closes MQTT connection.
+     *
+     * @param timeout disconnect operation timeout in seconds
+     * @param reasonCode reason why connection is closed
+     * @throws MqttException on errors
+     */
+    void disconnect(long timeout, int reasonCode) throws MqttException;
 }

@@ -9,6 +9,8 @@ import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.function.BiConsumer;
+
 /**
  * Interface of MQTT5 library.
  */
@@ -35,9 +37,6 @@ public interface MqttLib extends AutoCloseable {
         /** Clean session (clean start) flag of CONNECT packet. */
         private boolean cleanSession;
 
-        /** Connection timeout in seconds. */
-        private int timeout;
-
         /** Content of CA, optional. */
         private String ca;
 
@@ -52,10 +51,13 @@ public interface MqttLib extends AutoCloseable {
      * Creates a MQTT connection.
      *
      * @param connectionParams connection parameters
+     * @param messageConsumer consumer of received messages
      * @return MqttConnection on success
      * @throws MqttException on errors
      */
-    MqttConnection createConnection(ConnectionParams connectionParams) throws MqttException;
+    MqttConnection createConnection(ConnectionParams connectionParams,
+                                        BiConsumer<Integer, MqttReceivedMessage> messageConsumer)
+                throws MqttException;
 
     /**
      * Register the MQTT connection.
