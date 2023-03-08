@@ -34,6 +34,7 @@ class GRPCDiscoveryClient implements GRPCClient {
     private static final String GRPC_REQUEST_FAILED = "gRPC request failed";
 
     private final String agentId;
+    private final ManagedChannel channel;
     private final MqttAgentDiscoveryGrpc.MqttAgentDiscoveryBlockingStub blockingStub;
 
     /**
@@ -46,7 +47,7 @@ class GRPCDiscoveryClient implements GRPCClient {
     GRPCDiscoveryClient(String agentId, String address) throws GRPCException {
         super();
         this.agentId = agentId;
-        ManagedChannel channel = Grpc.newChannelBuilder(address, InsecureChannelCredentials.create()).build();
+        this.channel = Grpc.newChannelBuilder(address, InsecureChannelCredentials.create()).build();
         this.blockingStub = MqttAgentDiscoveryGrpc.newBlockingStub(channel);
     }
 
@@ -116,7 +117,7 @@ class GRPCDiscoveryClient implements GRPCClient {
         Mqtt5Message msg = Mqtt5Message.newBuilder()
                                         .setTopic(message.getTopic())
                                         .setPayload(ByteString.copyFrom(message.getPayload()))
-                                        .setQos(MqttQoS.valueOf(message.getQos()))
+                                        .setQos(MqttQoS.forNumber(message.getQos()))
                                         .setRetain(message.isRetain())
                                         .build();
 
@@ -133,7 +134,10 @@ class GRPCDiscoveryClient implements GRPCClient {
         }
     }
 
+    /**
+     * Closes the gRPC client.
+     */
     void close() {
-        // TODO: implement
+        channel.shutdown();
     }
 }

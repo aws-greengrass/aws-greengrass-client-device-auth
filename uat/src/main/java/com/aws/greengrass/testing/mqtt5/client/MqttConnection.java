@@ -25,10 +25,19 @@ public interface MqttConnection {
     @Data
     @Builder
     class Message {
+        /** QoS value. */
         int qos;
+
+        /** Retain flag. */
         boolean retain;
+
+        /** Topic of message. */
         String topic;
+
+        /** Payload of message. */
         byte[] payload;
+
+        // TODO: add user's properties and so one
     }
 
     /**
@@ -66,7 +75,7 @@ public interface MqttConnection {
     }
 
     /**
-     * Useful information from SUBACK and UNSUBACK packets.
+     * Useful information from SUBACK packet.
      */
     @Data
     @AllArgsConstructor
@@ -78,13 +87,25 @@ public interface MqttConnection {
         // TODO: add user's properties
     }
 
+
+    /**
+     * Useful information from UNSUBACK packet.
+     * Actually is the same as SubAckInfo.
+     */
+    class UnsubAckInfo extends SubAckInfo {
+        public UnsubAckInfo(List<Integer> reasonCodes, String reasonString) {
+            super(reasonCodes, reasonString);
+        }
+    }
+
     /**
      * Starts MQTT connection.
      *
-     * @param connectionId connection id
+     * @param timeout connect operation timeout in seconds
+     * @param connectionId connection id as assigned by MQTT library
      * @throws MqttException on errors
      */
-    void start(int connectionId) throws MqttException;
+    void start(long timeout, int connectionId) throws MqttException;
 
     /**
      * Subscribes to topics.
@@ -117,7 +138,7 @@ public interface MqttConnection {
      * @return useful information from UNSUBACK packet
      * @throws MqttException on errors
      */
-    SubAckInfo unsubscribe(long timeout, final List<String> filters) throws MqttException;
+    UnsubAckInfo unsubscribe(long timeout, final List<String> filters) throws MqttException;
 
     /**
      * Closes MQTT connection.

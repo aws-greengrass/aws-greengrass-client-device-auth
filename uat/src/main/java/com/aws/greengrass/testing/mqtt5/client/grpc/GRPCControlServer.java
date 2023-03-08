@@ -83,6 +83,12 @@ class GRPCControlServer {
      */
     class MqttClientControlImpl extends MqttClientControlGrpc.MqttClientControlImplBase {
 
+        /**
+         * Handler of ShutdownAgent gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void shutdownAgent(ShutdownRequest request, StreamObserver<Empty> responseObserver) {
             // save reason
@@ -99,6 +105,12 @@ class GRPCControlServer {
             server.shutdown();
         }
 
+        /**
+         * Handler of CreateMqttConnection gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void createMqttConnection(MqttConnectRequest request,
                                             StreamObserver<MqttConnectionId> responseObserver) {
@@ -164,8 +176,7 @@ class GRPCControlServer {
                             .host(host)
                             .port(port)
                             .keepalive(keepalive)
-                            .cleanSession(request.getCleanSession())
-                            .timeout(timeout);
+                            .cleanSession(request.getCleanSession());
 
             // check TLS optional settings
             if (request.hasTls()) {
@@ -207,7 +218,7 @@ class GRPCControlServer {
             try {
                 MqttConnection connection = mqttLib.createConnection(builder.build(), messageConsumer);
                 connectionId = mqttLib.registerConnection(connection);
-                connection.start(connectionId);
+                connection.start(timeout, connectionId);
             } catch (MqttException ex) {
                 logger.atWarn().withThrowable(ex).log("Exception during connect");
                 responseObserver.onError(ex);
@@ -219,6 +230,12 @@ class GRPCControlServer {
             responseObserver.onCompleted();
         }
 
+        /**
+         * Handler of CloseMqttConnection gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void closeMqttConnection(MqttCloseRequest request, StreamObserver<Empty> responseObserver) {
 
@@ -265,6 +282,12 @@ class GRPCControlServer {
             responseObserver.onCompleted();
         }
 
+        /**
+         * Handler of PublishMqtt gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void publishMqtt(MqttPublishRequest request, StreamObserver<MqttPublishReply> responseObserver) {
 
@@ -328,7 +351,8 @@ class GRPCControlServer {
                     if (reasonString != null) {
                         builder.setReasonString(reasonString);
                     }
-                    logger.atInfo().log("Publish response: reason code {} reason string {}", reasonCode, reasonString);
+                    logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",
+                                            connectionId, reasonCode, reasonString);
                 }
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during publish");
@@ -340,6 +364,13 @@ class GRPCControlServer {
             responseObserver.onCompleted();
         }
 
+
+        /**
+         * Handler of SubscribeMqtt gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void subscribeMqtt(MqttSubscribeRequest request, StreamObserver<MqttSubscribeReply> responseObserver) {
 
@@ -442,7 +473,8 @@ class GRPCControlServer {
                     if (reasonString != null) {
                          builder.setReasonString(reasonString);
                     }
-                    logger.atInfo().log("Subscribe response: reason codes {} reason string {}", codes, reasonString);
+                    logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string {}",
+                                            connectionId, codes, reasonString);
                 }
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during publish");
@@ -454,6 +486,12 @@ class GRPCControlServer {
             responseObserver.onCompleted();
         }
 
+        /**
+         * Handler of UnsubscribeMqtt gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
         @Override
         public void unsubscribeMqtt(MqttUnsubscribeRequest request,
                                         StreamObserver<MqttSubscribeReply> responseObserver) {
@@ -491,18 +529,19 @@ class GRPCControlServer {
             MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
             try {
                 // TODO: pass also user's properties
-                MqttConnection.SubAckInfo subAckInfo = connection.unsubscribe(timeout, filters);
-                if (subAckInfo != null) {
-                    List<Integer> codes = subAckInfo.getReasonCodes();
+                MqttConnection.UnsubAckInfo unsubAckInfo = connection.unsubscribe(timeout, filters);
+                if (unsubAckInfo != null) {
+                    List<Integer> codes = unsubAckInfo.getReasonCodes();
                     if (codes != null) {
                         builder.addAllReasonCodes(codes);
                     }
 
-                    String reasonString = subAckInfo.getReasonString();
+                    String reasonString = unsubAckInfo.getReasonString();
                     if (reasonString != null) {
                          builder.setReasonString(reasonString);
                     }
-                    logger.atInfo().log("Unsubscribe response: reason codes {} reason string {}", codes, reasonString);
+                    logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string {}",
+                                            connectionId, codes, reasonString);
                 }
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during publish");
@@ -545,15 +584,29 @@ class GRPCControlServer {
         logger.atInfo().log("GRPCControlServer created and listed on {}:{}", host, boundPort);
     }
 
+    /**
+     * Gets actual port where gRPC server is bound.
+     *
+     * @return actual bound port
+     */
     public int getPort() {
         return boundPort;
     }
 
+    /**
+     * Returns shutdown reason if has been shutdown by party requests.
+     *
+     * @return reason of shutdown or null when shutdown was not initiated by party
+     */
     public String getShutdownReason() {
         return shutdownReason;
     }
 
-
+    /**
+     * Handle gRPC requests and wait to server shutdown.
+     *
+     * @param mqttLib reference to MQTT side of the client to handler incoming requests
+     */
     public void waiting(MqttLib mqttLib) throws InterruptedException {
         this.mqttLib = mqttLib;
         logger.atInfo().log("Server awaitTermination");
@@ -561,7 +614,10 @@ class GRPCControlServer {
         logger.atInfo().log("Server awaitTermination done");
     }
 
+    /**
+     * Closes the gRPC server.
+     */
     public void close() {
-        server.shutdown(); // or       shutdownNow()
+        server.shutdown(); // or shutdownNow() ?
     }
 }

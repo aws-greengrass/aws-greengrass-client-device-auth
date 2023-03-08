@@ -41,7 +41,7 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 /**
- * Interface of MQTT5 connection.
+ * Implementation of MQTT5 connection.
  */
 public class MqttConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(MqttConnectionImpl.class);
@@ -51,7 +51,6 @@ public class MqttConnectionImpl implements MqttConnection {
 
     private final BiConsumer<Integer, MqttReceivedMessage> messageConsumer;
     private final Mqtt5Client client;
-    private final long connectionTimeout;
     private int connectionId = 0;
 
     private final ClientsLifecycleEvents lifecycleEvents = new ClientsLifecycleEvents();
@@ -63,13 +62,13 @@ public class MqttConnectionImpl implements MqttConnection {
 
         @Override
         public void onAttemptingConnect(Mqtt5Client client, OnAttemptingConnectReturn onAttemptingConnectReturn) {
-            logger.atInfo().log("Attempting to MQTT connect...");
+            logger.atInfo().log("MQTT connectionId {} connecting...", connectionId);
         }
 
         @Override
         public void onConnectionSuccess(Mqtt5Client client, OnConnectionSuccessReturn onConnectionSuccessReturn) {
             String clientId = onConnectionSuccessReturn.getNegotiatedSettings().getAssignedClientID();
-            logger.atInfo().log("MQTT connection success, client id {}", clientId);
+            logger.atInfo().log("MQTT connectionId {} connected, client id {}", connectionId, clientId);
             isConnected.set(true);
             connectedFuture.complete(null);
         }
@@ -77,19 +76,19 @@ public class MqttConnectionImpl implements MqttConnection {
         @Override
         public void onConnectionFailure(Mqtt5Client client, OnConnectionFailureReturn onConnectionFailureReturn) {
             String errorString = CRT.awsErrorString(onConnectionFailureReturn.getErrorCode());
-            logger.atInfo().log("MQTT connection failed with error: {}", errorString);
+            logger.atInfo().log("MQTT connectionId {} failed with error: {}", connectionId, errorString);
             connectedFuture.completeExceptionally(new MqttException("Could not connect: " + errorString));
         }
 
         @Override
         public void onDisconnection(Mqtt5Client client, OnDisconnectionReturn onDisconnectionReturn) {
             isConnected.set(false);
-            logger.atInfo().log("MQTT disconnected");
+            logger.atInfo().log("MQTT connectionId {} disconnected", connectionId);
         }
 
         @Override
         public void onStopped(Mqtt5Client client, OnStoppedReturn onStoppedReturn) {
-            logger.atInfo().log("MQTT client stopped");
+            logger.atInfo().log("MQTT connectionId {} stopped", connectionId);
             stoppedFuture.complete(null);
         }
     }
@@ -113,7 +112,8 @@ public class MqttConnectionImpl implements MqttConnection {
                     messageConsumer.accept(connectionId, message);
                 }
 
-                logger.atInfo().log("Received MQTT message: topic {} QoS {} retain {}", topic, qos, isRetain);
+                logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
+                                        connectionId, topic, qos, isRetain);
             }
         }
     }
@@ -125,23 +125,21 @@ public class MqttConnectionImpl implements MqttConnection {
      * @param messageConsumer consumer of received messages
      * @throws MqttException on errors
      */
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public MqttConnectionImpl(MqttLib.ConnectionParams connectionParams,
                                 BiConsumer<Integer, MqttReceivedMessage> messageConsumer) throws MqttException {
         super();
 
         this.messageConsumer = messageConsumer;
         this.client = createClient(connectionParams);
-        this.connectionTimeout = connectionParams.getTimeout();
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public void start(int connectionId) throws MqttException {
+    public void start(long timeout, int connectionId) throws MqttException {
         this.connectionId = connectionId;
         client.start();
         try {
-            lifecycleEvents.connectedFuture.get(connectionTimeout, TimeUnit.SECONDS);
+            lifecycleEvents.connectedFuture.get(timeout, TimeUnit.SECONDS);
         } catch (Exception ex) {
             throw new MqttException("Exception occurred during connect", ex);
         }
@@ -153,11 +151,12 @@ public class MqttConnectionImpl implements MqttConnection {
 
         if (!isClosing.getAndSet(true)) {
             DisconnectPacket.DisconnectReasonCode disconnectReason
-                = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
+                    = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
             DisconnectPacket.DisconnectPacketBuilder disconnectBuilder = new DisconnectPacket.DisconnectPacketBuilder();
             DisconnectPacket disconnectPacket = disconnectBuilder.withReasonCode(disconnectReason).build();
             // TODO: use withUserProperties()
             client.stop(disconnectPacket);
+
             try {
                 lifecycleEvents.stoppedFuture.get(timeout, TimeUnit.SECONDS);
             } catch (Exception ex) {
@@ -251,7 +250,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public SubAckInfo unsubscribe(long timeout, final List<String> filters)
+    public UnsubAckInfo unsubscribe(long timeout, final List<String> filters)
             throws MqttException {
 
         stateCheck();
@@ -270,14 +269,19 @@ public class MqttConnectionImpl implements MqttConnection {
             if (codes != null) {
                 resultCodes = codes.stream().map(code -> code.getValue()).collect(Collectors.toList());
             }
-            // TODO: handler also user's properties of SUBACK
-            return new SubAckInfo(resultCodes, result.getReasonString());
+            // TODO: handler also user's properties of UNSUBACK
+            return new UnsubAckInfo(resultCodes, result.getReasonString());
         } catch (Exception ex) {
             logger.atError().withThrowable(ex).log("Failed during unsubscribe");
             throw new MqttException("Could not unsubscribe", ex);
         }
     }
 
+    /**
+     * Creates a MQTT5 client.
+     *
+     * @param connectionParams connection parameters
+     */
     private Mqtt5Client createClient(MqttLib.ConnectionParams connectionParams) {
 
         try (AwsIotMqtt5ClientBuilder builder = getClientBuilder(connectionParams)) {
@@ -312,6 +316,11 @@ public class MqttConnectionImpl implements MqttConnection {
         }
     }
 
+    /**
+     * Creates a MQTT5 client builder.
+     *
+     * @param connectionParams connection parameters
+     */
     private AwsIotMqtt5ClientBuilder getClientBuilder(MqttLib.ConnectionParams connectionParams) {
         if (connectionParams.getKey() == null) {
             logger.atInfo().log("Creating Mqtt5Client without TLS");
@@ -326,10 +335,18 @@ public class MqttConnectionImpl implements MqttConnection {
         }
     }
 
+    /**
+     * Checks connection state.
+     *
+     * @throws MqttException when connection state is not allow opertation
+     */
     private void stateCheck() throws MqttException {
-        if (isClosing.get() || !isConnected.get()) {
-            throw new MqttException("Invalid connection state");
+        if (!isConnected.get()) {
+            throw new MqttException("MQTT client is not in connected state");
+        }
+
+        if (isClosing.get()) {
+            throw new MqttException("MQTT connection is closing");
         }
     }
-
 }

@@ -37,9 +37,6 @@ public interface MqttLib extends AutoCloseable {
         /** Clean session (clean start) flag of CONNECT packet. */
         private boolean cleanSession;
 
-        /** Connection timeout in seconds. */
-        private int timeout;
-
         /** Content of CA, optional. */
         private String ca;
 

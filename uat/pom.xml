@@ -41,7 +41,6 @@
             <version>${lombok.version}</version>
             <scope>provided</scope>
         </dependency>
-
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-1.2-api</artifactId>
@@ -167,6 +166,9 @@
                 <configuration>
                     <source>8</source>
                     <target>8</target>
+                    <compilerArgs>
+                        <arg>-Xlint:deprecation</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             <plugin>

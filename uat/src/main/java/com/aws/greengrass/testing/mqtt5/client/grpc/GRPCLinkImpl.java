@@ -26,10 +26,10 @@ public class GRPCLinkImpl implements GRPCLink {
 
 
     /**
-     * Establish bidirectional link with the testing framework.
+     * Creates and establishes bidirectional link with the control.
      *
      * @param agentId id of agent to identify control channel by gRPC server
-     * @param host host name of gRPC server to connect to testing framework
+     * @param host host name of gRPC server to connect to
      * @param port TCP port to connect to
      * @throws GRPCException on errors
      */
@@ -40,7 +40,7 @@ public class GRPCLinkImpl implements GRPCLink {
         String otfAddress = buildAddress(host, port);
         GRPCDiscoveryClient client = new GRPCDiscoveryClient(agentId, otfAddress);
         String localIP = client.registerAgent();
-        logger.atInfo().log("Local address is {0}", localIP);
+        logger.atInfo().log("Local address is {}", localIP);
 
         try {
             GRPCControlServer server = new GRPCControlServer(client, localIP, AUTOSELECT_PORT);
@@ -53,14 +53,6 @@ public class GRPCLinkImpl implements GRPCLink {
         }
     }
 
-    /**
-     * Handle gRPC requests.
-     *
-     * @param mqttLib MQTT library handler
-     * @return shutdown reason
-     * @throws GRPCException on errors
-     * @throws InterruptedException when thread has been interrupted
-     */
     @Override
     public String handleRequests(MqttLib mqttLib) throws GRPCException, InterruptedException {
         logger.atInfo().log("Handle gRPC requests");
@@ -68,12 +60,6 @@ public class GRPCLinkImpl implements GRPCLink {
         return  "Agent shutdown by OTF request '" + server.getShutdownReason() + "'";
     }
 
-    /**
-     * Unregister MQTT client control in testing framework.
-     *
-     * @param reason reason of shutdown
-     * @throws GRPCException on errors
-     */
     @Override
     public void shutdown(String reason) throws GRPCException {
         logger.atInfo().log("Shutdown gPRC link");

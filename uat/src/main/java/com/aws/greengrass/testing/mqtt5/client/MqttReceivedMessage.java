@@ -14,8 +14,17 @@ import lombok.Data;
 @Data
 @Builder
 public class MqttReceivedMessage {
+    /** QoS value. */
     int qos;
+
+    /** Retain flag. */
     boolean retain;
+
+    /** Topic of message. */
     String topic;
+
+    /** Payload of message. */
     byte[] payload;
+
+    // TODO: add user's properties and so one
 }
