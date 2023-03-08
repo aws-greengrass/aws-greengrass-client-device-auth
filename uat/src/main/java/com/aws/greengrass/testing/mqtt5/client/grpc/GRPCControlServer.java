@@ -297,7 +297,7 @@ class GRPCControlServer {
             if (qos < QOS_MIN || qos > QOS_MAX) {
                 logger.atWarn().log("invalid QoS {}, must be in range [{},{}]", qos, QOS_MIN, QOS_MAX);
                 responseObserver.onError(Status.INVALID_ARGUMENT
-                                            .withDescription("invalie QoS, must be in range [0,3]")
+                                            .withDescription("invalid QoS, must be in range [0,3]")
                                             .asRuntimeException());
                 return;
             }
