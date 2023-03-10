@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import javax.inject.Inject;
 
 /**
  * Singleton class for managing AuthN and AuthZ sessions.
@@ -24,7 +25,7 @@ import java.util.UUID;
 public class SessionManager {
     private static final Logger logger = LogManager.getLogger(SessionManager.class);
     private static final String SESSION_ID = "SessionId";
-    private final DomainEvents domainEvents = new DomainEvents();
+    private final DomainEvents domainEvents;
 
     // Thread-safe LRU Session Cache that evicts the eldest entry (based on access order) upon reaching its size.
     // TODO: Support time-based cache eviction (Session timeout) and Session deduping.
@@ -44,6 +45,11 @@ public class SessionManager {
             });
 
     private SessionConfig sessionConfig;
+
+    @Inject
+    public SessionManager(DomainEvents domainEvents) {
+        this.domainEvents = domainEvents;
+    }
 
     /**
      * Looks up a session by id.
