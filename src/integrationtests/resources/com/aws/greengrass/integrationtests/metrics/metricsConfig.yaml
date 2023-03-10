@@ -79,5 +79,4 @@ services:
               resources:
                 - "*"
       metrics:
-        disableMetrics: "false"
-        aggregationPeriodSeconds: "2"
+        aggregatePeriodSeconds: "1"

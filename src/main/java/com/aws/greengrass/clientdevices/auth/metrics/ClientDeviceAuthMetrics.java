@@ -33,7 +33,7 @@ public class ClientDeviceAuthMetrics {
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final Logger logger = LogManager.getLogger(ClientDeviceAuthMetrics.class);
-    private static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
+    public static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
     public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS =
             "SubscribeToCertificateUpdates.Success";
     public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE =
