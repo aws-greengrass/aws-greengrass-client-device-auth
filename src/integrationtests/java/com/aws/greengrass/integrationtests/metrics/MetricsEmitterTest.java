@@ -29,7 +29,6 @@ import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.Pair;
 import lombok.Getter;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,17 +48,13 @@ import software.amazon.awssdk.aws.greengrass.model.CertificateType;
 import software.amazon.awssdk.aws.greengrass.model.CertificateUpdate;
 import software.amazon.awssdk.aws.greengrass.model.CertificateUpdateEvent;
 import software.amazon.awssdk.aws.greengrass.model.ClientDeviceCredential;
-import software.amazon.awssdk.aws.greengrass.model.CredentialDocument;
 import software.amazon.awssdk.aws.greengrass.model.GetClientDeviceAuthTokenRequest;
 import software.amazon.awssdk.aws.greengrass.model.GetClientDeviceAuthTokenResponse;
-import software.amazon.awssdk.aws.greengrass.model.MQTTCredential;
 import software.amazon.awssdk.aws.greengrass.model.SubscribeToCertificateUpdatesRequest;
 import software.amazon.awssdk.aws.greengrass.model.VerifyClientDeviceIdentityRequest;
-import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.eventstreamrpc.EventStreamRPCConnection;
 import software.amazon.awssdk.eventstreamrpc.StreamResponseHandler;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
-import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -68,7 +63,6 @@ import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -81,8 +75,6 @@ import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetr
         .METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS;
 import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
         .METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS;
-import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
-        .METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS;
 import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics.NAMESPACE;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssertOnConsumer;

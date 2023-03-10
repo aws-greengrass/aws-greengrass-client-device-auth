@@ -15,11 +15,7 @@ import lombok.Getter;
  * |---- configuration
  * |    |---- metrics:
  * |          |---- disableMetrics
-<<<<<<< HEAD
  * |          |---- aggregatePeriodSeconds
-=======
- * |          |---- aggregationPeriodSeconds
->>>>>>> 152c9ac (fix: update test to validate metrics being published)
  * </p>
  */
 
@@ -67,12 +63,12 @@ public final class MetricsConfiguration {
     }
 
     private static int getAggregatePeriodFromConfiguration(Topics metricsTopic) {
-        int aggregationPeriodSeconds = Coerce.toInt(metricsTopic.find(AGGREGATE_PERIOD));
+        int aggregatePeriod = Coerce.toInt(metricsTopic.find(AGGREGATE_PERIOD));
 
-        if (aggregationPeriodSeconds <= 0) {
+        if (aggregatePeriod <= 0) {
             return DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC;
         } else {
-            return aggregationPeriodSeconds;
+            return aggregatePeriod;
         }
     }
 }
