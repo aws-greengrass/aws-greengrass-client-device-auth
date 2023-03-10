@@ -119,7 +119,6 @@ public class MetricsEmitterTest {
 
     @BeforeEach
     void beforeEach(ExtensionContext context) throws DeviceConfigurationException {
-//        ignoreExceptionOfType(context, SdkClientException.class);
         ignoreExceptionOfType(context, SpoolerStoreException.class);
         ignoreExceptionOfType(context, NoSuchFileException.class); // Loading CA keystore
 
@@ -205,14 +204,6 @@ public class MetricsEmitterTest {
         AuthorizeClientDeviceActionResponseHandler handler =
                 ipcClient.authorizeClientDeviceAction(request, Optional.empty());
         AuthorizeClientDeviceActionResponse response = handler.getResponse().get(1, TimeUnit.SECONDS);
-        consumer.accept(response);
-    }
-
-    private static void clientDeviceAuthToken(GreengrassCoreIPCClient ipcClient,
-                                              GetClientDeviceAuthTokenRequest request,
-                                              Consumer<GetClientDeviceAuthTokenResponse> consumer) throws Exception {
-        GetClientDeviceAuthTokenResponseHandler handler = ipcClient.getClientDeviceAuthToken(request, Optional.empty());
-        GetClientDeviceAuthTokenResponse response = handler.getResponse().get(10, TimeUnit.SECONDS);
         consumer.accept(response);
     }
 
