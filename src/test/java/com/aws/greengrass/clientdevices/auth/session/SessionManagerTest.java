@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth.session;
 
 
+import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -36,6 +37,7 @@ class SessionManagerTest {
     private static final int MOCK_SESSION_CAPACITY = 10;
 
     private SessionManager sessionManager;
+    private DomainEvents domainEvents;
     @Mock
     private MqttSessionFactory mockSessionFactory;
     @Mock
@@ -54,7 +56,8 @@ class SessionManagerTest {
     @BeforeEach
     void beforeEach() throws AuthenticationException {
         lenient().when(mockSessionConfig.getSessionCapacity()).thenReturn(MOCK_SESSION_CAPACITY);
-        sessionManager = new SessionManager();
+        domainEvents = new DomainEvents();
+        sessionManager = new SessionManager(domainEvents);
         sessionManager.setSessionConfig(mockSessionConfig);
         SessionCreator.registerSessionFactory(CREDENTIAL_TYPE, mockSessionFactory);
         lenient().when(mockSessionFactory.createSession(credentialMap)).thenReturn(mockSession);
@@ -126,7 +129,7 @@ class SessionManagerTest {
 
         int mockSessionCapacity = 3;
         when(mockSessionConfig.getSessionCapacity()).thenReturn(mockSessionCapacity);
-        SessionManager sessionManager = new SessionManager();
+        SessionManager sessionManager = new SessionManager(domainEvents);
         sessionManager.setSessionConfig(mockSessionConfig);
 
         // fill session cache to its capacity
