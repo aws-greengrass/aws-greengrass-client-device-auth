@@ -37,6 +37,18 @@ services:
               - 'aws.greengrass#AuthorizeClientDeviceAction'
             resources:
               - '*'
+  BrokerWithGetClientDeviceAuthTokenPermission:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          GetClientDeviceAuthTokenPolicy:
+            policyDescription: access to certificate updates
+            operations:
+              - 'aws.greengrass#GetClientDeviceAuthToken'
+            resources:
+              - '*'
   aws.greengrass.Nucleus:
     configuration:
       runWithDefault:

@@ -14,7 +14,10 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
+import com.aws.greengrass.clientdevices.auth.iot.usecases.CreateIoTThingSession;
 import com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics;
+import com.aws.greengrass.clientdevices.auth.session.Session;
+import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.deployment.exceptions.DeviceConfigurationException;
@@ -39,6 +42,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
 import software.amazon.awssdk.aws.greengrass.AuthorizeClientDeviceActionResponseHandler;
+import software.amazon.awssdk.aws.greengrass.GetClientDeviceAuthTokenResponseHandler;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCClient;
 import software.amazon.awssdk.aws.greengrass.model.AuthorizeClientDeviceActionRequest;
 import software.amazon.awssdk.aws.greengrass.model.AuthorizeClientDeviceActionResponse;
@@ -47,11 +51,16 @@ import software.amazon.awssdk.aws.greengrass.model.CertificateType;
 import software.amazon.awssdk.aws.greengrass.model.CertificateUpdate;
 import software.amazon.awssdk.aws.greengrass.model.CertificateUpdateEvent;
 import software.amazon.awssdk.aws.greengrass.model.ClientDeviceCredential;
+import software.amazon.awssdk.aws.greengrass.model.CredentialDocument;
+import software.amazon.awssdk.aws.greengrass.model.GetClientDeviceAuthTokenRequest;
+import software.amazon.awssdk.aws.greengrass.model.GetClientDeviceAuthTokenResponse;
+import software.amazon.awssdk.aws.greengrass.model.MQTTCredential;
 import software.amazon.awssdk.aws.greengrass.model.SubscribeToCertificateUpdatesRequest;
 import software.amazon.awssdk.aws.greengrass.model.VerifyClientDeviceIdentityRequest;
 import software.amazon.awssdk.eventstreamrpc.EventStreamRPCConnection;
 import software.amazon.awssdk.eventstreamrpc.StreamResponseHandler;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
+import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -60,12 +69,15 @@ import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
+        .METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS;
 import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
         .METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS;
 import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
@@ -78,8 +90,10 @@ import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssert
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
@@ -90,6 +104,7 @@ public class MetricsEmitterTest {
     private Kernel kernel;
     private DomainEvents domainEvents;
     private ClientDeviceAuthMetrics metricSpy;
+    private SessionManager sessionManager;
     @Mock
     private GreengrassServiceClientFactory clientFactory;
     @Mock
@@ -97,7 +112,9 @@ public class MetricsEmitterTest {
     @Mock
     private DeviceAuthClient deviceAuthClient;
     @Mock
-    private SessionManager sessionManager;
+    private SessionConfig sessionConfig;
+    @Mock
+    private CreateIoTThingSession createIoTThingSession;
 
     @TempDir
     Path rootDir;
@@ -124,10 +141,12 @@ public class MetricsEmitterTest {
         clock = Clock.systemUTC();
         metricSpy = spy(new ClientDeviceAuthMetrics(clock));
         domainEvents = new DomainEvents();
+        sessionManager = new SessionManager(domainEvents);
         kernel = new Kernel();
         kernel.getContext().put(DomainEvents.class, domainEvents);
         kernel.getContext().put(Clock.class, clock);
         kernel.getContext().put(ClientDeviceAuthMetrics.class, metricSpy);
+        kernel.getContext().put(CreateIoTThingSession.class, createIoTThingSession);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
         kernel.getContext().put(SessionManager.class, sessionManager);
         lenient().when(clientFactory.fetchGreengrassV2DataClient()).thenReturn(client);
@@ -201,6 +220,14 @@ public class MetricsEmitterTest {
         AuthorizeClientDeviceActionResponseHandler handler =
                 ipcClient.authorizeClientDeviceAction(request, Optional.empty());
         AuthorizeClientDeviceActionResponse response = handler.getResponse().get(1, TimeUnit.SECONDS);
+        consumer.accept(response);
+    }
+
+    private static void clientDeviceAuthToken(GreengrassCoreIPCClient ipcClient,
+                                              GetClientDeviceAuthTokenRequest request,
+                                              Consumer<GetClientDeviceAuthTokenResponse> consumer) throws Exception {
+        GetClientDeviceAuthTokenResponseHandler handler = ipcClient.getClientDeviceAuthToken(request, Optional.empty());
+        GetClientDeviceAuthTokenResponse response = handler.getResponse().get(10, TimeUnit.SECONDS);
         consumer.accept(response);
     }
 
@@ -305,6 +332,50 @@ public class MetricsEmitterTest {
             Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
                     asyncAssertOnConsumer((m) -> {});
             authzClientDeviceAction(ipcClient, request, cb.getRight());
+        }
+
+        //Capture the emitted metrics when the emitter runs
+        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
+        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
+
+        //Wait for emitter to run
+        TimeUnit.SECONDS.sleep(1L);
+
+        List<Metric> collectedMetrics = resultMetrics.getResult();
+        assertEquals(1, collectedMetrics.size());
+        assertEquals(expectedMetric.getName(), collectedMetrics.get(0).getName());
+        assertEquals(expectedMetric.getUnit(), collectedMetrics.get(0).getUnit());
+        assertEquals(expectedMetric.getValue(), collectedMetrics.get(0).getValue());
+        assertEquals(expectedMetric.getNamespace(), collectedMetrics.get(0).getNamespace());
+        assertEquals(expectedMetric.getAggregation(), collectedMetrics.get(0).getAggregation());
+    }
+
+    @Test
+    void GIVEN_kernelRunningWithMetricsConfig_WHEN_getClientDeviceAuthToken_THEN_successMetricEmitted()
+            throws Exception {
+        when(createIoTThingSession.apply(any())).thenReturn(mock(Session.class));
+        sessionManager.setSessionConfig(sessionConfig);
+
+        Map<String, String> mqttCredentialMap =
+                ImmutableMap.of("clientId", "some-client-id", "username", null, "password", null, "certificatePem",
+                        "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM=" + System.lineSeparator()
+                                + "-----END CERTIFICATE-----" + System.lineSeparator());
+
+        Metric expectedMetric = buildMetric(METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS);
+        startNucleusWithConfig("metricsConfig.yaml");
+
+        //Get client device auth token
+        try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
+                "BrokerWithGetClientDeviceAuthTokenPermission")) {
+            GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
+            MQTTCredential mqttCredential =
+                    new MQTTCredential().withClientId("some-client-id").withCertificatePem("PEM");
+            CredentialDocument cd = new CredentialDocument().withMqttCredential(mqttCredential);
+            GetClientDeviceAuthTokenRequest request = new GetClientDeviceAuthTokenRequest().withCredential(cd);
+            Pair<CompletableFuture<Void>, Consumer<GetClientDeviceAuthTokenResponse>> cb =
+                    asyncAssertOnConsumer((m) -> {
+                    });
+            clientDeviceAuthToken(ipcClient, request, cb.getRight());
         }
 
         //Capture the emitted metrics when the emitter runs
