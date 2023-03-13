@@ -356,11 +356,6 @@ public class MetricsEmitterTest {
         when(createIoTThingSession.apply(any())).thenReturn(mock(Session.class));
         sessionManager.setSessionConfig(sessionConfig);
 
-        Map<String, String> mqttCredentialMap =
-                ImmutableMap.of("clientId", "some-client-id", "username", null, "password", null, "certificatePem",
-                        "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM=" + System.lineSeparator()
-                                + "-----END CERTIFICATE-----" + System.lineSeparator());
-
         Metric expectedMetric = buildMetric(METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS);
         startNucleusWithConfig("metricsConfig.yaml");
 
