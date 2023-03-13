@@ -60,7 +60,6 @@ import software.amazon.awssdk.aws.greengrass.model.VerifyClientDeviceIdentityReq
 import software.amazon.awssdk.eventstreamrpc.EventStreamRPCConnection;
 import software.amazon.awssdk.eventstreamrpc.StreamResponseHandler;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
-import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -69,7 +68,6 @@ import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
