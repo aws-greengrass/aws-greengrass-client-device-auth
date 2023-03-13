@@ -16,8 +16,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 
-import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC;
 import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.AGGREGATE_PERIOD;
+import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC;
 import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.DISABLE_METRICS;
 import static com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration.METRICS_TOPIC;
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;

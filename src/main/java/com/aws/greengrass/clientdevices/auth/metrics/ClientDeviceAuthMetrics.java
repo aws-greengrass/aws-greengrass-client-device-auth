@@ -33,24 +33,24 @@ public class ClientDeviceAuthMetrics {
     private final MetricFactory mf = new MetricFactory(NAMESPACE);
     private final Clock clock;
     private static final Logger logger = LogManager.getLogger(ClientDeviceAuthMetrics.class);
-    private static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
-    static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS =
+    public static final String NAMESPACE = "aws.greengrass.clientdevices.Auth";
+    public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS =
             "SubscribeToCertificateUpdates.Success";
-    static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE =
+    public static final String METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_FAILURE =
             "SubscribeToCertificateUpdates.Failure";
-    static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS =
+    public static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS =
             "VerifyClientDeviceIdentity.Success";
-    static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE =
+    public static final String METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_FAILURE =
             "VerifyClientDeviceIdentity.Failure";
-    static final String METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS =
+    public static final String METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_SUCCESS =
             "AuthorizeClientDeviceActions.Success";
-    static final String METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_FAILURE =
+    public static final String METRIC_AUTHORIZE_CLIENT_DEVICE_ACTIONS_FAILURE =
             "AuthorizeClientDeviceActions.Failure";
-    static final String METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS =
+    public static final String METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS =
             "GetClientDeviceAuthToken.Success";
-    static final String METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_FAILURE =
+    public static final String METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_FAILURE =
             "GetClientDeviceAuthToken.Failure";
-    static final String METRIC_SERVICE_ERROR =
+    public static final String METRIC_SERVICE_ERROR =
             "ServiceError";
 
     /**

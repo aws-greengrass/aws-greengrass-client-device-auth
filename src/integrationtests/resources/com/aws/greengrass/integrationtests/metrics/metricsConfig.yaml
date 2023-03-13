@@ -1,0 +1,82 @@
+---
+services:
+  aws.greengrass.Nucleus:
+    configuration:
+      runWithDefault:
+        posixUser: nobody
+        windowsUser: integ-tester
+      logging:
+        level: "INFO"
+  aws.greengrass.clientdevices.Auth:
+    configuration:
+      deviceGroups:
+        formatVersion: "2021-03-05"
+        definitions:
+          devices:
+            selectionRule: "thingName: mockThing"
+            policyName: "allowPublishMetrics"
+        policies:
+          allowPublishMetrics:
+            allowConnect:
+              statementDescription: "allow client devices to connect"
+              operations:
+                - "mqtt:connect"
+              resources:
+                - "*"
+            allowPublish:
+              statementDescription: "allow client devices to publish to all topics"
+              operations:
+                - "mqtt:publish"
+              resources:
+                - "*"
+      metrics:
+        aggregatePeriodSeconds: "1"
+  main:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+      - BrokerSubscribingToCertUpdates
+      - BrokerWithGetClientDeviceAuthTokenPermission
+      - BrokerWithAuthorizeClientDeviceActionPermission
+  BrokerSubscribingToCertUpdates:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          policyId1:
+            policyDescription: access to certificate updates
+            operations:
+              - '*'
+            resources:
+              - '*'
+        aws.greengrass.ipc.pubsub:
+          policyId2:
+            policyDescription: access to pubsub topics for ServiceName
+            operations:
+              - '*'
+            resources:
+              - '*'
+  BrokerWithAuthorizeClientDeviceActionPermission:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          BrokerWithAuthorizeClientDeviceActionPermission:
+            policyDescription: access to certificate updates
+            operations:
+              - 'aws.greengrass#AuthorizeClientDeviceAction'
+            resources:
+              - '*'
+  BrokerWithGetClientDeviceAuthTokenPermission:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          GetClientDeviceAuthTokenPolicy:
+            policyDescription: access to certificate updates
+            operations:
+              - 'aws.greengrass#GetClientDeviceAuthToken'
+            resources:
+              - '*'
