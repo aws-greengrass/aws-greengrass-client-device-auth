@@ -38,6 +38,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.exceptions.verification.TooManyActualInvocations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
@@ -131,6 +133,7 @@ public class MetricsEmitterTest {
 
     @BeforeEach
     void beforeEach(ExtensionContext context) throws DeviceConfigurationException {
+        ignoreExceptionOfType(context, TooManyActualInvocations.class);
         ignoreExceptionOfType(context, SpoolerStoreException.class);
         ignoreExceptionOfType(context, NoSuchFileException.class); // Loading CA keystore
 
@@ -245,12 +248,13 @@ public class MetricsEmitterTest {
             subscribeToCertUpdates(ipcClient, request, cb.getRight());
         }
 
-        //Capture the emitted metrics when the emitter runs
+        //Reset the metric spy and capture the emitted metrics when the emitter runs
+        Mockito.reset(metricSpy);
         ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
         doAnswer(resultMetrics).when(metricSpy).collectMetrics();
 
-        //Wait for emitter to run
-        TimeUnit.SECONDS.sleep(1L);
+        //Wait for the emitter to run
+        Mockito.verify(metricSpy, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
 
         List<Metric> collectedMetrics = resultMetrics.getResult();
         assertEquals(1, collectedMetrics.size());
@@ -291,12 +295,13 @@ public class MetricsEmitterTest {
             ipcClient.verifyClientDeviceIdentity(request, Optional.empty()).getResponse();
         }
 
-        //Capture the emitted metrics when the emitter runs
+        //Reset the metric spy and capture the emitted metrics when the emitter runs
+        Mockito.reset(metricSpy);
         ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
         doAnswer(resultMetrics).when(metricSpy).collectMetrics();
 
-        //Wait for emitter to run
-        TimeUnit.SECONDS.sleep(1L);
+        //Wait for the emitter to run
+        Mockito.verify(metricSpy, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
 
         List<Metric> collectedMetrics = resultMetrics.getResult();
         assertEquals(1, collectedMetrics.size());
@@ -332,12 +337,13 @@ public class MetricsEmitterTest {
             authzClientDeviceAction(ipcClient, request, cb.getRight());
         }
 
-        //Capture the emitted metrics when the emitter runs
+        //Reset the metric spy and capture the emitted metrics when the emitter runs
+        Mockito.reset(metricSpy);
         ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
         doAnswer(resultMetrics).when(metricSpy).collectMetrics();
 
-        //Wait for emitter to run
-        TimeUnit.SECONDS.sleep(1L);
+        //Wait for the emitter to run
+        Mockito.verify(metricSpy, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
 
         List<Metric> collectedMetrics = resultMetrics.getResult();
         assertEquals(1, collectedMetrics.size());
@@ -371,12 +377,13 @@ public class MetricsEmitterTest {
             clientDeviceAuthToken(ipcClient, request, cb.getRight());
         }
 
-        //Capture the emitted metrics when the emitter runs
+        //Reset the metric spy and capture the emitted metrics when the emitter runs
+        Mockito.reset(metricSpy);
         ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
         doAnswer(resultMetrics).when(metricSpy).collectMetrics();
 
-        //Wait for emitter to run
-        TimeUnit.SECONDS.sleep(1L);
+        //Wait for the emitter to run
+        Mockito.verify(metricSpy, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
 
         List<Metric> collectedMetrics = resultMetrics.getResult();
         assertEquals(1, collectedMetrics.size());
