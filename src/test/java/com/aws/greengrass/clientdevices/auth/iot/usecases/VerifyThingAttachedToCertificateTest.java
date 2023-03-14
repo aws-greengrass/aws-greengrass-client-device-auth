@@ -30,6 +30,7 @@ import java.security.cert.X509Certificate;
 import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -92,6 +93,25 @@ class VerifyThingAttachedToCertificateTest {
         // negative result
         thing.detachCertificate(thingCertificate.getCertificateId());
         assertThat(verifyThingAttachedToCertificate.apply(dto), is(false));
+    }
+
+    @Test
+    void GIVEN_validDtoAndNetworkDownAndAttachmentExpired_WHEN_verifyThingAttachedToCertificate_THEN_localValidationFails() throws Exception {
+        Thing thing = Thing.of("thing-1");
+        X509Certificate certificate = createTestClientCertificate();
+        String certPem = CertificateHelper.toPem(certificate);
+        Certificate thingCertificate = Certificate.fromPem(certPem);
+        thing.attachCertificate(thingCertificate.getCertificateId());
+        VerifyThingAttachedToCertificateDTO dto =
+                new VerifyThingAttachedToCertificateDTO(thing.getThingName(), thingCertificate.getCertificateId());
+
+        when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_DOWN);
+        when(mockThingRegistry.getThing(thing.getThingName())).thenReturn(thing);
+
+        // expire attachments
+        Thing.updateMetadataTrustDurationMinutes(0);
+
+        assertThrows(LocalVerificationException.class, () -> verifyThingAttachedToCertificate.apply(dto));
     }
 
     @Test
