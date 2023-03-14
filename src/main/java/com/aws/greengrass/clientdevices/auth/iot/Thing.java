@@ -10,8 +10,8 @@ import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.WildcardSuffixAttribute;
 import lombok.Getter;
 
+import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -113,11 +113,7 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @param certificateId - A certificateId
      */
     public Optional<Instant> certificateLastAttachedOn(String certificateId) {
-        if (!attachedCertificateIds.containsKey(certificateId)) {
-            return Optional.empty();
-        }
-
-        return Optional.of(attachedCertificateIds.get(certificateId));
+        return Optional.ofNullable(attachedCertificateIds.get(certificateId));
     }
 
     /**
@@ -181,8 +177,11 @@ public final class Thing implements AttributeProvider, Cloneable {
         metadataTrustDurationMinutes.set(newTrustDuration);
     }
 
-    private boolean isCertAttachmentTrusted(Instant lastVerified) {
-        Instant validTill = lastVerified.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
-        return validTill.isAfter(Instant.now());
+    public boolean isCertAttachmentTrusted(Instant lastVerified) {
+        return getAttachmentExpiration(lastVerified).isAfter(Instant.now());
+    }
+
+    public Instant getAttachmentExpiration(Instant lastVerified) {
+        return lastVerified.plus(Duration.ofMinutes(metadataTrustDurationMinutes.get()));
     }
 }

@@ -17,6 +17,7 @@ import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,7 +27,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
+import java.time.Instant;
 
+import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 import static com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers.createClientCertificate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -51,6 +55,11 @@ class VerifyThingAttachedToCertificateTest {
                 new VerifyThingAttachedToCertificate(iotAuthClientFake, mockThingRegistry, mockNetworkState);
     }
 
+    @AfterEach
+    void tearDown() {
+        Thing.updateMetadataTrustDurationMinutes(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
+    }
+
     @Test
     void GIVEN_validDtoAndNetworkUp_WHEN_verifyThingAttachedToCertificate_THEN_returnCloudResult() throws Exception {
         Thing thing = Thing.of("thing-1");
@@ -64,12 +73,24 @@ class VerifyThingAttachedToCertificateTest {
         when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockThingRegistry.getThing(thing.getThingName())).thenReturn(thing);
 
+        VerifyThingAttachedToCertificate.Result result = verifyThingAttachedToCertificate.apply(dto);
+        Instant lastAttached = thing.certificateLastAttachedOn(thingCertificate.getCertificateId()).orElseThrow(RuntimeException::new);
+
         // positive result
-        assertThat(verifyThingAttachedToCertificate.apply(dto), is(true));
+        assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
+                .thingAttachedToCertificate(true)
+                .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.CLOUD)
+                .lastAttached(lastAttached)
+                .attachmentExpiration(lastAttached.plus(Duration.ofMinutes(1)))
+                .build()));
 
         // negative result
         iotAuthClientFake.detachCertificateFromThing(thing.getThingName(), certPem);
-        assertThat(verifyThingAttachedToCertificate.apply(dto), is(false));
+        result = verifyThingAttachedToCertificate.apply(dto);
+        assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
+                .thingAttachedToCertificate(false)
+                .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.CLOUD)
+                .build()));
 
     }
 
@@ -86,12 +107,51 @@ class VerifyThingAttachedToCertificateTest {
         when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_DOWN);
         when(mockThingRegistry.getThing(thing.getThingName())).thenReturn(thing);
 
+        VerifyThingAttachedToCertificate.Result result = verifyThingAttachedToCertificate.apply(dto);
+        Instant lastAttached = thing.certificateLastAttachedOn(thingCertificate.getCertificateId()).orElseThrow(RuntimeException::new);
+
         // positive result
-        assertThat(verifyThingAttachedToCertificate.apply(dto), is(true));
+        assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
+                .thingAttachedToCertificate(true)
+                .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.LOCAL)
+                .lastAttached(lastAttached)
+                .attachmentExpiration(lastAttached.plus(Duration.ofMinutes(1)))
+                .build()));
 
         // negative result
         thing.detachCertificate(thingCertificate.getCertificateId());
-        assertThat(verifyThingAttachedToCertificate.apply(dto), is(false));
+        result = verifyThingAttachedToCertificate.apply(dto);
+        assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
+                .thingAttachedToCertificate(false)
+                .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.LOCAL)
+                .build()));
+    }
+
+    @Test
+    void GIVEN_validDtoAndNetworkDownAndAttachmentExpired_WHEN_verifyThingAttachedToCertificate_THEN_localValidationFails() throws Exception {
+        Thing thing = Thing.of("thing-1");
+        X509Certificate certificate = createTestClientCertificate();
+        String certPem = CertificateHelper.toPem(certificate);
+        Certificate thingCertificate = Certificate.fromPem(certPem);
+        thing.attachCertificate(thingCertificate.getCertificateId());
+        VerifyThingAttachedToCertificateDTO dto =
+                new VerifyThingAttachedToCertificateDTO(thing.getThingName(), thingCertificate.getCertificateId());
+
+        when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_DOWN);
+        when(mockThingRegistry.getThing(thing.getThingName())).thenReturn(thing);
+
+        // expire attachments
+        Thing.updateMetadataTrustDurationMinutes(0);
+
+        VerifyThingAttachedToCertificate.Result result = verifyThingAttachedToCertificate.apply(dto);
+        Instant lastAttached = thing.certificateLastAttachedOn(thingCertificate.getCertificateId()).orElseThrow(RuntimeException::new);
+        assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
+                .thingAttachedToCertificate(false)
+                .lastAttached(lastAttached)
+                .attachmentExpiration(lastAttached)
+                .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.LOCAL)
+                .build()));
+
     }
 
     @Test
@@ -116,12 +176,25 @@ class VerifyThingAttachedToCertificateTest {
         when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockThingRegistry.getThing(thing.getThingName())).thenReturn(thing);
 
+
+        VerifyThingAttachedToCertificate.Result result = verifyThingAttachedToCertificate.apply(dto);
+        Instant lastAttached = thing.certificateLastAttachedOn(thingCertificate.getCertificateId()).orElseThrow(RuntimeException::new);
+
         // positive result
-        assertThat(verifyThingAttachedToCertificate.apply(dto), is(true));
+        assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
+                .thingAttachedToCertificate(true)
+                .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.LOCAL)
+                .lastAttached(lastAttached)
+                .attachmentExpiration(lastAttached.plus(Duration.ofMinutes(1)))
+                .build()));
 
         // negative result
         thing.detachCertificate(thingCertificate.getCertificateId());
-        assertThat(verifyThingAttachedToCertificate.apply(dto), is(false));
+        result = verifyThingAttachedToCertificate.apply(dto);
+        assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
+                .thingAttachedToCertificate(false)
+                .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.LOCAL)
+                .build()));
     }
 
     private X509Certificate createTestClientCertificate() throws Exception {

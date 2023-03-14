@@ -17,11 +17,14 @@ import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertif
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
+import com.aws.greengrass.logging.api.Logger;
+import com.aws.greengrass.logging.impl.LogManager;
 
 import java.util.Optional;
 import javax.inject.Inject;
 
 public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSessionDTO> {
+    private static final Logger logger = LogManager.getLogger(CreateIoTThingSession.class);
     private final ThingRegistry thingRegistry;
     private final CertificateRegistry certificateRegistry;
     private final UseCases useCases;
@@ -64,16 +67,23 @@ public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSe
             Thing thing = thingRegistry.getOrCreateThing(thingName);
 
             VerifyThingAttachedToCertificate verify = useCases.get(VerifyThingAttachedToCertificate.class);
-            Boolean thingAttachedResult = verify.apply(
+            VerifyThingAttachedToCertificate.Result result = verify.apply(
                     new VerifyThingAttachedToCertificateDTO(thingName, certificate.get().getCertificateId()));
 
-            if (thingAttachedResult) {
+            logger.atDebug()
+                    .kv("thingIsAttached", result.isThingAttachedToCertificate())
+                    .kv("lastAttachedOn", result.getLastAttached())
+                    .kv("attachmentExpiration", result.getAttachmentExpiration())
+                    .kv("source", result.getVerificationSource())
+                    .log("Attachment verification result");
+
+            if (result.isThingAttachedToCertificate()) {
                 return new SessionImpl(certificate.get(), thing);
             }
         } catch (CloudServiceInteractionException | InvalidCertificateException e) {
             throw new AuthenticationException("Failed to verify certificate with cloud", e);
         }
 
-        throw new AuthenticationException("Failed to verify certificate with attached to thing");
+        throw new AuthenticationException("Failed to verify certificate attached to thing");
     }
 }
