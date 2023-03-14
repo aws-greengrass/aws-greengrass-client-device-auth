@@ -9,19 +9,17 @@ import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.WildcardSuffixAttribute;
 import lombok.Getter;
-import lombok.NonNull;
-import lombok.Value;
 
-import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
 
@@ -38,7 +36,8 @@ public final class Thing implements AttributeProvider, Cloneable {
             new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
 
     private final String thingName;
-    private final Map<String, Attachment> attachmentsByCertId;
+    // map of certificate ID to the time this certificate was known to be attached to the Thing
+    private final Map<String, Instant> attachedCertificateIds;
     private boolean modified = false;
 
     /**
@@ -78,7 +77,7 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @param certificateId Certificate ID to attach
      */
     public void attachCertificate(String certificateId) {
-        attachmentsByCertId.put(certificateId, new Attachment());
+        attachedCertificateIds.put(certificateId, Instant.now());
         modified = true;
     }
 
@@ -88,7 +87,7 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @param certificateId Certificate ID to detach
      */
     public void detachCertificate(String certificateId) {
-        if (attachmentsByCertId.remove(certificateId) != null) {
+        if (attachedCertificateIds.remove(certificateId) != null) {
             modified = true;
         }
     }
@@ -105,8 +104,7 @@ public final class Thing implements AttributeProvider, Cloneable {
     public Map<String, Instant> getAttachedCertificateIds() {
         // TODO: Do not expose this it is breaking encapsulation. Instead add methods inside of here that can
         //  answer to questions external callers might have
-        return attachmentsByCertId.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getCreated()));
+        return new HashMap<>(attachedCertificateIds);
     }
 
     /**
@@ -115,23 +113,30 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @param certificateId - A certificateId
      */
     public Optional<Instant> certificateLastAttachedOn(String certificateId) {
-        return Optional.ofNullable(attachmentsByCertId.get(certificateId)).map(Attachment::getCreated);
+        if (!attachedCertificateIds.containsKey(certificateId)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(attachedCertificateIds.get(certificateId));
     }
 
-    public Optional<Attachment> getAttachment(String certificateId) {
-        return Optional.ofNullable(attachmentsByCertId.get(certificateId));
+    /**
+     * Indicates whether the given certificate is attached to this thing.
+     *
+     * @param certificateId Certificate ID
+     * @return whether the given certificate is attached
+     */
+    public boolean isCertificateAttached(String certificateId) {
+        Instant lastVerified = attachedCertificateIds.get(certificateId);
+        return lastVerified != null && isCertAttachmentTrusted(lastVerified);
     }
 
     private Thing(String thingName, Map<String, Instant> certificateIds) {
         this.thingName = thingName;
         if (certificateIds == null) {
-            this.attachmentsByCertId = new ConcurrentHashMap<>();
+            this.attachedCertificateIds = new ConcurrentHashMap<>();
         } else {
-            this.attachmentsByCertId = new ConcurrentHashMap<>(
-                    certificateIds.entrySet().stream()
-                            .collect(Collectors.toMap(
-                                    Map.Entry::getKey,
-                                    e -> new Attachment(e.getValue()))));
+            this.attachedCertificateIds = new ConcurrentHashMap<>(certificateIds);
         }
     }
 
@@ -149,12 +154,12 @@ public final class Thing implements AttributeProvider, Cloneable {
             return false;
         }
 
-        return thingName.equals(other.thingName) && attachmentsByCertId.equals(other.attachmentsByCertId);
+        return thingName.equals(other.thingName) && attachedCertificateIds.equals(other.attachedCertificateIds);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(thingName, attachmentsByCertId);
+        return Objects.hash(thingName, attachedCertificateIds);
     }
 
     @Override
@@ -176,42 +181,8 @@ public final class Thing implements AttributeProvider, Cloneable {
         metadataTrustDurationMinutes.set(newTrustDuration);
     }
 
-    @Value
-    public static class Attachment {
-        Instant created;
-
-        public Attachment() {
-            this(Instant.now());
-        }
-
-        public Attachment(@NonNull Instant created) {
-            this.created = created;
-        }
-
-        public Instant getExpiration() {
-            return created.plus(Duration.ofMinutes(metadataTrustDurationMinutes.get()));
-        }
-
-        public boolean isTrusted() {
-            return getExpiration().isAfter(Instant.now());
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (o == this) {
-                return true;
-            }
-            if (!(o instanceof Attachment)) {
-                return false;
-            }
-
-            Attachment other = (Attachment) o;
-            return Objects.equals(getCreated(), other.getCreated());
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(created);
-        }
+    private boolean isCertAttachmentTrusted(Instant lastVerified) {
+        Instant validTill = lastVerified.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
+        return validTill.isAfter(Instant.now());
     }
 }

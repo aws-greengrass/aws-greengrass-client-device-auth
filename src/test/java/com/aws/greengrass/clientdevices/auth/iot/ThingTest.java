@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ThingTest {
     private static final String mockThingName = "mock-thing";
     private static final String mockCertId = "mock-cert-id";
-    private static final Map<String, Instant> mockCertIdMap = ImmutableMap.of(mockCertId, Instant.now());
+    private static Map<String, Instant> mockCertIdMap = ImmutableMap.of(mockCertId, Instant.now());
 
     @BeforeEach
     void beforeEach() {
@@ -139,7 +139,7 @@ public class ThingTest {
     void GIVEN_thingWithValidActiveCertificate_WHEN_isCertificateAttached_THEN_returnTrue() {
         Thing thing = Thing.of(mockThingName);
         thing.attachCertificate(mockCertId);
-        assertTrue(thing.getAttachment(mockCertId).map(Thing.Attachment::isTrusted).orElse(false));
+        assertTrue(thing.isCertificateAttached(mockCertId));
     }
 
     @Test
@@ -148,6 +148,6 @@ public class ThingTest {
         Thing.updateMetadataTrustDurationMinutes(0);
         Thing thing = Thing.of(mockThingName);
         thing.attachCertificate(mockCertId);
-        assertFalse(thing.getAttachment(mockCertId).map(Thing.Attachment::isTrusted).orElse(false));
+        assertFalse(thing.isCertificateAttached(mockCertId));
     }
 }

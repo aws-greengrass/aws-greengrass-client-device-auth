@@ -13,7 +13,6 @@ import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertificateDTO;
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
-import com.aws.greengrass.clientdevices.auth.iot.usecases.LocalVerificationException;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyThingAttachedToCertificate;
 import com.aws.greengrass.logging.api.Logger;
@@ -257,7 +256,7 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
             try {
                 useCases.get(VerifyThingAttachedToCertificate.class)
                         .apply(new VerifyThingAttachedToCertificateDTO(thingName, certificateId));
-            } catch (RuntimeException | LocalVerificationException e) {
+            } catch (RuntimeException e) {
                 logger.atWarn().cause(e).kv("thingName", thing.getThingName()).kv("certificate", certificateId)
                         .log("Failed to verify thing certificate - certificate pem is invalid");
             }

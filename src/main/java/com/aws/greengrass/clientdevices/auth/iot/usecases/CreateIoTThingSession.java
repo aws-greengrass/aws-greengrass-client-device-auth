@@ -18,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
 
+import java.util.Optional;
 import javax.inject.Inject;
 
 public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSessionDTO> {
@@ -48,33 +49,31 @@ public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSe
      * @param dto - VerifyCertificateAttachedToThingDTO
      */
     @Override
-    @SuppressWarnings("PMD.PrematureDeclaration")
     public Session apply(CreateSessionDTO dto) throws AuthenticationException {
         String certificatePem = dto.getCertificatePem();
         String thingName = dto.getThingName();
+        Optional<Certificate> certificate;
 
-        Certificate certificate;
         try {
-            certificate = certificateRegistry.getCertificateFromPem(certificatePem)
-                    .filter(Certificate::isActive)
-                    .orElseThrow(() -> new AuthenticationException("Certificate isn't active"));
-        } catch (InvalidCertificateException e) {
-            throw new AuthenticationException("Failed to verify certificate", e);
-        }
+            certificate = certificateRegistry.getCertificateFromPem(certificatePem);
 
-        Thing thing = thingRegistry.getOrCreateThing(thingName);
-        try {
-            boolean thingAttachedToCertificate = useCases.get(VerifyThingAttachedToCertificate.class)
-                    .apply(new VerifyThingAttachedToCertificateDTO(thingName, certificate.getCertificateId()));
-            if (!thingAttachedToCertificate) {
-                throw new AuthenticationException("Thing not attached to certificate");
+            if (!certificate.isPresent() || !certificate.get().isActive()) {
+                throw new AuthenticationException("Certificate isn't active");
             }
-        } catch (CloudServiceInteractionException e) {
+
+            Thing thing = thingRegistry.getOrCreateThing(thingName);
+
+            VerifyThingAttachedToCertificate verify = useCases.get(VerifyThingAttachedToCertificate.class);
+            Boolean thingAttachedResult = verify.apply(
+                    new VerifyThingAttachedToCertificateDTO(thingName, certificate.get().getCertificateId()));
+
+            if (thingAttachedResult) {
+                return new SessionImpl(certificate.get(), thing);
+            }
+        } catch (CloudServiceInteractionException | InvalidCertificateException e) {
             throw new AuthenticationException("Failed to verify certificate with cloud", e);
-        } catch (LocalVerificationException e) {
-            throw new AuthenticationException("Failed to verify thing attached certificate", e);
         }
 
-        return new SessionImpl(certificate, thing);
+        throw new AuthenticationException("Failed to verify certificate with attached to thing");
     }
 }

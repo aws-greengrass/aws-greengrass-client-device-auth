@@ -16,18 +16,15 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
 import java.util.Objects;
-import java.util.Optional;
 import javax.inject.Inject;
 
 
-public class VerifyThingAttachedToCertificate implements
-        UseCases.UseCase<Boolean, VerifyThingAttachedToCertificateDTO> {
-
-    private static final Logger logger = LogManager.getLogger(VerifyThingAttachedToCertificate.class);
-
+public class VerifyThingAttachedToCertificate
+        implements UseCases.UseCase<Boolean, VerifyThingAttachedToCertificateDTO> {
     private final IotAuthClient iotAuthClient;
     private final NetworkStateProvider networkState;
     private final ThingRegistry thingRegistry;
+    private static final Logger logger = LogManager.getLogger(VerifyThingAttachedToCertificate.class);
 
 
     /**
@@ -45,22 +42,10 @@ public class VerifyThingAttachedToCertificate implements
         this.networkState = networkState;
     }
 
-    private boolean verifyLocally(Thing thing, String certificateId) throws LocalVerificationException {
+    private boolean verifyLocally(Thing thing, String certificateId) {
         logger.atDebug().kv("thing", thing.getThingName()).kv("certificate", certificateId)
                 .log("Network down, verifying thing attached to certificate locally");
-
-        Optional<Thing.Attachment> attachment = thing.getAttachment(certificateId);
-        if (!attachment.isPresent()) {
-            return false;
-        }
-
-        if (!attachment.get().isTrusted()) {
-            throw new LocalVerificationException("Certificate attachment not trusted anymore. "
-                    + "attachedAt: " + attachment.get().getCreated()
-                    + ", expiration: " + attachment.get().getExpiration());
-        }
-
-        return true;
+        return thing.isCertificateAttached(certificateId);
     }
 
     private boolean verifyFromCloud(Thing thing, String certificateId) {
@@ -90,20 +75,21 @@ public class VerifyThingAttachedToCertificate implements
      * @param dto - VerifyCertificateAttachedToThingDTO
      */
     @Override
-    public Boolean apply(VerifyThingAttachedToCertificateDTO dto) throws LocalVerificationException {
+    public Boolean apply(VerifyThingAttachedToCertificateDTO dto) {
         Thing thing = thingRegistry.getThing(dto.getThingName());
+
         if (Objects.isNull(thing)) {
-            throw new LocalVerificationException("Thing " + dto.getThingName() + " not in thing registry");
+            return false;
         }
 
-        if (isNetworkUp()) {
-            try {
+        try {
+            if (isNetworkUp()) {
                 return verifyFromCloud(thing, dto.getCertificateId());
-            } catch (CloudServiceInteractionException ignored) {
-                // fallback to local verification
             }
-        }
 
-        return verifyLocally(thing, dto.getCertificateId());
+            return verifyLocally(thing, dto.getCertificateId());
+        } catch (CloudServiceInteractionException e) {
+            return verifyLocally(thing, dto.getCertificateId());
+        }
     }
 }
