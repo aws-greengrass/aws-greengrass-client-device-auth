@@ -53,7 +53,8 @@ public class VerifyThingAttachedToCertificate
         Optional<Instant> lastAttachedOn = thing.certificateLastAttachedOn(certificateId);
 
         return Result.builder()
-                .thingAttachedToCertificate(lastAttachedOn.map(thing::isCertAttachmentTrusted).orElse(false))
+                .thingHasValidAttachmentToCertificate(
+                        lastAttachedOn.map(thing::isCertAttachmentTrusted).orElse(false))
                 .lastAttached(lastAttachedOn.orElse(null))
                 .attachmentExpiration(lastAttachedOn.map(thing::getAttachmentExpiration).orElse(null))
                 .verificationSource(Result.VerificationSource.LOCAL)
@@ -69,7 +70,7 @@ public class VerifyThingAttachedToCertificate
             thingRegistry.updateThing(thing);
             Optional<Instant> lastAttached = thing.certificateLastAttachedOn(certificateId);
             return Result.builder()
-                    .thingAttachedToCertificate(true)
+                    .thingHasValidAttachmentToCertificate(true)
                     .lastAttached(lastAttached.orElse(null))
                     .attachmentExpiration(lastAttached.map(thing::getAttachmentExpiration).orElse(null))
                     .verificationSource(Result.VerificationSource.CLOUD)
@@ -79,7 +80,7 @@ public class VerifyThingAttachedToCertificate
         thing.detachCertificate(certificateId);
         thingRegistry.updateThing(thing);
         return Result.builder()
-                .thingAttachedToCertificate(false)
+                .thingHasValidAttachmentToCertificate(false)
                 .verificationSource(Result.VerificationSource.CLOUD)
                 .build();
     }
@@ -101,7 +102,7 @@ public class VerifyThingAttachedToCertificate
         Thing thing = thingRegistry.getThing(dto.getThingName());
         if (Objects.isNull(thing)) {
             return Result.builder()
-                    .thingAttachedToCertificate(false)
+                    .thingHasValidAttachmentToCertificate(false)
                     .verificationSource(Result.VerificationSource.LOCAL)
                     .build();
         }
@@ -120,7 +121,7 @@ public class VerifyThingAttachedToCertificate
     @Value
     @Builder
     public static class Result {
-        boolean thingAttachedToCertificate;
+        boolean thingHasValidAttachmentToCertificate;
         Instant lastAttached;
         Instant attachmentExpiration;
         VerificationSource verificationSource;

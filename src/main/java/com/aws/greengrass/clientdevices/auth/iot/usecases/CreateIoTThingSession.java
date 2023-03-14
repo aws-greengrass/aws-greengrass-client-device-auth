@@ -71,13 +71,13 @@ public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSe
                     new VerifyThingAttachedToCertificateDTO(thingName, certificate.get().getCertificateId()));
 
             logger.atDebug()
-                    .kv("thingIsAttached", result.isThingAttachedToCertificate())
+                    .kv("thingHasValidAttachment", result.isThingHasValidAttachmentToCertificate())
                     .kv("lastAttachedOn", result.getLastAttached())
                     .kv("attachmentExpiration", result.getAttachmentExpiration())
                     .kv("source", result.getVerificationSource())
                     .log("Attachment verification result");
 
-            if (result.isThingAttachedToCertificate()) {
+            if (result.isThingHasValidAttachmentToCertificate()) {
                 return new SessionImpl(certificate.get(), thing);
             }
         } catch (CloudServiceInteractionException | InvalidCertificateException e) {

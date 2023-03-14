@@ -78,7 +78,7 @@ class VerifyThingAttachedToCertificateTest {
 
         // positive result
         assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
-                .thingAttachedToCertificate(true)
+                .thingHasValidAttachmentToCertificate(true)
                 .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.CLOUD)
                 .lastAttached(lastAttached)
                 .attachmentExpiration(lastAttached.plus(Duration.ofMinutes(1)))
@@ -88,7 +88,7 @@ class VerifyThingAttachedToCertificateTest {
         iotAuthClientFake.detachCertificateFromThing(thing.getThingName(), certPem);
         result = verifyThingAttachedToCertificate.apply(dto);
         assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
-                .thingAttachedToCertificate(false)
+                .thingHasValidAttachmentToCertificate(false)
                 .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.CLOUD)
                 .build()));
 
@@ -112,7 +112,7 @@ class VerifyThingAttachedToCertificateTest {
 
         // positive result
         assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
-                .thingAttachedToCertificate(true)
+                .thingHasValidAttachmentToCertificate(true)
                 .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.LOCAL)
                 .lastAttached(lastAttached)
                 .attachmentExpiration(lastAttached.plus(Duration.ofMinutes(1)))
@@ -122,7 +122,7 @@ class VerifyThingAttachedToCertificateTest {
         thing.detachCertificate(thingCertificate.getCertificateId());
         result = verifyThingAttachedToCertificate.apply(dto);
         assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
-                .thingAttachedToCertificate(false)
+                .thingHasValidAttachmentToCertificate(false)
                 .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.LOCAL)
                 .build()));
     }
@@ -146,7 +146,7 @@ class VerifyThingAttachedToCertificateTest {
         VerifyThingAttachedToCertificate.Result result = verifyThingAttachedToCertificate.apply(dto);
         Instant lastAttached = thing.certificateLastAttachedOn(thingCertificate.getCertificateId()).orElseThrow(RuntimeException::new);
         assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
-                .thingAttachedToCertificate(false)
+                .thingHasValidAttachmentToCertificate(false)
                 .lastAttached(lastAttached)
                 .attachmentExpiration(lastAttached)
                 .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.LOCAL)
@@ -182,7 +182,7 @@ class VerifyThingAttachedToCertificateTest {
 
         // positive result
         assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
-                .thingAttachedToCertificate(true)
+                .thingHasValidAttachmentToCertificate(true)
                 .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.LOCAL)
                 .lastAttached(lastAttached)
                 .attachmentExpiration(lastAttached.plus(Duration.ofMinutes(1)))
@@ -192,7 +192,7 @@ class VerifyThingAttachedToCertificateTest {
         thing.detachCertificate(thingCertificate.getCertificateId());
         result = verifyThingAttachedToCertificate.apply(dto);
         assertThat(result, is(VerifyThingAttachedToCertificate.Result.builder()
-                .thingAttachedToCertificate(false)
+                .thingHasValidAttachmentToCertificate(false)
                 .verificationSource(VerifyThingAttachedToCertificate.Result.VerificationSource.LOCAL)
                 .build()));
     }
