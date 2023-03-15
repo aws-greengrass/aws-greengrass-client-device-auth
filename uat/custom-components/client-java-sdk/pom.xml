@@ -148,7 +148,7 @@
                         <configuration>
                             <overWriteReleases>false</overWriteReleases>
                             <includeScope>runtime</includeScope>
-                            <outputDirectory>target/lib</outputDirectory>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
                         </configuration>
                     </execution>
                 </executions>

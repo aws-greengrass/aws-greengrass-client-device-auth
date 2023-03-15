@@ -23,6 +23,7 @@ import software.amazon.awssdk.crt.mqtt5.OnStoppedReturn;
 import software.amazon.awssdk.crt.mqtt5.PublishResult;
 import software.amazon.awssdk.crt.mqtt5.PublishReturn;
 import software.amazon.awssdk.crt.mqtt5.QOS;
+import software.amazon.awssdk.crt.mqtt5.packets.ConnAckPacket;
 import software.amazon.awssdk.crt.mqtt5.packets.ConnectPacket;
 import software.amazon.awssdk.crt.mqtt5.packets.DisconnectPacket;
 import software.amazon.awssdk.crt.mqtt5.packets.PubAckPacket;
@@ -56,12 +57,35 @@ public class MqttConnectionImpl implements MqttConnection {
     private final ClientsLifecycleEvents lifecycleEvents = new ClientsLifecycleEvents();
     private final ClientsPublishEvents publishEvents = new ClientsPublishEvents();
 
+    private static class OnConnectionDoneInfo {
+        final OnConnectionSuccessReturn onConnectionSuccessReturn;
+        final OnConnectionFailureReturn onConnectionFailureReturn;
+        final String crtError;
+
+        @SuppressWarnings("PMD.NullAssignment")
+        OnConnectionDoneInfo(OnConnectionSuccessReturn onConnectionSuccessReturn) {
+            super();
+            this.onConnectionSuccessReturn = onConnectionSuccessReturn;
+            this.onConnectionFailureReturn = null;
+            this.crtError = null;
+        }
+
+        @SuppressWarnings("PMD.NullAssignment")
+        OnConnectionDoneInfo(OnConnectionFailureReturn onConnectionFailureReturn, String crtError) {
+            super();
+            this.onConnectionSuccessReturn = null;
+            this.onConnectionFailureReturn = onConnectionFailureReturn;
+            this.crtError = crtError;
+        }
+    }
+
     private class ClientsLifecycleEvents implements Mqtt5ClientOptions.LifecycleEvents {
-        CompletableFuture<Void> connectedFuture = new CompletableFuture<>();
+        CompletableFuture<OnConnectionDoneInfo> connectedFuture = new CompletableFuture<>();
         CompletableFuture<Void> stoppedFuture = new CompletableFuture<>();
 
         @Override
         public void onAttemptingConnect(Mqtt5Client client, OnAttemptingConnectReturn onAttemptingConnectReturn) {
+            // OnAttemptingConnectReturn currently has no info
             logger.atInfo().log("MQTT connectionId {} connecting...", connectionId);
         }
 
@@ -70,24 +94,28 @@ public class MqttConnectionImpl implements MqttConnection {
             String clientId = onConnectionSuccessReturn.getNegotiatedSettings().getAssignedClientID();
             logger.atInfo().log("MQTT connectionId {} connected, client id {}", connectionId, clientId);
             isConnected.set(true);
-            connectedFuture.complete(null);
+            connectedFuture.complete(new OnConnectionDoneInfo(onConnectionSuccessReturn));
         }
 
         @Override
         public void onConnectionFailure(Mqtt5Client client, OnConnectionFailureReturn onConnectionFailureReturn) {
             String errorString = CRT.awsErrorString(onConnectionFailureReturn.getErrorCode());
             logger.atInfo().log("MQTT connectionId {} failed with error: {}", connectionId, errorString);
-            connectedFuture.completeExceptionally(new MqttException("Could not connect: " + errorString));
+            connectedFuture.complete(new OnConnectionDoneInfo(onConnectionFailureReturn, errorString));
         }
 
         @Override
         public void onDisconnection(Mqtt5Client client, OnDisconnectionReturn onDisconnectionReturn) {
+            // TODO: use getDisconnectPacket() and getErrorCode()
+            // https://awslabs.github.io/aws-crt-java/software/amazon/awssdk/crt/mqtt5/OnDisconnectionReturn.html
+            // https://awslabs.github.io/aws-crt-java/software/amazon/awssdk/crt/mqtt5/packets/DisconnectPacket.html
             isConnected.set(false);
             logger.atInfo().log("MQTT connectionId {} disconnected", connectionId);
         }
 
         @Override
         public void onStopped(Mqtt5Client client, OnStoppedReturn onStoppedReturn) {
+            // OnStoppedReturn currently has no info
             logger.atInfo().log("MQTT connectionId {} stopped", connectionId);
             stoppedFuture.complete(null);
         }
@@ -104,11 +132,11 @@ public class MqttConnectionImpl implements MqttConnection {
 
                 if (messageConsumer != null) {
                     MqttReceivedMessage message = MqttReceivedMessage.builder()
-                                .qos(qos)
-                                .retain(isRetain)
-                                .topic(topic)
-                            .payload(packet.getPayload())
-                                .build();
+                                                    .qos(qos)
+                                                    .retain(isRetain)
+                                                    .topic(topic)
+                                                    .payload(packet.getPayload())
+                                                    .build();
                     messageConsumer.accept(connectionId, message);
                 }
 
@@ -135,12 +163,24 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public void start(long timeout, int connectionId) throws MqttException {
+    public ConnectResult start(long timeout, int connectionId) throws MqttException {
         this.connectionId = connectionId;
         client.start();
         try {
-            lifecycleEvents.connectedFuture.get(timeout, TimeUnit.SECONDS);
+            OnConnectionDoneInfo onConnectionDoneInfo = lifecycleEvents.connectedFuture.get(timeout, TimeUnit.SECONDS);
+            // translate onConnectionInfo to intermediate object and return
+            final boolean success = onConnectionDoneInfo.onConnectionSuccessReturn != null;
+            ConnAckPacket packet = null;
+            if (success) {
+                packet = onConnectionDoneInfo.onConnectionSuccessReturn.getConnAckPacket();
+            } else {
+                if (onConnectionDoneInfo.onConnectionFailureReturn != null) {
+                    packet = onConnectionDoneInfo.onConnectionFailureReturn.getConnAckPacket();
+                }
+            }
+            return buildConnectResult(success, packet, onConnectionDoneInfo.crtError);
         } catch (Exception ex) {
+            logger.atError().withThrowable(ex).log("Exception occurred during connect");
             throw new MqttException("Exception occurred during connect", ex);
         }
     }
@@ -193,13 +233,8 @@ public class MqttConnectionImpl implements MqttConnection {
                                             .build();
         CompletableFuture<PublishResult> publishFuture = client.publish(publishPacket);
         try {
-            PublishResult result = publishFuture.get(timeout, TimeUnit.SECONDS);
-            if (result == null || result.getType() != PublishResult.PublishResultType.PUBACK) {
-                return null;
-            }
-            PubAckPacket pubAckPacket = result.getResultPubAck();
-            // TODO: handler also user's properties of PUBACK
-            return new PubAckInfo(pubAckPacket.getReasonCode().getValue(), pubAckPacket.getReasonString());
+            PublishResult publishResult = publishFuture.get(timeout, TimeUnit.SECONDS);
+            return convertPublishResult(publishResult);
         } catch (Exception ex) {
             logger.atError().withThrowable(ex).log("Failed during publishing message");
             throw new MqttException("Could not publish message", ex);
@@ -230,17 +265,8 @@ public class MqttConnectionImpl implements MqttConnection {
 
         CompletableFuture<SubAckPacket> subscribeFuture = client.subscribe(builder.build());
         try {
-            SubAckPacket result = subscribeFuture.get(timeout, TimeUnit.SECONDS);
-            if (result == null) {
-                return null;
-            }
-            List<Integer> resultCodes = null;
-            List<SubAckPacket.SubAckReasonCode> codes = result.getReasonCodes();
-            if (codes != null) {
-                resultCodes = codes.stream().map(code -> code.getValue()).collect(Collectors.toList());
-            }
-            // TODO: handler also user's properties of SUBACK
-            return new SubAckInfo(resultCodes, result.getReasonString());
+            SubAckPacket subAckPacket = subscribeFuture.get(timeout, TimeUnit.SECONDS);
+            return convertSubAckPacket(subAckPacket);
         } catch (Exception ex) {
             logger.atError().withThrowable(ex).log("Failed during subscribe");
             throw new MqttException("Could not subscribe", ex);
@@ -260,17 +286,8 @@ public class MqttConnectionImpl implements MqttConnection {
 
         CompletableFuture<UnsubAckPacket> unsubscribeFuture = client.unsubscribe(builder.build());
         try {
-            UnsubAckPacket result = unsubscribeFuture.get(timeout, TimeUnit.SECONDS);
-            if (result == null) {
-                return null;
-            }
-            List<Integer> resultCodes = null;
-            List<UnsubAckPacket.UnsubAckReasonCode> codes = result.getReasonCodes();
-            if (codes != null) {
-                resultCodes = codes.stream().map(code -> code.getValue()).collect(Collectors.toList());
-            }
-            // TODO: handler also user's properties of UNSUBACK
-            return new UnsubAckInfo(resultCodes, result.getReasonString());
+            UnsubAckPacket unsubAckPacket = unsubscribeFuture.get(timeout, TimeUnit.SECONDS);
+            return convertUnsubAckPacket(unsubAckPacket);
         } catch (Exception ex) {
             logger.atError().withThrowable(ex).log("Failed during unsubscribe");
             throw new MqttException("Could not unsubscribe", ex);
@@ -323,6 +340,7 @@ public class MqttConnectionImpl implements MqttConnection {
      */
     private AwsIotMqtt5ClientBuilder getClientBuilder(MqttLib.ConnectionParams connectionParams) {
         if (connectionParams.getKey() == null) {
+            // NOTE: after tests we found AWS IoT SDK for Java v2 does not support connections without TLS.
             logger.atInfo().log("Creating Mqtt5Client without TLS");
             return AwsIotMqtt5ClientBuilder.newMqttBuilder(connectionParams.getHost());
         } else {
@@ -348,5 +366,84 @@ public class MqttConnectionImpl implements MqttConnection {
         if (isClosing.get()) {
             throw new MqttException("MQTT connection is closing");
         }
+    }
+
+    private static ConnectResult buildConnectResult(boolean success, ConnAckPacket packet, String crtError) {
+        ConnAckInfo connAckInfo = convertConnAckPacket(packet);
+        return new ConnectResult(success, connAckInfo, crtError);
+    }
+
+    private static ConnAckInfo convertConnAckPacket(ConnAckPacket packet) {
+        if (packet == null) {
+            return null;
+        }
+
+        ConnAckPacket.ConnectReasonCode reasonCode = packet.getReasonCode();
+        QOS maximumQOS = packet.getMaximumQOS();
+        return new ConnAckInfo(packet.getSessionPresent(),
+                                reasonCode == null ? null : reasonCode.getValue(),
+                                convertLongToInteger(packet.getSessionExpiryInterval()),
+                                packet.getReceiveMaximum(),
+                                maximumQOS == null ? null : maximumQOS.getValue(),
+                                packet.getRetainAvailable(),
+                                convertLongToInteger(packet.getMaximumPacketSize()),
+                                packet.getAssignedClientIdentifier(),
+                                packet.getReasonString(),
+                                packet.getWildcardSubscriptionsAvailable(),
+                                packet.getSubscriptionIdentifiersAvailable(),
+                                packet.getSharedSubscriptionsAvailable(),
+                                packet.getServerKeepAlive(),
+                                packet.getResponseInformation(),
+                                packet.getServerReference()
+                                );
+    }
+
+    private static Integer convertLongToInteger(Long value) {
+        if (value == null) {
+            return null;
+        }
+        return value.intValue();
+    }
+
+    private static SubAckInfo convertSubAckPacket(SubAckPacket packet) {
+        if (packet == null) {
+            return null;
+        }
+
+        List<Integer> resultCodes = null;
+        List<SubAckPacket.SubAckReasonCode> codes = packet.getReasonCodes();
+        if (codes != null) {
+            resultCodes = codes.stream().map(c -> c == null ? null : c.getValue()).collect(Collectors.toList());
+        }
+        // TODO: handler also user's properties of SUBACK
+        return new SubAckInfo(resultCodes, packet.getReasonString());
+    }
+
+    private static UnsubAckInfo convertUnsubAckPacket(UnsubAckPacket packet) {
+        if (packet == null) {
+            return null;
+        }
+
+        List<Integer> resultCodes = null;
+        List<UnsubAckPacket.UnsubAckReasonCode> codes = packet.getReasonCodes();
+        if (codes != null) {
+            resultCodes = codes.stream().map(c -> c == null ? null : c.getValue()).collect(Collectors.toList());
+        }
+        // TODO: handler also user's properties of SUBACK
+        return new UnsubAckInfo(resultCodes, packet.getReasonString());
+    }
+
+    private static PubAckInfo convertPublishResult(PublishResult publishResult) {
+        if (publishResult == null || publishResult.getType() != PublishResult.PublishResultType.PUBACK) {
+            return null;
+        }
+        PubAckPacket pubAckPacket = publishResult.getResultPubAck();
+        if (pubAckPacket == null) {
+            return null;
+        }
+        PubAckPacket.PubAckReasonCode reasonCode = pubAckPacket.getReasonCode();
+
+        // TODO: handler also user's properties of PUBACK
+        return new PubAckInfo(reasonCode == null ? null : reasonCode.getValue(), pubAckPacket.getReasonString());
     }
 }

@@ -8,7 +8,7 @@ package com.aws.greengrass.testing.mqtt5.client;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 
 import java.util.List;
 
@@ -19,65 +19,70 @@ public interface MqttConnection {
     int DEFAULT_DISCONNECT_REASON = 4;
     long DEFAULT_DISCONNECT_TIMEOUT = 10;
 
-    /**
-     * Contains information about publishing MQTT v5.0 message.
-     */
-    @Data
-    @Builder
-    class Message {
-        /** QoS value. */
-        int qos;
-
-        /** Retain flag. */
-        boolean retain;
-
-        /** Topic of message. */
-        String topic;
-
-        /** Payload of message. */
-        byte[] payload;
-
-        // TODO: add user's properties and so one
-    }
 
     /**
-     * Useful information from PUBACK packet.
+     * Useful information from CONNACK packet.
      */
-    @Data
+    @Getter
     @AllArgsConstructor
-    class PubAckInfo {
-        /** MQTT v5.0 Reason code of PUBACK packet. */
-        private int reasonCode;
-
-        /** MQTT v5.0 Reason string of PUBACK packet. */
+    class ConnAckInfo {
+        private Boolean sessionPresent;
+        private Integer reasonCode;
+        private Integer sessionExpiryInterval;
+        private Integer receiveMaximum;
+        private Integer maximumQoS;
+        private Boolean retainAvailable;
+        private Integer maximumPacketSize;
+        private String assignedClientId;
         private String reasonString;
-        // TODO: add user's properties
+        private Boolean wildcardSubscriptionsAvailable;
+        private Boolean subscriptionIdentifiersAvailable;
+        private Boolean sharedSubscriptionsAvailable;
+        private Integer serverKeepAlive;
+        private String responseInformation;
+        private String serverReference;
+
+        // TODO: int topicAliasMaximum;          // miss for AWS IoT device SDK MQTT5 client ?
+        // TODO: Authentication Method
+        // TODO: Authentication Data
+        // TODO: user's Properties
     }
 
+    /**
+     * Information about start (connect) result.
+     */
+    @Getter
+    @AllArgsConstructor
+    class ConnectResult {
+        /** Useful information from CONNACK packet. Can missed. */
+        private boolean connected;
+        private ConnAckInfo connAckInfo;
+        private String error;
+    }
 
     /**
      * Information about single subscription.
      */
-    @Data
+    @Getter
     @AllArgsConstructor
     class Subscription {
         /** Topic filter. */
-        String filter;
+        private String filter;
 
         /** Maximum QoS. */
-        int qos;
+        private int qos;
 
         /** No local subscription. */
-        boolean noLocal;
+        private boolean noLocal;
 
-        boolean retainAsPublished;
-        int retainHandling;
+        private boolean retainAsPublished;
+        private int retainHandling;
     }
 
     /**
      * Useful information from SUBACK packet.
      */
-    @Data
+    @Getter
     @AllArgsConstructor
     class SubAckInfo {
         /** Reason codes. */
@@ -87,6 +92,40 @@ public interface MqttConnection {
         // TODO: add user's properties
     }
 
+    /**
+     * Contains information about publishing MQTT v5.0 message.
+     */
+    @Getter
+    @Builder
+    class Message {
+        /** QoS value. */
+        private int qos;
+
+        /** Retain flag. */
+        private boolean retain;
+
+        /** Topic of message. */
+        private String topic;
+
+        /** Payload of message. */
+        private byte[] payload;
+
+        // TODO: add user's properties and so one
+    }
+
+    /**
+     * Useful information from PUBACK packet.
+     */
+    @Getter
+    @AllArgsConstructor
+    class PubAckInfo {
+        /** MQTT v5.0 Reason code of PUBACK packet. */
+        private Integer reasonCode;
+
+        /** MQTT v5.0 Reason string of PUBACK packet. */
+        private String reasonString;
+        // TODO: add user's properties
+    }
 
     /**
      * Useful information from UNSUBACK packet.
@@ -98,14 +137,16 @@ public interface MqttConnection {
         }
     }
 
+
     /**
      * Starts MQTT connection.
      *
      * @param timeout connect operation timeout in seconds
      * @param connectionId connection id as assigned by MQTT library
+     * @return ConnectResult on success
      * @throws MqttException on errors
      */
-    void start(long timeout, int connectionId) throws MqttException;
+    ConnectResult start(long timeout, int connectionId) throws MqttException;
 
     /**
      * Subscribes to topics.

@@ -75,7 +75,7 @@ service MqttClientControl {
     rpc ShutdownAgent(ShutdownRequest) returns (google.protobuf.Empty) {}
 
     // create MQTT connection
-    rpc CreateMqttConnection(MqttConnectRequest) returns (MqttConnectionId) {}
+    rpc CreateMqttConnection(MqttConnectRequest) returns (MqttConnectReply) {}
 
     // close MQTT connection
     rpc CloseMqttConnection(MqttCloseRequest) returns (google.protobuf.Empty) {}
@@ -117,6 +117,29 @@ enum Mqtt5RetainHandling {
 // logical Id of MQTT connection, unique for a agent, but not over
 message MqttConnectionId {
     int32 connectionId = 1;
+};
+
+message Mqtt5ConnAck {
+    optional bool sessionPresent = 1;
+    optional int32 reasonCode = 2;
+    optional int32 sessionExpiryInterval = 3;
+    optional int32 receiveMaximum = 4;
+    optional int32 maximumQoS = 5;
+    optional bool retainAvailable = 6;
+    optional int32 maximumPacketSize = 7;
+    optional string assignedClientId = 8;
+    optional string reasonString = 9;
+    optional bool wildcardSubscriptionsAvailable = 10;
+    optional bool subscriptionIdentifiersAvailable = 11;
+    optional bool sharedSubscriptionsAvailable = 12;
+    optional int32 serverKeepAlive = 13;
+    optional string responseInformation = 14;
+    optional string serverReference = 15;
+
+    // TODO: int32 topicAliasMaximum;
+    // TODO: Authentication Method
+    // TODO: Authentication Data
+    // TODO: user's Properties
 };
 
 // MQTT 5.0 user's properties used in most of packets
@@ -170,6 +193,14 @@ message MqttConnectRequest {
     optional Mqtt5Message willMessage = 10;             // will message to set
 }
 
+// Response to connect request
+message MqttConnectReply {
+    bool connected = 1;                                 // true when connection has been established
+    MqttConnectionId connectionId = 2;                  // id of establisted connection
+    optional Mqtt5ConnAck connAck = 3;                  // information from CONNACK packet
+    string error = 4;                                   // on TCP/TLS error contains error string
+    // TODO: add user properties
+}
 
 // Request to close MQTT connection
 message MqttCloseRequest {
@@ -178,7 +209,6 @@ message MqttCloseRequest {
     int32 reason = 3;                                   // MQTT disconnect reason
     optional Mqtt5Properties properties = 4;            // DISCONNECT packet MQTT v5.0 properties
 }
-
 
 // Request to subscribe to MQTT topic(s)
 message MqttSubscribeRequest {
