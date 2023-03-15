@@ -79,7 +79,7 @@ public interface NetworkStateProvider {
          */
         @Override
         public NetworkStateProvider.ConnectionState getConnectionState() {
-            if (mqttClient.connected()) {
+            if (mqttClient.getMqttOnline().get()) {
                 return NetworkStateProvider.ConnectionState.NETWORK_UP;
             } else {
                 return NetworkStateProvider.ConnectionState.NETWORK_DOWN;
