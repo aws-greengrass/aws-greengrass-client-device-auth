@@ -1,22 +1,50 @@
-# Test MQTT5 client bases on AWS IoT Device SDK for Java v2
+## Client Devices Auth User Acceptance Tests
+User Acceptance Tests for Client Devices Auth run using `aws-greengrass-testing-standalone` as a library. They 
+execute E2E
+tests which will spin up an instance of Greengrass on your device and execute different sets of tests, by installing
+the `aws.greengrass.clientdevices.Auth` component.
 
-The controlled `test MQTT v5.0 client` is based on AWS IoT Device SDK for Java v2 is used to test Greengrass v2 MQTT v5.0 compatibility.
+## Running UATs locally
 
-## How to compile
-To compile this client, use the following command:
+Ensure credentials are available by setting them in environment variables. In unix based systems:
 
-```sh
-mvn clean license:check checkstyle:check pmd:check package
+```bash
+export AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID>
+export AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY>
 ```
 
-# How to test
-To run integrated with sources tests, use the following command:
-```sh
-mvn -ntp -U clean verify
+on Windows Powershell
+
+```bash
+$Env:AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID>
+$Env:AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY>
 ```
 
-# How to run
-To run this client use the following command:
-```sh
-mvn exec:java
+For UATs to run you will need to package your entire application along with `aws-greengrass-testing-standalone` into
+an uber jar. To do run (from the root of the project)
+
 ```
+mvn -U -ntp clean verify -f uat/pom.xml
+```
+
+Note: Everytime you make changes to the codebase you will have to rebuild the uber jar for those changes to be present
+on the final artifact.
+
+Finally, download the zip containing the latest version of the Nucleus, which will be used to provision Greengrass for
+the UATs.
+
+```bash
+curl -s https://d2s8p88vqu9w66.cloudfront.net/releases/greengrass-nucleus-latest.zip > greengrass-nucleus-latest.zip
+```
+
+Execute the UATs by running the following command from the root of the project.
+
+```
+java -Dggc.archive=<path-to-nucleus-zip> -Dtest.log.path=<path-to-test-results-folder> -Dtags=Auth -jar <path-to-test-jar>
+java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags=Auth -jar uat/testing-features/target/client-devices-auth-testing-features.jar
+```
+
+Command arguments:
+
+Dggc.archive - path to the nucleus zip that was downloaded
+Dtest.log.path - path where you would like the test results to be stored 
