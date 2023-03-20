@@ -366,7 +366,8 @@ public class BackgroundCertificateRefreshTest {
                 ArgumentCaptor.forClass(VerifyThingAttachedToCertificateDTO.class);
 
         when(verifyThingAttachedToCertificateMock.apply(doCaptor.capture())).thenThrow(
-                new CloudServiceInteractionException("Failed to verify association")).thenReturn(true);
+                new CloudServiceInteractionException("Failed to verify association")).thenReturn(
+                        VerifyThingAttachedToCertificate.Result.builder().thingHasValidAttachmentToCertificate(true).build());
         Instant twentyFourHoursLater = now.plus(Duration.ofHours(24));
         mockInstant(twentyFourHoursLater.toEpochMilli());
         assertNull(backgroundRefresh.getLastRan());

@@ -6,8 +6,8 @@
 package com.aws.greengrass.clientdevices.auth.iot;
 
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -34,8 +34,8 @@ public class ThingTest {
     private static final String mockCertId = "mock-cert-id";
     private static Map<String, Instant> mockCertIdMap = ImmutableMap.of(mockCertId, Instant.now());
 
-    @BeforeEach
-    void beforeEach() {
+    @AfterEach
+    void tearDown() {
         Thing.updateMetadataTrustDurationMinutes(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
     }
 
