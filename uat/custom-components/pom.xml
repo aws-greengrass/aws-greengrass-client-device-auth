@@ -10,15 +10,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.aws.greengrass</groupId>
-    <artifactId>client-devices-auth-uat</artifactId>
+    <artifactId>client-devices-auth-custom-components</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
         <module>
-            custom-components
-        </module>
-        <module>
-            testing-features
+            client-java-sdk
         </module>
     </modules>
     <properties>
@@ -36,8 +33,8 @@
                     <maxAllowedViolations>0</maxAllowedViolations>
                     <printFailingErrors>true</printFailingErrors>
                     <rulesets>
-                        <ruleset>../codestyle/pmd-eg-ruleset.xml</ruleset>
-                        <ruleset>../codestyle/pmd-eg-tests-ruleset.xml</ruleset>
+                        <ruleset>../../codestyle/pmd-eg-ruleset.xml</ruleset>
+                        <ruleset>../../codestyle/pmd-eg-tests-ruleset.xml</ruleset>
                     </rulesets>
                     <includeTests>true</includeTests>
                     <skip>${skipTests}</skip>
@@ -63,7 +60,7 @@
                 </dependencies>
                 <configuration>
                     <logViolationsToConsole>true</logViolationsToConsole>
-                    <configLocation>../codestyle/checkstyle.xml</configLocation>
+                    <configLocation>../../codestyle/checkstyle.xml</configLocation>
                     <violationSeverity>warning</violationSeverity>
                     <maxAllowedViolations>0</maxAllowedViolations>
                     <skip>${skipTests}</skip>
