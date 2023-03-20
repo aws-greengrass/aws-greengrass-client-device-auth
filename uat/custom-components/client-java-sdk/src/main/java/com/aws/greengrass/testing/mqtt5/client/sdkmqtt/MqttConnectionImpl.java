@@ -38,6 +38,8 @@ import software.amazon.awssdk.iot.AwsIotMqtt5ClientBuilder;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -46,6 +48,8 @@ import java.util.stream.Collectors;
  * Implementation of MQTT5 connection.
  */
 public class MqttConnectionImpl implements MqttConnection {
+    private static final long MIN_SHUTDOWN_NS = 200_000_000;      // 200ms
+
     private static final Logger logger = LogManager.getLogger(MqttConnectionImpl.class);
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
@@ -57,6 +61,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     private final ClientsLifecycleEvents lifecycleEvents = new ClientsLifecycleEvents();
     private final ClientsPublishEvents publishEvents = new ClientsPublishEvents();
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();        // TODO: use DI
 
     private static class OnConnectionDoneInfo {
         final OnConnectionSuccessReturn onConnectionSuccessReturn;
@@ -107,15 +112,18 @@ public class MqttConnectionImpl implements MqttConnection {
 
         @Override
         public void onDisconnection(Mqtt5Client client, OnDisconnectionReturn onDisconnectionReturn) {
+            isConnected.set(false);
+
             DisconnectPacket disconnectPacket = onDisconnectionReturn.getDisconnectPacket();
             String errorString = CRT.awsErrorString(onDisconnectionReturn.getErrorCode());
             if (grpcClient != null) {
                 DisconnectInfo disconnectInfo = convertDisconnectPacket(disconnectPacket);
-                grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
+                executorService.submit(() -> {
+                    grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
+                    });
             }
 
-            isConnected.set(false);
-            logger.atInfo().log("MQTT connectionId {} disconnected error {} disconnectPacket {}",
+            logger.atInfo().log("MQTT connectionId {} disconnected error '{}' disconnectPacket '{}'",
                                 connectionId, errorString, disconnectPacket);
         }
 
@@ -198,12 +206,22 @@ public class MqttConnectionImpl implements MqttConnection {
             client.stop(disconnectPacket);
 
             try {
+                final long deadline = System.nanoTime() + timeout * 1_000_000_000;
                 lifecycleEvents.stoppedFuture.get(timeout, TimeUnit.SECONDS);
+
+                long remaining = deadline - System.nanoTime();
+                if (remaining < MIN_SHUTDOWN_NS) {
+                    remaining = MIN_SHUTDOWN_NS;
+                }
+
+                executorService.shutdown();
+                executorService.awaitTermination(remaining, TimeUnit.NANOSECONDS);
             } catch (Exception ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnecting from MQTT broker");
                 throw new MqttException("Could not disconnect", ex);
             } finally {
                 client.close();
+                executorService.shutdownNow();
             }
         }
     }
