@@ -5,10 +5,12 @@
 
 package com.aws.greengrass.testing.mqtt5.client.grpc;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttClientControlGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttCloseRequest;
+import com.aws.greengrass.testing.mqtt.client.MqttConnectReply;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttProtoVersion;
@@ -37,6 +39,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 
 /**
@@ -113,7 +116,7 @@ class GRPCControlServer {
          */
         @Override
         public void createMqttConnection(MqttConnectRequest request,
-                                            StreamObserver<MqttConnectionId> responseObserver) {
+                                            StreamObserver<MqttConnectReply> responseObserver) {
 
             String clientId = request.getClientId();
             if (clientId == null || clientId.isEmpty()) {
@@ -171,7 +174,8 @@ class GRPCControlServer {
                 return;
             }
 
-            MqttLib.ConnectionParams.ConnectionParamsBuilder builder = MqttLib.ConnectionParams.builder()
+            MqttLib.ConnectionParams.ConnectionParamsBuilder connectionParamsBuilder 
+                    = MqttLib.ConnectionParams.builder()
                             .clientId(clientId)
                             .host(host)
                             .port(port)
@@ -209,24 +213,36 @@ class GRPCControlServer {
                     return;
                 }
 
-                builder.ca(ca).cert(cert).key(key);
+                connectionParamsBuilder.ca(ca).cert(cert).key(key);
             }
 
 
             logger.atInfo().log("createMqttConnection: clientId {} broker {}:{}", clientId, host, port);
-            int connectionId;
+            MqttConnectReply.Builder builder = MqttConnectReply.newBuilder();
+
+            AtomicReference<Integer> connectionId = new AtomicReference<>();
             try {
-                MqttConnection connection = mqttLib.createConnection(builder.build(), messageConsumer);
-                connectionId = mqttLib.registerConnection(connection);
-                connection.start(timeout, connectionId);
+                MqttConnection connection = mqttLib.createConnection(connectionParamsBuilder.build(), messageConsumer);
+                connectionId.set(mqttLib.registerConnection(connection));
+
+                MqttConnection.ConnectResult connectResult = connection.start(timeout, connectionId.get());
+                if (connectResult != null) {
+                    builder.setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId.get()).build());
+                    convertConnectResult(connectResult, builder);
+                    connectionId.set(null);
+                }
             } catch (MqttException ex) {
                 logger.atWarn().withThrowable(ex).log("Exception during connect");
                 responseObserver.onError(ex);
                 return;
+            } finally {
+                Integer id = connectionId.getAndSet(null);
+                if (id != null) {
+                    mqttLib.unregisterConnection(id);
+                }
             }
 
-            MqttConnectionId reply = MqttConnectionId.newBuilder().setConnectionId(connectionId).build();
-            responseObserver.onNext(reply);
+            responseObserver.onNext(builder.build());
             responseObserver.onCompleted();
         }
 
@@ -269,7 +285,7 @@ class GRPCControlServer {
 
             logger.atInfo().log("closeMqttConnection: connectionId {} reason {}", connectionId, reason);
             try {
-                // TODO: pass also DISCONNECT properties
+                // TODO: pass also DISCONNECT packet
                 connection.disconnect(timeout, reason);
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during disconnect");
@@ -342,17 +358,11 @@ class GRPCControlServer {
                                 .build();
             MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
             try {
-                // TODO: pass also user's properties
                 MqttConnection.PubAckInfo pubAckInfo = connection.publish(timeout, internalMessage);
+                convertPubAckInfo(pubAckInfo, builder);
                 if (pubAckInfo != null) {
-                    int reasonCode = pubAckInfo.getReasonCode();
-                    builder.setReasonCode(reasonCode);
-                    String reasonString = pubAckInfo.getReasonString();
-                    if (reasonString != null) {
-                        builder.setReasonString(reasonString);
-                    }
                     logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",
-                                            connectionId, reasonCode, reasonString);
+                                            connectionId, pubAckInfo.getReasonCode(), pubAckInfo.getReasonString());
                 }
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during publish");
@@ -463,21 +473,14 @@ class GRPCControlServer {
             try {
                 // TODO: pass also user's properties
                 MqttConnection.SubAckInfo subAckInfo = connection.subscribe(timeout, subscriptionId, outSubscriptions);
-                if (subAckInfo != null) {
-                    List<Integer> codes = subAckInfo.getReasonCodes();
-                    if (codes != null) {
-                        builder.addAllReasonCodes(codes);
-                    }
+                convertSubAckInfo(subAckInfo, builder);
 
-                    String reasonString = subAckInfo.getReasonString();
-                    if (reasonString != null) {
-                         builder.setReasonString(reasonString);
-                    }
+                if (subAckInfo != null) {
                     logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string {}",
-                                            connectionId, codes, reasonString);
+                                        connectionId, subAckInfo.getReasonCodes(), subAckInfo.getReasonString());
                 }
             } catch (MqttException ex) {
-                logger.atError().withThrowable(ex).log("exception during publish");
+                logger.atError().withThrowable(ex).log("exception during subscribe");
                 responseObserver.onError(ex);
                 return;
             }
@@ -530,21 +533,13 @@ class GRPCControlServer {
             try {
                 // TODO: pass also user's properties
                 MqttConnection.UnsubAckInfo unsubAckInfo = connection.unsubscribe(timeout, filters);
+                convertSubAckInfo(unsubAckInfo, builder);
                 if (unsubAckInfo != null) {
-                    List<Integer> codes = unsubAckInfo.getReasonCodes();
-                    if (codes != null) {
-                        builder.addAllReasonCodes(codes);
-                    }
-
-                    String reasonString = unsubAckInfo.getReasonString();
-                    if (reasonString != null) {
-                         builder.setReasonString(reasonString);
-                    }
                     logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string {}",
-                                            connectionId, codes, reasonString);
+                                        connectionId, unsubAckInfo.getReasonCodes(), unsubAckInfo.getReasonString());
                 }
             } catch (MqttException ex) {
-                logger.atError().withThrowable(ex).log("exception during publish");
+                logger.atError().withThrowable(ex).log("exception during unsubscribe");
                 responseObserver.onError(ex);
                 return;
             }
@@ -619,5 +614,136 @@ class GRPCControlServer {
      */
     public void close() {
         server.shutdown(); // or shutdownNow() ?
+    }
+
+
+    private static void convertConnectResult(MqttConnection.ConnectResult connectResult,
+                                                MqttConnectReply.Builder builder) {
+        builder.setConnected(connectResult.isConnected());
+
+        String error = connectResult.getError();
+        if (error != null) {
+            builder.setError(error);
+        }
+
+        MqttConnection.ConnAckInfo connAckInfo = connectResult.getConnAckInfo();
+        if (connAckInfo != null) {
+            builder.setConnAck(convertConnAckInfo(connAckInfo));
+        }
+    }
+
+    private static Mqtt5ConnAck convertConnAckInfo(MqttConnection.ConnAckInfo conAckInfo) {
+        final Mqtt5ConnAck.Builder builder = Mqtt5ConnAck.newBuilder();
+
+        Boolean sessionPresent = conAckInfo.getSessionPresent();
+        if (sessionPresent != null) {
+            builder.setSessionPresent(sessionPresent);
+        }
+
+        Integer reasonCode = conAckInfo.getReasonCode();
+        if (reasonCode != null) {
+            builder.setReasonCode(reasonCode);
+        }
+
+        Integer sessionExpiryInterval = conAckInfo.getSessionExpiryInterval();
+        if (sessionExpiryInterval != null) {
+            builder.setSessionExpiryInterval(sessionExpiryInterval);
+        }
+
+        Integer receiveMaximum = conAckInfo.getReceiveMaximum();
+        if (receiveMaximum != null) {
+            builder.setReceiveMaximum(receiveMaximum);
+        }
+
+        Integer maximumQoS = conAckInfo.getMaximumQoS();
+        if (maximumQoS != null) {
+            builder.setMaximumQoS(maximumQoS);
+        }
+
+        Boolean retainAvailable = conAckInfo.getRetainAvailable();
+        if (retainAvailable != null) {
+            builder.setRetainAvailable(retainAvailable);
+        }
+
+        Integer maximumPacketSize = conAckInfo.getMaximumPacketSize();
+        if (maximumPacketSize != null) {
+            builder.setMaximumPacketSize(maximumPacketSize);
+        }
+
+        String assignedClientId = conAckInfo.getAssignedClientId();
+        if (assignedClientId != null) {
+            builder.setAssignedClientId(assignedClientId);
+        }
+
+        String reasonString = conAckInfo.getReasonString();
+        if (reasonString != null) {
+            builder.setReasonString(reasonString);
+        }
+
+        Boolean wildcardSubscriptionsAvailable = conAckInfo.getWildcardSubscriptionsAvailable();
+        if (wildcardSubscriptionsAvailable != null) {
+            builder.setWildcardSubscriptionsAvailable(wildcardSubscriptionsAvailable);
+        }
+
+        Boolean subscriptionIdentifiersAvailable = conAckInfo.getSubscriptionIdentifiersAvailable();
+        if (subscriptionIdentifiersAvailable != null) {
+            builder.setSubscriptionIdentifiersAvailable(subscriptionIdentifiersAvailable);
+        }
+
+        Boolean sharedSubscriptionsAvailable = conAckInfo.getSharedSubscriptionsAvailable();
+        if (sharedSubscriptionsAvailable != null) {
+            builder.setSharedSubscriptionsAvailable(sharedSubscriptionsAvailable);
+        }
+
+        Integer serverKeepAlive = conAckInfo.getServerKeepAlive();
+        if (serverKeepAlive != null) {
+            builder.setServerKeepAlive(serverKeepAlive);
+        }
+
+        String responseInformation = conAckInfo.getResponseInformation();
+        if (responseInformation != null) {
+            builder.setResponseInformation(responseInformation);
+        }
+
+        String serverReference = conAckInfo.getServerReference();
+        if (serverReference != null) {
+            builder.setServerReference(serverReference);
+        }
+
+        return builder.build();
+    }
+
+    private static void convertSubAckInfo(MqttConnection.SubAckInfo subAckInfo, MqttSubscribeReply.Builder builder) {
+        if (subAckInfo == null) {
+            return;
+        }
+
+        List<Integer> codes = subAckInfo.getReasonCodes();
+        if (codes != null) {
+            builder.addAllReasonCodes(codes);
+        }
+
+        String reasonString = subAckInfo.getReasonString();
+        if (reasonString != null) {
+            builder.setReasonString(reasonString);
+        }
+    }
+
+
+    private static void convertPubAckInfo(MqttConnection.PubAckInfo pubAckInfo, MqttPublishReply.Builder builder) {
+        if (pubAckInfo == null) {
+            return;
+        }
+
+        Integer reasonCode = pubAckInfo.getReasonCode();
+        if (reasonCode != null) {
+            builder.setReasonCode(reasonCode);
+        }
+
+        String reasonString = pubAckInfo.getReasonString();
+        if (reasonString != null) {
+            builder.setReasonString(reasonString);
+        }
+        // TODO: pass also user's properties
     }
 }
