@@ -5,9 +5,11 @@
 
 package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient.DisconnectInfo;
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
-import com.aws.greengrass.testing.mqtt5.client.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -38,7 +40,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 /**
@@ -50,7 +51,7 @@ public class MqttConnectionImpl implements MqttConnection {
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final AtomicBoolean isConnected = new AtomicBoolean();
 
-    private final BiConsumer<Integer, MqttReceivedMessage> messageConsumer;
+    private final GRPCClient grpcClient;
     private final Mqtt5Client client;
     private int connectionId = 0;
 
@@ -106,11 +107,16 @@ public class MqttConnectionImpl implements MqttConnection {
 
         @Override
         public void onDisconnection(Mqtt5Client client, OnDisconnectionReturn onDisconnectionReturn) {
-            // TODO: use getDisconnectPacket() and getErrorCode()
-            // https://awslabs.github.io/aws-crt-java/software/amazon/awssdk/crt/mqtt5/OnDisconnectionReturn.html
-            // https://awslabs.github.io/aws-crt-java/software/amazon/awssdk/crt/mqtt5/packets/DisconnectPacket.html
+            DisconnectPacket disconnectPacket = onDisconnectionReturn.getDisconnectPacket();
+            String errorString = CRT.awsErrorString(onDisconnectionReturn.getErrorCode());
+            if (grpcClient != null) {
+                DisconnectInfo disconnectInfo = convertDisconnectPacket(disconnectPacket);
+                grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
+            }
+
             isConnected.set(false);
-            logger.atInfo().log("MQTT connectionId {} disconnected", connectionId);
+            logger.atInfo().log("MQTT connectionId {} disconnected error {} disconnectPacket {}",
+                                connectionId, errorString, disconnectPacket);
         }
 
         @Override
@@ -130,14 +136,9 @@ public class MqttConnectionImpl implements MqttConnection {
                 String topic = packet.getTopic();
                 boolean isRetain = packet.getRetain();
 
-                if (messageConsumer != null) {
-                    MqttReceivedMessage message = MqttReceivedMessage.builder()
-                                                    .qos(qos)
-                                                    .retain(isRetain)
-                                                    .topic(topic)
-                                                    .payload(packet.getPayload())
-                                                    .build();
-                    messageConsumer.accept(connectionId, message);
+                if (grpcClient != null) {
+                    MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload());
+                    grpcClient.onReceiveMqttMessage(connectionId, message);
                 }
 
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
@@ -150,14 +151,13 @@ public class MqttConnectionImpl implements MqttConnection {
      * Creates a MQTT5 connection.
      *
      * @param connectionParams connection parameters
-     * @param messageConsumer consumer of received messages
+     * @param grpcClient consumer of received messages and disconnect events
      * @throws MqttException on errors
      */
-    public MqttConnectionImpl(MqttLib.ConnectionParams connectionParams,
-                                BiConsumer<Integer, MqttReceivedMessage> messageConsumer) throws MqttException {
+    public MqttConnectionImpl(MqttLib.ConnectionParams connectionParams, GRPCClient grpcClient) throws MqttException {
         super();
 
-        this.messageConsumer = messageConsumer;
+        this.grpcClient = grpcClient;
         this.client = createClient(connectionParams);
     }
 
@@ -445,5 +445,20 @@ public class MqttConnectionImpl implements MqttConnection {
 
         // TODO: handler also user's properties of PUBACK
         return new PubAckInfo(reasonCode == null ? null : reasonCode.getValue(), pubAckPacket.getReasonString());
+    }
+
+    private static DisconnectInfo convertDisconnectPacket(DisconnectPacket packet) {
+        if (packet == null) {
+            return null;
+        }
+
+        DisconnectPacket.DisconnectReasonCode reasonCode = packet.getReasonCode();
+
+        // TODO: handler also user's properties of DISCONNECT
+        return new DisconnectInfo(reasonCode == null ? null : reasonCode.getValue(),
+                                    convertLongToInteger(packet.getSessionExpiryIntervalSeconds()),
+                                    packet.getReasonString(),
+                                    packet.getServerReference()
+                                    );
     }
 }
