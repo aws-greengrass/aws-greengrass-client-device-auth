@@ -24,7 +24,6 @@ import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -43,7 +42,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
-import java.security.Security;
 import java.security.cert.CertPath;
 import java.security.cert.CertPathValidator;
 import java.security.cert.CertPathValidatorException;
@@ -55,7 +53,6 @@ import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -73,11 +70,6 @@ public final class CertificateTestHelpers {
             ImmutableMap.of(KEY_TYPE_RSA, RSA_SIGNING_ALGORITHM, KEY_TYPE_EC, ECDSA_SIGNING_ALGORITHM);
 
     private CertificateTestHelpers() {
-    }
-
-    static {
-        // If not added "BCFIPS" is not recognized as the security provider
-        Security.addProvider(new BouncyCastleFipsProvider());
     }
 
     private enum CertificateTypes {
@@ -124,14 +116,14 @@ public final class CertificateTestHelpers {
 
         buildCertificateExtensions(builder, caCert, publicKey, type);
         X509CertificateHolder certHolder = signCertificate(builder, caPrivateKey);
-        return new JcaX509CertificateConverter().setProvider("BCFIPS").getCertificate(certHolder);
+        return new JcaX509CertificateConverter().getCertificate(certHolder);
     }
 
     private static X509CertificateHolder signCertificate(X509v3CertificateBuilder certBuilder, PrivateKey privateKey)
             throws OperatorCreationException {
         String signingAlgorithm = CERTIFICATE_SIGNING_ALGORITHM.get(privateKey.getAlgorithm());
         final ContentSigner contentSigner =
-                new JcaContentSignerBuilder(signingAlgorithm).setProvider("BCFIPS").build(privateKey);
+                new JcaContentSignerBuilder(signingAlgorithm).build(privateKey);
 
         return certBuilder.build(contentSigner);
     }
@@ -204,7 +196,7 @@ public final class CertificateTestHelpers {
     public static boolean wasCertificateIssuedBy(X509Certificate issuerCA, X509Certificate certificate)
             throws CertificateException {
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
-        List<X509Certificate> leafCertificate = Arrays.asList(certificate);
+        List<X509Certificate> leafCertificate = Collections.singletonList(certificate);
         CertPath leafCertPath = cf.generateCertPath(leafCertificate);
 
         try {

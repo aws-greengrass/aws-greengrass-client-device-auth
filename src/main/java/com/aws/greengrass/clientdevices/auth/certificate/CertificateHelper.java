@@ -22,7 +22,6 @@ import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -76,10 +75,8 @@ public final class CertificateHelper {
     }
 
     static {
-        // If not added "BCFIPS" is not recognized as the security provider
-        Security.addProvider(new BouncyCastleFipsProvider());
-        // Configure the default provider
-        providers.put(ProviderType.DEFAULT, "BCFIPS");
+        // Configure the default provider to empty which will use Java's defaults
+        providers.put(ProviderType.DEFAULT, "");
     }
 
     public enum ProviderType {
@@ -142,9 +139,12 @@ public final class CertificateHelper {
                         extUtils.createSubjectKeyIdentifier(keyPair.getPublic()));
 
         String signingAlgorithm = CERTIFICATE_SIGNING_ALGORITHM.get(keyPair.getPrivate().getAlgorithm());
-        final ContentSigner contentSigner =
-                new JcaContentSignerBuilder(signingAlgorithm).setProvider(getProvider(providerType))
-                        .build(keyPair.getPrivate());
+        String providerName = getProvider(providerType);
+        JcaContentSignerBuilder signerBuilder = new JcaContentSignerBuilder(signingAlgorithm);
+        if (Utils.isNotEmpty(providerName)) {
+            signerBuilder = signerBuilder.setProvider(providerName);
+        }
+        final ContentSigner contentSigner = signerBuilder.build(keyPair.getPrivate());
 
         return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner));
     }
@@ -221,9 +221,12 @@ public final class CertificateHelper {
             addSANFromConnectivityInfoToCertificate(connectivityInfoItems, builder);
         }
 
-        final ContentSigner contentSigner =
-                new JcaContentSignerBuilder(caCert.getSigAlgName()).setProvider(getProvider(providerType))
-                        .build(caPrivateKey);
+        String providerName = getProvider(providerType);
+        JcaContentSignerBuilder signerBuilder = new JcaContentSignerBuilder(caCert.getSigAlgName());
+        if (Utils.isNotEmpty(providerName)) {
+            signerBuilder = signerBuilder.setProvider(providerName);
+        }
+        final ContentSigner contentSigner = signerBuilder.build(caPrivateKey);
 
         return new JcaX509CertificateConverter().getCertificate(builder.build(contentSigner));
     }
