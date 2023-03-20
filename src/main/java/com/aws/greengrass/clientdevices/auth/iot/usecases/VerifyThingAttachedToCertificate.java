@@ -14,13 +14,17 @@ import com.aws.greengrass.clientdevices.auth.iot.dto.VerifyThingAttachedToCertif
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import lombok.Builder;
+import lombok.Value;
 
+import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 import javax.inject.Inject;
 
 
 public class VerifyThingAttachedToCertificate
-        implements UseCases.UseCase<Boolean, VerifyThingAttachedToCertificateDTO> {
+        implements UseCases.UseCase<VerifyThingAttachedToCertificate.Result, VerifyThingAttachedToCertificateDTO> {
     private final IotAuthClient iotAuthClient;
     private final NetworkStateProvider networkState;
     private final ThingRegistry thingRegistry;
@@ -42,25 +46,43 @@ public class VerifyThingAttachedToCertificate
         this.networkState = networkState;
     }
 
-    private boolean verifyLocally(Thing thing, String certificateId) {
+    private Result verifyLocally(Thing thing, String certificateId) {
         logger.atDebug().kv("thing", thing.getThingName()).kv("certificate", certificateId)
                 .log("Network down, verifying thing attached to certificate locally");
-        return thing.isCertificateAttached(certificateId);
+
+        Optional<Instant> lastAttachedOn = thing.certificateLastAttachedOn(certificateId);
+
+        return Result.builder()
+                .thingHasValidAttachmentToCertificate(
+                        lastAttachedOn.map(thing::isCertAttachmentTrusted).orElse(false))
+                .lastAttached(lastAttachedOn.orElse(null))
+                .attachmentExpiration(lastAttachedOn.map(thing::getAttachmentExpiration).orElse(null))
+                .verificationSource(Result.VerificationSource.LOCAL)
+                .build();
     }
 
-    private boolean verifyFromCloud(Thing thing, String certificateId) {
+    private Result verifyFromCloud(Thing thing, String certificateId) {
         logger.atDebug().kv("thing", thing.getThingName()).kv("certificate", certificateId)
                 .log("Network up, verifying thing attached to certificate from cloud");
 
         if (iotAuthClient.isThingAttachedToCertificate(thing, certificateId)) {
             thing.attachCertificate(certificateId);
             thingRegistry.updateThing(thing);
-            return true;
+            Optional<Instant> lastAttached = thing.certificateLastAttachedOn(certificateId);
+            return Result.builder()
+                    .thingHasValidAttachmentToCertificate(true)
+                    .lastAttached(lastAttached.orElse(null))
+                    .attachmentExpiration(lastAttached.map(thing::getAttachmentExpiration).orElse(null))
+                    .verificationSource(Result.VerificationSource.CLOUD)
+                    .build();
         }
 
         thing.detachCertificate(certificateId);
         thingRegistry.updateThing(thing);
-        return false;
+        return Result.builder()
+                .thingHasValidAttachmentToCertificate(false)
+                .verificationSource(Result.VerificationSource.CLOUD)
+                .build();
     }
 
     private boolean isNetworkUp() {
@@ -73,13 +95,16 @@ public class VerifyThingAttachedToCertificate
      * the locally stored values.
      *
      * @param dto - VerifyCertificateAttachedToThingDTO
+     * @return  verification result
      */
     @Override
-    public Boolean apply(VerifyThingAttachedToCertificateDTO dto) {
+    public Result apply(VerifyThingAttachedToCertificateDTO dto) {
         Thing thing = thingRegistry.getThing(dto.getThingName());
-
         if (Objects.isNull(thing)) {
-            return false;
+            return Result.builder()
+                    .thingHasValidAttachmentToCertificate(false)
+                    .verificationSource(Result.VerificationSource.LOCAL)
+                    .build();
         }
 
         try {
@@ -90,6 +115,19 @@ public class VerifyThingAttachedToCertificate
             return verifyLocally(thing, dto.getCertificateId());
         } catch (CloudServiceInteractionException e) {
             return verifyLocally(thing, dto.getCertificateId());
+        }
+    }
+
+    @Value
+    @Builder
+    public static class Result {
+        boolean thingHasValidAttachmentToCertificate;
+        Instant lastAttached;
+        Instant attachmentExpiration;
+        VerificationSource verificationSource;
+
+        enum VerificationSource {
+            CLOUD, LOCAL
         }
     }
 }
