@@ -17,14 +17,14 @@ import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
+import org.bouncycastle.asn1.x509.KeyUsage;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.jce.X509KeyUsage;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -76,8 +76,8 @@ public final class CertificateTestHelpers {
     }
 
     static {
-        // If not added "BC" is not recognized as the security provider
-        Security.addProvider(new BouncyCastleProvider());
+        // If not added "BCFIPS" is not recognized as the security provider
+        Security.addProvider(new BouncyCastleFipsProvider());
     }
 
     private enum CertificateTypes {
@@ -124,14 +124,14 @@ public final class CertificateTestHelpers {
 
         buildCertificateExtensions(builder, caCert, publicKey, type);
         X509CertificateHolder certHolder = signCertificate(builder, caPrivateKey);
-        return new JcaX509CertificateConverter().setProvider("BC").getCertificate(certHolder);
+        return new JcaX509CertificateConverter().setProvider("BCFIPS").getCertificate(certHolder);
     }
 
     private static X509CertificateHolder signCertificate(X509v3CertificateBuilder certBuilder, PrivateKey privateKey)
             throws OperatorCreationException {
         String signingAlgorithm = CERTIFICATE_SIGNING_ALGORITHM.get(privateKey.getAlgorithm());
         final ContentSigner contentSigner =
-                new JcaContentSignerBuilder(signingAlgorithm).setProvider("BC").build(privateKey);
+                new JcaContentSignerBuilder(signingAlgorithm).setProvider("BCFIPS").build(privateKey);
 
         return certBuilder.build(contentSigner);
     }
@@ -151,8 +151,8 @@ public final class CertificateTestHelpers {
         if (type == CertificateTypes.INTERMEDIATE_CA) {
             builder.addExtension(Extension.authorityKeyIdentifier, false, extUtils.createAuthorityKeyIdentifier(caCert))
                     .addExtension(Extension.basicConstraints, true, new BasicConstraints(true))
-                    .addExtension(Extension.keyUsage, true, new X509KeyUsage(
-                            X509KeyUsage.digitalSignature | X509KeyUsage.keyCertSign | X509KeyUsage.cRLSign));
+                    .addExtension(Extension.keyUsage, true, new KeyUsage(
+                            KeyUsage.digitalSignature | KeyUsage.keyCertSign | KeyUsage.cRLSign));
         }
 
         if (type == CertificateTypes.SERVER_CERTIFICATE) {
@@ -179,7 +179,7 @@ public final class CertificateTestHelpers {
         // TODO: caller should pass a clock or date range in instead
         Date notBefore = Date.from(now.minusSeconds(1));
         Date notAfter = Date.from(now.plusSeconds(DEFAULT_TEST_CA_DURATION_SECONDS));
-        return new Pair(notBefore, notAfter);
+        return new Pair<>(notBefore, notAfter);
     }
 
     private static X500Name getX500Name(String commonName) {
