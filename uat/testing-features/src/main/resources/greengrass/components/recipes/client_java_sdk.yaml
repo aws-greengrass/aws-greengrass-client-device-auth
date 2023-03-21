@@ -1,0 +1,30 @@
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+
+---
+RecipeFormatVersion: '2020-01-25'
+ComponentName: aws.greengrass.client.Mqtt5JavaSdkClient
+ComponentVersion: '1.0.0'
+ComponentDescription: MQTT5 Java Client powered by AWS Java SDK
+ComponentPublisher: Amazon
+ComponentDependencies:
+  aws.greengrass.clientdevices.mqtt.EMQX:
+    VersionRequirement: ">=1.0.0"
+    DependencyType: HARD
+ComponentConfiguration:
+  DefaultConfiguration:
+    deviceId: agent1
+    broker:
+      address: localhost
+      port: 8883
+Manifests:
+  - Artifacts:
+      - URI: classpath:/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar
+        Permission:
+          Read: ALL
+          Execute: ALL
+    Lifecycle:
+      Run: |
+        java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar {configuration:/deviceId} {configuration:/broker/address} "{configuration:/broker/port}"
