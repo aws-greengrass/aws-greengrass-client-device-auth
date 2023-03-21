@@ -146,7 +146,9 @@ public class MqttConnectionImpl implements MqttConnection {
 
                 if (grpcClient != null) {
                     MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload());
-                    grpcClient.onReceiveMqttMessage(connectionId, message);
+                    executorService.submit(() -> {
+                        grpcClient.onReceiveMqttMessage(connectionId, message);
+                    });
                 }
 
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
