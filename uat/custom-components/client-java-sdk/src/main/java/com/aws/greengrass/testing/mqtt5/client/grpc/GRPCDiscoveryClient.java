@@ -6,16 +6,18 @@
 package com.aws.greengrass.testing.mqtt5.client.grpc;
 
 import com.aws.greengrass.testing.mqtt.client.DiscoveryRequest;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.MqttAgentDiscoveryGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttQoS;
+import com.aws.greengrass.testing.mqtt.client.OnMqttDisconnectRequest;
 import com.aws.greengrass.testing.mqtt.client.OnReceiveMessageRequest;
 import com.aws.greengrass.testing.mqtt.client.RegisterReply;
 import com.aws.greengrass.testing.mqtt.client.RegisterRequest;
 import com.aws.greengrass.testing.mqtt.client.UnregisterRequest;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
-import com.aws.greengrass.testing.mqtt5.client.MqttReceivedMessage;
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
 import com.google.protobuf.ByteString;
 import io.grpc.Grpc;
@@ -113,7 +115,7 @@ class GRPCDiscoveryClient implements GRPCClient {
 
 
     @Override
-    public void onReceiveMqttMessage(int connectionId, MqttReceivedMessage message) throws GRPCException {
+    public void onReceiveMqttMessage(int connectionId, MqttReceivedMessage message) {
         Mqtt5Message msg = Mqtt5Message.newBuilder()
                                         .setTopic(message.getTopic())
                                         .setPayload(ByteString.copyFrom(message.getPayload()))
@@ -130,7 +132,28 @@ class GRPCDiscoveryClient implements GRPCClient {
             blockingStub.onReceiveMessage(request);
         } catch (StatusRuntimeException ex) {
             logger.atError().withThrowable(ex).log(GRPC_REQUEST_FAILED);
-            throw new GRPCException(ex);
+        }
+    }
+
+    @Override
+    public void onMqttDisconnect(int connectionId, DisconnectInfo disconnectInfo, String error) {
+        OnMqttDisconnectRequest.Builder builder = OnMqttDisconnectRequest.newBuilder()
+                        .setAgentId(agentId)
+                        .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId)
+                        .build());
+        if (disconnectInfo != null) {
+            // TODO: fill
+            Mqtt5Disconnect disconnect = Mqtt5Disconnect.newBuilder().build();
+            builder.setDisconnect(disconnect);
+        }
+        if (error != null) {
+            builder.setError(error);
+        }
+
+        try {
+            blockingStub.onMqttDisconnect(builder.build());
+        } catch (StatusRuntimeException ex) {
+            logger.atError().withThrowable(ex).log(GRPC_REQUEST_FAILED);
         }
     }
 
