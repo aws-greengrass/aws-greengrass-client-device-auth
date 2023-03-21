@@ -11,6 +11,7 @@ import com.aws.greengrass.testing.mqtt5.client.GRPCClient.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
+import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import software.amazon.awssdk.crt.CRT;
@@ -116,12 +117,10 @@ public class MqttConnectionImpl implements MqttConnection {
 
             DisconnectPacket disconnectPacket = onDisconnectionReturn.getDisconnectPacket();
             String errorString = CRT.awsErrorString(onDisconnectionReturn.getErrorCode());
-            if (grpcClient != null) {
-                DisconnectInfo disconnectInfo = convertDisconnectPacket(disconnectPacket);
-                executorService.submit(() -> {
-                    grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
-                    });
-            }
+            DisconnectInfo disconnectInfo = convertDisconnectPacket(disconnectPacket);
+            executorService.submit(() -> {
+                grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
+                });
 
             logger.atInfo().log("MQTT connectionId {} disconnected error '{}' disconnectPacket '{}'",
                                 connectionId, errorString, disconnectPacket);
@@ -144,12 +143,10 @@ public class MqttConnectionImpl implements MqttConnection {
                 String topic = packet.getTopic();
                 boolean isRetain = packet.getRetain();
 
-                if (grpcClient != null) {
-                    MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload());
-                    executorService.submit(() -> {
-                        grpcClient.onReceiveMqttMessage(connectionId, message);
-                    });
-                }
+                MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload());
+                executorService.submit(() -> {
+                    grpcClient.onReceiveMqttMessage(connectionId, message);
+                });
 
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
                                         connectionId, topic, qos, isRetain);
@@ -164,7 +161,8 @@ public class MqttConnectionImpl implements MqttConnection {
      * @param grpcClient consumer of received messages and disconnect events
      * @throws MqttException on errors
      */
-    public MqttConnectionImpl(MqttLib.ConnectionParams connectionParams, GRPCClient grpcClient) throws MqttException {
+    public MqttConnectionImpl(@NonNull MqttLib.ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
+                    throws MqttException {
         super();
 
         this.grpcClient = grpcClient;
