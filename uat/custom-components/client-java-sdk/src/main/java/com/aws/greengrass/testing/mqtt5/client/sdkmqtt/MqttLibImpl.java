@@ -5,16 +5,15 @@
 
 package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
-import com.aws.greengrass.testing.mqtt5.client.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
 
 /**
  * Implementation of MQTT5 library.
@@ -29,10 +28,9 @@ public class MqttLibImpl implements MqttLib {
     private final AtomicInteger nextConnectionId = new AtomicInteger();
 
     @Override
-    public MqttConnection createConnection(ConnectionParams connectionParams,
-                                            BiConsumer<Integer, MqttReceivedMessage> messageConsumer)
+    public MqttConnection createConnection(ConnectionParams connectionParams, GRPCClient grpcClient)
                 throws MqttException {
-        return new MqttConnectionImpl(connectionParams, messageConsumer);
+        return new MqttConnectionImpl(connectionParams, grpcClient);
     }
 
     @Override
