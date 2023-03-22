@@ -215,7 +215,7 @@ public class MqttConnectionImpl implements MqttConnection {
                 }
 
                 executorService.shutdown();
-                if (! executorService.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
+                if (!executorService.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
                     executorService.shutdownNow();
                 }
             } catch (InterruptedException ex) {

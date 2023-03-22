@@ -19,6 +19,7 @@ import com.aws.greengrass.testing.mqtt.client.MqttSubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttUnsubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl.ConnectionEvents;
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
+import lombok.NonNull;
 
 import java.util.Arrays;
 
@@ -38,7 +39,8 @@ public class ConnectionControlImpl implements ConnectionControl {
      * @param connectReply response to connect request from agent
      * @param agent backreference to agent
      */
-    ConnectionControlImpl(MqttConnectReply connectReply, ConnectionEvents connectionEvents, AgentControlImpl agent) {
+    ConnectionControlImpl(MqttConnectReply connectReply, ConnectionEvents connectionEvents,
+                            AgentControlImpl agent) {
         super();
         this.connectionId = connectReply.getConnectionId().getConnectionId();
         this.connAck = connectReply.getConnAck();
@@ -101,7 +103,7 @@ public class ConnectionControlImpl implements ConnectionControl {
     }
 
     @Override
-    public MqttSubscribeReply subscribeMqtt(Integer subscriptionId, Mqtt5Subscription... subscriptions) {
+    public MqttSubscribeReply subscribeMqtt(Integer subscriptionId, @NonNull Mqtt5Subscription... subscriptions) {
         MqttSubscribeRequest.Builder builder = MqttSubscribeRequest.newBuilder()
                 .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
                 .setTimeout(timeout)
@@ -115,7 +117,7 @@ public class ConnectionControlImpl implements ConnectionControl {
     }
 
     @Override
-    public MqttSubscribeReply unsubscribeMqtt(String... filters) {
+    public MqttSubscribeReply unsubscribeMqtt(@NonNull String... filters) {
         MqttUnsubscribeRequest unsubscribeRequest =  MqttUnsubscribeRequest.newBuilder()
                     .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
                     .setTimeout(timeout)
@@ -126,7 +128,7 @@ public class ConnectionControlImpl implements ConnectionControl {
     }
 
     @Override
-    public MqttPublishReply publishMqtt(Mqtt5Message message) {
+    public MqttPublishReply publishMqtt(@NonNull Mqtt5Message message) {
         MqttPublishRequest publishRequest = MqttPublishRequest.newBuilder()
             .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
             .setTimeout(timeout)

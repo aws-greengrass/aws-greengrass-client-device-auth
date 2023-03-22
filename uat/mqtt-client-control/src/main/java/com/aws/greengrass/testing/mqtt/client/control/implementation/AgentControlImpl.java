@@ -23,6 +23,7 @@ import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import io.grpc.Grpc;
 import io.grpc.InsecureChannelCredentials;
 import io.grpc.ManagedChannel;
+import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -147,8 +148,8 @@ public class AgentControlImpl implements AgentControl {
     }
 
     @Override
-    public ConnectionControl createMqttConnection(MqttConnectRequest connectRequest,
-                                                    ConnectionEvents connectionEvents) {
+    public ConnectionControl createMqttConnection(@NonNull MqttConnectRequest connectRequest,
+                                                    @NonNull ConnectionEvents connectionEvents) {
         ConnectionControlImpl connectionControl;
         try {
             connectLock.lock();

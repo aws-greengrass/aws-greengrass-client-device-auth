@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt.client.control.api;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
+import lombok.NonNull;
 
 /**
  * Control of single MQTT client (agent).
@@ -74,7 +75,8 @@ public interface AgentControl {
      * @return new connection instance
      * @throws RuntimeException on errors
      */
-    ConnectionControl createMqttConnection(MqttConnectRequest connectRequest, ConnectionEvents connectionEvents);
+    ConnectionControl createMqttConnection(@NonNull MqttConnectRequest connectRequest,
+                                            @NonNull ConnectionEvents connectionEvents);
 
     /**
      * Shutdown whole agent.

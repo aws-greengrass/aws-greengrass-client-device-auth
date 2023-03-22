@@ -10,6 +10,7 @@ import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
+import lombok.NonNull;
 
 /**
  * Control of single MQTT connection.
@@ -48,7 +49,7 @@ public interface ConnectionControl {
      * @return reply to subscribe
      * @throws StatusRuntimeException on errors
      */
-    MqttSubscribeReply subscribeMqtt(Integer subscriptionId, Mqtt5Subscription... subscriptions);
+    MqttSubscribeReply subscribeMqtt(Integer subscriptionId, @NonNull Mqtt5Subscription... subscriptions);
 
     /**
      * Publish MQTT message.
@@ -57,7 +58,7 @@ public interface ConnectionControl {
      * @return publish's response
      * @throws StatusRuntimeException on errors
      */
-    MqttPublishReply publishMqtt(Mqtt5Message message);
+    MqttPublishReply publishMqtt(@NonNull Mqtt5Message message);
 
 
     /**
@@ -67,7 +68,7 @@ public interface ConnectionControl {
      * @return reply to unsubscribe
      * @throws StatusRuntimeException on errors
      */
-    MqttSubscribeReply unsubscribeMqtt(String... filters);
+    MqttSubscribeReply unsubscribeMqtt(@NonNull String... filters);
 
     /**
      * Close MQTT connection to the broker.

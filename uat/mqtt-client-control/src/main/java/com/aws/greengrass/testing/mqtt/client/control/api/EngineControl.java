@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.testing.mqtt.client.control.api;
 
+import lombok.NonNull;
+
 import java.io.IOException;
 
 /**
@@ -36,7 +38,7 @@ public interface EngineControl {
      * @param engineEvents received of engine level events
      * @throws IOException on IO errors
      */
-    void startEngine(int port, EngineEvents engineEvents) throws IOException;
+    void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException;
 
     /**
      * Waiting until engine will terminated.

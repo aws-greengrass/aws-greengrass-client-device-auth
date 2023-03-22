@@ -15,6 +15,7 @@ import io.grpc.InsecureServerCredentials;
 import io.grpc.Server;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
+import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -32,7 +33,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     private EngineEvents engineEvents;
 
     @Override
-    public void startEngine(int port, EngineEvents engineEvents) throws IOException {
+    public void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException {
         this.engineEvents = engineEvents;
         ArrayList<ServerInterceptor> interceptors = new ArrayList<>();
         interceptors.add(new GRPCDiscoveryServerInterceptor());
