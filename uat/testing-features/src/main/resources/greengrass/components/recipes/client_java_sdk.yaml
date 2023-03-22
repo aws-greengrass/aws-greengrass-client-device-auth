@@ -9,10 +9,6 @@ ComponentName: aws.greengrass.client.Mqtt5JavaSdkClient
 ComponentVersion: '1.0.0'
 ComponentDescription: MQTT5 Java Client powered by AWS Java SDK
 ComponentPublisher: Amazon
-ComponentDependencies:
-  aws.greengrass.testing.MqttControl:
-    VersionRequirement: ">=0.0.1"
-    DependencyType: HARD
 ComponentConfiguration:
   DefaultConfiguration:
     deviceId: agent1
