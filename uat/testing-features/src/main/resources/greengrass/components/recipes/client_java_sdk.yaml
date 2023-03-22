@@ -10,15 +10,15 @@ ComponentVersion: '1.0.0'
 ComponentDescription: MQTT5 Java Client powered by AWS Java SDK
 ComponentPublisher: Amazon
 ComponentDependencies:
-  aws.greengrass.clientdevices.mqtt.EMQX:
-    VersionRequirement: ">=1.0.0"
+  aws.greengrass.testing.MqttControl:
+    VersionRequirement: ">=0.0.1"
     DependencyType: HARD
 ComponentConfiguration:
   DefaultConfiguration:
     deviceId: agent1
     broker:
-      address: localhost
-      port: 8883
+      address: 127.0.0.1
+      port: 47619
 Manifests:
   - Artifacts:
       - URI: classpath:/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar
