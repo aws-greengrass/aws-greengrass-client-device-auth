@@ -215,17 +215,20 @@ public class MqttConnectionImpl implements MqttConnection {
                 }
 
                 executorService.shutdown();
-                executorService.awaitTermination(remaining, TimeUnit.NANOSECONDS);
+                if (! executorService.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException ex) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
             } catch (Exception ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnecting from MQTT broker");
                 throw new MqttException("Could not disconnect", ex);
             } finally {
                 client.close();
-                executorService.shutdownNow();
             }
         }
     }
-
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
