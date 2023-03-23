@@ -1,6 +1,6 @@
 # Control of test MQTT client(s)
 
-That API allows to control MQTT clients (agents) by gRPC protocol.
+This API enables users to control MQTT clients using gRPC.
 For testing purposes control can run as standalone JAR with hardcoded sequence of client's operations which includes: connect, subscribe, publish, unsubscribe, disconnect.
 
 ## How to build

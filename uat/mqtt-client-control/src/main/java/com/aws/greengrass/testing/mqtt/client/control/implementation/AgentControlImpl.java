@@ -37,7 +37,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * Implementation of AgentControl.
  */
 public class AgentControlImpl implements AgentControl {
-    private static final int DEFAULT_DISCONNECT_REASON = 4;
+    private static final DisconnectReasonCode DEFAULT_DISCONNECT_REASON
+            = DisconnectReasonCode.NORMAL_DISCONNECTION;
 
     private static final Logger logger = LogManager.getLogger(AgentControlImpl.class);
 
@@ -228,14 +229,14 @@ public class AgentControlImpl implements AgentControl {
     private void closeAllMqttConnections() {
         connections.forEach((connectionId, connectionControl) -> {
             if (connections.remove(connectionId, connectionControl)) {
-                connectionControl.closeMqttConnection(DEFAULT_DISCONNECT_REASON);
+                connectionControl.closeMqttConnection(DEFAULT_DISCONNECT_REASON.getValue());
             }
         });
     }
 
     private void disconnect() {
-        if (! isDisconnected.getAndSet(true)) {
-            if (! isShutdownSent.getAndSet(true)) {
+        if (!isDisconnected.getAndSet(true)) {
+            if (!isShutdownSent.getAndSet(true)) {
                 shutdownAgent("none");
             }
             channel.shutdown();

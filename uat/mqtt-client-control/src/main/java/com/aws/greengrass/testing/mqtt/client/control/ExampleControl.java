@@ -13,6 +13,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Main class of standalone application.
@@ -20,17 +23,20 @@ import java.io.IOException;
 public class ExampleControl {
     private static final int DEFAULT_PORT = 47_619;
     private static final boolean DEFAULT_USE_TLS = true;
+    private static final long EXECUTOR_SHUTDOWN_MS = 10_000;
 
     private static final Logger logger = LogManager.getLogger(ExampleControl.class);
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
 
     private final boolean useTLS;
     private final int port;
+
     private final EngineEvents engineEvents = new EngineEvents() {
         @Override
         public void onAgentAttached(AgentControl agent) {
             logger.atInfo().log("Agent {} is connected", agent.getAgentId());
             AgentTestScenario scenario = new AgentTestScenario(useTLS, agent);
-            scenario.start();
+            executorService.submit(scenario);
         }
 
         @Override
@@ -52,7 +58,7 @@ public class ExampleControl {
         this.port = port;
     }
 
-    void testRun() throws IOException, InterruptedException {
+    private void testRun() throws IOException, InterruptedException {
         final EngineControl engine = new EngineControlImpl();
         engine.startEngine(port, engineEvents);
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -61,11 +67,24 @@ public class ExampleControl {
                 // Use stderr here since the logger may have been reset by its JVM shutdown hook.
                 logger.atInfo().log("*** shutting down gRPC server since JVM is shutting down");
                 engine.stopEngine();
+                shutdownExecutorService();
                 logger.atInfo().log("*** server shut down");
             }
         });
 
         engine.awaitTermination();
+    }
+
+    private void shutdownExecutorService() {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(EXECUTOR_SHUTDOWN_MS, TimeUnit.MILLISECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**

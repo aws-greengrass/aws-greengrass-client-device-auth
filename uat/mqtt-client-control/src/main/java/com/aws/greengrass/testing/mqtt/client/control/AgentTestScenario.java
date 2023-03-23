@@ -30,7 +30,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-class AgentTestScenario extends Thread {
+/**
+ * Class with hardcoded scenario to do manual tests of client and control.
+ */
+class AgentTestScenario implements Runnable {
     // pauses in milliseconds
     private static final long PAUSE_BEFORE_CONNECT = 3_000;
     private static final long PAUSE_BEFORE_SUBSCRIBE = 5_000;
