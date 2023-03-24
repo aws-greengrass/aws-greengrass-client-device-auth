@@ -15,17 +15,17 @@ Feature: GGMQ-1
       | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
       | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    And I create client device "test" on "agent1" with the following policy
+    And I create client device "test" with the following policy
       | operation | resource     |
       | connect   | "*"          |
       | subscribe | "iot_data_0" |
       | publish   | "iot_data_0" |
     And I associate "test" with ggc
-    And I connect device "test" to broker
-    Then device "test" is successfully connected to broker within 3 seconds
-    When I subscribe device "test" to "iot_data_0" with qos 0
-    Then device "test" is successfully subscribed to "iot_data_0"
-    When I publish device "test" to "iot_data_0" with qos 0 and message "Test message"
-    Then device "test" is successfully published message "Test message" to "iot_data_0"
-    And device "test" received from "iot_data_0" message "Test message"
+    And I connect device "test" on "agent1" to "default_broker" as "agent1-test-default_broker"
+    Then connection "agent1-test-default_broker" is successfully established within 3 seconds
+    When I subscribe "agent1-test-default_broker" to "iot_data_0" with qos 0
+    Then subscription to "iot_data_0" is successfull on "agent1-test-default_broker"
+    When I publish "agent1-test-default_broker" to "iot_data_0" with qos 0 and message "Test message"
+    Then publish message "test" to "iot_data_0" is successfully on "agent1-test-default_broker"
+    And message "Test message" received on "agent1-test-default_broker"
 

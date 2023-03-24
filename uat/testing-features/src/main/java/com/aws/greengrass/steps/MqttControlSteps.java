@@ -5,6 +5,8 @@ import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 
+import java.util.List;
+
 @ScenarioScoped
 public class MqttControlSteps {
 
@@ -18,43 +20,37 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
-    @And("I create client device {word} on {word} with the following policy")
-    public void createClientDevice(String clientDeviceId, String agentId) {
+    @And("I create client device {word} with the following policy")
+    public void createClientDevice(String clientDeviceId, List<List<String>> policy) {
         //@TODO Implement method
     }
 
-    @And("I connect device {word} to broker")
-    public void connectClientDeviceToBroker(String clientDeviceId) {
-        //@TODO Implement method
+
+    @And("I connect device {string} on {string} to {string} as {string}")
+    public void connect(String clientDeviceId, String agentId, String brokerId, String logicalConnectionId) {
     }
 
-    @Then("device {string} is successfully connected to broker within {int} {word}")
-    public void deviceIsSuccessfullyConnectedToWithinSeconds(String clientDeviceId, int value, String unit) {
-        //@TODO Implement method
+    @Then("connection {string} is successfully established within {int} {word}")
+    public void validateConnect(String logicalConnectionId, int value, String unitOfMeasure) {
     }
 
-    @When("I subscribe device {word} to {word} with qos {int}")
-    public void subscribeClientDeviceToTopic(String clientDeviceId, String topic, int qos) {
-        //@TODO Implement method
+    @When("I subscribe {string} to {string} with qos {int}")
+    public void subscribe(String logicalConnectionId, String topic, int qos) {
     }
 
-    @Then("device {word} is successfully subscribed to {word}")
-    public void deviceIsSuccessfullySubscribedToTopic(String clientDeviceId, String topic) {
-        //@TODO Implement method
+    @Then("subscription to {string} is successfull on {string}")
+    public void validateSubscribe(String topic, String logicalConnectionId) {
     }
 
-    @When("I publish device {word} to {word} with qos {word} and message {string}")
-    public void publishClientDEviceToTopic(String clientDeviceId, String topic, int qos, String message) {
-        //@TODO Implement method
+    @When("I publish {string} to {string} with qos {int} and message {string}")
+    public void publish(String logicalConnectionId, String topic, int qos, String message) {
     }
 
-    @Then("device {word} is successfully published message {string} to {word}")
-    public void deviceIsSuccessfullyPublishedMessage(String clientDeviceId, String message, String topic) {
-        //@TODO Implement method
+    @Then("publish message {string} to {string} is successfully on {string}")
+    public void validatePublish(String message, String topic, String logicalConnectionId) {
     }
 
-    @And("device {word} received from {word} message {string}")
-    public void deviceReceivedFromMessage(String clientDeviceId, String topic, String message) {
-        //@TODO Implement method
+    @And("message {string} received on {string}")
+    public void receive(String message, String logicalConnectionId) {
     }
 }
