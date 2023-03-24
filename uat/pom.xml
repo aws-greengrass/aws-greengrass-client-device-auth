@@ -18,6 +18,9 @@
             custom-components
         </module>
         <module>
+            mqtt-client-control
+        </module>
+        <module>
             testing-features
         </module>
     </modules>
