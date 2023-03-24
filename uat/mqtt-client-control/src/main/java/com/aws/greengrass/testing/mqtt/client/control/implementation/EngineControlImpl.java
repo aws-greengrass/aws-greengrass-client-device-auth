@@ -9,6 +9,7 @@ package com.aws.greengrass.testing.mqtt.client.control.implementation;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
+import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.grpc.GRPCDiscoveryServer;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.grpc.GRPCDiscoveryServerInterceptor;
@@ -69,6 +70,18 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         if (srv != null) {
             srv.awaitTermination();
         }
+    }
+
+    @Override
+    public ConnectionControl getConnectionControl(@NonNull String connectionName) {
+        ConnectionControl connectionControl = null;
+        for (ConcurrentHashMap.Entry<String, AgentControlImpl> entry : agents.entrySet()) {
+            connectionControl = entry.getValue().getConnectionControl(connectionName);
+            if (connectionControl != null) {
+                break;
+            }
+        }
+        return connectionControl;
     }
 
     @Override

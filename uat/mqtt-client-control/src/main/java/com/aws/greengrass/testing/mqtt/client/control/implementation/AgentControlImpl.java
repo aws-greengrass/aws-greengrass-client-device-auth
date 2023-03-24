@@ -179,7 +179,7 @@ public class AgentControlImpl implements AgentControl {
      * @param closeRequest parameters of MQTT disconnect
      * @throws StatusRuntimeException on errors
      */
-    public void closeMqttConnection(MqttCloseRequest closeRequest) {
+    void closeMqttConnection(MqttCloseRequest closeRequest) {
         blockingStub.closeMqttConnection(closeRequest);
         int connectionId = closeRequest.getConnectionId().getConnectionId();
         connections.remove(connectionId);
@@ -193,7 +193,7 @@ public class AgentControlImpl implements AgentControl {
      * @return reply to subscribe
      * @throws StatusRuntimeException on errors
      */
-    public MqttSubscribeReply subscribeMqtt(MqttSubscribeRequest subscribeRequest) {
+    MqttSubscribeReply subscribeMqtt(MqttSubscribeRequest subscribeRequest) {
         int connectionId = subscribeRequest.getConnectionId().getConnectionId();
         logger.atInfo().log("SubscribeMqtt: subscribe on connection {}", connectionId);
         return blockingStub.subscribeMqtt(subscribeRequest);
@@ -206,7 +206,7 @@ public class AgentControlImpl implements AgentControl {
      * @return reply to unsubscribe
      * @throws StatusRuntimeException on errors
      */
-    public MqttSubscribeReply unsubscribeMqtt(MqttUnsubscribeRequest unsubscribeRequest) {
+    MqttSubscribeReply unsubscribeMqtt(MqttUnsubscribeRequest unsubscribeRequest) {
         int connectionId = unsubscribeRequest.getConnectionId().getConnectionId();
         logger.atInfo().log("UnsubscribeMqtt: unsubscribe on connectionId {}", connectionId);
         return blockingStub.unsubscribeMqtt(unsubscribeRequest);
@@ -219,11 +219,28 @@ public class AgentControlImpl implements AgentControl {
      * @return reply to publish
      * @throws StatusRuntimeException on errors
      */
-    public MqttPublishReply publishMqtt(MqttPublishRequest publishRequest) {
+    MqttPublishReply publishMqtt(MqttPublishRequest publishRequest) {
         int connectionId = publishRequest.getConnectionId().getConnectionId();
         String topic = publishRequest.getMsg().getTopic();
         logger.atInfo().log("PublishMqtt: publishing on connectionId {} topic {}", connectionId, topic);
         return blockingStub.publishMqtt(publishRequest);
+    }
+
+    /**
+     * Gets connection control by connection name.
+     * Searching over all controls and find first occurrence of control with such name
+     *
+     * @param connectionName the logical name of a connection
+     * @return connection control or null when does not found
+     */
+    ConnectionControlImpl getConnectionControl(@NonNull String connectionName) {
+        for (ConcurrentHashMap.Entry<Integer, ConnectionControlImpl> entry : connections.entrySet()) {
+            ConnectionControlImpl connectionControl = entry.getValue();
+            if (connectionName.equals(connectionControl.getConnectionName())) {
+                return connectionControl;
+            }
+        }
+        return null;
     }
 
     private void closeAllMqttConnections() {

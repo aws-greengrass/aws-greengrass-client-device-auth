@@ -18,9 +18,25 @@ import lombok.NonNull;
 public interface ConnectionControl {
     /**
      * Gets id of the connection.
-     * @return agent id
+     *
+     * @return connection id
      */
     int getConnectionId();
+
+    /**
+     * Sets connection name.
+     * Can be used instead of agentId:connectionId pair to identify connection
+     *
+     * @param connectionName logical connection name
+     */
+    void setConnectionName(@NonNull String connectionName);
+
+    /**
+     * Gets connection name.
+     *
+     * @return logical connection name
+     */
+    String getConnectionName();
 
     /**
      * Gets information from CONNACK packet.
