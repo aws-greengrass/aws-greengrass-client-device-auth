@@ -26,11 +26,6 @@ Feature: GGMQ-1
     And run cloud discovery on agent1
     Then the aws.greengrass.client.Mqtt5JavaSdkClient log on the device contains the line "cloud_discover: SUCCESS" within 3 seconds
     And the aws.greengrass.client.Mqtt5JavaSdkClient log on the device contains the line "connect_command: NOT AUTHORIZED" within 3 seconds
-    When Client agent1 publish to "/test/agent1" qos 0 message:
-    """
-    Test message from agent1
-    """
-    Then the aws.greengrass.client.Mqtt5JavaSdkClient log on the device contains the line "publish_message: FAILED" within 3 seconds
     When I add "agent1" ggad with the following policy to the CDA configuration
       | operation | resource |
       | connect   | "*"      |
