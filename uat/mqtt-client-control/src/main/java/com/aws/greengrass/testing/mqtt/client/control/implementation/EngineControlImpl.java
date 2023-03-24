@@ -5,8 +5,10 @@
 
 package com.aws.greengrass.testing.mqtt.client.control.implementation;
 
+
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.grpc.GRPCDiscoveryServer;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.grpc.GRPCDiscoveryServerInterceptor;
@@ -21,6 +23,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -54,6 +57,15 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     @Override
     public boolean isEngineRunning() {
         return server.get() != null;
+    }
+
+    @Override
+    public AgentControl getAgent(String agentId) {
+        AgentControlImpl agentControl = agents.get(agentId);
+        if (agentControl == null) {
+            throw new NoSuchElementException("Agent with id " + agentId + " does not found");
+        }
+        return agentControl;
     }
 
     @Override

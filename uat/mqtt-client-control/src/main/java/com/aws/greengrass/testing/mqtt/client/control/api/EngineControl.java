@@ -48,6 +48,15 @@ public interface EngineControl {
     boolean isEngineRunning();
 
     /**
+     * Gets Agent by agentId.
+     *
+     * @param agentId id of agent
+     * @return AgentControl on success
+     * @throws NoSuchElementException when agent not found
+     */
+    AgentControl getAgent(String agentId);
+
+    /**
      * Waiting until engine will terminated.
      * @throws InterruptedException when thread is interrupted
      */
