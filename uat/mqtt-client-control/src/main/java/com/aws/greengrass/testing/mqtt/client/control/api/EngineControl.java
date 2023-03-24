@@ -41,6 +41,13 @@ public interface EngineControl {
     void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException;
 
     /**
+     * Checks is engine runing.
+     *
+     * @return true if engine is running
+     */
+    boolean isEngineRunning();
+
+    /**
      * Waiting until engine will terminated.
      * @throws InterruptedException when thread is interrupted
      */
