@@ -11,7 +11,7 @@ ComponentDescription: MQTT5 Java Client powered by AWS Java SDK
 ComponentPublisher: Amazon
 ComponentConfiguration:
   DefaultConfiguration:
-    deviceId: agent1
+    agentId: agent1
     broker:
       address: 127.0.0.1
       port: 47619
@@ -23,4 +23,4 @@ Manifests:
           Execute: ALL
     Lifecycle:
       Run: |
-        java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar {configuration:/deviceId} {configuration:/broker/address} "{configuration:/broker/port}"
+        java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar {configuration:/agentId} {configuration:/broker/address} "{configuration:/broker/port}"
