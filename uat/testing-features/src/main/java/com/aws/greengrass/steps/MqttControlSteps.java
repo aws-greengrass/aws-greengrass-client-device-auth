@@ -2,38 +2,34 @@ package com.aws.greengrass.steps;
 
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.en.And;
-import io.cucumber.java.en.When;
+import io.cucumber.java.en.Then;
 
 @ScenarioScoped
 public class MqttControlSteps {
 
-    @And("the control component configured:")
-    public void configureControl(String configurationSpec){
-        //@TODO Implement method
-    }
-
-    @When("Client {word} subscribe to {word} qos {int}")
-    public void subscribe(String clientId, String topic, int qos){
-        //@TODO Implement method
-    }
-
-    @When("Client {word} publish to {word} qos {int} message:")
-    public void publish(String clientId, String topic, int qos, String message){
-        //@TODO Implement method
-    }
-
-    @When("I add {string} ggad with the following policy to the CDA configuration")
-    public void addClientWithPolicy(String clientId, String policy) {
+    @And("my MQTT Client Control is running")
+    public void runClientControl() {
         //@TODO Implement method
     }
 
     @And("I associate {word} with ggc")
-    public void associateClient(String clientId) {
+    public void associateClient(String clientDeviceId) {
         //@TODO Implement method
     }
 
-    @And("run cloud discovery on {word}")
-    public void runCloudDiscoveryOnClient(String clientId) {
+    @And("I create client device {word} on {word} with the following policy")
+    public void createClientDevice(String clientDeviceId, String agentId) {
+        //@TODO Implement method
+    }
+
+    @And("I connect {word} to {word}")
+    public void connectClientDeviceToTopic(String clientDeviceId, String topic) {
+        //@TODO Implement method
+    }
+
+    @Then("device {string} is successfully connected to {string} within {int} {word}")
+    public void deviceIsSuccessfullyConnectedToWithinSeconds(String clientDeviceId, String topic, int value,
+                                                             String unit) {
         //@TODO Implement method
     }
 }
