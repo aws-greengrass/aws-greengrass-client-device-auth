@@ -75,7 +75,7 @@
                         <configuration>
                             <target name="copy component under test artifact">
                                 <copy
-                                        file="${project.basedir}/../custom-components/client-java-sdk/target/test-iot-device-sdk-mqtt5-client.jar"
+                                        file="${project.basedir}/../custom-components/client-java-sdk/target/client-devices-auth-uat-client-java-sdk.jar"
                                       tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar"/>
                             </target>
                         </configuration>
