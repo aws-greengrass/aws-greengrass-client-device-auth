@@ -41,6 +41,21 @@ public interface EngineControl {
     void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException;
 
     /**
+     * Checks is engine runing.
+     *
+     * @return true if engine is running
+     */
+    boolean isEngineRunning();
+
+    /**
+     * Gets Agent by agentId.
+     *
+     * @param agentId id of agent
+     * @return AgentControl on success and null if agent does not found
+     */
+    AgentControl getAgent(@NonNull String agentId);
+
+    /**
      * Waiting until engine will terminated.
      * @throws InterruptedException when thread is interrupted
      */

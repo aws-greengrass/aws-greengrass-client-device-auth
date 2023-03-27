@@ -5,8 +5,10 @@
 
 package com.aws.greengrass.testing.mqtt.client.control.implementation;
 
+
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.grpc.GRPCDiscoveryServer;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.grpc.GRPCDiscoveryServerInterceptor;
@@ -30,6 +32,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     private final ConcurrentHashMap<String, AgentControlImpl> agents = new ConcurrentHashMap<>();
     private final AtomicReference<Server> server = new AtomicReference<>();
 
+
     private EngineEvents engineEvents;
 
     @Override
@@ -48,6 +51,16 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
             oldSrv.shutdown();
         }
         logger.atInfo().log("gRPC MQTT client control server started, listening on {}", port);
+    }
+
+    @Override
+    public boolean isEngineRunning() {
+        return server.get() != null;
+    }
+
+    @Override
+    public AgentControl getAgent(@NonNull String agentId) {
+        return agents.get(agentId);
     }
 
     @Override
