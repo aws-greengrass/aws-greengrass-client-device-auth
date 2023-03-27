@@ -54,7 +54,7 @@ public interface EngineControl {
      * @return AgentControl on success
      * @throws NoSuchElementException when agent not found
      */
-    AgentControl getAgent(String agentId);
+    AgentControl getAgent(@NonNull String agentId);
 
     /**
      * Waiting until engine will terminated.

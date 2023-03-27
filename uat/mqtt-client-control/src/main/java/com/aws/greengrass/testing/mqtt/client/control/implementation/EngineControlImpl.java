@@ -60,7 +60,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     }
 
     @Override
-    public AgentControl getAgent(String agentId) {
+    public AgentControl getAgent(@NonNull String agentId) {
         AgentControlImpl agentControl = agents.get(agentId);
         if (agentControl == null) {
             throw new NoSuchElementException("Agent with id " + agentId + " does not found");
