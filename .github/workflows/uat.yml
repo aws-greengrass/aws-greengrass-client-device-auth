@@ -30,6 +30,7 @@ jobs:
         run: mvn -ntp -U clean verify
         if: matrix.os != 'windows-latest'
       - name: Build with Maven (Windows)
+        working-directory: uat
         env:
           AWS_REGION: us-west-2
         run: mvn -ntp -U clean verify
