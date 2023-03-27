@@ -18,6 +18,7 @@ import com.aws.greengrass.testing.mqtt.client.TLSSettings;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl.ConnectionEvents;
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
+import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -29,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.UUID;
 
 /**
  * Class with hardcoded scenario to do manual tests of client and control.
@@ -83,6 +85,7 @@ class AgentTestScenario implements Runnable {
 
     private boolean useTLS;
     private final AgentControl agent;
+    private final EngineControl engine;
 
     private String ca = null;
     private String cert = null;
@@ -110,10 +113,13 @@ class AgentTestScenario implements Runnable {
         }
     };
 
-    public AgentTestScenario(boolean useTLS, AgentControl agent) {
+    public AgentTestScenario(boolean useTLS, EngineControl engine, AgentControl agent) {
         super();
+
         this.useTLS = useTLS;
         this.agent = agent;
+        this.engine = engine;
+
         if (useTLS) {
             this.ca = readFile(getCaFile());
             this.cert = readFile(getCertFile());
@@ -133,6 +139,8 @@ class AgentTestScenario implements Runnable {
             MqttConnectRequest connectRequest = getMqttConnectRequest();
             connectionControl = agent.createMqttConnection(connectRequest, connectionEvents);
             logger.atInfo().log("MQTT connection with id {} is established", connectionControl.getConnectionId());
+
+            checkGetConnectionControl(connectionControl);
 
             Thread.sleep(PAUSE_BEFORE_SUBSCRIBE);
             testSubscribe(connectionControl);
@@ -274,6 +282,31 @@ class AgentTestScenario implements Runnable {
             useTLS = false;
         }
         return null;
+    }
+
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    private void checkGetConnectionControl(ConnectionControl connectionControl) {
+        final String connectionName = UUID.randomUUID().toString();
+        connectionControl.setConnectionName(connectionName);
+        logger.atInfo().log("Connection name set to {}", connectionName);
+
+        logger.atInfo().log("Looking for connection with name {} in engine", connectionName);
+        ConnectionControl foundConnectionContol = engine.getConnectionControl(connectionName);
+        if (foundConnectionContol == connectionControl) {
+            logger.atInfo().log("Correct connection is found");
+        } else {
+            logger.atError().log("Invalid connection returned by EngineControl.getConnectionControl()");
+        }
+
+        final String connectionNameNotExists = UUID.randomUUID().toString();
+        logger.atInfo().log("Looking for connection with name {} in engine", connectionNameNotExists);
+        ConnectionControl mustBeNull = engine.getConnectionControl(connectionNameNotExists);
+        if (mustBeNull == null) {
+            logger.atInfo().log("Not existing connection does not found");
+        } else {
+            logger.atError().log("Connection with such name does not found but method return value");
+        }
+
     }
 }
 

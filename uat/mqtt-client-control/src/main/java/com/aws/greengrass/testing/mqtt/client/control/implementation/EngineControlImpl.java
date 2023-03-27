@@ -9,6 +9,7 @@ package com.aws.greengrass.testing.mqtt.client.control.implementation;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
+import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.grpc.GRPCDiscoveryServer;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.grpc.GRPCDiscoveryServerInterceptor;
@@ -32,8 +33,8 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     private final ConcurrentHashMap<String, AgentControlImpl> agents = new ConcurrentHashMap<>();
     private final AtomicReference<Server> server = new AtomicReference<>();
 
-
     private EngineEvents engineEvents;
+    private int boundPort;
 
     @Override
     public void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException {
@@ -45,12 +46,18 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
                 .addService(ServerInterceptors.intercept(new GRPCDiscoveryServer(this), interceptors))
                 .build()
                 .start();
+        boundPort = srv.getPort();
 
         Server oldSrv = server.getAndSet(srv);
         if (oldSrv != null) {
             oldSrv.shutdown();
         }
-        logger.atInfo().log("gRPC MQTT client control server started, listening on {}", port);
+        logger.atInfo().log("gRPC MQTT client control server started, listening on {}", boundPort);
+    }
+
+    @Override
+    public int getBoundPort() {
+        return boundPort;
     }
 
     @Override
@@ -69,6 +76,18 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         if (srv != null) {
             srv.awaitTermination();
         }
+    }
+
+    @Override
+    public ConnectionControl getConnectionControl(@NonNull String connectionName) {
+        ConnectionControl connectionControl = null;
+        for (ConcurrentHashMap.Entry<String, AgentControlImpl> entry : agents.entrySet()) {
+            connectionControl = entry.getValue().getConnectionControl(connectionName);
+            if (connectionControl != null) {
+                break;
+            }
+        }
+        return connectionControl;
     }
 
     @Override

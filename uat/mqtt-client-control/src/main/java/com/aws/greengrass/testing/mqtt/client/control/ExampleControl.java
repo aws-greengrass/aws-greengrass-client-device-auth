@@ -30,12 +30,13 @@ public class ExampleControl {
 
     private final boolean useTLS;
     private final int port;
+    private final EngineControl engine;
 
     private final EngineEvents engineEvents = new EngineEvents() {
         @Override
         public void onAgentAttached(AgentControl agent) {
             logger.atInfo().log("Agent {} is connected", agent.getAgentId());
-            AgentTestScenario scenario = new AgentTestScenario(useTLS, agent);
+            AgentTestScenario scenario = new AgentTestScenario(useTLS, engine, agent);
             executorService.submit(scenario);
         }
 
@@ -56,10 +57,10 @@ public class ExampleControl {
         super();
         this.useTLS = useTLS;
         this.port = port;
+        this.engine = new EngineControlImpl();
     }
 
     private void testRun() throws IOException, InterruptedException {
-        final EngineControl engine = new EngineControlImpl();
         engine.startEngine(port, engineEvents);
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override

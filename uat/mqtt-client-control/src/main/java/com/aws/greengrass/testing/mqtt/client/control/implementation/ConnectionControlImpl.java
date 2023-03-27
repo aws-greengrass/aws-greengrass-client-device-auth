@@ -33,25 +33,38 @@ public class ConnectionControlImpl implements ConnectionControl {
     private final ConnectionEvents connectionEvents;
     private final AgentControlImpl agent;
     private int timeout;
+    private String connectionName;
 
     /**
      * Creates instanse of ConnectionControlImpl.
      * @param connectReply response to connect request from agent
+     * @param connectionEvents received of connection events
      * @param agent backreference to agent
      */
-    ConnectionControlImpl(MqttConnectReply connectReply, ConnectionEvents connectionEvents,
-                            AgentControlImpl agent) {
+    ConnectionControlImpl(MqttConnectReply connectReply, @NonNull ConnectionEvents connectionEvents,
+                            @NonNull AgentControlImpl agent) {
         super();
         this.connectionId = connectReply.getConnectionId().getConnectionId();
         this.connAck = connectReply.getConnAck();
         this.connectionEvents = connectionEvents;
         this.agent = agent;
         this.timeout = agent.getTimeout();
+        this.connectionName = "agent:" + agent.getAgentId() + ";connection:" + this.connectionId;
     }
 
     @Override
     public int getConnectionId() {
         return connectionId;
+    }
+
+    @Override
+    public void setConnectionName(@NonNull String connectionName) {
+        this.connectionName = connectionName;
+    }
+
+    @Override
+    public String getConnectionName() {
+        return connectionName;
     }
 
     @Override
@@ -67,29 +80,6 @@ public class ConnectionControlImpl implements ConnectionControl {
     @Override
     public void setTimeout(int timeout) {
         this.timeout = timeout;
-    }
-
-    /**
-     * Called when MQTT message has been received.
-     *
-     * @param message the received MQTT message
-     */
-    public void onMessageReceived(Mqtt5Message message) {
-        if (connectionEvents != null) {
-            connectionEvents.onMessageReceived(this, message);
-        }
-    }
-
-    /**
-     * Called when MQTT connection has been disconnected.
-     *
-     * @param disconnect optional infomation from DISCONNECT packet
-     * @param error optional OS-dependent error string
-     */
-    public void onMqttDisconnect(Mqtt5Disconnect disconnect, String error) {
-        if (connectionEvents != null) {
-            connectionEvents.onMqttDisconnect(this, disconnect, error);
-        }
     }
 
     @Override
@@ -135,5 +125,28 @@ public class ConnectionControlImpl implements ConnectionControl {
             .setMsg(message)
             .build();
         return agent.publishMqtt(publishRequest);
+    }
+
+    /**
+     * Called when MQTT message has been received.
+     *
+     * @param message the received MQTT message
+     */
+    void onMessageReceived(Mqtt5Message message) {
+        if (connectionEvents != null) {
+            connectionEvents.onMessageReceived(this, message);
+        }
+    }
+
+    /**
+     * Called when MQTT connection has been disconnected.
+     *
+     * @param disconnect optional infomation from DISCONNECT packet
+     * @param error optional OS-dependent error string
+     */
+    void onMqttDisconnect(Mqtt5Disconnect disconnect, String error) {
+        if (connectionEvents != null) {
+            connectionEvents.onMqttDisconnect(this, disconnect, error);
+        }
     }
 }

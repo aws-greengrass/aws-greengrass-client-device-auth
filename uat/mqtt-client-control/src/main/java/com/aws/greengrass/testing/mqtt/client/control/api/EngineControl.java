@@ -34,11 +34,17 @@ public interface EngineControl {
     /**
      * Starts engine instance.
      *
-     * @param port port number to listen for gRPC service
+     * @param port port number to listen for gRPC service, can be 0 to autoselect port
      * @param engineEvents received of engine level events
      * @throws IOException on IO errors
      */
     void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException;
+
+    /**
+     * Gets port where gRPC service actually bound to.
+     * @return actual port where gRPC server is listeding
+     */
+    int getBoundPort();
 
     /**
      * Checks is engine runing.
@@ -60,6 +66,15 @@ public interface EngineControl {
      * @throws InterruptedException when thread is interrupted
      */
     void awaitTermination() throws InterruptedException;
+
+    /**
+     * Gets connection control by connection name.
+     * Searching over all agents and find first occurrence of control with such name
+     *
+     * @param connectionName the logical name of a connection control
+     * @return connection control with that name or null if control does not found
+     */
+    ConnectionControl getConnectionControl(@NonNull String connectionName);
 
     /**
      * Stops engine instance.
