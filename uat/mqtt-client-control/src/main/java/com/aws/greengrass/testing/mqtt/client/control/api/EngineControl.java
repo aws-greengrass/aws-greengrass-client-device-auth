@@ -34,11 +34,17 @@ public interface EngineControl {
     /**
      * Starts engine instance.
      *
-     * @param port port number to listen for gRPC service
+     * @param port port number to listen for gRPC service, can be 0 to autoselect port
      * @param engineEvents received of engine level events
      * @throws IOException on IO errors
      */
     void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException;
+
+    /**
+     * Gets port where gRPC service actually bound to.
+     * @return actual port where gRPC server is listeding
+     */
+    int getBoundPort();
 
     /**
      * Checks is engine runing.

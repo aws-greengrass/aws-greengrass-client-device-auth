@@ -33,8 +33,8 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     private final ConcurrentHashMap<String, AgentControlImpl> agents = new ConcurrentHashMap<>();
     private final AtomicReference<Server> server = new AtomicReference<>();
 
-
     private EngineEvents engineEvents;
+    private int boundPort;
 
     @Override
     public void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException {
@@ -46,12 +46,18 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
                 .addService(ServerInterceptors.intercept(new GRPCDiscoveryServer(this), interceptors))
                 .build()
                 .start();
+        boundPort = srv.getPort();
 
         Server oldSrv = server.getAndSet(srv);
         if (oldSrv != null) {
             oldSrv.shutdown();
         }
-        logger.atInfo().log("gRPC MQTT client control server started, listening on {}", port);
+        logger.atInfo().log("gRPC MQTT client control server started, listening on {}", boundPort);
+    }
+
+    @Override
+    public int getBoundPort() {
+        return boundPort;
     }
 
     @Override
