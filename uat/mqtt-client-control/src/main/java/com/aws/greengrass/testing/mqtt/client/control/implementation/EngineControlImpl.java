@@ -23,7 +23,6 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -61,11 +60,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
 
     @Override
     public AgentControl getAgent(@NonNull String agentId) {
-        AgentControlImpl agentControl = agents.get(agentId);
-        if (agentControl == null) {
-            throw new NoSuchElementException("Agent with id " + agentId + " does not found");
-        }
-        return agentControl;
+        return agents.get(agentId);
     }
 
     @Override

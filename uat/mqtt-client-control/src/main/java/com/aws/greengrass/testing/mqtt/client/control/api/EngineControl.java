@@ -51,8 +51,7 @@ public interface EngineControl {
      * Gets Agent by agentId.
      *
      * @param agentId id of agent
-     * @return AgentControl on success
-     * @throws NoSuchElementException when agent not found
+     * @return AgentControl on success and null if agent does not found
      */
     AgentControl getAgent(@NonNull String agentId);
 
