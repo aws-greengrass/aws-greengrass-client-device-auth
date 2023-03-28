@@ -6,7 +6,6 @@ Feature: GGMQ-1
   Background:
     Given my device is registered as a Thing
     And my device is running Greengrass
-    And my MQTT Client Control is running
 
   Scenario: GGMQ-1-T1: As a customer, I can connect, subscribe and publish using client application to MQTT topic
     When I create a Greengrass deployment with components

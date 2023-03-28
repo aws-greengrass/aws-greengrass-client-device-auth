@@ -10,11 +10,6 @@ import java.util.List;
 @ScenarioScoped
 public class MqttControlSteps {
 
-    @And("my MQTT Client Control is running")
-    public void runClientControl() {
-        //@TODO Implement method
-    }
-
     @And("agent {string} is connected to MQTT Client Control")
     public void validateAgentIsConnectedToControl(String agentId) {
         //@TODO Implement method
