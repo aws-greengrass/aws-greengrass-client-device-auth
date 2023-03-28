@@ -20,7 +20,7 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
-    @When("I create client device {word} with the following policy")
+    @When("I create client device {word} with the following AWS IoT policy")
     public void createClientDevice(String clientDeviceId, List<List<String>> policy) {
         //@TODO Implement method
     }

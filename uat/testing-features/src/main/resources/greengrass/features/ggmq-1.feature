@@ -15,7 +15,7 @@ Feature: GGMQ-1
       | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
     And agent "agent1" is connected to MQTT Client Control
-    When I create client device "test" with the following policy
+    When I create client device "test" with the following AWS IoT policy
       | operation | resource     |
       | connect   | "*"          |
       | subscribe | "iot_data_0" |
