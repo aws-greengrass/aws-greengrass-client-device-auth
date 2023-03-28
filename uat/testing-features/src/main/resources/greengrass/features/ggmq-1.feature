@@ -27,5 +27,5 @@ Feature: GGMQ-1
     Then subscription to "iot_data_0" is successfull on "agent1-test-default_broker"
     When I publish "agent1-test-default_broker" to "iot_data_0" with qos 0 and message "Test message"
     Then publish message "test" to "iot_data_0" is successfully on "agent1-test-default_broker"
-    And message "Test message" received on "agent1-test-default_broker"
+    And message "Test message" received on "agent1-test-default_broker" from "iot_data_0" topic within 1 second
 

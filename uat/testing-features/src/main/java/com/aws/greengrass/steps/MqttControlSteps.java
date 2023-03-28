@@ -56,8 +56,8 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
-    @And("message {string} received on {string}")
-    public void receive(String message, String logicalConnectionId) {
+    @And("message {string} received on {string} from {string} topic within {int} {word}")
+    public void receive(String message, String logicalConnectionId, String topic, int value, String unitOfMeasure) {
         //@TODO Implement method
     }
 
