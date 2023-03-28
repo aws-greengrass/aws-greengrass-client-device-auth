@@ -22,5 +22,5 @@ Manifests:
           Read: ALL
           Execute: ALL
     Lifecycle:
-      Run: |
+      Startup: |
         java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar {configuration:/agentId} {configuration:/broker/address} "{configuration:/broker/port}"
