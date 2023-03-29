@@ -44,6 +44,7 @@ Feature: GGMQ-1
   }
 }
     """
+    And I discover core device broker as "default_broker"
     And I connect device "clientDeviceTest" on "agent1" to "default_broker" as "connection1"
     Then connection "connection1" is successfully established within 3 seconds
     When I subscribe "connection1" to "iot_data_0" with qos 0

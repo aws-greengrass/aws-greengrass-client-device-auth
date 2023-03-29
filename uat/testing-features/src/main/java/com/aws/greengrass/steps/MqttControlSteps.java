@@ -61,4 +61,8 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
+    @And("I discover core device broker as {string}")
+    public void discoverCoreDeviceBroker(String string) {
+        //@TODO Implement method
+    }
 }
