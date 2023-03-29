@@ -20,8 +20,8 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
-    @When("I create client device {word} with the following AWS IoT policy")
-    public void createClientDevice(String clientDeviceId, List<List<String>> policy) {
+    @When("I create client device {word}")
+    public void createClientDevice(String clientDeviceId) {
         //@TODO Implement method
     }
 
@@ -62,4 +62,8 @@ public class MqttControlSteps {
     }
 
 
+    @And("I configure aws.greengrass.clientdevices.Auth component")
+    public void configureAuthComponent(String configuration) {
+        //@TODO Implement method
+    }
 }

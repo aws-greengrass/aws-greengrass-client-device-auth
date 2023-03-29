@@ -15,12 +15,35 @@ Feature: GGMQ-1
       | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
     And agent "agent1" is connected to MQTT Client Control
-    When I create client device "test" with the following AWS IoT policy
-      | operation | resource     |
-      | connect   | "*"          |
-      | subscribe | "iot_data_0" |
-      | publish   | "iot_data_0" |
+    When I create client device "test"
     And I associate "test" with ggc
+    And I configure aws.greengrass.clientdevices.Auth component
+    """
+{
+  "deviceGroups": {
+    "formatVersion": "2021-03-05",
+    "definitions": {
+      "MyPermissiveDeviceGroup": {
+        "selectionRule": "thingName: test",
+        "policyName": "MyPermissivePolicy"
+      }
+    },
+    "policies": {
+      "MyPermissivePolicy": {
+        "AllowAll": {
+          "statementDescription": "Allow client devices to perform all actions.",
+          "operations": [
+            "*"
+          ],
+          "resources": [
+            "*"
+          ]
+        }
+      }
+    }
+  }
+}
+    """
     And I connect device "test" on "agent1" to "default_broker" as "agent1-test-default_broker"
     Then connection "agent1-test-default_broker" is successfully established within 3 seconds
     When I subscribe "agent1-test-default_broker" to "iot_data_0" with qos 0
