@@ -61,9 +61,4 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
-
-    @And("I configure aws.greengrass.clientdevices.Auth component")
-    public void configureAuthComponent(String configuration) {
-        //@TODO Implement method
-    }
 }

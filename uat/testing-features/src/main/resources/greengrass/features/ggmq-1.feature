@@ -15,16 +15,16 @@ Feature: GGMQ-1
       | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
     And agent "agent1" is connected to MQTT Client Control
-    When I create client device "test"
-    And I associate "test" with ggc
-    And I configure aws.greengrass.clientdevices.Auth component
+    When I create client device "clientDeviceTest"
+    And I associate "clientDeviceTest" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
   "deviceGroups": {
     "formatVersion": "2021-03-05",
     "definitions": {
       "MyPermissiveDeviceGroup": {
-        "selectionRule": "thingName: test",
+        "selectionRule": "thingName: ${clientDeviceTest}",
         "policyName": "MyPermissivePolicy"
       }
     },
@@ -44,11 +44,11 @@ Feature: GGMQ-1
   }
 }
     """
-    And I connect device "test" on "agent1" to "default_broker" as "agent1-test-default_broker"
-    Then connection "agent1-test-default_broker" is successfully established within 3 seconds
-    When I subscribe "agent1-test-default_broker" to "iot_data_0" with qos 0
-    Then subscription to "iot_data_0" is successfull on "agent1-test-default_broker"
-    When I publish "agent1-test-default_broker" to "iot_data_0" with qos 0 and message "Test message"
-    Then publish message "test" to "iot_data_0" is successfully on "agent1-test-default_broker"
-    And message "Test message" received on "agent1-test-default_broker" from "iot_data_0" topic within 1 second
+    And I connect device "clientDeviceTest" on "agent1" to "default_broker" as "connection1"
+    Then connection "connection1" is successfully established within 3 seconds
+    When I subscribe "connection1" to "iot_data_0" with qos 0
+    Then subscription to "iot_data_0" is successfull on "connection1"
+    When I publish "connection1" to "iot_data_0" with qos 0 and message "Test message"
+    Then publish message "test" to "iot_data_0" is successfully on "connection1"
+    And message "Test message" received on "connection1" from "iot_data_0" topic within 1 second
 
