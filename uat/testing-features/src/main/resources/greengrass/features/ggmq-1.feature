@@ -45,11 +45,11 @@ Feature: GGMQ-1
 }
     """
     And I discover core device broker as "default_broker"
-    And I connect device "clientDeviceTest" on "agent1" to "default_broker" as "connection1"
-    Then connection "connection1" is successfully established within 3 seconds
-    When I subscribe "connection1" to "iot_data_0" with qos 0
-    Then subscription to "iot_data_0" is successfull on "connection1"
-    When I publish "connection1" to "iot_data_0" with qos 0 and message "Test message"
-    Then publish message "test" to "iot_data_0" is successfully on "connection1"
-    And message "Test message" received on "connection1" from "iot_data_0" topic within 1 second
+    And I connect device "clientDeviceTest" on "agent1" to "default_broker"
+    Then connection for device "clientDeviceTest" is successfully established within 3 seconds
+    When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0
+    Then subscription to "iot_data_0" is successfull on "clientDeviceTest"
+    When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Test message"
+    Then publish message "test" to "iot_data_0" is successfully on "clientDeviceTest"
+    And message "Test message" received on "clientDeviceTest" from "iot_data_0" topic within 1 second
 

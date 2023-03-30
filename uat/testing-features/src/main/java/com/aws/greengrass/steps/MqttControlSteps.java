@@ -5,8 +5,6 @@ import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 
-import java.util.List;
-
 @ScenarioScoped
 public class MqttControlSteps {
 
@@ -26,38 +24,38 @@ public class MqttControlSteps {
     }
 
 
-    @And("I connect device {string} on {string} to {string} as {string}")
-    public void connect(String clientDeviceId, String agentId, String brokerId, String logicalConnectionId) {
+    @And("I connect device {string} on {string} to {string}")
+    public void connect(String clientDeviceId, String agentId, String brokerId) {
         //@TODO Implement method
     }
 
-    @Then("connection {string} is successfully established within {int} {word}")
-    public void validateConnect(String logicalConnectionId, int value, String unitOfMeasure) {
+    @Then("connection for device {string} is successfully established within {int} {word}")
+    public void validateConnect(String clientDeviceId, int value, String unitOfMeasure) {
         //@TODO Implement method
     }
 
     @When("I subscribe {string} to {string} with qos {int}")
-    public void subscribe(String logicalConnectionId, String topic, int qos) {
+    public void subscribe(String clientDeviceId, String topic, int qos) {
         //@TODO Implement method
     }
 
     @Then("subscription to {string} is successfull on {string}")
-    public void validateSubscribe(String topic, String logicalConnectionId) {
+    public void validateSubscribe(String topic, String clientDeviceId) {
         //@TODO Implement method
     }
 
-    @When("I publish {string} to {string} with qos {int} and message {string}")
-    public void publish(String logicalConnectionId, String topic, int qos, String message) {
+    @When("I publish from {string} to {string} with qos {int} and message {string}")
+    public void publish(String clientDeviceId, String topic, int qos, String message) {
         //@TODO Implement method
     }
 
     @Then("publish message {string} to {string} is successfully on {string}")
-    public void validatePublish(String message, String topic, String logicalConnectionId) {
+    public void validatePublish(String message, String topic, String clientDeviceId) {
         //@TODO Implement method
     }
 
     @And("message {string} received on {string} from {string} topic within {int} {word}")
-    public void receive(String message, String logicalConnectionId, String topic, int value, String unitOfMeasure) {
+    public void receive(String message, String clientDeviceId, String topic, int value, String unitOfMeasure) {
         //@TODO Implement method
     }
 
