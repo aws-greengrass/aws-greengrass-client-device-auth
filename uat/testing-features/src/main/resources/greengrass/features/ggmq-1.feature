@@ -14,7 +14,6 @@ Feature: GGMQ-1
       | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
       | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    And agent "agent1" is connected to MQTT Client Control
     When I create client device "clientDeviceTest"
     And I associate "clientDeviceTest" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
@@ -45,7 +44,7 @@ Feature: GGMQ-1
 }
     """
     And I discover core device broker as "default_broker"
-    And I connect device "clientDeviceTest" on "agent1" to "default_broker"
+    And I connect device "clientDeviceTest" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker"
     Then connection for device "clientDeviceTest" is successfully established within 3 seconds
     When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0
     Then subscription to "iot_data_0" is successfull on "clientDeviceTest"

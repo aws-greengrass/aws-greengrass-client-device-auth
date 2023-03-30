@@ -7,12 +7,6 @@ import io.cucumber.java.en.When;
 
 @ScenarioScoped
 public class MqttControlSteps {
-
-    @And("agent {string} is connected to MQTT Client Control")
-    public void validateAgentIsConnectedToControl(String agentId) {
-        //@TODO Implement method
-    }
-
     @And("I associate {word} with ggc")
     public void associateClient(String clientDeviceId) {
         //@TODO Implement method
@@ -24,8 +18,8 @@ public class MqttControlSteps {
     }
 
 
-    @And("I connect device {string} on {string} to {string}")
-    public void connect(String clientDeviceId, String agentId, String brokerId) {
+    @And("I connect device {string} on {word} to {string}")
+    public void connect(String clientDeviceId, String componentId, String brokerId) {
         //@TODO Implement method
     }
 
