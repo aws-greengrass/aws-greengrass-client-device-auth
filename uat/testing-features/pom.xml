@@ -61,6 +61,27 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>copy-artifact-to-classpath</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target name="copy component under test artifact">
+                                <copy
+                                        file="${project.basedir}/../custom-components/client-java-sdk/target/client-devices-auth-uat-client-java-sdk.jar"
+                                      tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
     <distributionManagement>

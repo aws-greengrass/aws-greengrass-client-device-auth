@@ -1,0 +1,54 @@
+@GGAD
+Feature: GGMQ-1
+
+  As a developer, I can configure my client agents to connect and use MQTT
+
+  Background:
+    Given my device is registered as a Thing
+    And my device is running Greengrass
+
+  Scenario: GGMQ-1-T1: As a customer, I can connect, subscribe and publish using client application to MQTT topic
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                                        |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                        |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
+      | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
+    And I create client device "clientDeviceTest"
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+  "deviceGroups": {
+    "formatVersion": "2021-03-05",
+    "definitions": {
+      "MyPermissiveDeviceGroup": {
+        "selectionRule": "thingName: ${clientDeviceTest}",
+        "policyName": "MyPermissivePolicy"
+      }
+    },
+    "policies": {
+      "MyPermissivePolicy": {
+        "AllowAll": {
+          "statementDescription": "Allow client devices to perform all actions.",
+          "operations": [
+            "*"
+          ],
+          "resources": [
+            "*"
+          ]
+        }
+      }
+    }
+  }
+}
+    """
+    Then the Greengrass deployment is COMPLETED on the device after 300 seconds
+    When I associate "clientDeviceTest" with ggc
+    And I discover core device broker as "default_broker"
+    And I connect device "clientDeviceTest" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker"
+    Then connection for device "clientDeviceTest" is successfully established within 3 seconds
+    When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0
+    Then subscription to "iot_data_0" is successfull on "clientDeviceTest"
+    When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Test message"
+    Then publish message "test" to "iot_data_0" is successfully on "clientDeviceTest"
+    And message "Test message" received on "clientDeviceTest" from "iot_data_0" topic within 1 second
+
