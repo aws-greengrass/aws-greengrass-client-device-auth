@@ -7,12 +7,12 @@ import io.cucumber.java.en.When;
 
 @ScenarioScoped
 public class MqttControlSteps {
-    @And("I associate {word} with ggc")
+    @When("I associate {word} with ggc")
     public void associateClient(String clientDeviceId) {
         //@TODO Implement method
     }
 
-    @When("I create client device {word}")
+    @And("I create client device {word}")
     public void createClientDevice(String clientDeviceId) {
         //@TODO Implement method
     }

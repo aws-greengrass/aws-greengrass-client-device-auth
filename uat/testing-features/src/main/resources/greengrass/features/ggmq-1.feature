@@ -13,9 +13,7 @@ Feature: GGMQ-1
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                        |
       | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
       | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
-    Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    When I create client device "clientDeviceTest"
-    And I associate "clientDeviceTest" with ggc
+    And I create client device "clientDeviceTest"
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
@@ -43,6 +41,8 @@ Feature: GGMQ-1
   }
 }
     """
+    Then the Greengrass deployment is COMPLETED on the device after 300 seconds
+    When I associate "clientDeviceTest" with ggc
     And I discover core device broker as "default_broker"
     And I connect device "clientDeviceTest" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker"
     Then connection for device "clientDeviceTest" is successfully established within 3 seconds
