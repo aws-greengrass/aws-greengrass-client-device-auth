@@ -111,6 +111,7 @@ class GRPCControlServer {
          * @param request incoming request
          * @param responseObserver response control
          */
+        @SuppressWarnings("PMD.CognitiveComplexity")
         @Override
         public void createMqttConnection(MqttConnectRequest request,
                                             StreamObserver<MqttConnectReply> responseObserver) {
@@ -377,6 +378,7 @@ class GRPCControlServer {
          * @param request incoming request
          * @param responseObserver response control
          */
+        @SuppressWarnings("PMD.CognitiveComplexity")
         @Override
         public void subscribeMqtt(MqttSubscribeRequest request, StreamObserver<MqttSubscribeReply> responseObserver) {
 
@@ -620,6 +622,7 @@ class GRPCControlServer {
         }
     }
 
+    @SuppressWarnings("PMD.CognitiveComplexity")
     private static Mqtt5ConnAck convertConnAckInfo(MqttConnection.ConnAckInfo conAckInfo) {
         final Mqtt5ConnAck.Builder builder = Mqtt5ConnAck.newBuilder();
 
