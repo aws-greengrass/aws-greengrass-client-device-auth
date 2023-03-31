@@ -73,6 +73,25 @@ public class AgentControlImpl implements AgentControl {
         this.port = port;
     }
 
+    /**
+     * Creates instanse of AgentControlImpl for testing.
+     *
+     * @param agentId id of agent
+     * @param address address of gRPC server of agent (MQTT client)
+     * @param port port of  gRPC server of agent (MQTT client)
+     * @param channel the channel
+     * @param blockingStub the blockingStub
+     */
+    AgentControlImpl(String agentId, String address, int port, ManagedChannel channel,
+                        MqttClientControlGrpc.MqttClientControlBlockingStub blockingStub) {
+        super();
+        this.agentId = agentId;
+        this.address = address;
+        this.port = port;
+        this.channel = channel;
+        this.blockingStub = blockingStub;
+    }
+
 
     @Override
     public int getTimeout() {
@@ -90,7 +109,7 @@ public class AgentControlImpl implements AgentControl {
      * @param connectionId id of connected where receives message
      * @param message the received MQTT message
      */
-    public void onMessageReceived(int connectionId, Mqtt5Message message) {
+    void onMessageReceived(int connectionId, Mqtt5Message message) {
         ConnectionControlImpl connectionControl;
         try {
             connectLock.lock();
@@ -113,7 +132,7 @@ public class AgentControlImpl implements AgentControl {
      * @param disconnect optional infomation from DISCONNECT packet
      * @param error optional OS-dependent error string
      */
-    public void onMqttDisconnect(int connectionId, Mqtt5Disconnect disconnect, String error) {
+    void onMqttDisconnect(int connectionId, Mqtt5Disconnect disconnect, String error) {
         ConnectionControlImpl connectionControl = connections.get(connectionId);
         if (connectionControl == null) {
             logger.atWarn().log("MQTT disconnect received but connection with id {} could not found", connectionId);
