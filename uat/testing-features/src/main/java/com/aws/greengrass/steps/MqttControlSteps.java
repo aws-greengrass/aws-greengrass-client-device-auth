@@ -54,12 +54,19 @@ public class MqttControlSteps {
      */
     @And("I create client device {string}")
     public void createClientDevice(String clientDeviceId) {
-        val clientDeviceThingName = testContext.testId().idFor(clientDeviceId);
+        val clientDeviceThingName = testContext.testId()
+                                               .idFor(clientDeviceId);
         scenarioContext.put(clientDeviceId, clientDeviceThingName);
         val iotPolicySpec = iotSteps.createDefaultPolicy(clientDeviceId);
-        val iotCertificateSpec = IotCertificateSpec.builder().thingName(clientDeviceThingName).build();
-        val iotThingSpec = IotThingSpec.builder().thingName(clientDeviceThingName).policySpec(iotPolicySpec)
-                .createCertificate(true).certificateSpec(iotCertificateSpec).build();
+        val iotCertificateSpec = IotCertificateSpec.builder()
+                                                   .thingName(clientDeviceThingName)
+                                                   .build();
+        val iotThingSpec = IotThingSpec.builder()
+                                       .thingName(clientDeviceThingName)
+                                       .policySpec(iotPolicySpec)
+                                       .createCertificate(true)
+                                       .certificateSpec(iotCertificateSpec)
+                                       .build();
         val iotThing = resources.create(iotThingSpec);
         log.debug("IoT Thing for client device {} is: {}", clientDeviceId, iotThing);
     }
