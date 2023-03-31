@@ -16,6 +16,14 @@ import lombok.NonNull;
  * Control of single MQTT connection.
  */
 public interface ConnectionControl {
+
+    /**
+     * Gets agent control for this connection control.
+     *
+     * @return the agent control
+     */
+    AgentControl getAgentControl();
+
     /**
      * Gets id of the connection.
      *

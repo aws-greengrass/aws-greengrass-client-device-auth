@@ -39,7 +39,8 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
 
 
     interface AgentControlFactory {
-        AgentControlImpl newAgentControl(String agentId, String address, int port);
+        AgentControlImpl newAgentControl(@NonNull EngineControlImpl engineControl, @NonNull String agentId,
+                                            @NonNull String address, int port);
     }
 
     /**
@@ -48,8 +49,9 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     public EngineControlImpl() {
         this(new AgentControlFactory() {
             @Override
-            public AgentControlImpl newAgentControl(String agentId, String address, int port) {
-                return new AgentControlImpl(agentId, address, port);
+            public AgentControlImpl newAgentControl(@NonNull EngineControlImpl engineControl, @NonNull String agentId, 
+                                                    @NonNull String address, int port) {
+                return new AgentControlImpl(engineControl, agentId, address, port);
             }
         });
     }
@@ -62,6 +64,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         super();
         this.agentControlFactory = agentControlFactory;
     }
+
 
     @Override
     public void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException {
@@ -134,7 +137,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         isNew[0] = false;
         AgentControlImpl agent = agents.computeIfAbsent(agentId, k -> {
             isNew[0] = true;
-            return agentControlFactory.newAgentControl(agentId, address, port);
+            return agentControlFactory.newAgentControl(this, agentId, address, port);
             });
 
         if (isNew[0]) {
@@ -157,7 +160,6 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         }
     }
 
-
     @Override
     public void onMessageReceived(@NonNull String agentId, int connectionId, @NonNull Mqtt5Message message) {
         AgentControlImpl agentControl = agents.get(agentId);
@@ -167,7 +169,6 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
             agentControl.onMessageReceived(connectionId, message);
         }
     }
-
 
     @Override
     public void onMqttDisconnect(String agentId, int connectionId, Mqtt5Disconnect disconnect, String error) {

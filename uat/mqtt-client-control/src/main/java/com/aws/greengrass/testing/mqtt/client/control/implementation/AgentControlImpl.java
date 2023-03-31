@@ -50,6 +50,7 @@ public class AgentControlImpl implements AgentControl {
     // That lock prevent cases when messages are received but connection not yet registered.
     private final Lock connectLock = new ReentrantLock();
 
+    private final EngineControlImpl engineControl;
     private final String agentId;
     private final String address;
     private final int port;
@@ -69,12 +70,15 @@ public class AgentControlImpl implements AgentControl {
     /**
      * Creates instanse of AgentControlImpl.
      *
-     * @param agentId id of agent
-     * @param address address of gRPC server of agent (MQTT client)
-     * @param port port of  gRPC server of agent (MQTT client)
+     * @param engineControl the back reference to whole engineControl
+     * @param agentId the id of agent
+     * @param address the address of gRPC server of agent (MQTT client)
+     * @param port the port of gRPC server of agent (MQTT client)
      */
-    public AgentControlImpl(@NonNull String agentId, @NonNull String address, int port) {
+    public AgentControlImpl(@NonNull EngineControlImpl engineControl, @NonNull String agentId, @NonNull String address,
+                                int port) {
         super();
+        this.engineControl = engineControl;
         this.agentId = agentId;
         this.address = address;
         this.port = port;
@@ -91,16 +95,22 @@ public class AgentControlImpl implements AgentControl {
     /**
      * Creates instanse of AgentControlImpl for testing.
      *
+     * @param engineControl the back reference to whole engineControl
      * @param agentId id of agent
      * @param address address of gRPC server of agent (MQTT client)
      * @param port port of  gRPC server of agent (MQTT client)
      * @param channel the channel
      * @param blockingStub the blockingStub
      */
-    AgentControlImpl(@NonNull String agentId, @NonNull String address, int port,
-                        @NonNull ConnectionControlFactory connectionControlFactory, @NonNull ManagedChannel channel,
+    AgentControlImpl(@NonNull EngineControlImpl engineControl,
+                        @NonNull String agentId,
+                        @NonNull String address,
+                        int port,
+                        @NonNull ConnectionControlFactory connectionControlFactory,
+                        @NonNull ManagedChannel channel,
                         @NonNull MqttClientControlGrpc.MqttClientControlBlockingStub blockingStub) {
         super();
+        this.engineControl = engineControl;
         this.agentId = agentId;
         this.address = address;
         this.port = port;
@@ -108,7 +118,6 @@ public class AgentControlImpl implements AgentControl {
         this.channel = channel;
         this.blockingStub = blockingStub;
     }
-
 
     @Override
     public int getTimeout() {
@@ -180,7 +189,6 @@ public class AgentControlImpl implements AgentControl {
         logger.atInfo().log("createMqttConnection: MQTT connectionId {} created", connectionControl.getConnectionId());
         return connectionControl;
     }
-
 
     /**
      * Do MQTT subscription(s).
@@ -272,6 +280,10 @@ public class AgentControlImpl implements AgentControl {
             // NOTE: connectionControl is not unregistered until closeMqttConnection() explicitly called
             connectionControl.onMqttDisconnect(disconnect, error);
         }
+    }
+
+    EngineControlImpl getEngineControl() {
+        return engineControl;
     }
 
     private void closeAllMqttConnections() {
