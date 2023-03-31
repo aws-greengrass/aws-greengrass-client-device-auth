@@ -1,20 +1,56 @@
 package com.aws.greengrass.steps;
 
+import com.aws.greengrass.testing.features.IotSteps;
+import com.aws.greengrass.testing.model.ScenarioContext;
+import com.aws.greengrass.testing.model.TestContext;
+import com.aws.greengrass.testing.resources.AWSResources;
+import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
+import com.aws.greengrass.testing.resources.iot.IotThingSpec;
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import lombok.extern.log4j.Log4j2;
+import lombok.val;
 
+import javax.inject.Inject;
+
+@Log4j2
 @ScenarioScoped
 public class MqttControlSteps {
+
+    private final TestContext testContext;
+
+    private final ScenarioContext scenarioContext;
+
+    private final AWSResources resources;
+
+    private final IotSteps iotSteps;
+
+    @Inject
+    public MqttControlSteps(TestContext testContext, ScenarioContext scenarioContext, AWSResources resources,
+                            IotSteps iotSteps) {
+        this.testContext = testContext;
+        this.scenarioContext = scenarioContext;
+        this.resources = resources;
+        this.iotSteps = iotSteps;
+    }
+
     @When("I associate {word} with ggc")
     public void associateClient(String clientDeviceId) {
         //@TODO Implement method
     }
 
-    @And("I create client device {word}")
+    @And("I create client device {string}")
     public void createClientDevice(String clientDeviceId) {
-        //@TODO Implement method
+        val clientDeviceThingName = testContext.testId().idFor(clientDeviceId);
+        scenarioContext.put(clientDeviceId, clientDeviceThingName);
+        val iotPolicySpec = iotSteps.createDefaultPolicy(clientDeviceId);
+        val iotCertificateSpec = IotCertificateSpec.builder().thingName(clientDeviceThingName).build();
+        val iotThingSpec = IotThingSpec.builder().thingName(clientDeviceThingName).policySpec(iotPolicySpec)
+                .createCertificate(true).certificateSpec(iotCertificateSpec).build();
+        val iotThing = resources.create(iotThingSpec);
+        log.debug("IoT Thing for client device {} is: {}", clientDeviceId, iotThing);
     }
 
 
