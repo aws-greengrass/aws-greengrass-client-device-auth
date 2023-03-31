@@ -17,7 +17,7 @@ import com.aws.greengrass.testing.mqtt.client.MqttPublishRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttUnsubscribeRequest;
-import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl.ConnectionEvents;
+import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import lombok.NonNull;
 
@@ -30,8 +30,8 @@ public class ConnectionControlImpl implements ConnectionControl {
 
     private final int connectionId;
     private final Mqtt5ConnAck connAck;
-    private final ConnectionEvents connectionEvents;
-    private final AgentControlImpl agent;
+    private final AgentControl.ConnectionEvents connectionEvents;
+    private final AgentControlImpl agentControl;
     private int timeout;
     private String connectionName;
 
@@ -40,17 +40,22 @@ public class ConnectionControlImpl implements ConnectionControl {
      *
      * @param connectReply response to connect request from agent
      * @param connectionEvents received of connection events
-     * @param agent backreference to agent
+     * @param agentControl backreference to agentControl
      */
-    ConnectionControlImpl(MqttConnectReply connectReply, @NonNull ConnectionEvents connectionEvents,
-                            @NonNull AgentControlImpl agent) {
+    ConnectionControlImpl(MqttConnectReply connectReply, @NonNull AgentControl.ConnectionEvents connectionEvents,
+                            @NonNull AgentControlImpl agentControl) {
         super();
         this.connectionId = connectReply.getConnectionId().getConnectionId();
         this.connAck = connectReply.getConnAck();
         this.connectionEvents = connectionEvents;
-        this.agent = agent;
-        this.timeout = agent.getTimeout();
-        this.connectionName = buildConnectionName(agent.getAgentId(), this.connectionId);
+        this.agentControl = agentControl;
+        this.timeout = agentControl.getTimeout();
+        this.connectionName = buildConnectionName(agentControl.getAgentId(), this.connectionId);
+    }
+
+    @Override
+    public AgentControlImpl getAgentControl() {
+        return agentControl;
     }
 
     @Override
@@ -90,7 +95,7 @@ public class ConnectionControlImpl implements ConnectionControl {
                     .setTimeout(timeout)
                     .setReason(reason)
                     .build();
-        agent.closeMqttConnection(closeRequest);
+        agentControl.closeMqttConnection(closeRequest);
     }
 
     @Override
@@ -104,7 +109,7 @@ public class ConnectionControlImpl implements ConnectionControl {
             builder.setSubscriptionId(subscriptionId);
         }
 
-        return agent.subscribeMqtt(builder.build());
+        return agentControl.subscribeMqtt(builder.build());
     }
 
     @Override
@@ -115,7 +120,7 @@ public class ConnectionControlImpl implements ConnectionControl {
                     .addAllFilters(Arrays.asList(filters))
                     .build();
 
-        return agent.unsubscribeMqtt(unsubscribeRequest);
+        return agentControl.unsubscribeMqtt(unsubscribeRequest);
     }
 
     @Override
@@ -125,7 +130,7 @@ public class ConnectionControlImpl implements ConnectionControl {
             .setTimeout(timeout)
             .setMsg(message)
             .build();
-        return agent.publishMqtt(publishRequest);
+        return agentControl.publishMqtt(publishRequest);
     }
 
     /**
@@ -133,7 +138,7 @@ public class ConnectionControlImpl implements ConnectionControl {
      *
      * @param message the received MQTT message
      */
-    void onMessageReceived(Mqtt5Message message) {
+    void onMessageReceived(@NonNull Mqtt5Message message) {
         if (connectionEvents != null) {
             connectionEvents.onMessageReceived(this, message);
         }

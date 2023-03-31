@@ -44,6 +44,7 @@ class AgentControlImplTest {
     private static final int DEFAULT_PORT = 8474;
     private static final int TEST_TIMEOUT = 44;
 
+    private EngineControlImpl engineControl;
     private ManagedChannel channel;
     private MqttClientControlGrpc.MqttClientControlBlockingStub blockingStub;
     private AgentControlImpl.ConnectionControlFactory connectionControlFactory;
@@ -51,11 +52,12 @@ class AgentControlImplTest {
 
     @BeforeEach
     void setup() {
+        engineControl = mock(EngineControlImpl.class);
         connectionControlFactory = mock(AgentControlImpl.ConnectionControlFactory.class);
         channel = mock(ManagedChannel.class);
         blockingStub = mock(MqttClientControlGrpc.MqttClientControlBlockingStub.class);
-        agentControl = new AgentControlImpl(DEFAULT_AGENT_ID, DEFAULT_ADDRESS, DEFAULT_PORT, connectionControlFactory,
-                                            channel, blockingStub);
+        agentControl = new AgentControlImpl(engineControl, DEFAULT_AGENT_ID, DEFAULT_ADDRESS, DEFAULT_PORT,
+                                            connectionControlFactory, channel, blockingStub);
     }
 
     @AfterEach

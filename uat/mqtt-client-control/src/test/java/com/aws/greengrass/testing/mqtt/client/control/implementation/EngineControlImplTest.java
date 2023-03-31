@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.eq;
@@ -143,7 +144,7 @@ class EngineControlImplTest {
         final String agentAddress = "agent_address";
         final int agentPort = 43000;
         final AgentControlImpl agentControl = mock(AgentControlImpl.class);
-        when(agentControlFactory.newAgentControl(anyString(), anyString(), anyInt())).thenReturn(agentControl);
+        when(agentControlFactory.newAgentControl(any(EngineControlImpl.class), anyString(), anyString(), anyInt())).thenReturn(agentControl);
         engineControl.onDiscoveryAgent(agentId, agentAddress, agentPort);
 
         // WHEN
@@ -176,7 +177,7 @@ class EngineControlImplTest {
 
         final AgentControlImpl agentControl = mock(AgentControlImpl.class);
 
-        when(agentControlFactory.newAgentControl(anyString(), anyString(), anyInt())).thenReturn(agentControl);
+        when(agentControlFactory.newAgentControl(any(EngineControlImpl.class), anyString(), anyString(), anyInt())).thenReturn(agentControl);
         engineControl.onDiscoveryAgent(agentId, agentAddress, agentPort);
 
         // WHEN
@@ -199,7 +200,7 @@ class EngineControlImplTest {
 
         when(agentControl.getConnectionControl(eq(connectionName))).thenReturn(connectionControl);
 
-        when(agentControlFactory.newAgentControl(anyString(), anyString(), anyInt())).thenReturn(agentControl);
+        when(agentControlFactory.newAgentControl(any(EngineControlImpl.class), anyString(), anyString(), anyInt())).thenReturn(agentControl);
         engineControl.onDiscoveryAgent(agentId, agentAddress, agentPort);
 
         // WHEN
@@ -234,14 +235,14 @@ class EngineControlImplTest {
 
         final AgentControlImpl agentControl = mock(AgentControlImpl.class);
 
-        when(agentControlFactory.newAgentControl(anyString(), anyString(), anyInt())).thenReturn(agentControl);
+        when(agentControlFactory.newAgentControl(any(EngineControlImpl.class), anyString(), anyString(), anyInt())).thenReturn(agentControl);
 
         // WHEN
         engineControl.onDiscoveryAgent(agentId, agentAddress, agentPort);
 
         // THEN
         assertSame(agentControl, engineControl.getAgent(agentId));
-        verify(agentControlFactory, times(1)).newAgentControl(eq(agentId), eq(agentAddress), eq(agentPort));
+        verify(agentControlFactory, times(1)).newAgentControl(eq(engineControl), eq(agentId), eq(agentAddress), eq(agentPort));
         verify(agentControl, times(1)).startAgent();
         verify(engineEvents).onAgentAttached(eq(agentControl));
     }
@@ -258,7 +259,7 @@ class EngineControlImplTest {
 
         final AgentControlImpl agentControl = mock(AgentControlImpl.class);
 
-        when(agentControlFactory.newAgentControl(anyString(), anyString(), anyInt())).thenReturn(agentControl);
+        when(agentControlFactory.newAgentControl(any(EngineControlImpl.class), anyString(), anyString(), anyInt())).thenReturn(agentControl);
         engineControl.onDiscoveryAgent(agentId, agentAddress, agentPort);
 
         // WHEN
@@ -282,7 +283,7 @@ class EngineControlImplTest {
 
         final AgentControlImpl agentControl = mock(AgentControlImpl.class);
 
-        when(agentControlFactory.newAgentControl(anyString(), anyString(), anyInt())).thenReturn(agentControl);
+        when(agentControlFactory.newAgentControl(any(EngineControlImpl.class), anyString(), anyString(), anyInt())).thenReturn(agentControl);
         engineControl.onDiscoveryAgent(agentId, agentAddress, agentPort);
 
         final int connectionId = 22;
@@ -307,7 +308,7 @@ class EngineControlImplTest {
 
         final AgentControlImpl agentControl = mock(AgentControlImpl.class);
 
-        when(agentControlFactory.newAgentControl(anyString(), anyString(), anyInt())).thenReturn(agentControl);
+        when(agentControlFactory.newAgentControl(any(EngineControlImpl.class), anyString(), anyString(), anyInt())).thenReturn(agentControl);
         engineControl.onDiscoveryAgent(agentId, agentAddress, agentPort);
 
         final int connectionId = 22;
