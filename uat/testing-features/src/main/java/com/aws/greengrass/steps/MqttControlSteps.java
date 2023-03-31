@@ -1,3 +1,8 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package com.aws.greengrass.steps;
 
 import io.cucumber.guice.ScenarioScoped;
@@ -48,6 +53,7 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
     @And("message {string} received on {string} from {string} topic within {int} {word}")
     public void receive(String message, String clientDeviceId, String topic, int value, String unitOfMeasure) {
         //@TODO Implement method

@@ -9,72 +9,16 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.aws.greengrass</groupId>
+    <parent>
+        <groupId>com.aws.greengrass</groupId>
+        <artifactId>client-devices-auth-uat</artifactId>
+        <version>${revision}</version>
+    </parent>
+
     <artifactId>client-devices-auth-custom-components</artifactId>
-    <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
+
     <modules>
-        <module>
-            client-java-sdk
-        </module>
+        <module>client-java-sdk</module>
     </modules>
-    <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-    </properties>
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.13.0</version>
-                <configuration>
-                    <!-- Current violations should not be exceeded. Try to decrease these over time -->
-                    <maxAllowedViolations>0</maxAllowedViolations>
-                    <printFailingErrors>true</printFailingErrors>
-                    <rulesets>
-                        <ruleset>../../codestyle/pmd-eg-ruleset.xml</ruleset>
-                        <ruleset>../../codestyle/pmd-eg-tests-ruleset.xml</ruleset>
-                    </rulesets>
-                    <includeTests>true</includeTests>
-                    <skip>${skipTests}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>test</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>3.1.0</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.puppycrawl.tools</groupId>
-                        <artifactId>checkstyle</artifactId>
-                        <version>8.29</version>
-                    </dependency>
-                </dependencies>
-                <configuration>
-                    <logViolationsToConsole>true</logViolationsToConsole>
-                    <configLocation>../../codestyle/checkstyle.xml</configLocation>
-                    <violationSeverity>warning</violationSeverity>
-                    <maxAllowedViolations>0</maxAllowedViolations>
-                    <skip>${skipTests}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>validate</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>

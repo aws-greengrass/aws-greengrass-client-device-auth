@@ -157,7 +157,7 @@ public interface MqttConnection {
      * @return useful information from SUBACK packet
      * @throws MqttException on errors
      */
-    SubAckInfo subscribe(long timeout, final Integer subscriptionId, final List<Subscription> subscriptions)
+    SubAckInfo subscribe(long timeout, Integer subscriptionId, List<Subscription> subscriptions)
             throws MqttException;
 
 
@@ -169,7 +169,7 @@ public interface MqttConnection {
      * @return useful information from PUBACK packet or null of no PUBACK has been received (as for QoS 0)
      * @throws MqttException on errors
      */
-    PubAckInfo publish(long timeout, final Message message) throws MqttException;
+    PubAckInfo publish(long timeout, Message message) throws MqttException;
 
     /**
      * Unsubscribes from topics.
@@ -179,7 +179,7 @@ public interface MqttConnection {
      * @return useful information from UNSUBACK packet
      * @throws MqttException on errors
      */
-    UnsubAckInfo unsubscribe(long timeout, final List<String> filters) throws MqttException;
+    UnsubAckInfo unsubscribe(long timeout, List<String> filters) throws MqttException;
 
     /**
      * Closes MQTT connection.
