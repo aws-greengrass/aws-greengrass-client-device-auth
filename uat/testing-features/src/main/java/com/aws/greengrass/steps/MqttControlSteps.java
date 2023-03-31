@@ -33,6 +33,7 @@ public class MqttControlSteps {
     private final IotSteps iotSteps;
 
     @Inject
+    @SuppressWarnings("MissingJavadocMethod")
     public MqttControlSteps(TestContext testContext, ScenarioContext scenarioContext, AWSResources resources,
                             IotSteps iotSteps) {
         this.testContext = testContext;
@@ -46,6 +47,11 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
+    /**
+     * Creates IoT Thing with IoT certificate and IoT policy.
+     *
+     * @param clientDeviceId string user defined client device id
+     */
     @And("I create client device {string}")
     public void createClientDevice(String clientDeviceId) {
         val clientDeviceThingName = testContext.testId().idFor(clientDeviceId);

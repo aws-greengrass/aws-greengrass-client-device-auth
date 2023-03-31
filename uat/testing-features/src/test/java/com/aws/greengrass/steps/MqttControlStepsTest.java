@@ -29,7 +29,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class MqttControlStepsTest {
+class MqttControlStepsTest {
 
     @Mock
     private TestContext testContext;
