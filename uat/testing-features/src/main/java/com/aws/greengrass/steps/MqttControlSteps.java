@@ -89,6 +89,7 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
     @And("message {string} received on {string} from {string} topic within {int} {word}")
     public void receive(String message, String clientDeviceId, String topic, int value, String unitOfMeasure) {
         //@TODO Implement method

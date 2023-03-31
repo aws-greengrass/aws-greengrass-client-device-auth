@@ -8,10 +8,15 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.aws.greengrass</groupId>
+
+    <parent>
+        <groupId>com.aws.greengrass</groupId>
+        <artifactId>client-devices-auth-custom-components</artifactId>
+        <version>${revision}</version>
+    </parent>
+
     <artifactId>client-devices-auth-uat-client-java-sdk</artifactId>
     <packaging>jar</packaging>
-    <version>1.0.0-SNAPSHOT</version>
 
     <licenses>
         <license>
@@ -20,19 +25,11 @@
         </license>
     </licenses>
 
-    <repositories>
-        <repository>
-            <id>greengrass-common</id>
-            <name>Greengrass common</name>
-            <url>https://d2jrmugq4soldf.cloudfront.net/snapshots</url>
-        </repository>
-    </repositories>
-
     <dependencies>
         <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
-            <version>${annotation.api.version}</version>
+            <version>${javax.annotation.api.version}</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -268,7 +265,7 @@
                     <dependency>
                         <groupId>com.puppycrawl.tools</groupId>
                         <artifactId>checkstyle</artifactId>
-                        <version>8.29</version>
+                        <version>${puppycrawl.checkstyle.version}</version>
                     </dependency>
                 </dependencies>
                 <configuration>
@@ -334,24 +331,6 @@
         <groups></groups>
         <jar.name>client-devices-auth-uat-client-java-sdk</jar.name>
         <main.class>com.aws.greengrass.testing.mqtt5.client.Main</main.class>
-        <!-- Dependencies versions -->
-        <log4j.version>2.20.0</log4j.version>
-        <iot.device.sdk.version>1.11.2</iot.device.sdk.version>
-        <protobuf.version>3.21.7</protobuf.version>
-        <protoc.version>3.21.7</protoc.version>
-        <grpc.version>1.53.0</grpc.version>
-        <lombok.version>1.18.22</lombok.version>
-        <annotation.api.version>1.3.2</annotation.api.version>
-        <protobuf.plugin.version>0.6.1</protobuf.plugin.version>
-        <os.plugin.version>1.7.1</os.plugin.version>
-        <exec.plugin.version>3.1.0</exec.plugin.version>
-        <jar.plugin.version>3.3.0</jar.plugin.version>
-        <compiler.plugin.version>3.8.1</compiler.plugin.version>
-        <pmd.plugin.version>3.13.0</pmd.plugin.version>
-        <license.plugin.version>4.0.rc2</license.plugin.version>
-        <spotbugs.plugin.version>4.0.0</spotbugs.plugin.version>
-        <checkstyle.plugin.version>3.1.0</checkstyle.plugin.version>
-        <shade.plugin.version>3.4.1</shade.plugin.version>
     </properties>
     <distributionManagement>
         <snapshotRepository>

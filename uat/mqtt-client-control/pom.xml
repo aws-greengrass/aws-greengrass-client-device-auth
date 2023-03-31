@@ -8,10 +8,15 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.aws.greengrass</groupId>
+
+    <parent>
+        <groupId>com.aws.greengrass</groupId>
+        <artifactId>client-devices-auth-uat</artifactId>
+        <version>${revision}</version>
+    </parent>
+
     <artifactId>aws-greengrass-testing-mqtt-client-control</artifactId>
     <packaging>jar</packaging>
-    <version>${revision}</version>
 
     <licenses>
         <license>
@@ -21,21 +26,11 @@
     </licenses>
     <properties>
         <jar.name>aws-greengrass-testing-mqtt-client-control</jar.name>
-        <revision>1.0.0-SNAPSHOT</revision>
         <main.class>com.aws.greengrass.testing.mqtt.client.control.ExampleControl</main.class>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <skipTests>false</skipTests>
-        <!-- Dependency versions -->
-        <protobuf.version>3.21.7</protobuf.version>
-        <protoc.version>3.21.7</protoc.version>
-        <grpc.version>1.53.0</grpc.version>
-        <protobuf.plugin.version>0.6.1</protobuf.plugin.version>
-        <os.plugin.version>1.7.1</os.plugin.version>
-        <log4j.version>2.20.0</log4j.version>
-        <shade.plugin.version>3.4.1</shade.plugin.version>
-        <lombok.version>1.18.22</lombok.version>
     </properties>
 
     <dependencies>
@@ -65,7 +60,7 @@
         <dependency>
             <groupId>org.apache.tomcat</groupId>
             <artifactId>annotations-api</artifactId>
-            <version>6.0.53</version>
+            <version>${tomcat.annotations.api.version}</version>
             <scope>provided</scope> <!-- not needed at runtime -->
         </dependency>
         <dependency>
@@ -133,7 +128,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>${exec.plugin.version}</version>
                 <executions>
                     <execution>
                         <goals>
@@ -168,7 +163,7 @@
             <plugin>
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
-                <version>4.2.rc3</version>
+                <version>${license.plugin.version}</version>
                 <configuration>
                     <licenseSets>
                         <licenseSet>
@@ -198,12 +193,12 @@
             </plugin>
             <plugin>
                 <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>${checkstyle.plugin.version}</version>
                 <dependencies>
                     <dependency>
                         <groupId>com.puppycrawl.tools</groupId>
                         <artifactId>checkstyle</artifactId>
-                        <version>8.29</version>
+                        <version>${puppycrawl.checkstyle.version}</version>
                     </dependency>
                 </dependencies>
                 <configuration>
@@ -227,7 +222,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.20.0</version>
+                <version>${pmd.plugin.version}</version>
                 <configuration>
                     <analysisCache>true</analysisCache>
                     <!-- Current violations should not be exceeded. Try to decrease these over time -->

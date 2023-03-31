@@ -64,7 +64,7 @@ public class Main {
     }
 
 
-    @SuppressWarnings("PMD.MissingBreakInSwitch")
+    @SuppressWarnings({"PMD.MissingBreakInSwitch", "PMD.ImplicitSwitchFallThrough"})
     private static Arguments parseArgs(String... args) {
         String agentId;
         String address = DEFAULT_GRPC_SERVER_IP;
