@@ -66,7 +66,7 @@ public class AgentControlImpl implements AgentControl {
      * @param address address of gRPC server of agent (MQTT client)
      * @param port port of  gRPC server of agent (MQTT client)
      */
-    AgentControlImpl(String agentId, String address, int port) {
+    public AgentControlImpl(String agentId, String address, int port) {
         super();
         this.agentId = agentId;
         this.address = address;
@@ -245,14 +245,8 @@ public class AgentControlImpl implements AgentControl {
         return blockingStub.publishMqtt(publishRequest);
     }
 
-    /**
-     * Gets connection control by connection name.
-     * Searching over all controls and find first occurrence of control with such name
-     *
-     * @param connectionName the logical name of a connection
-     * @return connection control or null when does not found
-     */
-    ConnectionControlImpl getConnectionControl(@NonNull String connectionName) {
+    @Override
+    public ConnectionControl getConnectionControl(@NonNull String connectionName) {
         for (ConcurrentHashMap.Entry<Integer, ConnectionControlImpl> entry : connections.entrySet()) {
             ConnectionControlImpl connectionControl = entry.getValue();
             if (connectionName.equals(connectionControl.getConnectionName())) {

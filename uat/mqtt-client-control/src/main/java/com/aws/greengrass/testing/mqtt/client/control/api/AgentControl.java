@@ -79,6 +79,15 @@ public interface AgentControl {
                                             @NonNull ConnectionEvents connectionEvents);
 
     /**
+     * Gets connection control by connection name.
+     * Searching over all controls and find first occurrence of control with such name
+     *
+     * @param connectionName the logical name of a connection
+     * @return connection control or null when does not found
+     */
+    ConnectionControl getConnectionControl(@NonNull String connectionName);
+
+    /**
      * Shutdown whole agent.
      *
      * @param reason shutdown reason

@@ -20,8 +20,8 @@ import com.aws.greengrass.testing.mqtt.client.MqttUnsubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl.ConnectionEvents;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;

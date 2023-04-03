@@ -30,11 +30,22 @@ import java.util.concurrent.atomic.AtomicReference;
 public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     private static final Logger logger = LogManager.getLogger(EngineControlImpl.class);
 
+    private final AgentControlFactory agentControlFactory;
     private final ConcurrentHashMap<String, AgentControlImpl> agents = new ConcurrentHashMap<>();
     private final AtomicReference<Server> server = new AtomicReference<>();
 
     private EngineEvents engineEvents;
-    private int boundPort;
+    private Integer boundPort = null;
+
+
+    public interface AgentControlFactory {
+        AgentControlImpl newAgentControl(String agentId, String address, int port);
+    }
+
+    public EngineControlImpl(@NonNull AgentControlFactory agentControlFactory) {
+        super();
+        this.agentControlFactory = agentControlFactory;
+    }
 
     @Override
     public void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException {
@@ -56,7 +67,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     }
 
     @Override
-    public int getBoundPort() {
+    public Integer getBoundPort() {
         return boundPort;
     }
 
@@ -107,7 +118,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         isNew[0] = false;
         AgentControlImpl agent = agents.computeIfAbsent(agentId, k -> {
             isNew[0] = true;
-            return new AgentControlImpl(agentId, address, port);
+            return agentControlFactory.newAgentControl(agentId, address, port);
             });
 
         if (isNew[0]) {
@@ -118,7 +129,6 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
             }
         }
     }
-
 
     @Override
     public void onUnregisterAgent(String agentId) {
