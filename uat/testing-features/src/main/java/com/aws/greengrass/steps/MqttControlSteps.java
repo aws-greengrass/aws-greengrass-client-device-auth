@@ -17,7 +17,6 @@ import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import lombok.extern.log4j.Log4j2;
-import lombok.val;
 
 import java.io.IOException;
 import javax.inject.Inject;
@@ -58,20 +57,20 @@ public class MqttControlSteps {
      */
     @And("I create client device {string}")
     public void createClientDevice(String clientDeviceId) {
-        val clientDeviceThingName = testContext.testId()
-                                               .idFor(clientDeviceId);
+        final String clientDeviceThingName = testContext.testId()
+                                                        .idFor(clientDeviceId);
         scenarioContext.put(clientDeviceId, clientDeviceThingName);
-        val iotPolicySpec = createDefaultClientDevicePolicy(clientDeviceId);
-        val iotCertificateSpec = IotCertificateSpec.builder()
-                                                   .thingName(clientDeviceThingName)
-                                                   .build();
-        val iotThingSpec = IotThingSpec.builder()
-                                       .thingName(clientDeviceThingName)
-                                       .policySpec(iotPolicySpec)
-                                       .createCertificate(true)
-                                       .certificateSpec(iotCertificateSpec)
-                                       .build();
-        val iotThing = resources.create(iotThingSpec);
+        IotPolicySpec iotPolicySpec = createDefaultClientDevicePolicy(clientDeviceId);
+        IotCertificateSpec iotCertificateSpec = IotCertificateSpec.builder()
+                                                                  .thingName(clientDeviceThingName)
+                                                                  .build();
+        IotThingSpec iotThingSpec = IotThingSpec.builder()
+                                                .thingName(clientDeviceThingName)
+                                                .policySpec(iotPolicySpec)
+                                                .createCertificate(true)
+                                                .certificateSpec(iotCertificateSpec)
+                                                .build();
+        IotThingSpec iotThing = resources.create(iotThingSpec);
         log.debug("IoT Thing for client device {} is: {}", clientDeviceId, iotThing);
     }
 
