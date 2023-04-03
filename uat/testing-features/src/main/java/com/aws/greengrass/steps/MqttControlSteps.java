@@ -10,6 +10,7 @@ import com.aws.greengrass.testing.model.ScenarioContext;
 import com.aws.greengrass.testing.model.TestContext;
 import com.aws.greengrass.testing.resources.AWSResources;
 import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
+import com.aws.greengrass.testing.resources.iot.IotPolicySpec;
 import com.aws.greengrass.testing.resources.iot.IotThingSpec;
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.en.And;
@@ -18,11 +19,14 @@ import io.cucumber.java.en.When;
 import lombok.extern.log4j.Log4j2;
 import lombok.val;
 
+import java.io.IOException;
 import javax.inject.Inject;
 
 @Log4j2
 @ScenarioScoped
 public class MqttControlSteps {
+
+    private static final String DEFAULT_CLIENT_DEVICE_POLICY_CONFIG = "/configs/iot/basic_client_device_policy.yaml";
 
     private final TestContext testContext;
 
@@ -57,7 +61,7 @@ public class MqttControlSteps {
         val clientDeviceThingName = testContext.testId()
                                                .idFor(clientDeviceId);
         scenarioContext.put(clientDeviceId, clientDeviceThingName);
-        val iotPolicySpec = iotSteps.createDefaultPolicy(clientDeviceId);
+        val iotPolicySpec = createDefaultClientDevicePolicy(clientDeviceId);
         val iotCertificateSpec = IotCertificateSpec.builder()
                                                    .thingName(clientDeviceThingName)
                                                    .build();
@@ -111,5 +115,20 @@ public class MqttControlSteps {
     @And("I discover core device broker as {string}")
     public void discoverCoreDeviceBroker(String string) {
         //@TODO Implement method
+    }
+
+    /**
+     * Create the default client device policy with a name override.
+     *
+     * @param policyNameOverride name to use for IoT policy
+     * @return IotPolicySpec
+     * @throws RuntimeException failed to create an IoT policy for some reason
+     */
+    public IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) {
+        try {
+            return iotSteps.createPolicy(DEFAULT_CLIENT_DEVICE_POLICY_CONFIG, policyNameOverride);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
