@@ -42,7 +42,23 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         AgentControlImpl newAgentControl(String agentId, String address, int port);
     }
 
-    public EngineControlImpl(@NonNull AgentControlFactory agentControlFactory) {
+    /**
+     * Creates instance of EngineControlImpl.
+     */
+    public EngineControlImpl() {
+        this(new AgentControlFactory() {
+            @Override
+            public AgentControlImpl newAgentControl(String agentId, String address, int port) {
+                return new AgentControlImpl(agentId, address, port);
+            }
+        });
+    }
+
+    /**
+     * Creates instance of EngineControlImpl for tests.
+     * @param agentControlFactory the factory to create agent control
+     */
+    EngineControlImpl(@NonNull AgentControlFactory agentControlFactory) {
         super();
         this.agentControlFactory = agentControlFactory;
     }
@@ -113,7 +129,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
 
 
     @Override
-    public void onDiscoveryAgent(String agentId, String address, int port) {
+    public void onDiscoveryAgent(@NonNull String agentId, @NonNull String address, int port) {
         final boolean[] isNew = new boolean[1];
         isNew[0] = false;
         AgentControlImpl agent = agents.computeIfAbsent(agentId, k -> {
@@ -131,7 +147,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     }
 
     @Override
-    public void onUnregisterAgent(String agentId) {
+    public void onUnregisterAgent(@NonNull String agentId) {
         AgentControlImpl agent = agents.remove(agentId);
         if (agent != null) {
             agent.stopAgent();
@@ -143,7 +159,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
 
 
     @Override
-    public void onMessageReceived(String agentId, int connectionId, Mqtt5Message message) {
+    public void onMessageReceived(@NonNull String agentId, int connectionId, @NonNull Mqtt5Message message) {
         AgentControlImpl agentControl = agents.get(agentId);
         if (agentControl == null) {
             logger.atWarn().log("Message received but agent {} could not found", agentId);

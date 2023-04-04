@@ -49,6 +49,7 @@
         <mockito.version>3.2.0</mockito.version>
         <jupiter.api.version>5.6.2</jupiter.api.version>
         <mockito.junit.jupiter.version>3.5.13</mockito.junit.jupiter.version>
+        <mockito.inline.version>5.2.0</mockito.inline.version>
         <!-- Plugin versions -->
         <jar.plugin.version>3.3.0</jar.plugin.version>
         <shade.plugin.version>3.4.1</shade.plugin.version>

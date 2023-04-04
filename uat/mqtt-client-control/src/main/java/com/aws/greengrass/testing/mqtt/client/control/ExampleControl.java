@@ -8,7 +8,6 @@ package com.aws.greengrass.testing.mqtt.client.control;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl.EngineEvents;
-import com.aws.greengrass.testing.mqtt.client.control.implementation.AgentControlImpl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.EngineControlImpl;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -58,12 +57,7 @@ public class ExampleControl {
         super();
         this.useTLS = useTLS;
         this.port = port;
-        this.engine = new EngineControlImpl(new EngineControlImpl.AgentControlFactory() {
-            @Override
-            public AgentControlImpl newAgentControl(String agentId, String address, int port) {
-                return new AgentControlImpl(agentId, address, port);
-            }
-        });
+        this.engine = new EngineControlImpl();
     }
 
     private void testRun() throws IOException, InterruptedException {
