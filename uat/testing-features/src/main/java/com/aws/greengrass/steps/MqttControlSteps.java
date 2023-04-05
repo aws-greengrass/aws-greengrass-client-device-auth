@@ -5,21 +5,73 @@
 
 package com.aws.greengrass.steps;
 
+import com.aws.greengrass.testing.features.IotSteps;
+import com.aws.greengrass.testing.model.ScenarioContext;
+import com.aws.greengrass.testing.model.TestContext;
+import com.aws.greengrass.testing.resources.AWSResources;
+import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
+import com.aws.greengrass.testing.resources.iot.IotPolicySpec;
+import com.aws.greengrass.testing.resources.iot.IotThingSpec;
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import lombok.extern.log4j.Log4j2;
 
+import java.io.IOException;
+import javax.inject.Inject;
+
+@Log4j2
 @ScenarioScoped
 public class MqttControlSteps {
+
+    private static final String DEFAULT_CLIENT_DEVICE_POLICY_CONFIG = "/configs/iot/basic_client_device_policy.yaml";
+
+    private final TestContext testContext;
+
+    private final ScenarioContext scenarioContext;
+
+    private final AWSResources resources;
+
+    private final IotSteps iotSteps;
+
+    @Inject
+    @SuppressWarnings("MissingJavadocMethod")
+    public MqttControlSteps(TestContext testContext, ScenarioContext scenarioContext, AWSResources resources,
+                            IotSteps iotSteps) {
+        this.testContext = testContext;
+        this.scenarioContext = scenarioContext;
+        this.resources = resources;
+        this.iotSteps = iotSteps;
+    }
+
     @When("I associate {word} with ggc")
     public void associateClient(String clientDeviceId) {
         //@TODO Implement method
     }
 
-    @And("I create client device {word}")
+    /**
+     * Creates IoT Thing with IoT certificate and IoT policy.
+     *
+     * @param clientDeviceId string user defined client device id
+     */
+    @And("I create client device {string}")
     public void createClientDevice(String clientDeviceId) {
-        //@TODO Implement method
+        final String clientDeviceThingName = testContext.testId()
+                                                        .idFor(clientDeviceId);
+        scenarioContext.put(clientDeviceId, clientDeviceThingName);
+        IotPolicySpec iotPolicySpec = createDefaultClientDevicePolicy(clientDeviceId);
+        IotCertificateSpec iotCertificateSpec = IotCertificateSpec.builder()
+                                                                  .thingName(clientDeviceThingName)
+                                                                  .build();
+        IotThingSpec iotThingSpec = IotThingSpec.builder()
+                                                .thingName(clientDeviceThingName)
+                                                .policySpec(iotPolicySpec)
+                                                .createCertificate(true)
+                                                .certificateSpec(iotCertificateSpec)
+                                                .build();
+        IotThingSpec iotThing = resources.create(iotThingSpec);
+        log.debug("IoT Thing for client device {} is: {}", clientDeviceId, iotThing);
     }
 
 
@@ -62,5 +114,20 @@ public class MqttControlSteps {
     @And("I discover core device broker as {string}")
     public void discoverCoreDeviceBroker(String string) {
         //@TODO Implement method
+    }
+
+    /**
+     * Create the default client device policy with a name override.
+     *
+     * @param policyNameOverride name to use for IoT policy
+     * @return IotPolicySpec
+     * @throws RuntimeException failed to create an IoT policy for some reason
+     */
+    public IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) {
+        try {
+            return iotSteps.createPolicy(DEFAULT_CLIENT_DEVICE_POLICY_CONFIG, policyNameOverride);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
