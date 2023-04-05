@@ -504,13 +504,17 @@ class MqttConnectionImplTest {
             new Subscription(filter1, QoS, noLocal, retainAsPublished, retainHandling)
         );
 
+        final CompletableFuture<SubAckPacket> subscribeFuture = new CompletableFuture<>();
+        when(client.subscribe(any(SubscribePacket.class))).thenReturn(subscribeFuture);
+
         // move to connected state
         mqttConnectionImpl.lifecycleEvents.onConnectionSuccess(client, null);
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
-            mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, subscriptions);
+                mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, subscriptions);
         }, "Could not subscribe");
+
     }
 
 
@@ -572,10 +576,15 @@ class MqttConnectionImplTest {
         final long timeoutSeconds = SHORT_TIMEOUT_SEC;
         final List<String> filters = Arrays.asList("test/filter1", "test/filter2");
 
+        final CompletableFuture<UnsubAckPacket> unsubscribeFuture = new CompletableFuture<>();
+        when(client.unsubscribe(any(UnsubscribePacket.class))).thenReturn(unsubscribeFuture);
+
+        // move to connected state
+        mqttConnectionImpl.lifecycleEvents.onConnectionSuccess(client, null);
+
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
             mqttConnectionImpl.unsubscribe(timeoutSeconds, filters);
         }, "Could not unsubscribe");
     }
-
 }

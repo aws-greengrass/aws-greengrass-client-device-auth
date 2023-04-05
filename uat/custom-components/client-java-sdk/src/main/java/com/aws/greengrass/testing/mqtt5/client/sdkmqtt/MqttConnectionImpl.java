@@ -252,7 +252,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public PubAckInfo publish(long timeout, final Message message)
+    public PubAckInfo publish(long timeout, final @NonNull Message message)
                     throws MqttException {
 
         stateCheck();
@@ -284,7 +284,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public SubAckInfo subscribe(long timeout, final Integer subscriptionId, final List<Subscription> subscriptions)
+    public SubAckInfo subscribe(long timeout, Integer subscriptionId, final @NonNull List<Subscription> subscriptions)
             throws MqttException {
 
         stateCheck();
@@ -317,7 +317,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public UnsubAckInfo unsubscribe(long timeout, final List<String> filters)
+    public UnsubAckInfo unsubscribe(long timeout, final @NonNull List<String> filters)
             throws MqttException {
 
         stateCheck();

@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt5.client;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NonNull;
 
 /**
  * Interface of MQTT5 library.
@@ -53,7 +54,7 @@ public interface MqttLib extends AutoCloseable {
      * @return MqttConnection on success
      * @throws MqttException on errors
      */
-    MqttConnection createConnection(ConnectionParams connectionParams, GRPCClient grpcClient)
+    MqttConnection createConnection(@NonNull ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
                 throws MqttException;
 
     /**
@@ -62,7 +63,7 @@ public interface MqttLib extends AutoCloseable {
      * @param mqttConnection connection to register
      * @return id of connection
      */
-    int registerConnection(MqttConnection mqttConnection);
+    int registerConnection(@NonNull MqttConnection mqttConnection);
 
     /**
      * Get a MQTT connection.
