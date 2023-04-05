@@ -30,11 +30,38 @@ import java.util.concurrent.atomic.AtomicReference;
 public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     private static final Logger logger = LogManager.getLogger(EngineControlImpl.class);
 
+    private final AgentControlFactory agentControlFactory;
     private final ConcurrentHashMap<String, AgentControlImpl> agents = new ConcurrentHashMap<>();
     private final AtomicReference<Server> server = new AtomicReference<>();
 
     private EngineEvents engineEvents;
-    private int boundPort;
+    private Integer boundPort = null;
+
+
+    public interface AgentControlFactory {
+        AgentControlImpl newAgentControl(String agentId, String address, int port);
+    }
+
+    /**
+     * Creates instance of EngineControlImpl.
+     */
+    public EngineControlImpl() {
+        this(new AgentControlFactory() {
+            @Override
+            public AgentControlImpl newAgentControl(String agentId, String address, int port) {
+                return new AgentControlImpl(agentId, address, port);
+            }
+        });
+    }
+
+    /**
+     * Creates instance of EngineControlImpl for tests.
+     * @param agentControlFactory the factory to create agent control
+     */
+    EngineControlImpl(@NonNull AgentControlFactory agentControlFactory) {
+        super();
+        this.agentControlFactory = agentControlFactory;
+    }
 
     @Override
     public void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException {
@@ -56,7 +83,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     }
 
     @Override
-    public int getBoundPort() {
+    public Integer getBoundPort() {
         return boundPort;
     }
 
@@ -102,12 +129,12 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
 
 
     @Override
-    public void onDiscoveryAgent(String agentId, String address, int port) {
+    public void onDiscoveryAgent(@NonNull String agentId, @NonNull String address, int port) {
         final boolean[] isNew = new boolean[1];
         isNew[0] = false;
         AgentControlImpl agent = agents.computeIfAbsent(agentId, k -> {
             isNew[0] = true;
-            return new AgentControlImpl(agentId, address, port);
+            return agentControlFactory.newAgentControl(agentId, address, port);
             });
 
         if (isNew[0]) {
@@ -119,9 +146,8 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         }
     }
 
-
     @Override
-    public void onUnregisterAgent(String agentId) {
+    public void onUnregisterAgent(@NonNull String agentId) {
         AgentControlImpl agent = agents.remove(agentId);
         if (agent != null) {
             agent.stopAgent();
@@ -133,7 +159,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
 
 
     @Override
-    public void onMessageReceived(String agentId, int connectionId, Mqtt5Message message) {
+    public void onMessageReceived(@NonNull String agentId, int connectionId, @NonNull Mqtt5Message message) {
         AgentControlImpl agentControl = agents.get(agentId);
         if (agentControl == null) {
             logger.atWarn().log("Message received but agent {} could not found", agentId);

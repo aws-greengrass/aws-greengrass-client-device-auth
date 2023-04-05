@@ -36,7 +36,7 @@ public class ExampleControl {
         @Override
         public void onAgentAttached(AgentControl agent) {
             logger.atInfo().log("Agent {} is connected", agent.getAgentId());
-            AgentTestScenario scenario = new AgentTestScenario(useTLS, engine, agent);
+            AgentTestScenario scenario = new AgentTestScenario(useTLS, agent);
             executorService.submit(scenario);
         }
 

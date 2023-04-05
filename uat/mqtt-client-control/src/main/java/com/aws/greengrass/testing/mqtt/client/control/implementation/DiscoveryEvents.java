@@ -7,6 +7,7 @@ package com.aws.greengrass.testing.mqtt.client.control.implementation;
 
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import lombok.NonNull;
 
 /**
  * Interface of receiver for events from dicovery service.
@@ -19,14 +20,14 @@ public interface DiscoveryEvents {
      * @param address address of gRPC service of the agent
      * @param port port of of gRPC service of the agent
      */
-    void onDiscoveryAgent(String agentId, String address, int port);
+    void onDiscoveryAgent(@NonNull String agentId, @NonNull String address, int port);
 
     /**
      * Called when agent calls unregister.
      *
      * @param agentId agent identification string
      */
-    void onUnregisterAgent(String agentId);
+    void onUnregisterAgent(@NonNull String agentId);
 
     /**
      * Called when MQTT message has been received.
@@ -35,7 +36,7 @@ public interface DiscoveryEvents {
      * @param connectionId id of connected where receives message
      * @param message the received MQTT message
      */
-    void onMessageReceived(String agentId, int connectionId, Mqtt5Message message);
+    void onMessageReceived(@NonNull String agentId, int connectionId, @NonNull Mqtt5Message message);
 
     /**
      * Called when MQTT connection has been disconnected.
@@ -45,5 +46,5 @@ public interface DiscoveryEvents {
      * @param disconnect optional infomation from DISCONNECT packet
      * @param error optional OS-dependent error string
      */
-    void onMqttDisconnect(String agentId, int connectionId, Mqtt5Disconnect disconnect, String error);
+    void onMqttDisconnect(@NonNull String agentId, int connectionId, @NonNull Mqtt5Disconnect disconnect, String error);
 }

@@ -42,9 +42,9 @@ public interface EngineControl {
 
     /**
      * Gets port where gRPC service actually bound to.
-     * @return actual port where gRPC server is listeding
+     * @return actual port where gRPC server is listen or null if not running
      */
-    int getBoundPort();
+    Integer getBoundPort();
 
     /**
      * Checks is engine runing.
