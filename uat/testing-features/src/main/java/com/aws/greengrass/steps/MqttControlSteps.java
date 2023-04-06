@@ -77,7 +77,7 @@ public class MqttControlSteps {
     @Inject
     @SuppressWarnings("MissingJavadocMethod")
     public MqttControlSteps(TestContext testContext, ScenarioContext scenarioContext, AWSResources resources,
-                            IotSteps iotSteps, EngineControl engineControl) {
+                            IotSteps iotSteps, EngineControl engineControl) throws IOException {
         this.testContext = testContext;
         this.scenarioContext = scenarioContext;
         this.resources = resources;
@@ -95,9 +95,10 @@ public class MqttControlSteps {
      * Creates IoT Thing with IoT certificate and IoT policy.
      *
      * @param clientDeviceId string user defined client device id
+     * @throws IOException thrown when default device policy is not found
      */
     @And("I create client device {string}")
-    public void createClientDevice(String clientDeviceId) {
+    public void createClientDevice(String clientDeviceId) throws IOException {
         final String clientDeviceThingName = testContext.testId()
                                                         .idFor(clientDeviceId);
         scenarioContext.put(clientDeviceId, clientDeviceThingName);
@@ -165,21 +166,13 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
-    private IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) {
-        try {
-            return iotSteps.createPolicy(DEFAULT_CLIENT_DEVICE_POLICY_CONFIG, policyNameOverride);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    private IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) throws IOException {
+        return iotSteps.createPolicy(DEFAULT_CLIENT_DEVICE_POLICY_CONFIG, policyNameOverride);
     }
 
-    private void startMqttControl() {
+    private void startMqttControl() throws IOException {
         if (!engineControl.isEngineRunning()) {
-            try {
-                engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
         }
     }
 
