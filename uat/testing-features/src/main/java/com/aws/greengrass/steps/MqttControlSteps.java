@@ -8,6 +8,14 @@ package com.aws.greengrass.steps;
 import com.aws.greengrass.testing.features.IotSteps;
 import com.aws.greengrass.testing.model.ScenarioContext;
 import com.aws.greengrass.testing.model.TestContext;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
+import com.aws.greengrass.testing.mqtt.client.MqttProtoVersion;
+import com.aws.greengrass.testing.mqtt.client.TLSSettings;
+import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
+import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
+import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.resources.AWSResources;
 import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
 import com.aws.greengrass.testing.resources.iot.IotPolicySpec;
@@ -27,6 +35,12 @@ public class MqttControlSteps {
 
     private static final String DEFAULT_CLIENT_DEVICE_POLICY_CONFIG = "/configs/iot/basic_client_device_policy.yaml";
 
+    private static final int DEFAULT_CONTROL_GRPC_PORT = 47_619;
+    private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
+    private static final int DEFAULT_MQTT_CONNECT_TIMEOUT = 30;
+    private static final int DEFAULT_MQTT_BROKER_PORT = 8883;
+    private static final String DEFAULT_MQTT_BROKER_HOST = "localhost";
+
     private final TestContext testContext;
 
     private final ScenarioContext scenarioContext;
@@ -34,15 +48,42 @@ public class MqttControlSteps {
     private final AWSResources resources;
 
     private final IotSteps iotSteps;
+    private final EngineControl engineControl;
+
+    private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
+        @Override
+        public void onAgentAttached(AgentControl agent) {
+            log.info("Agent {} is connected", agent.getAgentId());
+        }
+
+        @Override
+        public void onAgentDeattached(AgentControl agent) {
+            log.info("Agent {} is disconnected", agent.getAgentId());
+        }
+    };
+
+    private final AgentControl.ConnectionEvents connectionEvents = new AgentControl.ConnectionEvents() {
+        @Override
+        public void onMessageReceived(ConnectionControl connectionControl, Mqtt5Message message) {
+            log.info("Message received: {}", message.toString());
+        }
+
+        @Override
+        public void onMqttDisconnect(ConnectionControl connectionControl, Mqtt5Disconnect disconnect, String error) {
+            log.info("Disconnected. Error: {}", error);
+        }
+    };
 
     @Inject
     @SuppressWarnings("MissingJavadocMethod")
     public MqttControlSteps(TestContext testContext, ScenarioContext scenarioContext, AWSResources resources,
-                            IotSteps iotSteps) {
+                            IotSteps iotSteps, EngineControl engineControl) throws IOException {
         this.testContext = testContext;
         this.scenarioContext = scenarioContext;
         this.resources = resources;
         this.iotSteps = iotSteps;
+        this.engineControl = engineControl;
+        startMqttControl();
     }
 
     @When("I associate {word} with ggc")
@@ -54,9 +95,10 @@ public class MqttControlSteps {
      * Creates IoT Thing with IoT certificate and IoT policy.
      *
      * @param clientDeviceId string user defined client device id
+     * @throws IOException thrown when default device policy is not found
      */
     @And("I create client device {string}")
-    public void createClientDevice(String clientDeviceId) {
+    public void createClientDevice(String clientDeviceId) throws IOException {
         final String clientDeviceThingName = testContext.testId()
                                                         .idFor(clientDeviceId);
         scenarioContext.put(clientDeviceId, clientDeviceThingName);
@@ -74,10 +116,18 @@ public class MqttControlSteps {
         log.debug("IoT Thing for client device {} is: {}", clientDeviceId, iotThing);
     }
 
-
+    /**
+     * Pass IoT Thing certificate for connection into specified client component.
+     *
+     * @param clientDeviceId string user defined client device id
+     * @param componentId    componentId of MQTT client
+     * @param brokerId       broker id
+     */
     @And("I connect device {string} on {word} to {string}")
     public void connect(String clientDeviceId, String componentId, String brokerId) {
-        //@TODO Implement method
+        final MqttConnectRequest request = getMqttConnectRequest(clientDeviceId, componentId, brokerId);
+        engineControl.getAgent(getAgentId(componentId))
+                     .createMqttConnection(request, connectionEvents);
     }
 
     @Then("connection for device {string} is successfully established within {int} {word}")
@@ -116,18 +166,75 @@ public class MqttControlSteps {
         //@TODO Implement method
     }
 
-    /**
-     * Create the default client device policy with a name override.
-     *
-     * @param policyNameOverride name to use for IoT policy
-     * @return IotPolicySpec
-     * @throws RuntimeException failed to create an IoT policy for some reason
-     */
-    public IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) {
-        try {
-            return iotSteps.createPolicy(DEFAULT_CLIENT_DEVICE_POLICY_CONFIG, policyNameOverride);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+    private IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) throws IOException {
+        return iotSteps.createPolicy(DEFAULT_CLIENT_DEVICE_POLICY_CONFIG, policyNameOverride);
+    }
+
+    private void startMqttControl() throws IOException {
+        if (!engineControl.isEngineRunning()) {
+            engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
         }
+    }
+
+    private MqttConnectRequest getMqttConnectRequest(String clientDeviceId, String componentId, String brokerId) {
+        final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceId);
+        return MqttConnectRequest.newBuilder()
+                                 .setClientId(getAgentId(componentId))
+                                 .setHost(getBrokerHost(brokerId))
+                                 .setPort(getBrokerPort(brokerId))
+                                 .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
+                                 .setCleanSession(true)
+                                 .setTimeout(DEFAULT_MQTT_CONNECT_TIMEOUT)
+                                 .setTls(buildTlsSettings(thingSpec, brokerId))
+                                 .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50)
+                                 .build();
+    }
+
+    private IotThingSpec getClientDeviceThingSpec(String clientDeviceId) {
+        final String name = testContext.testId()
+                                       .idFor(clientDeviceId);
+        return resources.trackingSpecs(IotThingSpec.class)
+                        .filter(t -> name.equals(t.resource()
+                                                  .thingName()))
+                        .findFirst()
+                        .orElseThrow(() -> new RuntimeException("Thing spec is not found"));
+    }
+
+    private TLSSettings buildTlsSettings(IotThingSpec thingSpec, String brokerId) {
+        return TLSSettings.newBuilder()
+                          .setCa(getBrokerCa(brokerId))
+                          .setCert(thingSpec.resource()
+                                            .certificate()
+                                            .certificatePem())
+
+                          .setKey(thingSpec.resource()
+                                           .certificate()
+                                           .keyPair()
+                                           .privateKey())
+                          .build();
+    }
+
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    private String getBrokerHost(String brokerId) {
+        //@TODO Implement method
+        return DEFAULT_MQTT_BROKER_HOST;
+    }
+
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    private int getBrokerPort(String brokerId) {
+        //@TODO Implement method
+        return DEFAULT_MQTT_BROKER_PORT;
+    }
+
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    private String getAgentId(String componentName) {
+        //@TODO Implement method
+        return "";
+    }
+
+    @SuppressWarnings("PMD.UnusedFormalParameter")
+    private String getBrokerCa(String brokerId) {
+        //@TODO Implement method
+        return "";
     }
 }

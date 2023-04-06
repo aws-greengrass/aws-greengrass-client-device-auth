@@ -62,5 +62,8 @@
         <spotbugs.plugin.version>4.0.0</spotbugs.plugin.version>
         <antrun.plugin.version>3.0.0</antrun.plugin.version>
         <surefire.plugin.version>3.0.0</surefire.plugin.version>
+        <junit.version>5.9.2</junit.version>
+        <mockito.version>3.2.0</mockito.version>
+        <auto.service.version>1.0.1</auto.service.version>
     </properties>
 </project>
