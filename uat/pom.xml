@@ -57,5 +57,6 @@
         <antrun.plugin.version>3.0.0</antrun.plugin.version>
         <junit.version>5.9.2</junit.version>
         <mockito.version>3.2.0</mockito.version>
+        <auto.service.version>1.0.1</auto.service.version>
     </properties>
 </project>
