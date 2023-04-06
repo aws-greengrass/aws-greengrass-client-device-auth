@@ -53,11 +53,18 @@ public class AgentControlImpl implements AgentControl {
     private final String agentId;
     private final String address;
     private final int port;
+    private final ConnectionControlFactory connectionControlFactory;
     private int timeout = DEFAULT_TIMEOUT;
 
     private ManagedChannel channel;
     private MqttClientControlGrpc.MqttClientControlBlockingStub blockingStub;
 
+
+    public interface ConnectionControlFactory {
+        ConnectionControlImpl newConnectionControl(MqttConnectReply connectReply,
+                                                    @NonNull ConnectionEvents connectionEvents,
+                                                    @NonNull AgentControlImpl agent);
+    }
 
     /**
      * Creates instanse of AgentControlImpl.
@@ -66,11 +73,40 @@ public class AgentControlImpl implements AgentControl {
      * @param address address of gRPC server of agent (MQTT client)
      * @param port port of  gRPC server of agent (MQTT client)
      */
-    AgentControlImpl(String agentId, String address, int port) {
+    public AgentControlImpl(@NonNull String agentId, @NonNull String address, int port) {
         super();
         this.agentId = agentId;
         this.address = address;
         this.port = port;
+        this.connectionControlFactory = new ConnectionControlFactory() {
+                @Override
+                public ConnectionControlImpl newConnectionControl(MqttConnectReply connectReply,
+                                                                    @NonNull ConnectionEvents connectionEvents,
+                                                                    @NonNull AgentControlImpl agent) {
+                    return new ConnectionControlImpl(connectReply, connectionEvents, agent);
+                }
+            };
+    }
+
+    /**
+     * Creates instanse of AgentControlImpl for testing.
+     *
+     * @param agentId id of agent
+     * @param address address of gRPC server of agent (MQTT client)
+     * @param port port of  gRPC server of agent (MQTT client)
+     * @param channel the channel
+     * @param blockingStub the blockingStub
+     */
+    AgentControlImpl(@NonNull String agentId, @NonNull String address, int port,
+                        @NonNull ConnectionControlFactory connectionControlFactory, @NonNull ManagedChannel channel,
+                        @NonNull MqttClientControlGrpc.MqttClientControlBlockingStub blockingStub) {
+        super();
+        this.agentId = agentId;
+        this.address = address;
+        this.port = port;
+        this.connectionControlFactory = connectionControlFactory;
+        this.channel = channel;
+        this.blockingStub = blockingStub;
     }
 
 
@@ -84,13 +120,128 @@ public class AgentControlImpl implements AgentControl {
         this.timeout = timeout;
     }
 
+    @Override
+    public void startAgent() {
+        this.channel = Grpc.newChannelBuilderForAddress(address, port, InsecureChannelCredentials.create()).build();
+        this.blockingStub = MqttClientControlGrpc.newBlockingStub(this.channel);
+    }
+
+    @Override
+    public void stopAgent() {
+        closeAllMqttConnections();
+        disconnect();
+    }
+
+    @Override
+    public String getAgentId() {
+        return agentId;
+    }
+
+    @Override
+    public ConnectionControl getConnectionControl(@NonNull String connectionName) {
+        for (ConcurrentHashMap.Entry<Integer, ConnectionControlImpl> entry : connections.entrySet()) {
+            ConnectionControlImpl connectionControl = entry.getValue();
+            if (connectionName.equals(connectionControl.getConnectionName())) {
+                return connectionControl;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void shutdownAgent(@NonNull String reason) {
+        ShutdownRequest request = ShutdownRequest.newBuilder().setReason(reason).build();
+        blockingStub.shutdownAgent(request);
+        isShutdownSent.set(true);
+        logger.atInfo().log("shutdown request sent successfully");
+    }
+
+    @Override
+    public ConnectionControl createMqttConnection(@NonNull MqttConnectRequest connectRequest,
+                                                    @NonNull ConnectionEvents connectionEvents) {
+        ConnectionControlImpl connectionControl;
+        try {
+            connectLock.lock();
+            MqttConnectReply response = blockingStub.createMqttConnection(connectRequest);
+            if (response.getConnected()) {
+                int connectionId = response.getConnectionId().getConnectionId();
+                connectionControl = connectionControlFactory.newConnectionControl(response, connectionEvents, this);
+                connections.put(connectionId, connectionControl);
+                logger.atInfo().log("Created connection with id {} CONNACK '{}'", connectionId, response.getConnAck());
+            } else {
+                String error = response.getError();
+                Mqtt5ConnAck connAck = response.getConnAck();
+                logger.atError().log("Couldn't create MQTT connection error '{}' CONNACK '{}'", error, connAck);
+                throw new RuntimeException("Couldn't create MQTT connection: " + error);
+            }
+        } finally {
+            connectLock.unlock();
+        }
+        logger.atInfo().log("createMqttConnection: MQTT connectionId {} created", connectionControl.getConnectionId());
+        return connectionControl;
+    }
+
+
+    /**
+     * Do MQTT subscription(s).
+     *
+     * @param subscribeRequest subscribe request
+     * @return reply to subscribe
+     * @throws StatusRuntimeException on errors
+     */
+    MqttSubscribeReply subscribeMqtt(@NonNull MqttSubscribeRequest subscribeRequest) {
+        int connectionId = subscribeRequest.getConnectionId().getConnectionId();
+        logger.atInfo().log("SubscribeMqtt: subscribe on connection {}", connectionId);
+        return blockingStub.subscribeMqtt(subscribeRequest);
+    }
+
+    /**
+     * Remove MQTT subscription(s).
+     *
+     * @param unsubscribeRequest unsubscribe request
+     * @return reply to unsubscribe
+     * @throws StatusRuntimeException on errors
+     */
+    MqttSubscribeReply unsubscribeMqtt(@NonNull MqttUnsubscribeRequest unsubscribeRequest) {
+        int connectionId = unsubscribeRequest.getConnectionId().getConnectionId();
+        logger.atInfo().log("UnsubscribeMqtt: unsubscribe on connectionId {}", connectionId);
+        return blockingStub.unsubscribeMqtt(unsubscribeRequest);
+    }
+
+    /**
+     * Publish MQTT message.
+     *
+     * @param publishRequest publish request
+     * @return reply to publish
+     * @throws StatusRuntimeException on errors
+     */
+    MqttPublishReply publishMqtt(@NonNull MqttPublishRequest publishRequest) {
+        int connectionId = publishRequest.getConnectionId().getConnectionId();
+        String topic = publishRequest.getMsg().getTopic();
+        logger.atInfo().log("PublishMqtt: publishing on connectionId {} topic {}", connectionId, topic);
+        return blockingStub.publishMqtt(publishRequest);
+    }
+
+    /**
+     * Close MQTT connection to the broker.
+     *
+     * @param closeRequest parameters of MQTT disconnect
+     * @throws StatusRuntimeException on errors
+     */
+    void closeMqttConnection(@NonNull MqttCloseRequest closeRequest) {
+        blockingStub.closeMqttConnection(closeRequest);
+        int connectionId = closeRequest.getConnectionId().getConnectionId();
+        connections.remove(connectionId);
+        logger.atInfo().log("closeMqttConnection: MQTT connectionId {} closed", connectionId);
+    }
+
     /**
      * Called when MQTT message has been received.
      *
      * @param connectionId id of connected where receives message
      * @param message the received MQTT message
      */
-    public void onMessageReceived(int connectionId, Mqtt5Message message) {
+    void onMessageReceived(int connectionId, @NonNull Mqtt5Message message) {
         ConnectionControlImpl connectionControl;
         try {
             connectLock.lock();
@@ -113,7 +264,7 @@ public class AgentControlImpl implements AgentControl {
      * @param disconnect optional infomation from DISCONNECT packet
      * @param error optional OS-dependent error string
      */
-    public void onMqttDisconnect(int connectionId, Mqtt5Disconnect disconnect, String error) {
+    void onMqttDisconnect(int connectionId, @NonNull Mqtt5Disconnect disconnect, String error) {
         ConnectionControlImpl connectionControl = connections.get(connectionId);
         if (connectionControl == null) {
             logger.atWarn().log("MQTT disconnect received but connection with id {} could not found", connectionId);
@@ -121,126 +272,6 @@ public class AgentControlImpl implements AgentControl {
             // NOTE: connectionControl is not unregistered until closeMqttConnection() explicitly called
             connectionControl.onMqttDisconnect(disconnect, error);
         }
-    }
-
-    @Override
-    public void startAgent() {
-        this.channel = Grpc.newChannelBuilderForAddress(address, port, InsecureChannelCredentials.create()).build();
-        this.blockingStub = MqttClientControlGrpc.newBlockingStub(this.channel);
-    }
-
-    @Override
-    public void stopAgent() {
-        closeAllMqttConnections();
-        disconnect();
-    }
-
-    @Override
-    public String getAgentId() {
-        return agentId;
-    }
-
-    @Override
-    public void shutdownAgent(String reason) {
-        ShutdownRequest request = ShutdownRequest.newBuilder().setReason(reason).build();
-        blockingStub.shutdownAgent(request);
-        logger.atInfo().log("shutdown request sent successfully");
-        isShutdownSent.set(true);
-    }
-
-    @Override
-    public ConnectionControl createMqttConnection(@NonNull MqttConnectRequest connectRequest,
-                                                    @NonNull ConnectionEvents connectionEvents) {
-        ConnectionControlImpl connectionControl;
-        try {
-            connectLock.lock();
-            MqttConnectReply response = blockingStub.createMqttConnection(connectRequest);
-            if (response.getConnected()) {
-                int connectionId = response.getConnectionId().getConnectionId();
-                connectionControl = new ConnectionControlImpl(response, connectionEvents, this);
-                connections.put(connectionId, connectionControl);
-                logger.atInfo().log("Created connection with id {} CONNACK '{}'", connectionId, response.getConnAck());
-            } else {
-                String error = response.getError();
-                Mqtt5ConnAck connAck = response.getConnAck();
-                logger.atError().log("Couldn't create MQTT connection error '{}' CONNACK '{}'", error, connAck);
-                throw new RuntimeException("Couldn't create MQTT connection: " + error);
-            }
-        } finally {
-            connectLock.unlock();
-        }
-        logger.atInfo().log("createMqttConnection: MQTT connectionId {} created", connectionControl.getConnectionId());
-        return connectionControl;
-    }
-
-    /**
-     * Close MQTT connection to the broker.
-     *
-     * @param closeRequest parameters of MQTT disconnect
-     * @throws StatusRuntimeException on errors
-     */
-    void closeMqttConnection(MqttCloseRequest closeRequest) {
-        blockingStub.closeMqttConnection(closeRequest);
-        int connectionId = closeRequest.getConnectionId().getConnectionId();
-        connections.remove(connectionId);
-        logger.atInfo().log("closeMqttConnection: MQTT connectionId {} closed", connectionId);
-    }
-
-    /**
-     * Do MQTT subscription(s).
-     *
-     * @param subscribeRequest subscribe request
-     * @return reply to subscribe
-     * @throws StatusRuntimeException on errors
-     */
-    MqttSubscribeReply subscribeMqtt(MqttSubscribeRequest subscribeRequest) {
-        int connectionId = subscribeRequest.getConnectionId().getConnectionId();
-        logger.atInfo().log("SubscribeMqtt: subscribe on connection {}", connectionId);
-        return blockingStub.subscribeMqtt(subscribeRequest);
-    }
-
-    /**
-     * Remove MQTT subscription(s).
-     *
-     * @param unsubscribeRequest unsubscribe request
-     * @return reply to unsubscribe
-     * @throws StatusRuntimeException on errors
-     */
-    MqttSubscribeReply unsubscribeMqtt(MqttUnsubscribeRequest unsubscribeRequest) {
-        int connectionId = unsubscribeRequest.getConnectionId().getConnectionId();
-        logger.atInfo().log("UnsubscribeMqtt: unsubscribe on connectionId {}", connectionId);
-        return blockingStub.unsubscribeMqtt(unsubscribeRequest);
-    }
-
-    /**
-     * Publish MQTT message.
-     *
-     * @param publishRequest publish request
-     * @return reply to publish
-     * @throws StatusRuntimeException on errors
-     */
-    MqttPublishReply publishMqtt(MqttPublishRequest publishRequest) {
-        int connectionId = publishRequest.getConnectionId().getConnectionId();
-        String topic = publishRequest.getMsg().getTopic();
-        logger.atInfo().log("PublishMqtt: publishing on connectionId {} topic {}", connectionId, topic);
-        return blockingStub.publishMqtt(publishRequest);
-    }
-
-    /**
-     * Gets connection control by connection name.
-     * Searching over all controls and find first occurrence of control with such name
-     *
-     * @param connectionName the logical name of a connection
-     * @return connection control or null when does not found
-     */
-    ConnectionControlImpl getConnectionControl(@NonNull String connectionName) {
-        for (ConcurrentHashMap.Entry<Integer, ConnectionControlImpl> entry : connections.entrySet()) {
-            ConnectionControlImpl connectionControl = entry.getValue();
-            if (connectionName.equals(connectionControl.getConnectionName())) {
-                return connectionControl;
-            }
-        }
-        return null;
     }
 
     private void closeAllMqttConnections() {

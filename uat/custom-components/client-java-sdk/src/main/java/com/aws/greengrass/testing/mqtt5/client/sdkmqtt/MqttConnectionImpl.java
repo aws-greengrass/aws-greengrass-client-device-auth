@@ -18,6 +18,7 @@ import software.amazon.awssdk.crt.CRT;
 import software.amazon.awssdk.crt.mqtt5.Mqtt5Client;
 import software.amazon.awssdk.crt.mqtt5.Mqtt5ClientOptions;
 import software.amazon.awssdk.crt.mqtt5.Mqtt5ClientOptions.ClientSessionBehavior;
+import software.amazon.awssdk.crt.mqtt5.NegotiatedSettings;
 import software.amazon.awssdk.crt.mqtt5.OnAttemptingConnectReturn;
 import software.amazon.awssdk.crt.mqtt5.OnConnectionFailureReturn;
 import software.amazon.awssdk.crt.mqtt5.OnConnectionSuccessReturn;
@@ -60,7 +61,7 @@ public class MqttConnectionImpl implements MqttConnection {
     private final Mqtt5Client client;
     private int connectionId = 0;
 
-    private final ClientsLifecycleEvents lifecycleEvents = new ClientsLifecycleEvents();
+    final ClientsLifecycleEvents lifecycleEvents = new ClientsLifecycleEvents();
     private final ClientsPublishEvents publishEvents = new ClientsPublishEvents();
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();        // TODO: use DI
 
@@ -86,7 +87,7 @@ public class MqttConnectionImpl implements MqttConnection {
         }
     }
 
-    private class ClientsLifecycleEvents implements Mqtt5ClientOptions.LifecycleEvents {
+    class ClientsLifecycleEvents implements Mqtt5ClientOptions.LifecycleEvents {
         CompletableFuture<OnConnectionDoneInfo> connectedFuture = new CompletableFuture<>();
         CompletableFuture<Void> stoppedFuture = new CompletableFuture<>();
 
@@ -98,8 +99,14 @@ public class MqttConnectionImpl implements MqttConnection {
 
         @Override
         public void onConnectionSuccess(Mqtt5Client client, OnConnectionSuccessReturn onConnectionSuccessReturn) {
-            String clientId = onConnectionSuccessReturn.getNegotiatedSettings().getAssignedClientID();
-            logger.atInfo().log("MQTT connectionId {} connected, client id {}", connectionId, clientId);
+            if (onConnectionSuccessReturn != null) {
+                NegotiatedSettings negotiatedSettings = onConnectionSuccessReturn.getNegotiatedSettings();
+                if (negotiatedSettings != null) {
+                    String clientId = negotiatedSettings.getAssignedClientID();
+                    logger.atInfo().log("MQTT connectionId {} connected, client id {}", connectionId, clientId);
+                }
+            }
+
             isConnected.set(true);
             connectedFuture.complete(new OnConnectionDoneInfo(onConnectionSuccessReturn));
         }
@@ -157,8 +164,8 @@ public class MqttConnectionImpl implements MqttConnection {
     /**
      * Creates a MQTT5 connection.
      *
-     * @param connectionParams connection parameters
-     * @param grpcClient consumer of received messages and disconnect events
+     * @param connectionParams the connection parameters
+     * @param grpcClient the consumer of received messages and disconnect events
      * @throws MqttException on errors
      */
     public MqttConnectionImpl(@NonNull MqttLib.ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
@@ -167,6 +174,19 @@ public class MqttConnectionImpl implements MqttConnection {
 
         this.grpcClient = grpcClient;
         this.client = createClient(connectionParams);
+    }
+
+    /**
+     * Creates a MQTT5 connection for tests.
+     *
+     * @param grpcClient the consumer of received messages and disconnect events
+     * @param client the client backend
+     * @throws MqttException on errors
+     */
+    MqttConnectionImpl(@NonNull GRPCClient grpcClient, @NonNull Mqtt5Client client) {
+        super();
+        this.grpcClient = grpcClient;
+        this.client = client;
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
@@ -232,7 +252,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public PubAckInfo publish(long timeout, final Message message)
+    public PubAckInfo publish(long timeout, final @NonNull Message message)
                     throws MqttException {
 
         stateCheck();
@@ -264,7 +284,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public SubAckInfo subscribe(long timeout, final Integer subscriptionId, final List<Subscription> subscriptions)
+    public SubAckInfo subscribe(long timeout, Integer subscriptionId, final @NonNull List<Subscription> subscriptions)
             throws MqttException {
 
         stateCheck();
@@ -297,7 +317,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public UnsubAckInfo unsubscribe(long timeout, final List<String> filters)
+    public UnsubAckInfo unsubscribe(long timeout, final @NonNull List<String> filters)
             throws MqttException {
 
         stateCheck();

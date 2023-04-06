@@ -9,6 +9,7 @@ import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
+import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -27,14 +28,46 @@ public class MqttLibImpl implements MqttLib {
     /** Next connection id to use. */
     private final AtomicInteger nextConnectionId = new AtomicInteger();
 
-    @Override
-    public MqttConnection createConnection(ConnectionParams connectionParams, GRPCClient grpcClient)
-                throws MqttException {
-        return new MqttConnectionImpl(connectionParams, grpcClient);
+    /** Factory of connections. */
+    private final ConnectionFactory connectionFactory;
+
+
+    interface ConnectionFactory {
+        MqttConnectionImpl newConnection(@NonNull ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
+                            throws MqttException;
+    }
+
+    /**
+     * Creates instance of MqttLibImpl.
+     */
+    public MqttLibImpl() {
+        this(new ConnectionFactory() {
+            @Override
+            public MqttConnectionImpl newConnection(@NonNull ConnectionParams connectionParams,
+                                                    @NonNull GRPCClient grpcClient) throws MqttException {
+                return new MqttConnectionImpl(connectionParams, grpcClient);
+            }
+        });
+    }
+
+    /**
+     * Creates instance of MqttLibImpl for tests.
+     *
+     * @param connectionFactory the factory of connections
+     */
+    MqttLibImpl(ConnectionFactory connectionFactory) {
+        super();
+        this.connectionFactory = connectionFactory;
     }
 
     @Override
-    public int registerConnection(MqttConnection mqttConnection) {
+    public MqttConnection createConnection(@NonNull ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
+                throws MqttException {
+        return connectionFactory.newConnection(connectionParams, grpcClient);
+    }
+
+    @Override
+    public int registerConnection(@NonNull MqttConnection mqttConnection) {
         int connectionId = 0;
         final boolean[] wasSet = new boolean[1];
         while (! wasSet[0]) {
@@ -56,7 +89,6 @@ public class MqttLibImpl implements MqttLib {
     public MqttConnection getConnection(int connectionId) {
         return connections.get(connectionId);
     }
-
 
     @Override
     public void close() {

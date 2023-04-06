@@ -37,6 +37,7 @@ public class ConnectionControlImpl implements ConnectionControl {
 
     /**
      * Creates instanse of ConnectionControlImpl.
+     *
      * @param connectReply response to connect request from agent
      * @param connectionEvents received of connection events
      * @param agent backreference to agent
@@ -49,7 +50,7 @@ public class ConnectionControlImpl implements ConnectionControl {
         this.connectionEvents = connectionEvents;
         this.agent = agent;
         this.timeout = agent.getTimeout();
-        this.connectionName = "agent:" + agent.getAgentId() + ";connection:" + this.connectionId;
+        this.connectionName = buildConnectionName(agent.getAgentId(), this.connectionId);
     }
 
     @Override
@@ -148,5 +149,9 @@ public class ConnectionControlImpl implements ConnectionControl {
         if (connectionEvents != null) {
             connectionEvents.onMqttDisconnect(this, disconnect, error);
         }
+    }
+
+    static String buildConnectionName(String agentId, int connectionId) {
+        return "agent:" + agentId + ";connection:" + connectionId;
     }
 }
