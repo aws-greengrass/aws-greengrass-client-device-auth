@@ -54,7 +54,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-
 @ExtendWith(MockitoExtension.class)
 class MqttConnectionImplTest {
     private static final int DEFAULT_TIMEOUT_SEC = 10;

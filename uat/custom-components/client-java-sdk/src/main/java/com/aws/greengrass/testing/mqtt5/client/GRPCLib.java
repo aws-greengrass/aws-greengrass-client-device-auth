@@ -6,6 +6,7 @@
 package com.aws.greengrass.testing.mqtt5.client;
 
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
+import lombok.NonNull;
 
 /**
  * Interface of gRPC library.
@@ -20,5 +21,5 @@ public interface GRPCLib {
      * @return connection handler
      * @throws GRPCException on errors
      */
-    GRPCLink makeLink(String agentId, String host, int port) throws GRPCException;
+    GRPCLink makeLink(@NonNull String agentId, @NonNull String host, int port) throws GRPCException;
 }

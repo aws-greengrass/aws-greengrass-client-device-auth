@@ -6,6 +6,7 @@
 package com.aws.greengrass.testing.mqtt5.client;
 
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
+import lombok.NonNull;
 
 /**
  * Interface of gRPC bidirectional link.
@@ -19,7 +20,7 @@ public interface GRPCLink {
      * @throws GRPCException on errors
      * @throws InterruptedException when thread has been interrupted
      */
-    String handleRequests(MqttLib mqttLib) throws GRPCException, InterruptedException;
+    String handleRequests(@NonNull MqttLib mqttLib) throws GRPCException, InterruptedException;
 
     /**
      * Unregister agent from control.
