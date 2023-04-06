@@ -127,24 +127,8 @@ public class MqttControlSteps {
     @And("I connect device {string} on {word} to {string}")
     public void connect(String clientDeviceId, String componentId, String brokerId) {
         final MqttConnectRequest request = getMqttConnectRequest(clientDeviceId, componentId, brokerId);
-        ConnectionControl connectionControl = engineControl.getAgent(getAgentId(componentId))
-                                                           .createMqttConnection(request, connectionEvents);
-        Mqtt5Message msg1 = Mqtt5Message.newBuilder()
-                                        .setTopic("sensor/humidity/room1")
-                                        .setPayload(ByteString.copyFrom("Ffffffff".getBytes()))
-                                        .setQos(MqttQoS.MQTT_QOS_0)
-                                        .setRetain(true)
-                                        .build();
-        log.info("REPLY {}", connectionControl.publishMqtt(msg1));
-
-        Mqtt5Message msg2 = Mqtt5Message.newBuilder()
-                                        .setTopic("sensor/humidity")
-                                        .setPayload(ByteString.copyFrom("sdflkdfln nksdnf jksdkf ksdnf ksd".getBytes()))
-                                        .setQos(MqttQoS.MQTT_QOS_1)
-                                        .setRetain(true)
-                                        .build();
-        log.info("REPLY {}", connectionControl.publishMqtt(msg2));
-
+        engineControl.getAgent(getAgentId(componentId))
+                     .createMqttConnection(request, connectionEvents);
     }
 
     @Then("connection for device {string} is successfully established within {int} {word}")
