@@ -24,6 +24,7 @@ import io.grpc.Grpc;
 import io.grpc.InsecureChannelCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
+import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -46,7 +47,7 @@ class GRPCDiscoveryClient implements GRPCClient {
      * @param address address of gRPC service
      * @throws GRPCException on errors
      */
-    GRPCDiscoveryClient(String agentId, String address) throws GRPCException {
+    GRPCDiscoveryClient(@NonNull String agentId, @NonNull String address) throws GRPCException {
         super();
         this.agentId = agentId;
         this.channel = Grpc.newChannelBuilder(address, InsecureChannelCredentials.create()).build();
