@@ -55,7 +55,7 @@ public class MqttLibImpl implements MqttLib {
      *
      * @param connectionFactory the factory of connections
      */
-    MqttLibImpl(ConnectionFactory connectionFactory) {
+    MqttLibImpl(@NonNull ConnectionFactory connectionFactory) {
         super();
         this.connectionFactory = connectionFactory;
     }

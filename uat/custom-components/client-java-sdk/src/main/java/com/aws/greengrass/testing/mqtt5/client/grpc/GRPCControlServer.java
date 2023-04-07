@@ -31,6 +31,7 @@ import io.grpc.InsecureServerCredentials;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -555,7 +556,7 @@ class GRPCControlServer {
      * @param port bind port, or 0 to autoselect
      * @throws IOException on errors
      */
-    public GRPCControlServer(GRPCClient client, String host, int port) throws IOException {
+    public GRPCControlServer(@NonNull GRPCClient client, @NonNull String host, int port) throws IOException {
         super();
         this.client = client;
 

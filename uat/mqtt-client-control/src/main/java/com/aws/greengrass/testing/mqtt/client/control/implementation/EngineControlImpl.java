@@ -38,7 +38,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     private Integer boundPort = null;
 
 
-    public interface AgentControlFactory {
+    interface AgentControlFactory {
         AgentControlImpl newAgentControl(String agentId, String address, int port);
     }
 
@@ -79,7 +79,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         if (oldSrv != null) {
             oldSrv.shutdown();
         }
-        logger.atInfo().log("gRPC MQTT client control server started, listening on {}", boundPort);
+        logger.atInfo().log("MQTT client control gRPC server started, listening on {}", boundPort);
     }
 
     @Override

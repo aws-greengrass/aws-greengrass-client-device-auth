@@ -60,7 +60,7 @@ public class AgentControlImpl implements AgentControl {
     private MqttClientControlGrpc.MqttClientControlBlockingStub blockingStub;
 
 
-    public interface ConnectionControlFactory {
+    interface ConnectionControlFactory {
         ConnectionControlImpl newConnectionControl(MqttConnectReply connectReply,
                                                     @NonNull ConnectionEvents connectionEvents,
                                                     @NonNull AgentControlImpl agent);
