@@ -25,7 +25,7 @@ public class GRPCLinkImpl implements GRPCLink {
     private final GRPCDiscoveryClient client;
     private final GRPCControlServer server;
 
-    interface HalfsFactory {
+    interface HalvesFactory {
         GRPCDiscoveryClient newClient(@NonNull String agentId, @NonNull String address) throws GRPCException;
 
         GRPCControlServer newServer(@NonNull GRPCDiscoveryClient client, @NonNull String host, int port)
@@ -41,7 +41,7 @@ public class GRPCLinkImpl implements GRPCLink {
      * @throws GRPCException on errors
      */
     public GRPCLinkImpl(@NonNull String agentId, @NonNull String host, int port) throws GRPCException {
-        this(agentId, host, port, new HalfsFactory() {
+        this(agentId, host, port, new HalvesFactory() {
             @Override
             public GRPCDiscoveryClient newClient(@NonNull String agentId, @NonNull String address)
                         throws GRPCException {
@@ -62,21 +62,21 @@ public class GRPCLinkImpl implements GRPCLink {
      * @param agentId the id of agent to identify control channel by gRPC server
      * @param host the host name of gRPC server to connect to
      * @param port the TCP port to connect to
-     * @param halfsFactory the factory for client and server
+     * @param halvesFactory the factory for client and server
      * @throws GRPCException on errors
      */
-    GRPCLinkImpl(@NonNull String agentId, @NonNull String host, int port, @NonNull HalfsFactory halfsFactory)
+    GRPCLinkImpl(@NonNull String agentId, @NonNull String host, int port, @NonNull HalvesFactory halvesFactory)
                     throws GRPCException {
         super();
         logger.atInfo().log("Making gPRC link with {}:{} as {}", host, port, agentId);
 
         String otfAddress = buildAddress(host, port);
-        GRPCDiscoveryClient client = halfsFactory.newClient(agentId, otfAddress);
+        GRPCDiscoveryClient client = halvesFactory.newClient(agentId, otfAddress);
         String localIP = client.registerAgent();
         logger.atInfo().log("Local address is {}", localIP);
 
         try {
-            GRPCControlServer server = halfsFactory.newServer(client, localIP, AUTOSELECT_PORT);
+            GRPCControlServer server = halvesFactory.newServer(client, localIP, AUTOSELECT_PORT);
             int servicePort = server.getPort();
             client.discoveryAgent(localIP, servicePort);
             this.client = client;

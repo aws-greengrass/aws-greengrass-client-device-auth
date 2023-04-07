@@ -42,16 +42,16 @@ class GRPCLinkImplTest {
         server = mock(GRPCControlServer.class);
         when(server.getPort()).thenReturn(SERVICE_PORT);
 
-        GRPCLinkImpl.HalfsFactory halfsFactory = mock(GRPCLinkImpl.HalfsFactory.class);
+        GRPCLinkImpl.HalvesFactory halvesFactory = mock(GRPCLinkImpl.HalvesFactory.class);
         final String buildAddress = GRPCLinkImpl.buildAddress(HOST, PORT);
-        when(halfsFactory.newClient(eq(AGENT_ID), eq(buildAddress))).thenReturn(client);
-        when(halfsFactory.newServer(eq(client), eq(LOCAL_IP), eq(0))).thenReturn(server);
+        when(halvesFactory.newClient(eq(AGENT_ID), eq(buildAddress))).thenReturn(client);
+        when(halvesFactory.newServer(eq(client), eq(LOCAL_IP), eq(0))).thenReturn(server);
 
-        gRPCLinkImpl = new GRPCLinkImpl(AGENT_ID, HOST, PORT, halfsFactory);
+        gRPCLinkImpl = new GRPCLinkImpl(AGENT_ID, HOST, PORT, halvesFactory);
 
-        verify(halfsFactory).newClient(eq(AGENT_ID), eq(buildAddress));
+        verify(halvesFactory).newClient(eq(AGENT_ID), eq(buildAddress));
         verify(client).registerAgent();
-        verify(halfsFactory).newServer(eq(client), eq(LOCAL_IP), eq(0));
+        verify(halvesFactory).newServer(eq(client), eq(LOCAL_IP), eq(0));
         verify(server).getPort();
         verify(client).discoveryAgent(eq(LOCAL_IP), eq(SERVICE_PORT));
     }
