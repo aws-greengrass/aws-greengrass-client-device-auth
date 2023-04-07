@@ -25,6 +25,7 @@ import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import lombok.extern.log4j.Log4j2;
+import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 
 import java.io.IOException;
 import javax.inject.Inject;
@@ -49,6 +50,8 @@ public class MqttControlSteps {
 
     private final IotSteps iotSteps;
     private final EngineControl engineControl;
+
+    private final GreengrassV2Client greengrassClient;
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
         @Override
@@ -76,19 +79,34 @@ public class MqttControlSteps {
 
     @Inject
     @SuppressWarnings("MissingJavadocMethod")
-    public MqttControlSteps(TestContext testContext, ScenarioContext scenarioContext, AWSResources resources,
-                            IotSteps iotSteps, EngineControl engineControl) throws IOException {
+    public MqttControlSteps(
+            TestContext testContext,
+            ScenarioContext scenarioContext,
+            AWSResources resources,
+            IotSteps iotSteps,
+            EngineControl engineControl,
+            GreengrassV2Client greengrassClient) throws IOException {
         this.testContext = testContext;
         this.scenarioContext = scenarioContext;
         this.resources = resources;
         this.iotSteps = iotSteps;
         this.engineControl = engineControl;
+        this.greengrassClient = greengrassClient;
         startMqttControl();
     }
 
-    @When("I associate {word} with ggc")
+    /**
+     * Associate client device with a core device .
+     *
+     * @param clientDeviceId string user defined client device id
+     */
+    @When("I associate {string} with ggc")
     public void associateClient(String clientDeviceId) {
-        //@TODO Implement method
+        final String coreName = testContext.coreThingName();
+        final String deviceName = testContext.testId()
+                                             .idFor(clientDeviceId);
+        greengrassClient.batchAssociateClientDeviceWithCoreDevice(b -> b.coreDeviceThingName(coreName)
+                                                                        .entries(d -> d.thingName(deviceName)));
     }
 
     /**
