@@ -21,7 +21,24 @@ import java.util.stream.Collectors;
  */
 public class EventStorageImpl implements EventStorage {
 
-    private final List<Event> events = new LinkedList<>();
+    private final List<Event> events;
+
+    /**
+     * Creates instance of EventStorageImpl.
+     */
+    public EventStorageImpl() {
+        this(new LinkedList<>());
+    }
+
+    /**
+     * Creates instance of EventStorageImpl for tests.
+     *
+     * @param events the list of events
+     */
+    EventStorageImpl(List<Event> events) {
+        super();
+        this.events = events;
+    }
 
     @Override
     public void clear() {

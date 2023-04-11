@@ -58,6 +58,6 @@ abstract class EventImpl implements Event {
             return false;
         }
 
-        return to == null || to > getTimestamp();
+        return to == null || to >= getTimestamp();
     }
 }
