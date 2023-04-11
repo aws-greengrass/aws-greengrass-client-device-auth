@@ -37,6 +37,8 @@ import software.amazon.awssdk.iot.discovery.model.GGGroup;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import javax.inject.Inject;
@@ -290,12 +292,22 @@ public class MqttControlSteps {
                 final String ca = group.getCAs()
                                        .get(0);
                 putBrokerCa(brokerId, ca);
-                final ConnectivityInfo connInfo = group.getCores()
-                                                       .get(0)
-                                                       .getConnectivity()
-                                                       .get(0);
-                putBrokerHost(brokerId, connInfo.getHostAddress());
-                putBrokerPort(brokerId, connInfo.getPortNumber());
+                for (ConnectivityInfo info : group.getCores()
+                                                  .get(0)
+                                                  .getConnectivity()) {
+                    final String host = info.getHostAddress();
+                    final Integer port = info.getPortNumber();
+                    try (Socket socket = new Socket()) {
+                        socket.connect(new InetSocketAddress(host, port), DEFAULT_MQTT_CONNECT_TIMEOUT);
+                        putBrokerHost(brokerId, host);
+                        putBrokerPort(brokerId, port);
+                        log.debug("Core Device ConnectivityInfo, endpoint {}:{} is reachable", host, port);
+                        break;
+                    } catch (IOException e) {
+                        log.warn("Core Device ConnectivityInfo, endpoint {}:{} is not reachable", host, port);
+                    }
+                }
+
             }
         }
     }
