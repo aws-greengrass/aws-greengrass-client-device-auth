@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.testing.mqtt.client.control.addon.api;
+package com.aws.greengrass.testing.mqtt.client.control.api.addon;
 
 import lombok.NonNull;
 
@@ -46,6 +46,6 @@ public interface EventStorage {
      * @throws TimeoutException if the wait timed out
      * @throws InterruptedException if the current thread was interrupted while waiting
      */
-    List<Event> awatingEvents(@NonNull EventFilter filter, long timeout, @NonNull TimeUnit unit)
+    List<Event> awaitEvents(@NonNull EventFilter filter, long timeout, @NonNull TimeUnit unit)
                 throws TimeoutException, InterruptedException;
 }
