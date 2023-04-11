@@ -58,6 +58,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
 
     /**
      * Creates instance of EngineControlImpl for tests.
+     *
      * @param agentControlFactory the factory to create agent control
      */
     EngineControlImpl(@NonNull AgentControlFactory agentControlFactory) {
@@ -135,27 +136,27 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     public void onDiscoveryAgent(@NonNull String agentId, @NonNull String address, int port) {
         final boolean[] isNew = new boolean[1];
         isNew[0] = false;
-        AgentControlImpl agent = agents.computeIfAbsent(agentId, k -> {
+        AgentControlImpl agentControl = agents.computeIfAbsent(agentId, k -> {
             isNew[0] = true;
             return agentControlFactory.newAgentControl(this, agentId, address, port);
             });
 
         if (isNew[0]) {
             logger.atInfo().log("Created new agent control for {} on {}:{}", agentId, address, port);
-            agent.startAgent();
+            agentControl.startAgent();
             if (engineEvents != null) {
-                engineEvents.onAgentAttached(agent);
+                engineEvents.onAgentAttached(agentControl);
             }
         }
     }
 
     @Override
     public void onUnregisterAgent(@NonNull String agentId) {
-        AgentControlImpl agent = agents.remove(agentId);
-        if (agent != null) {
-            agent.stopAgent();
+        AgentControlImpl agentControl = agents.remove(agentId);
+        if (agentControl != null) {
+            agentControl.stopAgent();
             if (engineEvents != null) {
-                engineEvents.onAgentDeattached(agent);
+                engineEvents.onAgentDeattached(agentControl);
             }
         }
     }
@@ -164,7 +165,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     public void onMessageReceived(@NonNull String agentId, int connectionId, @NonNull Mqtt5Message message) {
         AgentControlImpl agentControl = agents.get(agentId);
         if (agentControl == null) {
-            logger.atWarn().log("Message received but agent {} could not found", agentId);
+            logger.atWarn().log("Message received but agent id {} could not found", agentId);
         } else {
             agentControl.onMessageReceived(connectionId, message);
         }
@@ -174,7 +175,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     public void onMqttDisconnect(String agentId, int connectionId, Mqtt5Disconnect disconnect, String error) {
         AgentControlImpl agentControl = agents.get(agentId);
         if (agentControl == null) {
-            logger.atWarn().log("MQTT disconnect received but agent {} could not found", agentId);
+            logger.atWarn().log("MQTT disconnect received but agent id {} could not found", agentId);
         } else {
             agentControl.onMqttDisconnect(connectionId, disconnect, error);
         }
@@ -182,11 +183,11 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
 
 
     private void unregisterAllAgent() {
-        agents.forEach((agentId, agent) -> {
-            if (agents.remove(agentId, agent)) {
-                agent.stopAgent();
+        agents.forEach((agentId, agentControl) -> {
+            if (agents.remove(agentId, agentControl)) {
+                agentControl.stopAgent();
                 if (engineEvents != null) {
-                    engineEvents.onAgentDeattached(agent);
+                    engineEvents.onAgentDeattached(agentControl);
                 }
             }
         });

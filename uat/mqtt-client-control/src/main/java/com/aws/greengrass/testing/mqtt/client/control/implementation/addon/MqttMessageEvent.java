@@ -3,12 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.testing.mqtt.client.control.addon.implementation;
+package com.aws.greengrass.testing.mqtt.client.control.implementation.addon;
 
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
-import com.aws.greengrass.testing.mqtt.client.control.addon.api.Event;
-import com.aws.greengrass.testing.mqtt.client.control.addon.api.EventFilter;
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
+import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
 import com.google.protobuf.ByteString;
 import lombok.NonNull;
 
@@ -18,9 +17,8 @@ import java.util.regex.Pattern;
 /**
  * Implements received MQTT message event.
  */
-public class MqttMessageEvent implements Event {
+public class MqttMessageEvent extends EventImpl {
 
-    private final long timestamp;
     private final ConnectionControl connectionControl;
     private final Mqtt5Message message;
 
@@ -31,20 +29,9 @@ public class MqttMessageEvent implements Event {
      * @param message the gRPC presentation of received MQTT message
      */
     public MqttMessageEvent(@NonNull ConnectionControl connectionControl, @NonNull Mqtt5Message message) {
-        super();
-        this.timestamp = System.currentTimeMillis();
+        super(Type.EVENT_TYPE_MQTT_MESSAGE);
         this.connectionControl = connectionControl;
         this.message = message;
-    }
-
-    @Override
-    public Type getType() {
-        return Type.EVENT_TYPE_MQTT_MESSAGE;
-    }
-
-    @Override
-    public long getTimestamp() {
-        return timestamp;
     }
 
     @Override
@@ -54,15 +41,8 @@ public class MqttMessageEvent implements Event {
 
     @Override
     public boolean isMatched(@NonNull EventFilter filter) {
-
-        // check event type
-        final Event.Type type = filter.getType();
-        if (type != null && type != getType()) {
-            return false;
-        }
-
-        // check timestamp borders
-        boolean matched = compareTimestamps(filter.getFromTimestamp(), filter.getToTimestamp());
+        // check type and timestamp
+        boolean matched = super.isMatched(filter);
         if (!matched) {
             return false;
         }
@@ -93,16 +73,6 @@ public class MqttMessageEvent implements Event {
         // check content
         return comparePayload(filter.getContent());
     }
-
-    private boolean compareTimestamps(Long from, Long to) {
-        // check from timestamp
-        if (from != null &&  getTimestamp() < from) {
-            return false;
-        }
-
-        return to == null || to > getTimestamp();
-    }
-
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private boolean compareConnection(ConnectionControl expectedConnectionControl, String agentId, Integer connectionId,

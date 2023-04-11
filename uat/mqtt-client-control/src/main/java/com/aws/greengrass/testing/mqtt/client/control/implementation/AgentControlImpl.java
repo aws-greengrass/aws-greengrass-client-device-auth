@@ -64,7 +64,7 @@ public class AgentControlImpl implements AgentControl {
     interface ConnectionControlFactory {
         ConnectionControlImpl newConnectionControl(MqttConnectReply connectReply,
                                                     @NonNull ConnectionEvents connectionEvents,
-                                                    @NonNull AgentControlImpl agent);
+                                                    @NonNull AgentControlImpl agentControl);
     }
 
     /**
@@ -86,8 +86,8 @@ public class AgentControlImpl implements AgentControl {
                 @Override
                 public ConnectionControlImpl newConnectionControl(MqttConnectReply connectReply,
                                                                     @NonNull ConnectionEvents connectionEvents,
-                                                                    @NonNull AgentControlImpl agent) {
-                    return new ConnectionControlImpl(connectReply, connectionEvents, agent);
+                                                                    @NonNull AgentControlImpl agentControl) {
+                    return new ConnectionControlImpl(connectReply, connectionEvents, agentControl);
                 }
             };
     }

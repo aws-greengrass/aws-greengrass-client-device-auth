@@ -18,6 +18,8 @@ import com.aws.greengrass.testing.mqtt.client.TLSSettings;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl.ConnectionEvents;
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
+import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventStorage;
+import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttMessageEvent;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -82,7 +84,8 @@ class AgentTestScenario implements Runnable {
     private static final Logger logger = LogManager.getLogger(AgentTestScenario.class);
 
     private boolean useTLS;
-    private final AgentControl agent;
+    private final AgentControl agentControl;
+    private final EventStorage eventStorage;
 
     private String ca = null;
     private String cert = null;
@@ -92,29 +95,31 @@ class AgentTestScenario implements Runnable {
         @Override
         public void onMessageReceived(ConnectionControl connectionControl, Mqtt5Message msg) {
             logger.atInfo().log("Message received on agentId {} connectionId {} topic {} QoS {} content {}",
-                                agent.getAgentId(),
+                                agentControl.getAgentId(),
                                 connectionControl.getConnectionId(),
                                 msg.getTopic(),
                                 msg.getQos().getNumber(),
                                 msg.getPayload());
 
+            eventStorage.addEvent(new MqttMessageEvent(connectionControl, msg));
         }
 
         @Override
         public void onMqttDisconnect(ConnectionControl connectionControl, Mqtt5Disconnect disconnect, String error) {
             logger.atInfo().log("MQTT disconnected on agentId {} connectionId {} disconnect '{}' error '{}'",
-                                agent.getAgentId(),
+                                agentControl.getAgentId(),
                                 connectionControl.getConnectionId(),
                                 disconnect,
                                 error);
         }
     };
 
-    public AgentTestScenario(boolean useTLS, AgentControl agent) {
+    public AgentTestScenario(boolean useTLS, AgentControl agentControl, EventStorage eventStorage) {
         super();
 
         this.useTLS = useTLS;
-        this.agent = agent;
+        this.agentControl = agentControl;
+        this.eventStorage = eventStorage;
 
         if (useTLS) {
             this.ca = readFile(getCaFile());
@@ -127,13 +132,13 @@ class AgentTestScenario implements Runnable {
     public void run() {
         ConnectionControl connectionControl = null;
         try {
-            logger.atInfo().log("Playing test scenario for agent {}", agent.getAgentId());
+            logger.atInfo().log("Playing test scenario for agent id {}", agentControl.getAgentId());
 
             Thread.sleep(PAUSE_BEFORE_CONNECT);
 
             // create MQTT connection
             MqttConnectRequest connectRequest = getMqttConnectRequest();
-            connectionControl = agent.createMqttConnection(connectRequest, connectionEvents);
+            connectionControl = agentControl.createMqttConnection(connectRequest, connectionEvents);
             logger.atInfo().log("MQTT connection with id {} is established", connectionControl.getConnectionId());
 
             Thread.sleep(PAUSE_BEFORE_SUBSCRIBE);
@@ -157,7 +162,7 @@ class AgentTestScenario implements Runnable {
                 // close MQTT connection
                 connectionControl.closeMqttConnection(DISCONNECT_REASON);
             }
-            agent.shutdownAgent("That's it.");
+            agentControl.shutdownAgent("That's it.");
         }
     }
 

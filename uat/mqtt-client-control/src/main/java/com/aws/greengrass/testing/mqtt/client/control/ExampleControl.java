@@ -8,7 +8,9 @@ package com.aws.greengrass.testing.mqtt.client.control;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl.EngineEvents;
+import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventStorage;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.EngineControlImpl;
+import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.EventStorageImpl;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -30,20 +32,21 @@ public class ExampleControl {
 
     private final boolean useTLS;
     private final int port;
-    private final EngineControl engine;
+    private final EngineControl engineControl;
+    private final EventStorage eventStorage;
 
     private final EngineEvents engineEvents = new EngineEvents() {
         @Override
-        public void onAgentAttached(AgentControl agent) {
-            logger.atInfo().log("Agent {} is connected", agent.getAgentId());
-            AgentTestScenario scenario = new AgentTestScenario(useTLS, agent);
+        public void onAgentAttached(AgentControl agentControl) {
+            logger.atInfo().log("Agent {} is connected", agentControl.getAgentId());
+            AgentTestScenario scenario = new AgentTestScenario(useTLS, agentControl, eventStorage);
             executorService.submit(scenario);
         }
 
         @Override
-        public void onAgentDeattached(AgentControl agent) {
-            logger.atInfo().log("Agent {} is disconnected", agent.getAgentId());
-            // TODO: find agent object by Id, terminate it and join thread
+        public void onAgentDeattached(AgentControl agentControl) {
+            logger.atInfo().log("Agent {} is disconnected", agentControl.getAgentId());
+            // TODO: find agentControl object by Id, terminate it and join thread
         }
     };
 
@@ -57,23 +60,24 @@ public class ExampleControl {
         super();
         this.useTLS = useTLS;
         this.port = port;
-        this.engine = new EngineControlImpl();
+        this.engineControl = new EngineControlImpl();
+        this.eventStorage = new EventStorageImpl();
     }
 
     private void testRun() throws IOException, InterruptedException {
-        engine.startEngine(port, engineEvents);
+        engineControl.startEngine(port, engineEvents);
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
                 // Use stderr here since the logger may have been reset by its JVM shutdown hook.
                 logger.atInfo().log("*** shutting down gRPC server since JVM is shutting down");
-                engine.stopEngine();
+                engineControl.stopEngine();
                 shutdownExecutorService();
                 logger.atInfo().log("*** server shut down");
             }
         });
 
-        engine.awaitTermination();
+        engineControl.awaitTermination();
     }
 
     private void shutdownExecutorService() {

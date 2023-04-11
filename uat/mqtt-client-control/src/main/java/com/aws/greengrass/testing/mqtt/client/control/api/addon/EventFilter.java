@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.testing.mqtt.client.control.addon.api;
+package com.aws.greengrass.testing.mqtt.client.control.api.addon;
 
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import lombok.Getter;

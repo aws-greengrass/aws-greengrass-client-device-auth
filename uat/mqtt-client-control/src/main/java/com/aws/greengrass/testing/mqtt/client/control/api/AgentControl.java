@@ -52,12 +52,12 @@ public interface AgentControl {
     void setTimeout(int timeout);
 
     /**
-     * Starts agent.
+     * Starts the agent control.
      */
     void startAgent();
 
     /**
-     * Stops agent.
+     * Stops the agent control.
      */
     void stopAgent();
 

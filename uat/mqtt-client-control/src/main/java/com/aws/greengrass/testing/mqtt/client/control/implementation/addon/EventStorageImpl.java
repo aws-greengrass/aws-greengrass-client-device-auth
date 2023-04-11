@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.testing.mqtt.client.control.addon.implementation;
+package com.aws.greengrass.testing.mqtt.client.control.implementation.addon;
 
-import com.aws.greengrass.testing.mqtt.client.control.addon.api.Event;
-import com.aws.greengrass.testing.mqtt.client.control.addon.api.EventFilter;
-import com.aws.greengrass.testing.mqtt.client.control.addon.api.EventStorage;
+import com.aws.greengrass.testing.mqtt.client.control.api.addon.Event;
+import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
+import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventStorage;
 import lombok.NonNull;
 
 import java.util.LinkedList;
@@ -50,7 +50,7 @@ public class EventStorageImpl implements EventStorage {
     }
 
     @Override
-    public List<Event> awatingEvents(@NonNull EventFilter filter, long timeout, @NonNull TimeUnit unit)
+    public List<Event> awaitEvents(@NonNull EventFilter filter, long timeout, @NonNull TimeUnit unit)
                         throws TimeoutException, InterruptedException {
         List<Event> result;
         final long deadline = unit.toNanos(timeout) + System.nanoTime();
@@ -69,7 +69,6 @@ public class EventStorageImpl implements EventStorage {
         }
         return result;
     }
-
 
     private List<Event> getEventsAsList(@NonNull EventFilter filter) {
         return events.stream().filter(event -> event.isMatched(filter)).collect(Collectors.toList());
