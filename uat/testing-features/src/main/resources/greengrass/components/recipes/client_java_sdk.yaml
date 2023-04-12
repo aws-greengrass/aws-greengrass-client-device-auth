@@ -11,7 +11,8 @@ ComponentDescription: MQTT5 Java Client powered by AWS Java SDK
 ComponentPublisher: Amazon
 ComponentConfiguration:
   DefaultConfiguration:
-    agentId: agent1
+    # agentId should be the same as ComponentName
+    agentId: aws.greengrass.client.Mqtt5JavaSdkClient
     broker:
       address: 127.0.0.1
       port: 47619

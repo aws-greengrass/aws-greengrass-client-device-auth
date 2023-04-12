@@ -77,20 +77,20 @@ public class AgentControlImpl implements AgentControl {
      */
     public AgentControlImpl(@NonNull EngineControlImpl engineControl, @NonNull String agentId, @NonNull String address,
                                 int port) {
-        super();
-        this.engineControl = engineControl;
-        this.agentId = agentId;
-        this.address = address;
-        this.port = port;
-        this.timeout = engineControl.getTimeout();
-        this.connectionControlFactory = new ConnectionControlFactory() {
-                @Override
-                public ConnectionControlImpl newConnectionControl(MqttConnectReply connectReply,
-                                                                    @NonNull ConnectionEvents connectionEvents,
-                                                                    @NonNull AgentControlImpl agentControl) {
-                    return new ConnectionControlImpl(connectReply, connectionEvents, agentControl);
-                }
-            };
+        this(engineControl, agentId, address, port, new ConnectionControlFactory() {
+            @Override
+            public ConnectionControlImpl newConnectionControl(MqttConnectReply connectReply,
+                                                                @NonNull ConnectionEvents connectionEvents,
+                                                                @NonNull AgentControlImpl agentControl) {
+                return new ConnectionControlImpl(connectReply, connectionEvents, agentControl);
+            }
+        });
+    }
+
+    private AgentControlImpl(@NonNull EngineControlImpl engineControl, @NonNull String agentId, @NonNull String address,
+                                int port, @NonNull ConnectionControlFactory connectionControlFactory) {
+
+        this(engineControl, agentId, address, port, connectionControlFactory, null, null);
     }
 
     /**
@@ -99,7 +99,7 @@ public class AgentControlImpl implements AgentControl {
      * @param engineControl the back reference to whole engineControl
      * @param agentId id of agent
      * @param address address of gRPC server of agent (MQTT client)
-     * @param port port of  gRPC server of agent (MQTT client)
+     * @param port port of gRPC server of agent (MQTT client)
      * @param channel the channel
      * @param blockingStub the blockingStub
      */
@@ -108,13 +108,14 @@ public class AgentControlImpl implements AgentControl {
                         @NonNull String address,
                         int port,
                         @NonNull ConnectionControlFactory connectionControlFactory,
-                        @NonNull ManagedChannel channel,
-                        @NonNull MqttClientControlGrpc.MqttClientControlBlockingStub blockingStub) {
+                        ManagedChannel channel,
+                        MqttClientControlGrpc.MqttClientControlBlockingStub blockingStub) {
         super();
         this.engineControl = engineControl;
         this.agentId = agentId;
         this.address = address;
         this.port = port;
+        this.timeout = engineControl.getTimeout();
         this.connectionControlFactory = connectionControlFactory;
         this.channel = channel;
         this.blockingStub = blockingStub;
