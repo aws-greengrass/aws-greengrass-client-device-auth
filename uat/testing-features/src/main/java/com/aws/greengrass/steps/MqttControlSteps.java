@@ -38,7 +38,7 @@ public class MqttControlSteps {
 
     private static final int DEFAULT_CONTROL_GRPC_PORT = 47_619;
     private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
-    private static final int DEFAULT_MQTT_CONNECT_TIMEOUT = 30;
+    private static final int DEFAULT_MQTT_TIMEOUT = 30;
     private static final int DEFAULT_MQTT_BROKER_PORT = 8883;
     private static final String DEFAULT_MQTT_BROKER_HOST = "localhost";
 
@@ -148,11 +148,6 @@ public class MqttControlSteps {
                      .createMqttConnection(request, connectionEvents);
     }
 
-    @Then("connection for device {string} is successfully established within {int} {word}")
-    public void validateConnect(String clientDeviceId, int value, String unitOfMeasure) {
-        //@TODO Implement method
-    }
-
     @When("I subscribe {string} to {string} with qos {int}")
     public void subscribe(String clientDeviceId, String topic, int qos) {
         //@TODO Implement method
@@ -202,7 +197,7 @@ public class MqttControlSteps {
                                  .setPort(getBrokerPort(brokerId))
                                  .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
                                  .setCleanSession(true)
-                                 .setTimeout(DEFAULT_MQTT_CONNECT_TIMEOUT)
+                                 .setTimeout(DEFAULT_MQTT_TIMEOUT)
                                  .setTls(buildTlsSettings(thingSpec, brokerId))
                                  .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50)
                                  .build();
