@@ -36,6 +36,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
 
     private EngineEvents engineEvents;
     private Integer boundPort = null;
+    private int timeout = DEFAULT_TIMEOUT;
 
 
     interface AgentControlFactory {
@@ -66,6 +67,16 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         this.agentControlFactory = agentControlFactory;
     }
 
+
+    @Override
+    public int getTimeout() {
+        return timeout;
+    }
+
+    @Override
+    public void setTimeout(int timeout) {
+        this.timeout = timeout;
+    }
 
     @Override
     public void startEngine(int port, @NonNull EngineEvents engineEvents) throws IOException {

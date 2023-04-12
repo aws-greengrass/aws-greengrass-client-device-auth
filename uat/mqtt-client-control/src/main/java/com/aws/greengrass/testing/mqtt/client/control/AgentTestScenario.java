@@ -93,15 +93,15 @@ class AgentTestScenario implements Runnable {
 
     private final ConnectionEvents connectionEvents = new ConnectionEvents() {
         @Override
-        public void onMessageReceived(ConnectionControl connectionControl, Mqtt5Message msg) {
+        public void onMessageReceived(ConnectionControl connectionControl, Mqtt5Message message) {
             logger.atInfo().log("Message received on agentId {} connectionId {} topic {} QoS {} content {}",
                                 agentControl.getAgentId(),
                                 connectionControl.getConnectionId(),
-                                msg.getTopic(),
-                                msg.getQos().getNumber(),
-                                msg.getPayload());
+                                message.getTopic(),
+                                message.getQos().getNumber(),
+                                message.getPayload());
 
-            eventStorage.addEvent(new MqttMessageEvent(connectionControl, msg));
+            eventStorage.addEvent(new MqttMessageEvent(connectionControl, message));
         }
 
         @Override

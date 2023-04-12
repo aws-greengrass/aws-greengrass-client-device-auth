@@ -54,8 +54,8 @@ public class AgentControlImpl implements AgentControl {
     private final String agentId;
     private final String address;
     private final int port;
+    private int timeout;
     private final ConnectionControlFactory connectionControlFactory;
-    private int timeout = DEFAULT_TIMEOUT;
 
     private ManagedChannel channel;
     private MqttClientControlGrpc.MqttClientControlBlockingStub blockingStub;
@@ -82,6 +82,7 @@ public class AgentControlImpl implements AgentControl {
         this.agentId = agentId;
         this.address = address;
         this.port = port;
+        this.timeout = engineControl.getTimeout();
         this.connectionControlFactory = new ConnectionControlFactory() {
                 @Override
                 public ConnectionControlImpl newConnectionControl(MqttConnectReply connectReply,
@@ -168,10 +169,14 @@ public class AgentControlImpl implements AgentControl {
     @Override
     public ConnectionControl createMqttConnection(@NonNull MqttConnectRequest connectRequest,
                                                     @NonNull ConnectionEvents connectionEvents) {
+        // create new connect request with timeout set
+        MqttConnectRequest.Builder builder = MqttConnectRequest.newBuilder(connectRequest);
+        builder.setTimeout(timeout);
+
         ConnectionControlImpl connectionControl;
         try {
             connectLock.lock();
-            MqttConnectReply response = blockingStub.createMqttConnection(connectRequest);
+            MqttConnectReply response = blockingStub.createMqttConnection(builder.build());
             if (response.getConnected()) {
                 int connectionId = response.getConnectionId().getConnectionId();
                 connectionControl = connectionControlFactory.newConnectionControl(response, connectionEvents, this);
