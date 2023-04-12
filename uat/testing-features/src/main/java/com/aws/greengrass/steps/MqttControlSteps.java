@@ -169,32 +169,38 @@ public class MqttControlSteps {
     @Then("connection for device {string} is successfully established within {int} {word}")
     public void validateConnect(String clientDeviceId, int value, String unitOfMeasure) {
         //@TODO Implement method
+        throw new RuntimeException("Method validateConnect is not implemented");
     }
 
     @When("I subscribe {string} to {string} with qos {int}")
     public void subscribe(String clientDeviceId, String topic, int qos) {
         //@TODO Implement method
+        throw new RuntimeException("Method subscribe is not implemented");
     }
 
     @Then("subscription to {string} is successfull on {string}")
     public void validateSubscribe(String topic, String clientDeviceId) {
         //@TODO Implement method
+        throw new RuntimeException("Method validateSubscribe is not implemented");
     }
 
     @When("I publish from {string} to {string} with qos {int} and message {string}")
     public void publish(String clientDeviceId, String topic, int qos, String message) {
         //@TODO Implement method
+        throw new RuntimeException("Method publish is not implemented");
     }
 
     @Then("publish message {string} to {string} is successfully on {string}")
     public void validatePublish(String message, String topic, String clientDeviceId) {
         //@TODO Implement method
+        throw new RuntimeException("Method validatePublish is not implemented");
     }
 
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
     @And("message {string} received on {string} from {string} topic within {int} {word}")
     public void receive(String message, String clientDeviceId, String topic, int value, String unitOfMeasure) {
         //@TODO Implement method
+        throw new RuntimeException("Method receive is not implemented");
     }
 
     /**
@@ -331,7 +337,7 @@ public class MqttControlSteps {
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private String getAgentId(String componentName) {
         //@TODO Implement method
-        return "";
+        throw new RuntimeException("Method getAgentId is not implemented");
     }
 
     private String getBrokerCa(String brokerId) {
