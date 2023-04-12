@@ -1,4 +1,4 @@
-@GGAD
+@GGMQ
 Feature: GGMQ-1
 
   As a developer, I can configure my client agents to connect and use MQTT
@@ -41,9 +41,10 @@ Feature: GGMQ-1
   }
 }
     """
+    And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
     When I associate "clientDeviceTest" with ggc
-    And I discover core device broker as "default_broker"
+    And I discover core device broker as "default_broker" from "clientDeviceTest"
     And I connect device "clientDeviceTest" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker"
     Then connection for device "clientDeviceTest" is successfully established within 3 seconds
     When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0
