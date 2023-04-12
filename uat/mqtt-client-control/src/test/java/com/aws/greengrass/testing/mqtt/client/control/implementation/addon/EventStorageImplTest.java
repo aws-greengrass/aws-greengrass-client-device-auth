@@ -11,21 +11,25 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-
+import java.time.Duration;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 class EventStorageImplTest {
-
+    List<Event> actualResultEvents = null;
 
     List<Event> events;
 
@@ -101,7 +105,7 @@ class EventStorageImplTest {
         final Event event = mock(Event.class);
         final EventFilter eventFilter = mock(EventFilter.class);
         lenient().when(event.isMatched(any(EventFilter.class))).thenReturn(true);
-        events.add(event);
+        eventStorageImpl.addEvent(event);
 
         // WHEN
         final List<Event> resultEvents = eventStorageImpl.awaitEvents(eventFilter, 1, TimeUnit.SECONDS);
@@ -116,12 +120,44 @@ class EventStorageImplTest {
         final Event event = mock(Event.class);
         final EventFilter eventFilter = mock(EventFilter.class);
         lenient().when(event.isMatched(any(EventFilter.class))).thenReturn(false);
-        events.add(event);
+        eventStorageImpl.addEvent(event);
 
         // WHEN
         TimeoutException thrown = assertThrows(TimeoutException.class, () -> {
             eventStorageImpl.awaitEvents(eventFilter, 1, TimeUnit.SECONDS);
         });
         assertEquals("Event doesn't received, timedout", thrown.getMessage());
+    }
+
+
+    @Test
+    void GIVEN_await_events_WHEN_add_matched_event_THEN_all_events_returned() throws TimeoutException, InterruptedException {
+        // GIVEN
+        final Event event = mock(Event.class);
+        final EventFilter eventFilter = mock(EventFilter.class);
+        lenient().when(event.isMatched(any(EventFilter.class))).thenReturn(true);
+
+        // WHEN
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.submit(() -> {
+            try {
+                // 2 seconds sleep
+                Thread.sleep(2000);
+                eventStorageImpl.addEvent(event);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        // 2.1 seconds timeout, 100 ms gap
+        assertTimeout(Duration.ofMillis(2100), () -> {
+            // 5 seconds waiting
+            actualResultEvents = eventStorageImpl.awaitEvents(eventFilter, 5, TimeUnit.SECONDS);
+        });
+
+        // THEN
+        assertNotNull(actualResultEvents);
+        assertEquals(1, actualResultEvents.size());
+        assertEquals(events, actualResultEvents);
     }
 }

@@ -38,6 +38,8 @@ public interface EventStorage {
 
     /**
      * Waiting for matched events.
+     * Will return immediately when matched event already exists.
+     * Else will return as soon as at least one matched event added.
      *
      * @param filter the filter of events
      * @param timeout the maximum time to wait
