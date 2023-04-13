@@ -42,6 +42,7 @@ import java.net.Socket;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.Objects;
+
 import javax.inject.Inject;
 
 import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
@@ -352,5 +353,6 @@ public class MqttControlSteps {
 
     private int getMqttTimeout() {
         return Objects.isNull(mqttTimeout) ? DEFAULT_MQTT_TIMEOUT : mqttTimeout;
+
     }
 }
