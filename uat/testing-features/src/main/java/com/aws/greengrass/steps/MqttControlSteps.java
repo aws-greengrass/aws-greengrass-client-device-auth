@@ -73,6 +73,8 @@ public class MqttControlSteps {
     private static final int MQTT5_REASON_SUCCESS = 0;
     private static final int MQTT5_GRANTED_QOS_2 = 2;
 
+    private static final boolean CONNECT_CLEAR_SESSION = true;
+
     private static final boolean PUBLISH_RETAIN = false;
 
     private static final Integer SUBSCRIPTION_ID = null;                        // NOTE: do not set for IoT Core !!!
@@ -122,7 +124,19 @@ public class MqttControlSteps {
         }
     };
 
-    @SuppressWarnings("MissingJavadocMethod")
+    /**
+     * Creates instance of MqttControlSteps.
+     *
+     * @param testContext the instance of TestContext
+     * @param scenarioContext the instance of ScenarioContext
+     * @param registrationContext the instance of RegistrationContext
+     * @param resources the instance of AWSResources
+     * @param resourcesContext the instance of AWSResourcesContext
+     * @param iotSteps the instance of IotSteps
+     * @param engineControl the MQTT clients control
+     * @param eventStorage the MQTT event storage
+     * @param greengrassClient
+     */
     @Inject
     public MqttControlSteps(
             TestContext testContext,
@@ -168,8 +182,7 @@ public class MqttControlSteps {
     @And("I create client device {string}")
     public void createClientDevice(String clientDeviceId) throws IOException {
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
-        // TODO: is it required ?
-        // scenarioContext.put(clientDeviceId, clientDeviceThingName);
+        scenarioContext.put(clientDeviceId, clientDeviceThingName);
 
         IotPolicySpec iotPolicySpec = createDefaultClientDevicePolicy(clientDeviceId);
         IotCertificateSpec iotCertificateSpec = IotCertificateSpec.builder()
@@ -199,8 +212,12 @@ public class MqttControlSteps {
 
         // request for new MQTT connection
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+        log.debug("Creating MQTT connection as Thing {} on {} to {}", clientDeviceThingName, componentId, brokerId);
+
         final MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, brokerId);
         ConnectionControl connectionControl = agentControl.createMqttConnection(request, connectionEvents);
+
+        log.debug("Connection with broker {} established", brokerId);
 
         setConnectionControl(connectionControl, clientDeviceThingName);
     }
@@ -221,6 +238,8 @@ public class MqttControlSteps {
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
 
         // do subscription
+        log.debug("Create MQTT subscription for Thing {} to topics filter {} with QoS {}", clientDeviceThingName,
+                    filter, qos);
 
         // TODO: use non default settings here
         Mqtt5Subscription mqtt5Subscription = buildMqtt5Subscription(filter,
@@ -253,6 +272,7 @@ public class MqttControlSteps {
             throw new RuntimeException("Receive reply to MQTT subscribe request with unexpected reason code should be "
                                         + qos + " but has " + reason);
         }
+        log.debug("MQTT subscription has on topics filter {} been created", filter);
     }
 
     /**
@@ -272,6 +292,8 @@ public class MqttControlSteps {
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
 
         // do publishing
+        log.debug("Publishing MQTT message {} as Thing {} to topics filter {} with QoS {}", message,
+                    clientDeviceThingName, topic, qos);
         // TODO: replace default retain value to passed from scenario
         Mqtt5Message mqtt5Message = buildMqtt5Message(qos, PUBLISH_RETAIN, topic, message);
         MqttPublishReply mqttPublishReply = connectionControl.publishMqtt(mqtt5Message);
@@ -284,6 +306,8 @@ public class MqttControlSteps {
         if (reasonCode != MQTT5_REASON_SUCCESS) {
             throw new RuntimeException("MQTT publish completed with negative reason code " + reasonCode);
         }
+
+        log.debug("MQTT message {} has been succesfully published", message);
     }
 
     /**
@@ -309,6 +333,8 @@ public class MqttControlSteps {
                                         .withContent(message)
                                         .build();
         TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
+        log.debug("Awaiting for MQTT message {} on topic {} on Thing {} for {} {}", message, topic,
+                    getClientDeviceThingName(clientDeviceId), value, unit);
         List<Event> events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
         // check events is not empty
         if (events.isEmpty()) {
@@ -359,6 +385,8 @@ public class MqttControlSteps {
         if (!engineControl.isEngineRunning()) {
             // TODO: use port autoselection and save actual bound port from getBoundPort() for future references
             engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
+            final int boundPort = engineControl.getBoundPort();
+            log.debug("MQTT clients control started gRPC service on port {}", boundPort);
         }
     }
 
@@ -369,7 +397,7 @@ public class MqttControlSteps {
                                  .setHost(getBrokerHost(brokerId))
                                  .setPort(getBrokerPort(brokerId))
                                  .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
-                                 .setCleanSession(true)                 // TODO: move to constants
+                                 .setCleanSession(CONNECT_CLEAR_SESSION)
                                  .setTls(buildTlsSettings(thingSpec, brokerId))
                                  .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50)
                                  .build();
@@ -442,7 +470,6 @@ public class MqttControlSteps {
         scenarioContext.put("port-" + brokerId, port.toString());
     }
 
-    @SuppressWarnings("PMD.UnusedFormalParameter")
     private String getAgentId(String componentName) {
         return componentName;
     }
