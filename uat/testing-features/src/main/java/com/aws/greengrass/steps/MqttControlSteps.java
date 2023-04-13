@@ -84,7 +84,6 @@ public class MqttControlSteps {
             = Mqtt5RetainHandling.MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION;
 
 
-
     private final TestContext testContext;
 
     private final ScenarioContext scenarioContext;
@@ -97,7 +96,7 @@ public class MqttControlSteps {
     private final EventStorage eventStorage;
 
     private final GreengrassV2Client greengrassClient;
-    private static final int mqttTimeoutSeconds = DEFAULT_MQTT_TIMEOUT_SEC;
+    private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
         @Override
@@ -135,7 +134,8 @@ public class MqttControlSteps {
      * @param iotSteps the instance of IotSteps
      * @param engineControl the MQTT clients control
      * @param eventStorage the MQTT event storage
-     * @param greengrassClient
+     * @param greengrassClient the GreengrassV2Client instance
+     * @throws IOException on IO errors
      */
     @Inject
     public MqttControlSteps(
@@ -220,6 +220,16 @@ public class MqttControlSteps {
         log.debug("Connection with broker {} established", brokerId);
 
         setConnectionControl(connectionControl, clientDeviceThingName);
+    }
+
+    /**
+     * Set MQTT operations timeout value.
+     *
+     * @param mqttTimeoutSec MQTT operations timeout in seconds
+     */
+    @And("I set MQTT timeout {int}")
+    public void setMqttTimeoutSec(int mqttTimeoutSec) {
+        this.mqttTimeoutSec = mqttTimeoutSec;
     }
 
     /**
@@ -392,6 +402,8 @@ public class MqttControlSteps {
 
     private MqttConnectRequest buildMqttConnectRequest(String clientDeviceThingName, String brokerId) {
         final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceThingName);
+
+        // TODO: use values from scenario instead of defaults
         return MqttConnectRequest.newBuilder()
                                  .setClientId(clientDeviceThingName)
                                  .setHost(getBrokerHost(brokerId))
@@ -440,7 +452,7 @@ public class MqttControlSteps {
                     final String host = info.getHostAddress();
                     final Integer port = info.getPortNumber();
                     try (Socket socket = new Socket()) {
-                        socket.connect(new InetSocketAddress(host, port), mqttTimeoutSeconds * 1000);
+                        socket.connect(new InetSocketAddress(host, port), mqttTimeoutSec * 1000);
                         putBrokerHost(brokerId, host);
                         putBrokerPort(brokerId, port);
                         log.debug("Core Device ConnectivityInfo, endpoint {}:{} is reachable", host, port);
@@ -495,7 +507,7 @@ public class MqttControlSteps {
                                                 + "' does not registered in the MQTT Clients Control");
         }
 
-        agentControl.setTimeout(mqttTimeoutSeconds);
+        agentControl.setTimeout(mqttTimeoutSec);
         return agentControl;
     }
 
@@ -521,7 +533,7 @@ public class MqttControlSteps {
                                             + "' does not exist in the MQTT Clients Control");
         }
 
-        connectionControl.setTimeout(mqttTimeoutSeconds);
+        connectionControl.setTimeout(mqttTimeoutSec);
         return connectionControl;
     }
 
