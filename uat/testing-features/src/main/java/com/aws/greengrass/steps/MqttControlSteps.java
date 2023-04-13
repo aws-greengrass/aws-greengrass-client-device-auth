@@ -28,6 +28,7 @@ import lombok.extern.log4j.Log4j2;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 
 import java.io.IOException;
+import java.util.Objects;
 import javax.inject.Inject;
 
 @Log4j2
@@ -52,6 +53,8 @@ public class MqttControlSteps {
     private final EngineControl engineControl;
 
     private final GreengrassV2Client greengrassClient;
+
+    private Integer mqttTimeout;
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
         @Override
@@ -148,6 +151,11 @@ public class MqttControlSteps {
                      .createMqttConnection(request, connectionEvents);
     }
 
+    @And("I set MQTT timeout {int}")
+    public void setMqttTimeout(int mqttTimeout) {
+        this.mqttTimeout = mqttTimeout;
+    }
+
     @When("I subscribe {string} to {string} with qos {int}")
     public void subscribe(String clientDeviceId, String topic, int qos) {
         //@TODO Implement method
@@ -197,7 +205,7 @@ public class MqttControlSteps {
                                  .setPort(getBrokerPort(brokerId))
                                  .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
                                  .setCleanSession(true)
-                                 .setTimeout(DEFAULT_MQTT_TIMEOUT)
+                                 .setTimeout(getMqttTimeout())
                                  .setTls(buildTlsSettings(thingSpec, brokerId))
                                  .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50)
                                  .build();
@@ -249,5 +257,9 @@ public class MqttControlSteps {
     private String getBrokerCa(String brokerId) {
         //@TODO Implement method
         return "";
+    }
+
+    private int getMqttTimeout() {
+        return Objects.isNull(mqttTimeout) ? DEFAULT_MQTT_TIMEOUT : mqttTimeout;
     }
 }
