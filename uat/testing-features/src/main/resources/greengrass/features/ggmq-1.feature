@@ -46,7 +46,6 @@ Feature: GGMQ-1
     When I associate "clientDeviceTest" with ggc
     And I discover core device broker as "default_broker" from "clientDeviceTest"
     And I connect device "clientDeviceTest" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker"
-    Then connection for device "clientDeviceTest" is successfully established within 3 seconds
     When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0
     Then subscription to "iot_data_0" is successfull on "clientDeviceTest"
     When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Test message"

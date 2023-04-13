@@ -53,7 +53,7 @@ public class MqttControlSteps {
 
     private static final int DEFAULT_CONTROL_GRPC_PORT = 47_619;
     private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
-    private static final int DEFAULT_MQTT_CONNECT_TIMEOUT = 30;
+    private static final int DEFAULT_MQTT_TIMEOUT_SECOND = 30;
 
     private final TestContext testContext;
 
@@ -66,6 +66,8 @@ public class MqttControlSteps {
     private final EngineControl engineControl;
 
     private final GreengrassV2Client greengrassClient;
+
+    private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SECOND;
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
         @Override
@@ -166,10 +168,14 @@ public class MqttControlSteps {
                      .createMqttConnection(request, connectionEvents);
     }
 
-    @Then("connection for device {string} is successfully established within {int} {word}")
-    public void validateConnect(String clientDeviceId, int value, String unitOfMeasure) {
-        //@TODO Implement method
-        throw new RuntimeException("Method validateConnect is not implemented");
+    /**
+     * Set MQTT connection timeout value.
+     *
+     * @param mqttTimeoutSec MQTT connection timeout in seconds.
+     */
+    @And("I set MQTT timeout {int}")
+    public void setMqttTimeoutSec(int mqttTimeoutSec) {
+        this.mqttTimeoutSec = mqttTimeoutSec;
     }
 
     @When("I subscribe {string} to {string} with qos {int}")
@@ -258,7 +264,7 @@ public class MqttControlSteps {
                                  .setPort(getBrokerPort(brokerId))
                                  .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
                                  .setCleanSession(true)
-                                 .setTimeout(DEFAULT_MQTT_CONNECT_TIMEOUT)
+                                 .setTimeout(mqttTimeoutSec)
                                  .setTls(buildTlsSettings(thingSpec, brokerId))
                                  .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50)
                                  .build();
@@ -304,7 +310,7 @@ public class MqttControlSteps {
                     final String host = info.getHostAddress();
                     final Integer port = info.getPortNumber();
                     try (Socket socket = new Socket()) {
-                        socket.connect(new InetSocketAddress(host, port), DEFAULT_MQTT_CONNECT_TIMEOUT);
+                        socket.connect(new InetSocketAddress(host, port), mqttTimeoutSec * 1000);
                         putBrokerHost(brokerId, host);
                         putBrokerPort(brokerId, port);
                         log.debug("Core Device ConnectivityInfo, endpoint {}:{} is reachable", host, port);
@@ -347,4 +353,5 @@ public class MqttControlSteps {
     private void putBrokerCa(String brokerId, String ca) {
         scenarioContext.put("ca-" + brokerId, ca);
     }
+
 }
