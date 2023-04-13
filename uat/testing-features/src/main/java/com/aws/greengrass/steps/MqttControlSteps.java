@@ -36,13 +36,12 @@ import software.amazon.awssdk.iot.discovery.model.DiscoverResponse;
 import software.amazon.awssdk.iot.discovery.model.GGGroup;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 
-import javax.inject.Inject;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import javax.inject.Inject;
 
 import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
 
@@ -351,7 +350,7 @@ public class MqttControlSteps {
     }
 
     private int getMqttTimeout() {
-        return Objects.isNull(mqttTimeout) ? DEFAULT_MQTT_TIMEOUT : mqttTimeout;
+        return mqttTimeout == null ? DEFAULT_MQTT_TIMEOUT : mqttTimeout;
 
     }
 }
