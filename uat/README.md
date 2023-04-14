@@ -52,7 +52,7 @@ curl -s https://d2s8p88vqu9w66.cloudfront.net/releases/greengrass-nucleus-latest
 Execute the UATs by running the following commands from the root of the project.
 
 ```
-java -Dggc.archive=<path-to-nucleus-zip> -Dtest.log.path=<path-to-test-results-folder> -Dtags=Auth -jar <path-to-test-jar>
+java -Dggc.archive=<path-to-nucleus-zip> -Dtest.log.path=<path-to-test-results-folder> -Dtags=GGMQ -jar <path-to-test-jar>
 java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags=GGMQ -jar uat/testing-features/target/client-devices-auth-testing-features.jar
 ```
 
