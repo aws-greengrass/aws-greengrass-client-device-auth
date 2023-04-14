@@ -53,7 +53,6 @@ Execute the UATs by running the following commands from the root of the project.
 
 ```
 java -Dggc.archive=<path-to-nucleus-zip> -Dtest.log.path=<path-to-test-results-folder> -Dtags=Auth -jar <path-to-test-jar>
-java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags=Auth -jar uat/testing-features/target/client-devices-auth-testing-features.jar
 java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags=GGMQ -jar uat/testing-features/target/client-devices-auth-testing-features.jar
 ```
 
