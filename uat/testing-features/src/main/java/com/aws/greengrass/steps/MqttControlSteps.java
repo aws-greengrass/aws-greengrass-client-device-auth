@@ -61,7 +61,6 @@ import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
 @Log4j2
 @ScenarioScoped
 public class MqttControlSteps {
-
     private static final String DEFAULT_CLIENT_DEVICE_POLICY_CONFIG = "/configs/iot/basic_client_device_policy.yaml";
 
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
@@ -212,12 +211,13 @@ public class MqttControlSteps {
 
         // request for new MQTT connection
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
-        log.debug("Creating MQTT connection as Thing {} on {} to {}", clientDeviceThingName, componentId, brokerId);
 
         final MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, brokerId);
+        log.info("Creating MQTT connection as Thing {} on {} to {} with request {}", clientDeviceThingName, componentId,
+                    brokerId, request);
         ConnectionControl connectionControl = agentControl.createMqttConnection(request, connectionEvents);
 
-        log.debug("Connection with broker {} established", brokerId);
+        log.info("Connection with broker {} established", brokerId);
 
         setConnectionControl(connectionControl, clientDeviceThingName);
     }
@@ -248,7 +248,7 @@ public class MqttControlSteps {
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
 
         // do subscription
-        log.debug("Create MQTT subscription for Thing {} to topics filter {} with QoS {}", clientDeviceThingName,
+        log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {}", clientDeviceThingName,
                     filter, qos);
 
         // TODO: use non default settings here
@@ -282,7 +282,7 @@ public class MqttControlSteps {
             throw new RuntimeException("Receive reply to MQTT subscribe request with unexpected reason code should be "
                                         + qos + " but has " + reason);
         }
-        log.debug("MQTT subscription has on topics filter {} been created", filter);
+        log.info("MQTT subscription has on topics filter {} been created", filter);
     }
 
     /**
@@ -302,7 +302,7 @@ public class MqttControlSteps {
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
 
         // do publishing
-        log.debug("Publishing MQTT message {} as Thing {} to topics filter {} with QoS {}", message,
+        log.info("Publishing MQTT message {} as Thing {} to topics filter {} with QoS {}", message,
                     clientDeviceThingName, topic, qos);
         // TODO: replace default retain value to passed from scenario
         Mqtt5Message mqtt5Message = buildMqtt5Message(qos, PUBLISH_RETAIN, topic, message);
@@ -317,7 +317,7 @@ public class MqttControlSteps {
             throw new RuntimeException("MQTT publish completed with negative reason code " + reasonCode);
         }
 
-        log.debug("MQTT message {} has been succesfully published", message);
+        log.info("MQTT message {} has been succesfully published", message);
     }
 
     /**
@@ -343,7 +343,7 @@ public class MqttControlSteps {
                                         .withContent(message)
                                         .build();
         TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
-        log.debug("Awaiting for MQTT message {} on topic {} on Thing {} for {} {}", message, topic,
+        log.info("Awaiting for MQTT message {} on topic {} on Thing {} for {} {}", message, topic,
                     getClientDeviceThingName(clientDeviceId), value, unit);
         List<Event> events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
         // check events is not empty
@@ -396,7 +396,7 @@ public class MqttControlSteps {
             // TODO: use port autoselection and save actual bound port from getBoundPort() for future references
             engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
             final int boundPort = engineControl.getBoundPort();
-            log.debug("MQTT clients control started gRPC service on port {}", boundPort);
+            log.info("MQTT clients control started gRPC service on port {}", boundPort);
         }
     }
 
@@ -455,7 +455,7 @@ public class MqttControlSteps {
                         socket.connect(new InetSocketAddress(host, port), mqttTimeoutSec * 1000);
                         putBrokerHost(brokerId, host);
                         putBrokerPort(brokerId, port);
-                        log.debug("Core Device ConnectivityInfo, endpoint {}:{} is reachable", host, port);
+                        log.info("Core Device ConnectivityInfo, endpoint {}:{} is reachable", host, port);
                         break;
                     } catch (IOException e) {
                         log.warn("Core Device ConnectivityInfo, endpoint {}:{} is not reachable", host, port);

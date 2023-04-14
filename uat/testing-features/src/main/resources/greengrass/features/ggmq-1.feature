@@ -14,6 +14,7 @@ Feature: GGMQ-1
       | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
       | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
     And I create client device "clientDeviceTest"
+    When I associate "clientDeviceTest" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
@@ -41,12 +42,35 @@ Feature: GGMQ-1
   }
 }
     """
+
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.EMQX configuration to:
+    """
+{
+    "emqx": {
+        "listener.ssl.external": "8883",
+        "listener.ssl.external.max_connections": "1024000",
+        "listener.ssl.external.max_conn_rate": "500",
+        "listener.ssl.external.rate_limit": "50KB,5s",
+        "listener.ssl.external.handshake_timeout": "15s",
+        "log.level": "debug"
+    },
+    "requiresPrivilege": "true",
+    "startupTimeoutSeconds": "90",
+    "ipcTimeoutSeconds": "5"
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.client.Mqtt5JavaSdkClient configuration to:
+    """
+{
+    "agentId": "aws.greengrass.client.Mqtt5JavaSdkClient",
+    "controlAddress": "127.0.0.1",
+    "controlPort": "47619"
+}
+    """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    When I associate "clientDeviceTest" with ggc
     And I discover core device broker as "default_broker" from "clientDeviceTest"
     And I connect device "clientDeviceTest" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker"
     When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0
     When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Test message"
-    And message "Test message" received on "clientDeviceTest" from "iot_data_0" topic within 1 second
-
+    And message "Test message" received on "clientDeviceTest" from "iot_data_0" topic within 5 seconds

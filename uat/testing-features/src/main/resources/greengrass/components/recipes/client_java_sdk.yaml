@@ -13,9 +13,8 @@ ComponentConfiguration:
   DefaultConfiguration:
     # agentId should be the same as ComponentName
     agentId: aws.greengrass.client.Mqtt5JavaSdkClient
-    broker:
-      address: 127.0.0.1
-      port: 47619
+    controlAddress: 127.0.0.1
+    controlPort: 47619
 Manifests:
   - Artifacts:
       - URI: classpath:/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar
@@ -24,4 +23,4 @@ Manifests:
           Execute: ALL
     Lifecycle:
       Run: |
-        java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar {configuration:/agentId} {configuration:/broker/address} "{configuration:/broker/port}"
+        java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar {configuration:/agentId} {configuration:/controlAddress} "{configuration:/controlPort}"
