@@ -41,19 +41,17 @@ import software.amazon.awssdk.crt.io.SocketOptions;
 import software.amazon.awssdk.crt.io.TlsContextOptions;
 import software.amazon.awssdk.iot.discovery.DiscoveryClient;
 import software.amazon.awssdk.iot.discovery.DiscoveryClientConfig;
-import software.amazon.awssdk.iot.discovery.model.ConnectivityInfo;
 import software.amazon.awssdk.iot.discovery.model.DiscoverResponse;
+import software.amazon.awssdk.iot.discovery.model.GGCore;
 import software.amazon.awssdk.iot.discovery.model.GGGroup;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
@@ -63,15 +61,22 @@ import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
 public class MqttControlSteps {
     private static final String DEFAULT_CLIENT_DEVICE_POLICY_CONFIG = "/configs/iot/basic_client_device_policy.yaml";
 
+    private static final String CA_SEPARATOR = "\n\n\n";
+    private static final String ADDRESS_SEPARATOR = ";";
+    private static final String IP_PORT_SEPARATOR = ":";
+
+    private static final String CA_INFO_PREFIX = "CAs-";
+    private static final String ADDRESS_INFO_PREFIX = "Addresses-";
+
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
 
     private static final int DEFAULT_CONTROL_GRPC_PORT = 0;
 
-    private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
-
     private static final int MQTT5_REASON_SUCCESS = 0;
     private static final int MQTT5_GRANTED_QOS_2 = 2;
 
+    // TODO: use scenario supplied values instead of defaults
+    private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
     private static final boolean CONNECT_CLEAR_SESSION = true;
 
     private static final boolean PUBLISH_RETAIN = false;
@@ -205,6 +210,7 @@ public class MqttControlSteps {
      * @param componentId    componentId of MQTT client
      * @param brokerId       broker id
      */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @And("I connect device {string} on {word} to {string}")
     public void connect(String clientDeviceId, String componentId, String brokerId) {
         // get agent control by componentId
@@ -213,14 +219,34 @@ public class MqttControlSteps {
         // request for new MQTT connection
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
 
-        final MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, brokerId);
-        log.info("Creating MQTT connection as Thing {} on {} to {} with request {}", clientDeviceThingName, componentId,
-                    brokerId, request);
-        ConnectionControl connectionControl = agentControl.createMqttConnection(request, connectionEvents);
+        String ca = getBrokerCAs(brokerId);
+        String addresses = getBrokerAddresses(brokerId);
 
-        log.info("Connection with broker {} established", brokerId);
+        RuntimeException lastException = null;
+        for (String address : addresses.split(ADDRESS_SEPARATOR)) {
+            String[] parts = address.split(IP_PORT_SEPARATOR);
+            String host = parts[0];
+            int port = Integer.valueOf(parts[1]);
 
-        setConnectionControl(connectionControl, clientDeviceThingName);
+            log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {}",
+                        brokerId, host, port, clientDeviceThingName, componentId);
+
+            MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, ca, host, port);
+            try {
+                ConnectionControl connectionControl = agentControl.createMqttConnection(request, connectionEvents);
+                log.info("Connection with broker {} established to address {}:{} as Thing {} on {}",
+                            brokerId, host, port, clientDeviceThingName, componentId);
+
+                setConnectionControl(connectionControl, clientDeviceThingName);
+                return;
+            } catch (RuntimeException ex) {
+                lastException = ex;
+            }
+        }
+        if (lastException == null) {
+            throw new RuntimeException("No addresses connect to");
+        }
+        throw lastException;
     }
 
     /**
@@ -384,17 +410,16 @@ public class MqttControlSteps {
                                     .certificate()
                                     .keyPair()
                                     .privateKey();
-        final String region = resourcesContext.region()
-                                              .toString();
+        final String region = resourcesContext.region().toString();
         final String ca = registrationContext.rootCA();
         try (SocketOptions socketOptions = new SocketOptions();
-             TlsContextOptions tlsOptions = TlsContextOptions.createWithMtls(crt, key)
-                                                             .withCertificateAuthority(ca)
-                                                             .withAlpnList(TLS_EXT_ALPN);
-            DiscoveryClientConfig config = new DiscoveryClientConfig(tlsOptions, socketOptions, region, 1, null);
-            DiscoveryClient client = new DiscoveryClient(config)) {
-                processDiscoveryResponse(brokerId, client.discover(clientDeviceThingName).get());
-            }
+                TlsContextOptions tlsOptions = TlsContextOptions.createWithMtls(crt, key)
+                                                                 .withCertificateAuthority(ca)
+                                                                 .withAlpnList(TLS_EXT_ALPN);
+                DiscoveryClientConfig config = new DiscoveryClientConfig(tlsOptions, socketOptions, region, 1, null);
+                DiscoveryClient client = new DiscoveryClient(config)) {
+            processDiscoveryResponse(brokerId, client.discover(clientDeviceThingName).get());
+        }
     }
 
     private IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) throws IOException {
@@ -410,17 +435,17 @@ public class MqttControlSteps {
         }
     }
 
-    private MqttConnectRequest buildMqttConnectRequest(String clientDeviceThingName, String brokerId) {
+    private MqttConnectRequest buildMqttConnectRequest(String clientDeviceThingName, String ca, String host, int port) {
         final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceThingName);
 
         // TODO: use values from scenario instead of defaults
         return MqttConnectRequest.newBuilder()
                                  .setClientId(clientDeviceThingName)
-                                 .setHost(getBrokerHost(brokerId))
-                                 .setPort(getBrokerPort(brokerId))
+                                 .setHost(host)
+                                 .setPort(port)
                                  .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
                                  .setCleanSession(CONNECT_CLEAR_SESSION)
-                                 .setTls(buildTlsSettings(thingSpec, brokerId))
+                                 .setTls(buildTlsSettings(thingSpec, ca))
                                  .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50)
                                  .build();
     }
@@ -432,9 +457,9 @@ public class MqttControlSteps {
                         .orElseThrow(() -> new RuntimeException("Thing spec is not found"));
     }
 
-    private TLSSettings buildTlsSettings(IotThingSpec thingSpec, String brokerId) {
+    private TLSSettings buildTlsSettings(IotThingSpec thingSpec, String ca) {
         return TLSSettings.newBuilder()
-                          .setCa(getBrokerCa(brokerId))
+                          .setCa(ca)
                           .setCert(thingSpec.resource()
                                             .certificate()
                                             .certificatePem())
@@ -447,61 +472,63 @@ public class MqttControlSteps {
     }
 
     private void processDiscoveryResponse(String brokerId, DiscoverResponse response) {
-        if (response.getGGGroups() != null) {
-            final Optional<GGGroup> groupOpt = response.getGGGroups()
-                                                       .stream()
-                                                       .findFirst();
-            if (groupOpt.isPresent()) {
-                final GGGroup group = groupOpt.get();
-                final String ca = group.getCAs()
-                                       .get(0);
-                putBrokerCa(brokerId, ca);
-                for (ConnectivityInfo info : group.getCores()
-                                                  .get(0)
-                                                  .getConnectivity()) {
-                    final String host = info.getHostAddress();
-                    final Integer port = info.getPortNumber();
-                    try (Socket socket = new Socket()) {
-                        socket.connect(new InetSocketAddress(host, port), mqttTimeoutSec * 1000);
-                        putBrokerHost(brokerId, host);
-                        putBrokerPort(brokerId, port);
-                        log.info("Core Device ConnectivityInfo, endpoint {}:{} is reachable", host, port);
-                        break;
-                    } catch (IOException e) {
-                        log.warn("Core Device ConnectivityInfo, endpoint {}:{} is not reachable", host, port);
-                    }
-                }
-
-            }
+        if (response == null) {
+            throw new IllegalStateException("Discovery response is missing");
         }
+
+        final List<GGGroup> groups = response.getGGGroups();
+        if (groups == null || groups.isEmpty() || groups.get(0) == null) {
+            throw new IllegalStateException("Groups are missing in discovery response");
+        }
+
+        // TODO: save for all groups:
+        final GGGroup group = groups.get(0);
+
+        final List<String> caList = group.getCAs();
+        if (caList == null || caList.isEmpty()) {
+            throw new IllegalStateException("CA is missing in discovery response");
+        }
+
+        final List<GGCore> cores = group.getCores();
+        if (cores == null || cores.isEmpty()) {
+            throw new IllegalStateException("Cores are missing in discovery response");
+        }
+
+
+        // join addresses for all cores and all connectivity info to single string
+        final String addresses = cores.stream()
+                .map(core -> core.getConnectivity().stream()
+                            .map(ci -> ci.getHostAddress() + IP_PORT_SEPARATOR + ci.getPortNumber())
+                            .collect(Collectors.joining(ADDRESS_SEPARATOR)))
+                .collect(Collectors.joining(ADDRESS_SEPARATOR));
+        putBrokerAddresses(brokerId, addresses);
+        log.info("Discovered {} addresses of broker {}", addresses, brokerId);
+
+
+        // join all CA to single string
+        final String stringCAs = caList.stream().collect(Collectors.joining(CA_SEPARATOR));
+        putBrokerCAs(brokerId, stringCAs);
+        log.info("Discovered {} CA of broker {}", caList.size(), brokerId);
     }
 
-    private String getBrokerHost(String brokerId) {
-        return scenarioContext.get("host-" + brokerId);
+    private String getBrokerAddresses(String brokerId) {
+        return scenarioContext.get(ADDRESS_INFO_PREFIX + brokerId);
     }
 
-    private void putBrokerHost(String brokerId, String host) {
-        scenarioContext.put("host-" + brokerId, host);
+    private void putBrokerAddresses(String brokerId, @NonNull String addresses) {
+        scenarioContext.put(ADDRESS_INFO_PREFIX + brokerId, addresses);
     }
 
-    private int getBrokerPort(String brokerId) {
-        return Integer.parseInt(scenarioContext.get("port-" + brokerId));
+    private String getBrokerCAs(String brokerId) {
+        return scenarioContext.get(CA_INFO_PREFIX + brokerId);
     }
 
-    private void putBrokerPort(String brokerId, Integer port) {
-        scenarioContext.put("port-" + brokerId, port.toString());
+    private void putBrokerCAs(String brokerId, @NonNull String ca) {
+        scenarioContext.put(CA_INFO_PREFIX  + brokerId, ca);
     }
 
     private String getAgentId(String componentName) {
         return componentName;
-    }
-
-    private String getBrokerCa(String brokerId) {
-        return scenarioContext.get("ca-" + brokerId);
-    }
-
-    private void putBrokerCa(String brokerId, String ca) {
-        scenarioContext.put("ca-" + brokerId, ca);
     }
 
     private String getClientDeviceThingName(@NonNull String clientDeviceId) {
