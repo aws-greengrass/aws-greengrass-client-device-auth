@@ -113,7 +113,7 @@ public class MqttControlSteps {
         @Override
         public void onMessageReceived(ConnectionControl connectionControl, Mqtt5Message message) {
             eventStorage.addEvent(new MqttMessageEvent(connectionControl, message));
-            log.info("Message received: {}", message.toString());
+            log.info("Message received on connection with name {}: {}", connectionControl.getConnectionName(), message);
         }
 
         @Override
@@ -336,17 +336,26 @@ public class MqttControlSteps {
     @And("message {string} received on {string} from {string} topic within {int} {word}")
     public void receive(String message, String clientDeviceId, String topic, int value, String unit)
                             throws TimeoutException, InterruptedException {
+        // getting connectionControl by clientDeviceId
+        final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+        ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        // build filter
         EventFilter eventFilter = new EventFilter.Builder()
                                         .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
-                                        .withConnectionName(getConnectionName(clientDeviceId))
+                                        .withConnectionControl(connectionControl)
                                         .withTopic(topic)
                                         .withContent(message)
                                         .build();
+        // convert time units
         TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
+
+        // awaiting for message
         log.info("Awaiting for MQTT message {} on topic {} on Thing {} for {} {}", message, topic,
                     getClientDeviceThingName(clientDeviceId), value, unit);
         List<Event> events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
-        // check events is not empty
+
+        // check events is not empty, actually never happens due ro TimeoutException
         if (events.isEmpty()) {
             // no message(s) were received
             throw new RuntimeException("No matched MQTT messages have been received");

@@ -83,7 +83,7 @@ public class MqttMessageEvent extends EventImpl {
             return expectedConnectionControl == connectionControl;
         }
 
-        // 2'st priority
+        // 2'nd priority
         if (agentId != null && connectionId != null) {
             return agentId.equals(connectionControl.getAgentControl().getAgentId())
                         && connectionId == connectionControl.getConnectionId();

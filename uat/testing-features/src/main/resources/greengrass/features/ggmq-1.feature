@@ -7,7 +7,7 @@ Feature: GGMQ-1
     Given my device is registered as a Thing
     And my device is running Greengrass
 
-  Scenario: GGMQ-1-T1: As a customer, I can connect, subscribe and publish using client application to MQTT topic
+  Scenario: GGMQ-1-T1: As a customer, I can connect, subscribe, publish and receive using client application to MQTT topic
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                                        |
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                        |
