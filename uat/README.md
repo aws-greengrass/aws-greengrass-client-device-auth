@@ -12,7 +12,7 @@ Some scenarios require to install and run the EMQX, Auth, IPDetector Greengrass 
 #### Docker
 Because EMQX compoment running in a docker containter docker should be installed on workstation where scenario is running.
 
-#### Rrivileges
+#### Privileges
 Also it requires privileges, for Greengrass components that means posix user which running Nucleus can execute sudo command without password requirement.
 Please update your /etc/sudoers on Linux to satisfy this requirement.
 
