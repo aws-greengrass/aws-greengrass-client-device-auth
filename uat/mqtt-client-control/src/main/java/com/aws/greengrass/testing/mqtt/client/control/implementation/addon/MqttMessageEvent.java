@@ -13,7 +13,6 @@ import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.Arrays;
-import java.util.regex.Pattern;
 
 /**
  * Implements received MQTT message event.
@@ -111,7 +110,6 @@ public class MqttMessageEvent extends EventImpl {
     }
 
     private static boolean isTopicMatched(@NonNull String topic, @NonNull String topicFilter) {
-        final String regex = topicFilter.replace("+", "[^/]+").replace("#", ".+");
-        return Pattern.matches(regex, topic);
+        return MqttTopic.topicIsSupersetOf(topicFilter, topic);
     }
 }

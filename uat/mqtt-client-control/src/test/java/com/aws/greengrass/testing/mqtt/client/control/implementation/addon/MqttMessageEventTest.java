@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 class MqttMessageEventTest {
     static final String CONNECTION_NAME = "connection_name";
     static final String TOPIC = "topic/name";
+    static final String SINGLE_LEVEL_FILTER = "topic/+";
     static final String CONTENT = "message_content";
 
     @Mock
@@ -205,5 +206,34 @@ class MqttMessageEventTest {
 
         // THEN
         assertFalse(result);
+    }
+
+    @Test
+    void GIVEN_topic_and_matched_filter_matched_WHEN_is_matched_THEN_is() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+        final String topic = TOPIC;
+        final String content = CONTENT;
+        final String filter = SINGLE_LEVEL_FILTER;
+
+        lenient().when(message.getTopic()).thenReturn(topic);
+        lenient().when(message.getPayload()).thenReturn(ByteString.copyFromUtf8(content));
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .withTopicFilter(filter)
+                                        .withContent(content)
+                                        .build();
+
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertTrue(result);
+        verify(message).getTopic();
+        verify(message).getPayload();
     }
 }
