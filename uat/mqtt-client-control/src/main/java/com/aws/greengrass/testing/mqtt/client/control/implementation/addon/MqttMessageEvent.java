@@ -9,6 +9,7 @@ import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
 import com.google.protobuf.ByteString;
+import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.Arrays;
@@ -20,6 +21,8 @@ import java.util.regex.Pattern;
 public class MqttMessageEvent extends EventImpl {
 
     private final ConnectionControl connectionControl;
+
+    @Getter
     private final Mqtt5Message message;
 
     /**
