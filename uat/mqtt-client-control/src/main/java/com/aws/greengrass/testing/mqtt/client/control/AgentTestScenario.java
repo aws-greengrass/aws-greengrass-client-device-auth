@@ -18,7 +18,7 @@ import com.aws.greengrass.testing.mqtt.client.TLSSettings;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl.ConnectionEvents;
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
-import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventStorage;
+import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.EventStorageImpl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttMessageEvent;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
@@ -85,7 +85,7 @@ class AgentTestScenario implements Runnable {
 
     private boolean useTLS;
     private final AgentControl agentControl;
-    private final EventStorage eventStorage;
+    private final EventStorageImpl eventStorage;
 
     private String ca = null;
     private String cert = null;
@@ -114,7 +114,7 @@ class AgentTestScenario implements Runnable {
         }
     };
 
-    public AgentTestScenario(boolean useTLS, AgentControl agentControl, EventStorage eventStorage) {
+    public AgentTestScenario(boolean useTLS, AgentControl agentControl, EventStorageImpl eventStorage) {
         super();
 
         this.useTLS = useTLS;

@@ -8,7 +8,6 @@ package com.aws.greengrass.testing.mqtt.client.control;
 import com.aws.greengrass.testing.mqtt.client.control.api.AgentControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl.EngineEvents;
-import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventStorage;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.EngineControlImpl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.EventStorageImpl;
 import org.apache.logging.log4j.LogManager;
@@ -33,7 +32,7 @@ public class ExampleControl {
     private final boolean useTLS;
     private final int port;
     private final EngineControl engineControl;
-    private final EventStorage eventStorage;
+    private final EventStorageImpl eventStorage;
 
     private final EngineEvents engineEvents = new EngineEvents() {
         @Override

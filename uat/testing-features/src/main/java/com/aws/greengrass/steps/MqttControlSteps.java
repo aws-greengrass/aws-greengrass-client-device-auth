@@ -25,7 +25,7 @@ import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.Event;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
-import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventStorage;
+import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.EventStorageImpl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttMessageEvent;
 import com.aws.greengrass.testing.resources.AWSResources;
 import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
@@ -92,7 +92,7 @@ public class MqttControlSteps {
 
     private final IotSteps iotSteps;
     private final EngineControl engineControl;
-    private final EventStorage eventStorage;
+    private final EventStorageImpl eventStorage;
 
     private final GreengrassV2Client greengrassClient;
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
@@ -145,7 +145,7 @@ public class MqttControlSteps {
             AWSResourcesContext resourcesContext,
             IotSteps iotSteps,
             EngineControl engineControl,
-            EventStorage eventStorage,
+            EventStorageImpl eventStorage,
             GreengrassV2Client greengrassClient) throws IOException {
         this.testContext = testContext;
         this.scenarioContext = scenarioContext;

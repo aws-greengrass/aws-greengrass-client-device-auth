@@ -6,7 +6,6 @@
 package com.aws.greengrass.resources;
 
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
-import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventStorage;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.EngineControlImpl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.EventStorageImpl;
 import com.google.auto.service.AutoService;
@@ -27,7 +26,7 @@ public class MqttControlModule extends AbstractModule {
 
     @Provides
     @Singleton
-    EventStorage providesEventStorageImpl() {
+    EventStorageImpl providesEventStorageImpl() {
         return new EventStorageImpl();
     }
 }
