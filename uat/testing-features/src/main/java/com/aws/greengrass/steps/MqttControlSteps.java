@@ -396,6 +396,40 @@ public class MqttControlSteps {
             }
     }
 
+    /**
+     * Unsubscribe the MQTT topics by filter.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param filter the topics filter to unsubscribe
+     */
+    public void unsubscribe(String clientDeviceId, String filter) {
+        // getting connectionControl by clientDeviceId
+        final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+        ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        // do unsubscribe
+        log.info("Create MQTT unsubscription for Thing {} to topics filter {}", clientDeviceThingName, filter);
+
+        MqttSubscribeReply mqttUnsubscribeReply = connectionControl.unsubscribeMqtt(filter);
+
+        List<Integer> reasons = mqttUnsubscribeReply.getReasonCodesList();
+        if (reasons == null) {
+            throw new RuntimeException("Receive reply to MQTT unsubscribe request with missing reason codes");
+        }
+
+        if (reasons.size() != 1 || reasons.get(0) == null) {
+            throw new RuntimeException("Receive reply to MQTT unsubscribe request with unexpected number "
+                    + "of reason codes should be 1 but has " + reasons.size());
+        }
+
+        int reason = reasons.get(0);
+        if (reason != MQTT5_REASON_SUCCESS) {
+            throw new RuntimeException("Receive reply to MQTT unsubscribe request with unsuccessful reason code "
+                    + reason);
+        }
+        log.info("MQTT topics filter {} has been unsubscribed", filter);
+    }
+
     private IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) throws IOException {
         return iotSteps.createPolicy(DEFAULT_CLIENT_DEVICE_POLICY_CONFIG, policyNameOverride);
     }
