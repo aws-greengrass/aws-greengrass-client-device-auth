@@ -16,7 +16,12 @@ To run integrated with sources tests, use the following command:
 mvn -ntp -U clean verify
 ```
 
-# Settings
+# Standalone application
+For manual testing stanalone application is also provided.
+When any agent (controlled MQTT client) will connected that application will start hardcoded test scenario which includes connection, subscribe, publish, unsubscribe and disconnect.
+Pauses are inserted between these operation. Also receiving of MQTT message supported.
+
+## Settings
 ### MQTT Client Id
 Can be passed via Java system property named `mqtt_client_id` or (when property is missed) from environment variable named `MQTT_CLIENT_ID`.
 When both are missing string `MQTT_Client_1` is used.
@@ -45,13 +50,25 @@ When both are missing value `client.crt` is used.
 Can be passed via Java system property named `mqtt_client_key_file` or (when property is missed) from environment variable named `MQTT_CLIENT_KEY_FILE`.
 When both are missing value `client.key` is used.
 
+## Arguments
+Currently application accept two arguments.
+
+### Port number
+Is a first command line argument.
+By default control will starting gRPC server on port 47619 and any address.
+
+### Use TLS
+Is a second command line argument.
+By default control will requires to agent to establish TLS connection with broker.
+That can be changes by using false keyword for second argument.
+
 ### Examples
 ```sh
-java -Dmqtt_client_id=client5 -Dmqtt_broker_addr=10.10.10.10 -Dmqtt_broker_port=1883 -Dmqtt_client_ca_file=rootCA.crt -Dmqtt_client_cert_file=client1.crt -Dmqtt_client_key_file=client1.key -jar target/aws-greengrass-testing-mqtt-control.jar
+java -Dmqtt_client_id=client5 -Dmqtt_broker_addr=10.10.10.10 -Dmqtt_broker_port=1883 -Dmqtt_client_ca_file=rootCA.crt -Dmqtt_client_cert_file=client1.crt -Dmqtt_client_key_file=client1.key -jar target/aws-greengrass-testing-mqtt-control.jar 47619 true
 ```
 
 ```sh
-MQTT_CLIENT_ID=client5 MQTT_BROKER_ADDR=10.10.10.10 MQTT_BROKER_PORT=1883 MQTT_CLIENT_CA_FILE=rootCA.crt MQTT_CLIENT_CERT_FILE=client1.crt MQTT_CLIENT_KEY_FILE=client1.key java -jar target/aws-greengrass-testing-mqtt-control.jar
+MQTT_CLIENT_ID=client5 MQTT_BROKER_ADDR=10.10.10.10 MQTT_BROKER_PORT=1883 MQTT_CLIENT_CA_FILE=rootCA.crt MQTT_CLIENT_CERT_FILE=client1.crt MQTT_CLIENT_KEY_FILE=client1.key java -jar target/aws-greengrass-testing-mqtt-control.jar 47619 true
 ```
 
 # How to run

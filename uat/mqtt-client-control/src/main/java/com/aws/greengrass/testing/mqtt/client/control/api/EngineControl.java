@@ -13,6 +13,7 @@ import java.io.IOException;
  * Interface to whole engine.
  */
 public interface EngineControl {
+    int DEFAULT_TIMEOUT = 10;
 
     /**
      * Interface of receiver for engine level events.
@@ -30,6 +31,19 @@ public interface EngineControl {
          */
         void onAgentDeattached(AgentControl agent);
     }
+
+    /**
+     * Gets value of timeout.
+     */
+    int getTimeout();
+
+    /**
+     * Sets value of timeout.
+     * By default timeout value is DEFAULT_TIMEOUT;
+     *
+     * @param timeout value of timeout in seconds
+     */
+    void setTimeout(int timeout);
 
     /**
      * Starts engine instance.

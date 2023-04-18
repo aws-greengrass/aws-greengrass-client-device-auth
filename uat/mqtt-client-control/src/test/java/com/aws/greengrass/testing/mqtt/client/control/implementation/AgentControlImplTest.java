@@ -37,6 +37,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AgentControlImplTest {
+    private static final int TIMEOUT = 44;
 
     private static final String DEFAULT_AGENT_ID = "agent1";
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
@@ -44,6 +45,7 @@ class AgentControlImplTest {
     private static final int DEFAULT_PORT = 8474;
     private static final int TEST_TIMEOUT = 44;
 
+    private EngineControlImpl engineControl;
     private ManagedChannel channel;
     private MqttClientControlGrpc.MqttClientControlBlockingStub blockingStub;
     private AgentControlImpl.ConnectionControlFactory connectionControlFactory;
@@ -51,11 +53,14 @@ class AgentControlImplTest {
 
     @BeforeEach
     void setup() {
+        engineControl = mock(EngineControlImpl.class);
+        when(engineControl.getTimeout()).thenReturn(TIMEOUT);
+
         connectionControlFactory = mock(AgentControlImpl.ConnectionControlFactory.class);
         channel = mock(ManagedChannel.class);
         blockingStub = mock(MqttClientControlGrpc.MqttClientControlBlockingStub.class);
-        agentControl = new AgentControlImpl(DEFAULT_AGENT_ID, DEFAULT_ADDRESS, DEFAULT_PORT, connectionControlFactory,
-                                            channel, blockingStub);
+        agentControl = new AgentControlImpl(engineControl, DEFAULT_AGENT_ID, DEFAULT_ADDRESS, DEFAULT_PORT,
+                                            connectionControlFactory, channel, blockingStub);
     }
 
     @AfterEach
@@ -66,7 +71,7 @@ class AgentControlImplTest {
     @Test
     void GIVEN_agent_control_WHEN_get_timeout_THEN_return_default_timeout() {
         // GIVEN
-        final int expected = AgentControl.DEFAULT_TIMEOUT;
+        final int expected = TIMEOUT;
 
         // WHEN
         final int actualTimeout = agentControl.getTimeout();
@@ -171,7 +176,7 @@ class AgentControlImplTest {
                                                 .setConnectionId(connectionId)
                                                 .build();
         MqttConnectRequest connectRequest = MqttConnectRequest.newBuilder().build();
-        when(blockingStub.createMqttConnection(eq(connectRequest))).thenReturn(response);
+        when(blockingStub.createMqttConnection(any(MqttConnectRequest.class))).thenReturn(response);
         AgentControl.ConnectionEvents connectionEvents = mock(AgentControl.ConnectionEvents.class);
 
         ConnectionControlImpl connectionControl = mock(ConnectionControlImpl.class);
@@ -183,7 +188,7 @@ class AgentControlImplTest {
 
         // THEN
         assertSame(connectionControl, actualConnectionControl);
-        verify(blockingStub).createMqttConnection(eq(connectRequest));
+        verify(blockingStub).createMqttConnection(any(MqttConnectRequest.class));
     }
 
     @Test

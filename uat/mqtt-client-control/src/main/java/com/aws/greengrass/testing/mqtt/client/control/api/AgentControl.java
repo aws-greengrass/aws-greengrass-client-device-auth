@@ -14,8 +14,6 @@ import lombok.NonNull;
  * Control of single MQTT client (agent).
  */
 public interface AgentControl {
-    int DEFAULT_TIMEOUT = 10;
-
     /**
      * Interface of receiver for connection level events.
      */
@@ -45,19 +43,19 @@ public interface AgentControl {
 
     /**
      * Sets value of timeout.
-     * By default timeout value is DEFAULT_TIMEOUT;
+     * By default timeout value is taken from EngineControl;
      *
      * @param timeout value of timeout in seconds
      */
     void setTimeout(int timeout);
 
     /**
-     * Starts agent.
+     * Starts the agent control.
      */
     void startAgent();
 
     /**
-     * Stops agent.
+     * Stops the agent control.
      */
     void stopAgent();
 
