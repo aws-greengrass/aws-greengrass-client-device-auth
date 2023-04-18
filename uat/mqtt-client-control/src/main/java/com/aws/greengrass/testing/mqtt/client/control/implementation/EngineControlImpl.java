@@ -23,9 +23,15 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+
 
 public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     private static final Logger logger = LogManager.getLogger(EngineControlImpl.class);
@@ -100,6 +106,11 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     @Override
     public Integer getBoundPort() {
         return boundPort;
+    }
+
+    @Override
+    public String[] getIPs() {
+        return getLocalIPList().toArray(new String[0]);
     }
 
     @Override
@@ -202,5 +213,25 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
                 }
             }
         });
+    }
+
+    private List<String> getLocalIPList() {
+        List<String> ips = new ArrayList<>();
+
+        try {
+            for (Enumeration ifaces = NetworkInterface.getNetworkInterfaces(); ifaces.hasMoreElements();) {
+                NetworkInterface iface = (NetworkInterface) ifaces.nextElement();
+                for (Enumeration inetAddrs = iface.getInetAddresses(); inetAddrs.hasMoreElements();) {
+                    InetAddress inetAddress = (InetAddress) inetAddrs.nextElement();
+
+                    if (inetAddress.isSiteLocalAddress()) {
+                        ips.add(inetAddress.getHostAddress());
+                    }
+                }
+            }
+        } catch (SocketException ex) {
+            logger.atError().withThrowable(ex).log("Couldn't get local IP addresses");
+        }
+        return ips;
     }
 }
