@@ -14,6 +14,9 @@ import lombok.experimental.UtilityClass;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Main class of application.
  */
@@ -32,15 +35,14 @@ public class Main {
     @AllArgsConstructor
     private static class Arguments {
         String agentId;
-        String host;
+        String[] hosts;
         int port;
     }
-
 
     /**
      * The main method of application.
      *
-     * @param args program's arguments
+     * @param args program's arguments agentId [[IP ] port]
      */
     @SuppressWarnings({"PMD.DoNotCallSystemExit", "PMD.AvoidCatchingGenericException"})
     public static void main(String[] args) {
@@ -63,34 +65,38 @@ public class Main {
         System.exit(rc);
     }
 
-
-    @SuppressWarnings({"PMD.MissingBreakInSwitch", "PMD.ImplicitSwitchFallThrough"})
+    @SuppressWarnings({"PMD.MissingBreakInSwitch",
+                        "PMD.ImplicitSwitchFallThrough",
+                        "PMD.DefaultLabelNotLastInSwitchStmt"})
     private static Arguments parseArgs(String... args) {
         String agentId;
-        String address = DEFAULT_GRPC_SERVER_IP;
+        List<String> addresses = new ArrayList<>();
         int port = DEFAULT_GRPC_SERVER_PORT;
 
         switch (args.length) {
+            default:
             case 3:
-                // agent_id ip port
-                port = Integer.parseInt(args[2]);
+                // agent_id port ip ...
+                for (int i = 2; i < args.length; i++) {
+                    addresses.add(args[i]);
+                }
+                // fallthrough
+            case 2:
+                // agent_id port
+                port = Integer.parseInt(args[1]);
                 if (port < PORT_MIN || port > PORT_MAX) {
                     throw new IllegalArgumentException("Invalid port value " + port + " , expected [1..65535]");
                 }
                 // fallthrough
-            case 2:
-                // agent_id ip
-                address = args[1];
-                // fallthrough
             case 1:
                 // agent_id
+                addresses.add(DEFAULT_GRPC_SERVER_IP);
                 agentId = args[0];
                 break;
-            default:
-                throw new IllegalArgumentException("Invalid number of arguments, expected [1..3] but got "
-                                                        + args.length);
+            case 0:
+                throw new IllegalArgumentException("Missing argument(s)");
         }
-        return new Arguments(agentId, address, port);
+        return new Arguments(agentId, addresses.toArray(new String[0]), port);
     }
 
     @SuppressWarnings("PMD.SignatureDeclareThrowsException")
@@ -98,7 +104,7 @@ public class Main {
         Arguments arguments = parseArgs(args);
 
         GRPCLib gprcLib = new GRPCLibImpl();
-        GRPCLink link = gprcLib.makeLink(arguments.getAgentId(), arguments.getHost(), arguments.getPort());
+        GRPCLink link = gprcLib.makeLink(arguments.getAgentId(), arguments.getHosts(), arguments.getPort());
 
         try (MqttLib mqttLib = new MqttLibImpl()) {
             String reason = link.handleRequests(mqttLib);
@@ -107,6 +113,10 @@ public class Main {
     }
 
     private static void printUsage() {
-        logger.atWarn().log("Usage: agent_id [host [port]]");
+        logger.atWarn().log("Usage: agent_id [[port] ip ...]\n"
+                            + "         agent_id\tidentification string for that agent for the control\n"
+                            + "         port\tTCP port of gRPC service of the control\n"
+                            + "         ip\tIP address of gRPC service of the control\n"
+        );
     }
 }

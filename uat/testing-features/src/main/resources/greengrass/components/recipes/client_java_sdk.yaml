@@ -23,4 +23,4 @@ Manifests:
           Execute: ALL
     Lifecycle:
       Run: |
-        java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar {configuration:/agentId} {configuration:/controlAddress} "{configuration:/controlPort}"
+        java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar "{configuration:/agentId}" "{configuration:/controlPort}" "{configuration:/controlAddress}"

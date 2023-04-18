@@ -34,14 +34,14 @@ class GRPCLibImplTest {
     void GIVEN_link_WHEN_makeLink_THEN_that_link_returned() throws GRPCException {
         // GIVEN
         final String agentId = "agentId";
-        final String host = "hostname";
+        final String[] hosts = {"hostname"};
         final int port = 9999;
 
         GRPCLink gRPCLink = mock(GRPCLink.class);
-        when(linkFactory.newLink(eq(agentId), eq(host), eq(port))).thenReturn(gRPCLink);
+        when(linkFactory.newLink(eq(agentId), eq(hosts), eq(port))).thenReturn(gRPCLink);
 
         // WHEN
-        GRPCLink actualGRPCLink = gRPCLibImpl.makeLink(agentId, host, port);
+        GRPCLink actualGRPCLink = gRPCLibImpl.makeLink(agentId, hosts, port);
 
         // THEN
         assertSame(gRPCLink, actualGRPCLink);

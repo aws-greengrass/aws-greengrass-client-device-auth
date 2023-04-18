@@ -17,7 +17,7 @@ public class GRPCLibImpl implements GRPCLib {
     private final LinkFactory linkFactory;
 
     interface LinkFactory {
-        GRPCLink newLink(@NonNull String agentId, @NonNull String host, int port) throws GRPCException;
+        GRPCLink newLink(@NonNull String agentId, @NonNull String[] hosts, int port) throws GRPCException;
     }
 
     /**
@@ -26,8 +26,8 @@ public class GRPCLibImpl implements GRPCLib {
     public GRPCLibImpl() {
         this(new LinkFactory() {
             @Override
-            public GRPCLink newLink(@NonNull String agentId, @NonNull String host, int port) throws GRPCException {
-                return new GRPCLinkImpl(agentId, host, port);
+            public GRPCLink newLink(@NonNull String agentId, @NonNull String[] hosts, int port) throws GRPCException {
+                return new GRPCLinkImpl(agentId, hosts, port);
             }
         });
     }
@@ -43,7 +43,7 @@ public class GRPCLibImpl implements GRPCLib {
     }
 
     @Override
-    public GRPCLink makeLink(@NonNull String agentId, @NonNull String host, int port) throws GRPCException {
-        return linkFactory.newLink(agentId, host, port);
+    public GRPCLink makeLink(@NonNull String agentId, @NonNull String[] hosts, int port) throws GRPCException {
+        return linkFactory.newLink(agentId, hosts, port);
     }
 }
