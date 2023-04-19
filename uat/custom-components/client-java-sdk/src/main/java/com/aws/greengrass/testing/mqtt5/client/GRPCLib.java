@@ -8,6 +8,8 @@ package com.aws.greengrass.testing.mqtt5.client;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
 import lombok.NonNull;
 
+import java.util.List;
+
 /**
  * Interface of gRPC library.
  */
@@ -16,10 +18,10 @@ public interface GRPCLib {
      * Creates and establishes bidirectional link with the client control.
      *
      * @param agentId the id of agent to identify control channel by control
-     * @param hosts the array of host name or IP address of gRPC server to connect to
+     * @param hosts the list of host name or IP address of gRPC server to connect to
      * @param port the TCP port to connect to
      * @return connection handler
      * @throws GRPCException on errors
      */
-    GRPCLink makeLink(@NonNull String agentId, @NonNull String[] hosts, int port) throws GRPCException;
+    GRPCLink makeLink(@NonNull String agentId, @NonNull List<String> hosts, int port) throws GRPCException;
 }

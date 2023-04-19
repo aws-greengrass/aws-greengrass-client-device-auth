@@ -10,6 +10,8 @@ import com.aws.greengrass.testing.mqtt5.client.GRPCLink;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
 import lombok.NonNull;
 
+import java.util.List;
+
 /**
  * Implementation of gRPC library.
  */
@@ -17,7 +19,7 @@ public class GRPCLibImpl implements GRPCLib {
     private final LinkFactory linkFactory;
 
     interface LinkFactory {
-        GRPCLink newLink(@NonNull String agentId, @NonNull String[] hosts, int port) throws GRPCException;
+        GRPCLink newLink(@NonNull String agentId, @NonNull List<String> hosts, int port) throws GRPCException;
     }
 
     /**
@@ -26,7 +28,8 @@ public class GRPCLibImpl implements GRPCLib {
     public GRPCLibImpl() {
         this(new LinkFactory() {
             @Override
-            public GRPCLink newLink(@NonNull String agentId, @NonNull String[] hosts, int port) throws GRPCException {
+            public GRPCLink newLink(@NonNull String agentId, @NonNull List<String> hosts, int port)
+                    throws GRPCException {
                 return new GRPCLinkImpl(agentId, hosts, port);
             }
         });
@@ -43,7 +46,7 @@ public class GRPCLibImpl implements GRPCLib {
     }
 
     @Override
-    public GRPCLink makeLink(@NonNull String agentId, @NonNull String[] hosts, int port) throws GRPCException {
+    public GRPCLink makeLink(@NonNull String agentId, @NonNull List<String> hosts, int port) throws GRPCException {
         return linkFactory.newLink(agentId, hosts, port);
     }
 }

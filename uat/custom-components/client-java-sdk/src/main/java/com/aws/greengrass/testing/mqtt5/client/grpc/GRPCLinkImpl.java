@@ -14,6 +14,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Implementation of gRPC bidirectional link.
@@ -43,11 +44,11 @@ public class GRPCLinkImpl implements GRPCLink {
      * Creates and establishes bidirectional link with the control.
      *
      * @param agentId id of agent to identify control channel by gRPC server
-     * @param hosts the array of host name or IP address of gRPC server to connect to
+     * @param hosts the list of host name or IP address of gRPC server to connect to
      * @param port TCP port to connect to
      * @throws GRPCException on errors
      */
-    public GRPCLinkImpl(@NonNull String agentId, @NonNull String[] hosts, int port) throws GRPCException {
+    public GRPCLinkImpl(@NonNull String agentId, @NonNull List<String> hosts, int port) throws GRPCException {
         this(agentId, hosts, port, new HalvesFactory() {
             @Override
             public GRPCDiscoveryClient newClient(@NonNull String agentId, @NonNull String address)
@@ -67,12 +68,12 @@ public class GRPCLinkImpl implements GRPCLink {
      * Creates and establishes bidirectional link with the control.
      *
      * @param agentId the id of agent to identify control channel by gRPC server
-     * @param hosts the array of host name or IP address of gRPC server to connect to
+     * @param hosts the list of host name or IP address of gRPC server to connect to
      * @param port the TCP port to connect to
      * @param halvesFactory the factory for client and server
      * @throws GRPCException on errors
      */
-    GRPCLinkImpl(@NonNull String agentId, @NonNull String[] hosts, int port, @NonNull HalvesFactory halvesFactory)
+    GRPCLinkImpl(@NonNull String agentId, @NonNull List<String> hosts, int port, @NonNull HalvesFactory halvesFactory)
                     throws GRPCException {
         super();
 
@@ -117,7 +118,7 @@ public class GRPCLinkImpl implements GRPCLink {
     }
 
     @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
-    private ClientConnectResult makeClientsConnection(@NonNull String agentId, @NonNull String[] hosts, int port,
+    private ClientConnectResult makeClientsConnection(@NonNull String agentId, @NonNull List<String> hosts, int port,
                                                         @NonNull HalvesFactory halvesFactory) throws GRPCException {
         GRPCException lastException = null;
         try {
