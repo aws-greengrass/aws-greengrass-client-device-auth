@@ -83,6 +83,7 @@ public class MqttControlSteps {
     private static final Mqtt5RetainHandling SUBSCRIBE_RETAIN_HANDLING
             = Mqtt5RetainHandling.MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION;
 
+    private static final String MQTT_CONTROL_PORT_KEY = "mqttControlPort";
 
     private final TestContext testContext;
 
@@ -97,8 +98,6 @@ public class MqttControlSteps {
 
     private final GreengrassV2Client greengrassClient;
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
-
-    private final String MQTT_CONTROL_PORT_KEY = "mqttControlPort";
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
         @Override
