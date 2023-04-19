@@ -65,7 +65,7 @@ public class MqttControlSteps {
 
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
 
-    private static final int DEFAULT_CONTROL_GRPC_PORT = 47_619;
+    private static final int DEFAULT_CONTROL_GRPC_PORT = 0;
 
     private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
 
@@ -82,6 +82,7 @@ public class MqttControlSteps {
     private static final Mqtt5RetainHandling SUBSCRIBE_RETAIN_HANDLING
             = Mqtt5RetainHandling.MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION;
 
+    private static final String MQTT_CONTROL_PORT_KEY = "mqttControlPort";
 
     private final TestContext testContext;
 
@@ -402,10 +403,10 @@ public class MqttControlSteps {
 
     private void startMqttControl() throws IOException {
         if (!engineControl.isEngineRunning()) {
-            // TODO: use port autoselection and save actual bound port from getBoundPort() for future references
             engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
             final int boundPort = engineControl.getBoundPort();
             log.info("MQTT clients control started gRPC service on port {}", boundPort);
+            scenarioContext.put(MQTT_CONTROL_PORT_KEY, String.valueOf(boundPort));
         }
     }
 
@@ -576,4 +577,5 @@ public class MqttControlSteps {
                             .setRetain(retain)
                             .build();
     }
+
 }
