@@ -66,7 +66,7 @@ public class MqttControlSteps {
 
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
 
-    private static final int DEFAULT_CONTROL_GRPC_PORT = 47_619;
+    private static final int DEFAULT_CONTROL_GRPC_PORT = 0;
 
     private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
 
@@ -404,7 +404,7 @@ public class MqttControlSteps {
 
     private void startMqttControl() throws IOException {
         if (!engineControl.isEngineRunning()) {
-            engineControl.startEngine(getFreePort(), engineEvents);
+            engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
             final int boundPort = engineControl.getBoundPort();
             log.info("MQTT clients control started gRPC service on port {}", boundPort);
             scenarioContext.put(MQTT_CONTROL_PORT_KEY, String.valueOf(boundPort));
@@ -579,12 +579,4 @@ public class MqttControlSteps {
                             .build();
     }
 
-    private int getFreePort() {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            socket.setReuseAddress(true);
-            return socket.getLocalPort();
-        } catch (IOException e) {
-            return DEFAULT_CONTROL_GRPC_PORT;
-        }
-    }
 }
