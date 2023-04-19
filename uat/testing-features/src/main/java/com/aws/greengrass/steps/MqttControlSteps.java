@@ -48,6 +48,7 @@ import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
 import java.util.Optional;
@@ -96,6 +97,8 @@ public class MqttControlSteps {
 
     private final GreengrassV2Client greengrassClient;
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
+
+    private final String MQTT_CONTROL_PORT_KEY = "mqttControlPort";
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
         @Override
@@ -402,10 +405,10 @@ public class MqttControlSteps {
 
     private void startMqttControl() throws IOException {
         if (!engineControl.isEngineRunning()) {
-            // TODO: use port autoselection and save actual bound port from getBoundPort() for future references
-            engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
+            engineControl.startEngine(getFreePort(), engineEvents);
             final int boundPort = engineControl.getBoundPort();
             log.info("MQTT clients control started gRPC service on port {}", boundPort);
+            scenarioContext.put(MQTT_CONTROL_PORT_KEY, String.valueOf(boundPort));
         }
     }
 
@@ -575,5 +578,14 @@ public class MqttControlSteps {
                             .setQos(mqttQoS)
                             .setRetain(retain)
                             .build();
+    }
+
+    private int getFreePort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            socket.setReuseAddress(true);
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            return DEFAULT_CONTROL_GRPC_PORT;
+        }
     }
 }

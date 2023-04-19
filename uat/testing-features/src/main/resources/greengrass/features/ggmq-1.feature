@@ -50,7 +50,7 @@ Feature: GGMQ-1
    "MERGE":{
       "agentId":"aws.greengrass.client.Mqtt5JavaSdkClient",
       "controlAddress":"127.0.0.1",
-      "controlPort":"47619"
+      "controlPort":"${mqttControlPort}"
    }
 }
     """
