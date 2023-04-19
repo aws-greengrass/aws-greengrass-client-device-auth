@@ -62,10 +62,6 @@ import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
 public class MqttControlSteps {
     private static final String DEFAULT_CLIENT_DEVICE_POLICY_CONFIG = "/configs/iot/basic_client_device_policy.yaml";
 
-    private static final String CA_SEPARATOR = "\n\n\n";
-    private static final String ADDRESS_SEPARATOR = ";";
-    private static final String IP_PORT_SEPARATOR = ":";
-
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
 
     private static final int DEFAULT_CONTROL_GRPC_PORT = 0;
@@ -234,9 +230,6 @@ public class MqttControlSteps {
             for (final GGCore core : cores) {
                 List<ConnectivityInfo> connectivityInfoList = core.getConnectivity();
 
-                // FIXME: pass as list
-                String ca = String.join("\n\n\n", caList);
-
                 for (final ConnectivityInfo connectivityInfo : connectivityInfoList) {
                     final String host = connectivityInfo.getHostAddress();
                     final Integer port = connectivityInfo.getPortNumber();
@@ -244,7 +237,7 @@ public class MqttControlSteps {
                     log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {}",
                                 brokerId, host, port, clientDeviceThingName, componentId);
 
-                    MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, ca, host, port);
+                    MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, caList, host, port);
                     try {
                         ConnectionControl connectionControl
                             = agentControl.createMqttConnection(request, connectionEvents);
@@ -452,7 +445,8 @@ public class MqttControlSteps {
         }
     }
 
-    private MqttConnectRequest buildMqttConnectRequest(String clientDeviceThingName, String ca, String host, int port) {
+    private MqttConnectRequest buildMqttConnectRequest(String clientDeviceThingName, List<String> caList, String host,
+                                                        int port) {
         final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceThingName);
 
         // TODO: use values from scenario instead of defaults
@@ -462,7 +456,7 @@ public class MqttControlSteps {
                                  .setPort(port)
                                  .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
                                  .setCleanSession(CONNECT_CLEAR_SESSION)
-                                 .setTls(buildTlsSettings(thingSpec, ca))
+                                 .setTls(buildTlsSettings(thingSpec, caList))
                                  .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50)
                                  .build();
     }
@@ -474,9 +468,9 @@ public class MqttControlSteps {
                         .orElseThrow(() -> new RuntimeException("Thing spec is not found"));
     }
 
-    private TLSSettings buildTlsSettings(IotThingSpec thingSpec, String ca) {
+    private TLSSettings buildTlsSettings(IotThingSpec thingSpec, List<String> caList) {
         return TLSSettings.newBuilder()
-                          .setCa(ca)
+                          .addAllCaList(caList)
                           .setCert(thingSpec.resource()
                                             .certificate()
                                             .certificatePem())

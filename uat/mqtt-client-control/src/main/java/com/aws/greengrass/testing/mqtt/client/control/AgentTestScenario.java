@@ -179,7 +179,7 @@ class AgentTestScenario implements Runnable {
                     .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50);
 
         if (useTLS) {
-            TLSSettings tlsSettings = TLSSettings.newBuilder().setCa(ca).setCert(cert).setKey(key).build();
+            TLSSettings tlsSettings = TLSSettings.newBuilder().addCaList(ca).setCert(cert).setKey(key).build();
             builder.setTls(tlsSettings);
         }
 
