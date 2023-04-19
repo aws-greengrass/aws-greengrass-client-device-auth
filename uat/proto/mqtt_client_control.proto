@@ -192,9 +192,9 @@ message Mqtt5Subscription {
 
 // Optional TLS settings for MQTT connection
 message TLSSettings {
-    string ca = 1;
-    string cert = 2;
-    string key = 3;
+    repeated string caList = 1;                         // list of PEM formatted CA
+    string cert = 2;                                    // MQTT client's certificate, PEM formatted
+    string key = 3;                                     // MQTT client's private key
 };
 
 // Request to shutdown client has a reason field

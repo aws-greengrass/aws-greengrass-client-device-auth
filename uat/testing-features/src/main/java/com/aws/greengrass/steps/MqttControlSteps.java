@@ -43,14 +43,13 @@ import software.amazon.awssdk.iot.discovery.DiscoveryClient;
 import software.amazon.awssdk.iot.discovery.DiscoveryClientConfig;
 import software.amazon.awssdk.iot.discovery.model.ConnectivityInfo;
 import software.amazon.awssdk.iot.discovery.model.DiscoverResponse;
+import software.amazon.awssdk.iot.discovery.model.GGCore;
 import software.amazon.awssdk.iot.discovery.model.GGGroup;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.util.List;
-import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -67,11 +66,11 @@ public class MqttControlSteps {
 
     private static final int DEFAULT_CONTROL_GRPC_PORT = 0;
 
-    private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
-
     private static final int MQTT5_REASON_SUCCESS = 0;
     private static final int MQTT5_GRANTED_QOS_2 = 2;
 
+    // TODO: use scenario supplied values instead of defaults
+    private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
     private static final boolean CONNECT_CLEAR_SESSION = true;
 
     private static final boolean PUBLISH_RETAIN = false;
@@ -97,6 +96,7 @@ public class MqttControlSteps {
 
     private final GreengrassV2Client greengrassClient;
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
+    private final ConcurrentHashMap<String, List<GGGroup>> brokers = new ConcurrentHashMap<>();
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
         @Override
@@ -205,22 +205,58 @@ public class MqttControlSteps {
      * @param componentId    componentId of MQTT client
      * @param brokerId       broker id
      */
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @And("I connect device {string} on {word} to {string}")
     public void connect(String clientDeviceId, String componentId, String brokerId) {
+
+        // get address information about broker
+        final List<GGGroup> groups = brokers.get(brokerId);
+        if (groups == null) {
+            throw new RuntimeException("There is no address information about broker, "
+                                        + "probably discovery step missing in scenario");
+        }
+
         // get agent control by componentId
         AgentControl agentControl = getAgentControl(componentId);
 
         // request for new MQTT connection
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
 
-        final MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, brokerId);
-        log.info("Creating MQTT connection as Thing {} on {} to {} with request {}", clientDeviceThingName, componentId,
-                    brokerId, request);
-        ConnectionControl connectionControl = agentControl.createMqttConnection(request, connectionEvents);
+        RuntimeException lastException = null;
+        for (final GGGroup group : groups) {
+            final List<String> caList = group.getCAs();
+            final List<GGCore> cores = group.getCores();
 
-        log.info("Connection with broker {} established", brokerId);
+            for (final GGCore core : cores) {
+                List<ConnectivityInfo> connectivityInfoList = core.getConnectivity();
 
-        setConnectionControl(connectionControl, clientDeviceThingName);
+                for (final ConnectivityInfo connectivityInfo : connectivityInfoList) {
+                    final String host = connectivityInfo.getHostAddress();
+                    final Integer port = connectivityInfo.getPortNumber();
+
+                    log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {}",
+                                brokerId, host, port, clientDeviceThingName, componentId);
+
+                    MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, caList, host, port);
+                    try {
+                        ConnectionControl connectionControl
+                            = agentControl.createMqttConnection(request, connectionEvents);
+                        log.info("Connection with broker {} established to address {}:{} as Thing {} on {}",
+                                    brokerId, host, port, clientDeviceThingName, componentId);
+
+                        setConnectionControl(connectionControl, clientDeviceThingName);
+                        return;
+                    } catch (RuntimeException ex) {
+                        lastException = ex;
+                    }
+                }
+            }
+        }
+
+        if (lastException == null) {
+            throw new RuntimeException("No addresses to connect");
+        }
+        throw lastException;
     }
 
     /**
@@ -384,17 +420,16 @@ public class MqttControlSteps {
                                     .certificate()
                                     .keyPair()
                                     .privateKey();
-        final String region = resourcesContext.region()
-                                              .toString();
+        final String region = resourcesContext.region().toString();
         final String ca = registrationContext.rootCA();
         try (SocketOptions socketOptions = new SocketOptions();
-             TlsContextOptions tlsOptions = TlsContextOptions.createWithMtls(crt, key)
-                                                             .withCertificateAuthority(ca)
-                                                             .withAlpnList(TLS_EXT_ALPN);
-            DiscoveryClientConfig config = new DiscoveryClientConfig(tlsOptions, socketOptions, region, 1, null);
-            DiscoveryClient client = new DiscoveryClient(config)) {
-                processDiscoveryResponse(brokerId, client.discover(clientDeviceThingName).get());
-            }
+                TlsContextOptions tlsOptions = TlsContextOptions.createWithMtls(crt, key)
+                                                                 .withCertificateAuthority(ca)
+                                                                 .withAlpnList(TLS_EXT_ALPN);
+                DiscoveryClientConfig config = new DiscoveryClientConfig(tlsOptions, socketOptions, region, 1, null);
+                DiscoveryClient client = new DiscoveryClient(config)) {
+            processDiscoveryResponse(brokerId, client.discover(clientDeviceThingName).get());
+        }
     }
 
     private IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) throws IOException {
@@ -410,17 +445,18 @@ public class MqttControlSteps {
         }
     }
 
-    private MqttConnectRequest buildMqttConnectRequest(String clientDeviceThingName, String brokerId) {
+    private MqttConnectRequest buildMqttConnectRequest(String clientDeviceThingName, List<String> caList, String host,
+                                                        int port) {
         final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceThingName);
 
         // TODO: use values from scenario instead of defaults
         return MqttConnectRequest.newBuilder()
                                  .setClientId(clientDeviceThingName)
-                                 .setHost(getBrokerHost(brokerId))
-                                 .setPort(getBrokerPort(brokerId))
+                                 .setHost(host)
+                                 .setPort(port)
                                  .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
                                  .setCleanSession(CONNECT_CLEAR_SESSION)
-                                 .setTls(buildTlsSettings(thingSpec, brokerId))
+                                 .setTls(buildTlsSettings(thingSpec, caList))
                                  .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50)
                                  .build();
     }
@@ -432,9 +468,9 @@ public class MqttControlSteps {
                         .orElseThrow(() -> new RuntimeException("Thing spec is not found"));
     }
 
-    private TLSSettings buildTlsSettings(IotThingSpec thingSpec, String brokerId) {
+    private TLSSettings buildTlsSettings(IotThingSpec thingSpec, List<String> caList) {
         return TLSSettings.newBuilder()
-                          .setCa(getBrokerCa(brokerId))
+                          .addAllCaList(caList)
                           .setCert(thingSpec.resource()
                                             .certificate()
                                             .certificatePem())
@@ -447,61 +483,20 @@ public class MqttControlSteps {
     }
 
     private void processDiscoveryResponse(String brokerId, DiscoverResponse response) {
-        if (response.getGGGroups() != null) {
-            final Optional<GGGroup> groupOpt = response.getGGGroups()
-                                                       .stream()
-                                                       .findFirst();
-            if (groupOpt.isPresent()) {
-                final GGGroup group = groupOpt.get();
-                final String ca = group.getCAs()
-                                       .get(0);
-                putBrokerCa(brokerId, ca);
-                for (ConnectivityInfo info : group.getCores()
-                                                  .get(0)
-                                                  .getConnectivity()) {
-                    final String host = info.getHostAddress();
-                    final Integer port = info.getPortNumber();
-                    try (Socket socket = new Socket()) {
-                        socket.connect(new InetSocketAddress(host, port), mqttTimeoutSec * 1000);
-                        putBrokerHost(brokerId, host);
-                        putBrokerPort(brokerId, port);
-                        log.info("Core Device ConnectivityInfo, endpoint {}:{} is reachable", host, port);
-                        break;
-                    } catch (IOException e) {
-                        log.warn("Core Device ConnectivityInfo, endpoint {}:{} is not reachable", host, port);
-                    }
-                }
-
-            }
+        if (response == null) {
+            throw new IllegalStateException("Discovery response is missing");
         }
-    }
 
-    private String getBrokerHost(String brokerId) {
-        return scenarioContext.get("host-" + brokerId);
-    }
+        final List<GGGroup> groups = response.getGGGroups();
+        if (groups == null || groups.isEmpty() || groups.get(0) == null) {
+            throw new IllegalStateException("Groups are missing in discovery response");
+        }
 
-    private void putBrokerHost(String brokerId, String host) {
-        scenarioContext.put("host-" + brokerId, host);
-    }
-
-    private int getBrokerPort(String brokerId) {
-        return Integer.parseInt(scenarioContext.get("port-" + brokerId));
-    }
-
-    private void putBrokerPort(String brokerId, Integer port) {
-        scenarioContext.put("port-" + brokerId, port.toString());
+        brokers.put(brokerId, groups);
     }
 
     private String getAgentId(String componentName) {
         return componentName;
-    }
-
-    private String getBrokerCa(String brokerId) {
-        return scenarioContext.get("ca-" + brokerId);
-    }
-
-    private void putBrokerCa(String brokerId, String ca) {
-        scenarioContext.put("ca-" + brokerId, ca);
     }
 
     private String getClientDeviceThingName(@NonNull String clientDeviceId) {

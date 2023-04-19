@@ -184,12 +184,12 @@ class GRPCControlServer {
             // check TLS optional settings
             if (request.hasTls()) {
                 TLSSettings tls = request.getTls();
-                String ca = tls.getCa();
+                List<String> caList = tls.getCaListList();
 
-                if (ca == null || ca.isEmpty()) {
-                    logger.atWarn().log("empty CA");
+                if (caList == null || caList.isEmpty()) {
+                    logger.atWarn().log("empty CA list");
                     responseObserver.onError(Status.INVALID_ARGUMENT
-                                                .withDescription("empty CA")
+                                                .withDescription("empty CA list")
                                                 .asRuntimeException());
                     return;
                 }
@@ -212,9 +212,9 @@ class GRPCControlServer {
                     return;
                 }
 
+                final String ca = String.join("\n", caList);
                 connectionParamsBuilder.ca(ca).cert(cert).key(key);
             }
-
 
             logger.atInfo().log("createMqttConnection: clientId {} broker {}:{}", clientId, host, port);
             MqttConnectReply.Builder builder = MqttConnectReply.newBuilder();
