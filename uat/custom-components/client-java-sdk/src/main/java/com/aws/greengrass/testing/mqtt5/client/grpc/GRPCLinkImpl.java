@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 import com.aws.greengrass.testing.mqtt5.client.GRPCLink;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
+import lombok.AllArgsConstructor;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -32,16 +33,22 @@ public class GRPCLinkImpl implements GRPCLink {
                                 throws IOException;
     }
 
+    @AllArgsConstructor
+    private class ClientConnectResult {
+        GRPCDiscoveryClient client;
+        String localIP;
+    }
+
     /**
      * Creates and establishes bidirectional link with the control.
      *
      * @param agentId id of agent to identify control channel by gRPC server
-     * @param host host name of gRPC server to connect to
+     * @param hosts the array of host name or IP address of gRPC server to connect to
      * @param port TCP port to connect to
      * @throws GRPCException on errors
      */
-    public GRPCLinkImpl(@NonNull String agentId, @NonNull String host, int port) throws GRPCException {
-        this(agentId, host, port, new HalvesFactory() {
+    public GRPCLinkImpl(@NonNull String agentId, @NonNull String[] hosts, int port) throws GRPCException {
+        this(agentId, hosts, port, new HalvesFactory() {
             @Override
             public GRPCDiscoveryClient newClient(@NonNull String agentId, @NonNull String address)
                         throws GRPCException {
@@ -60,25 +67,22 @@ public class GRPCLinkImpl implements GRPCLink {
      * Creates and establishes bidirectional link with the control.
      *
      * @param agentId the id of agent to identify control channel by gRPC server
-     * @param host the host name of gRPC server to connect to
+     * @param hosts the array of host name or IP address of gRPC server to connect to
      * @param port the TCP port to connect to
      * @param halvesFactory the factory for client and server
      * @throws GRPCException on errors
      */
-    GRPCLinkImpl(@NonNull String agentId, @NonNull String host, int port, @NonNull HalvesFactory halvesFactory)
+    GRPCLinkImpl(@NonNull String agentId, @NonNull String[] hosts, int port, @NonNull HalvesFactory halvesFactory)
                     throws GRPCException {
         super();
-        logger.atInfo().log("Making gPRC link with {}:{} as {}", host, port, agentId);
 
-        String otfAddress = buildAddress(host, port);
-        GRPCDiscoveryClient client = halvesFactory.newClient(agentId, otfAddress);
-        String localIP = client.registerAgent();
-        logger.atInfo().log("Local address is {}", localIP);
+        ClientConnectResult result = makeClientsConnection(agentId, hosts, port, halvesFactory);
+        GRPCDiscoveryClient client = result.client;
 
         try {
-            GRPCControlServer server = halvesFactory.newServer(client, localIP, AUTOSELECT_PORT);
+            GRPCControlServer server = halvesFactory.newServer(client, result.localIP, AUTOSELECT_PORT);
             int servicePort = server.getPort();
-            client.discoveryAgent(localIP, servicePort);
+            client.discoveryAgent(result.localIP, servicePort);
             this.client = client;
             this.server = server;
         } catch (IOException ex) {
@@ -110,5 +114,25 @@ public class GRPCLinkImpl implements GRPCLink {
      */
     static String buildAddress(String host, int port) {
         return host + ":" + port;
+    }
+
+    @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
+    private ClientConnectResult makeClientsConnection(@NonNull String agentId, @NonNull String[] hosts, int port,
+                                                        @NonNull HalvesFactory halvesFactory) throws GRPCException {
+        GRPCException lastException = null;
+        try {
+            for (String host : hosts) {
+                logger.atInfo().log("Making gPRC client connection with {}:{} as {}...", host, port, agentId);
+
+                String otfAddress = buildAddress(host, port);
+                GRPCDiscoveryClient client = halvesFactory.newClient(agentId, otfAddress);
+                String localIP = client.registerAgent();
+                logger.atInfo().log("Client connection with Control is established, local address is {}", localIP);
+                return new ClientConnectResult(client, localIP);
+            }
+        } catch (GRPCException ex) {
+            lastException = ex;
+        }
+        throw lastException;
     }
 }

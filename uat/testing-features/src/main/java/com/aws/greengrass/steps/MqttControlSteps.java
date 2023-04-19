@@ -64,7 +64,12 @@ public class MqttControlSteps {
 
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
 
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
+    private static final String DEFAULT_CONTROL_GRPC_IP = "127.0.0.1";
+    private static final String MQTT_CONTROL_ADDRESSES_KEY = "mqttControlAddresses";
+
     private static final int DEFAULT_CONTROL_GRPC_PORT = 0;
+    private static final String MQTT_CONTROL_PORT_KEY = "mqttControlPort";
 
     private static final int MQTT5_REASON_SUCCESS = 0;
     private static final int MQTT5_GRANTED_QOS_2 = 2;
@@ -81,7 +86,6 @@ public class MqttControlSteps {
     private static final Mqtt5RetainHandling SUBSCRIBE_RETAIN_HANDLING
             = Mqtt5RetainHandling.MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION;
 
-    private static final String MQTT_CONTROL_PORT_KEY = "mqttControlPort";
 
     private final TestContext testContext;
 
@@ -439,8 +443,15 @@ public class MqttControlSteps {
     private void startMqttControl() throws IOException {
         if (!engineControl.isEngineRunning()) {
             engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
+
             final int boundPort = engineControl.getBoundPort();
-            log.info("MQTT clients control started gRPC service on port {}", boundPort);
+            String[] addresses = engineControl.getIPs();
+            log.info("MQTT clients control started gRPC service on port {} adrresses {}", boundPort, addresses);
+
+            if (addresses == null || addresses.length == 0) {
+                addresses = new String[] { DEFAULT_CONTROL_GRPC_IP };
+            }
+            scenarioContext.put(MQTT_CONTROL_ADDRESSES_KEY, String.join(" ", addresses));
             scenarioContext.put(MQTT_CONTROL_PORT_KEY, String.valueOf(boundPort));
         }
     }

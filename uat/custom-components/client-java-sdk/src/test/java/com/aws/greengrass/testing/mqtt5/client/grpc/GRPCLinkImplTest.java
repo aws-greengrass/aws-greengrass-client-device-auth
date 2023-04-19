@@ -23,7 +23,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class GRPCLinkImplTest {
     private static final String AGENT_ID = "agent000";
-    private static final String HOST = "test_host";
+    private static final String[] HOSTS = { "test_host" };
     private static final int PORT = 1974;
     private static final String LOCAL_IP = "local_ip";
 
@@ -43,11 +43,11 @@ class GRPCLinkImplTest {
         when(server.getPort()).thenReturn(SERVICE_PORT);
 
         GRPCLinkImpl.HalvesFactory halvesFactory = mock(GRPCLinkImpl.HalvesFactory.class);
-        final String buildAddress = GRPCLinkImpl.buildAddress(HOST, PORT);
+        final String buildAddress = GRPCLinkImpl.buildAddress(HOSTS[0], PORT);
         when(halvesFactory.newClient(eq(AGENT_ID), eq(buildAddress))).thenReturn(client);
         when(halvesFactory.newServer(eq(client), eq(LOCAL_IP), eq(0))).thenReturn(server);
 
-        gRPCLinkImpl = new GRPCLinkImpl(AGENT_ID, HOST, PORT, halvesFactory);
+        gRPCLinkImpl = new GRPCLinkImpl(AGENT_ID, HOSTS, PORT, halvesFactory);
 
         verify(halvesFactory).newClient(eq(AGENT_ID), eq(buildAddress));
         verify(client).registerAgent();

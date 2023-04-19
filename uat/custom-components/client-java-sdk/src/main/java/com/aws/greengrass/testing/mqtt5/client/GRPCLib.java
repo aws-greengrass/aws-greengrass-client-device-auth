@@ -15,11 +15,11 @@ public interface GRPCLib {
     /**
      * Creates and establishes bidirectional link with the client control.
      *
-     * @param agentId id of agent to identify control channel by control
-     * @param host host name of gRPC server to connect to
-     * @param port TCP port to connect to
+     * @param agentId the id of agent to identify control channel by control
+     * @param hosts the array of host name or IP address of gRPC server to connect to
+     * @param port the TCP port to connect to
      * @return connection handler
      * @throws GRPCException on errors
      */
-    GRPCLink makeLink(@NonNull String agentId, @NonNull String host, int port) throws GRPCException;
+    GRPCLink makeLink(@NonNull String agentId, @NonNull String[] hosts, int port) throws GRPCException;
 }

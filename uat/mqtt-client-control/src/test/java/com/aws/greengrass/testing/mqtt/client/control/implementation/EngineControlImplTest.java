@@ -321,4 +321,16 @@ class EngineControlImplTest {
         // THEN
         verify(agentControl).onMqttDisconnect(eq(connectionId), eq(disconnect), eq(error));
     }
+
+    @Test
+    void GIVEN_control_WHEN_get_ips_THEN_XXX() throws IOException {
+        // GIVEN
+
+        // WHEN
+        String[] ips = engineControl.getIPs();
+
+        // THEN
+        assertNotNull(ips);
+        assertTrue(ips.length > 0);
+    }
 }

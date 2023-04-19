@@ -61,6 +61,13 @@ public interface EngineControl {
     Integer getBoundPort();
 
     /**
+     * Get array of local IP addresses.
+     *
+     * @return the array of IP addresses where control can be reached
+     */
+    String[] getIPs();
+
+    /**
      * Checks is engine runing.
      *
      * @return true if engine is running
