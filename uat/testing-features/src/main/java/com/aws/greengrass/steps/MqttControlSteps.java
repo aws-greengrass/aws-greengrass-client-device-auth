@@ -41,6 +41,7 @@ import software.amazon.awssdk.crt.io.SocketOptions;
 import software.amazon.awssdk.crt.io.TlsContextOptions;
 import software.amazon.awssdk.iot.discovery.DiscoveryClient;
 import software.amazon.awssdk.iot.discovery.DiscoveryClientConfig;
+import software.amazon.awssdk.iot.discovery.model.ConnectivityInfo;
 import software.amazon.awssdk.iot.discovery.model.DiscoverResponse;
 import software.amazon.awssdk.iot.discovery.model.GGCore;
 import software.amazon.awssdk.iot.discovery.model.GGGroup;
@@ -48,10 +49,10 @@ import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
@@ -64,9 +65,6 @@ public class MqttControlSteps {
     private static final String CA_SEPARATOR = "\n\n\n";
     private static final String ADDRESS_SEPARATOR = ";";
     private static final String IP_PORT_SEPARATOR = ":";
-
-    private static final String CA_INFO_PREFIX = "CAs-";
-    private static final String ADDRESS_INFO_PREFIX = "Addresses-";
 
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
 
@@ -102,6 +100,7 @@ public class MqttControlSteps {
 
     private final GreengrassV2Client greengrassClient;
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
+    private final ConcurrentHashMap<String, List<GGGroup>> brokers = new ConcurrentHashMap<>();
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
         @Override
@@ -213,38 +212,56 @@ public class MqttControlSteps {
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @And("I connect device {string} on {word} to {string}")
     public void connect(String clientDeviceId, String componentId, String brokerId) {
+
+        // get address information about broker
+        final List<GGGroup> groups = brokers.get(brokerId);
+        if (groups == null) {
+            throw new RuntimeException("There is no address information about broker, "
+                                        + "probably discovery step missing in scenario");
+        }
+
         // get agent control by componentId
         AgentControl agentControl = getAgentControl(componentId);
 
         // request for new MQTT connection
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
 
-        String ca = getBrokerCAs(brokerId);
-        String addresses = getBrokerAddresses(brokerId);
-
         RuntimeException lastException = null;
-        for (String address : addresses.split(ADDRESS_SEPARATOR)) {
-            String[] parts = address.split(IP_PORT_SEPARATOR);
-            String host = parts[0];
-            int port = Integer.valueOf(parts[1]);
+        for (final GGGroup group : groups) {
+            final List<String> caList = group.getCAs();
+            final List<GGCore> cores = group.getCores();
 
-            log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {}",
-                        brokerId, host, port, clientDeviceThingName, componentId);
+            for (final GGCore core : cores) {
+                List<ConnectivityInfo> connectivityInfoList = core.getConnectivity();
 
-            MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, ca, host, port);
-            try {
-                ConnectionControl connectionControl = agentControl.createMqttConnection(request, connectionEvents);
-                log.info("Connection with broker {} established to address {}:{} as Thing {} on {}",
-                            brokerId, host, port, clientDeviceThingName, componentId);
+                // FIXME: pass as list
+                String ca = String.join("\n\n\n", caList);
 
-                setConnectionControl(connectionControl, clientDeviceThingName);
-                return;
-            } catch (RuntimeException ex) {
-                lastException = ex;
+                for (final ConnectivityInfo connectivityInfo : connectivityInfoList) {
+                    final String host = connectivityInfo.getHostAddress();
+                    final Integer port = connectivityInfo.getPortNumber();
+
+                    log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {}",
+                                brokerId, host, port, clientDeviceThingName, componentId);
+
+                    MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, ca, host, port);
+                    try {
+                        ConnectionControl connectionControl
+                            = agentControl.createMqttConnection(request, connectionEvents);
+                        log.info("Connection with broker {} established to address {}:{} as Thing {} on {}",
+                                    brokerId, host, port, clientDeviceThingName, componentId);
+
+                        setConnectionControl(connectionControl, clientDeviceThingName);
+                        return;
+                    } catch (RuntimeException ex) {
+                        lastException = ex;
+                    }
+                }
             }
         }
+
         if (lastException == null) {
-            throw new RuntimeException("No addresses connect to");
+            throw new RuntimeException("No addresses to connect");
         }
         throw lastException;
     }
@@ -481,50 +498,7 @@ public class MqttControlSteps {
             throw new IllegalStateException("Groups are missing in discovery response");
         }
 
-        // TODO: save for all groups:
-        final GGGroup group = groups.get(0);
-
-        final List<String> caList = group.getCAs();
-        if (caList == null || caList.isEmpty()) {
-            throw new IllegalStateException("CA is missing in discovery response");
-        }
-
-        final List<GGCore> cores = group.getCores();
-        if (cores == null || cores.isEmpty()) {
-            throw new IllegalStateException("Cores are missing in discovery response");
-        }
-
-
-        // join addresses for all cores and all connectivity info to single string
-        final String addresses = cores.stream()
-                .map(core -> core.getConnectivity().stream()
-                            .map(ci -> ci.getHostAddress() + IP_PORT_SEPARATOR + ci.getPortNumber())
-                            .collect(Collectors.joining(ADDRESS_SEPARATOR)))
-                .collect(Collectors.joining(ADDRESS_SEPARATOR));
-        putBrokerAddresses(brokerId, addresses);
-        log.info("Discovered {} addresses of broker {}", addresses, brokerId);
-
-
-        // join all CA to single string
-        final String stringCAs = caList.stream().collect(Collectors.joining(CA_SEPARATOR));
-        putBrokerCAs(brokerId, stringCAs);
-        log.info("Discovered {} CA of broker {}", caList.size(), brokerId);
-    }
-
-    private String getBrokerAddresses(String brokerId) {
-        return scenarioContext.get(ADDRESS_INFO_PREFIX + brokerId);
-    }
-
-    private void putBrokerAddresses(String brokerId, @NonNull String addresses) {
-        scenarioContext.put(ADDRESS_INFO_PREFIX + brokerId, addresses);
-    }
-
-    private String getBrokerCAs(String brokerId) {
-        return scenarioContext.get(CA_INFO_PREFIX + brokerId);
-    }
-
-    private void putBrokerCAs(String brokerId, @NonNull String ca) {
-        scenarioContext.put(CA_INFO_PREFIX  + brokerId, ca);
+        brokers.put(brokerId, groups);
     }
 
     private String getAgentId(String componentName) {
