@@ -583,5 +583,4 @@ public class MqttControlSteps {
                             .setRetain(retain)
                             .build();
     }
-
 }

@@ -84,6 +84,7 @@ class AgentTestScenario implements Runnable {
     private static final Logger logger = LogManager.getLogger(AgentTestScenario.class);
 
     private boolean useTLS;
+    private final boolean mqtt50;
     private final AgentControl agentControl;
     private final EventStorageImpl eventStorage;
 
@@ -114,10 +115,11 @@ class AgentTestScenario implements Runnable {
         }
     };
 
-    public AgentTestScenario(boolean useTLS, AgentControl agentControl, EventStorageImpl eventStorage) {
+    public AgentTestScenario(boolean useTLS, boolean mqtt50, AgentControl agentControl, EventStorageImpl eventStorage) {
         super();
 
         this.useTLS = useTLS;
+        this.mqtt50 = mqtt50;
         this.agentControl = agentControl;
         this.eventStorage = eventStorage;
 
@@ -176,7 +178,8 @@ class AgentTestScenario implements Runnable {
                     .setKeepalive(KEEP_ALIVE)
                     .setCleanSession(CLEAN_SESSION)
                     .setTimeout(CONNECT_TIMEOUT)
-                    .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50);
+                    .setProtocolVersion(mqtt50  ? MqttProtoVersion.MQTT_PROTOCOL_V50
+                                                : MqttProtoVersion.MQTT_PROTOCOL_V311);
 
         if (useTLS) {
             TLSSettings tlsSettings = TLSSettings.newBuilder().addCaList(ca).setCert(cert).setKey(key).build();

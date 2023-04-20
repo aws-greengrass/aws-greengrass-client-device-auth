@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 
+import com.aws.greengrass.testing.mqtt311.client.sdkmqtt.Mqtt311ConnectionImpl;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
@@ -33,7 +34,7 @@ public class MqttLibImpl implements MqttLib {
 
 
     interface ConnectionFactory {
-        MqttConnectionImpl newConnection(@NonNull ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
+        MqttConnection newConnection(@NonNull ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
                             throws MqttException;
     }
 
@@ -43,9 +44,13 @@ public class MqttLibImpl implements MqttLib {
     public MqttLibImpl() {
         this(new ConnectionFactory() {
             @Override
-            public MqttConnectionImpl newConnection(@NonNull ConnectionParams connectionParams,
+            public MqttConnection newConnection(@NonNull ConnectionParams connectionParams,
                                                     @NonNull GRPCClient grpcClient) throws MqttException {
-                return new MqttConnectionImpl(connectionParams, grpcClient);
+                if (connectionParams.isMqtt50()) {
+                    return new MqttConnectionImpl(connectionParams, grpcClient);
+                } else {
+                    return new Mqtt311ConnectionImpl(connectionParams, grpcClient);
+                }
             }
         });
     }
@@ -94,7 +99,6 @@ public class MqttLibImpl implements MqttLib {
     public void close() {
         cleaupConnections();
     }
-
 
     /**
      * Dry connections.

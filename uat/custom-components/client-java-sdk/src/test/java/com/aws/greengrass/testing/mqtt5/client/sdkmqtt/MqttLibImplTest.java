@@ -41,7 +41,7 @@ class MqttLibImplTest {
     @Test
     void GIVEN_factory_provides_connection_WHEN_create_connection_THEN_factory_is_called() throws MqttException {
         // GIVEN
-        final MqttConnectionImpl expectedMqttConnection = mock(MqttConnectionImpl.class);
+        final MqttConnection expectedMqttConnection = mock(MqttConnection.class);
         when(connectionFactory.newConnection(any(ConnectionParams.class), any(GRPCClient.class))).thenReturn(expectedMqttConnection);
 
         final ConnectionParams connectionParams = mock(ConnectionParams.class);

@@ -136,9 +136,9 @@ service MqttClientControl {
 // Versions of MQTT protocol, used for compatibility, only MQTT_PROTOCOL_V50 actually supported
 enum MqttProtoVersion {
     MQTT_PROTOCOL_V0    = 0;
-    MQTT_PROTOCOL_V31   = 3;
-    MQTT_PROTOCOL_V311  = 4;
-    MQTT_PROTOCOL_V50   = 5;         // only that is supported
+    MQTT_PROTOCOL_V31   = 3;            // unsupported
+    MQTT_PROTOCOL_V311  = 4;            // supported
+    MQTT_PROTOCOL_V50   = 5;            // supported
 };
 
 // MQTT QoS values
