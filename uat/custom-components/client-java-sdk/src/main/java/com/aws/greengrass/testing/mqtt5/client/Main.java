@@ -35,7 +35,7 @@ public class Main {
     @AllArgsConstructor
     private static class Arguments {
         String agentId;
-        String[] hosts;
+        List<String> hosts;
         int port;
     }
 
@@ -96,7 +96,7 @@ public class Main {
             case 0:
                 throw new IllegalArgumentException("Missing argument(s)");
         }
-        return new Arguments(agentId, addresses.toArray(new String[0]), port);
+        return new Arguments(agentId, addresses, port);
     }
 
     @SuppressWarnings("PMD.SignatureDeclareThrowsException")

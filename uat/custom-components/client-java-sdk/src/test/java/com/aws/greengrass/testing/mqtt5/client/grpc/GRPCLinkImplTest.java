@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.eq;
@@ -23,7 +25,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class GRPCLinkImplTest {
     private static final String AGENT_ID = "agent000";
-    private static final String[] HOSTS = { "test_host" };
+    private static final List<String> HOSTS = Collections.singletonList("test_host");
     private static final int PORT = 1974;
     private static final String LOCAL_IP = "local_ip";
 
@@ -43,7 +45,7 @@ class GRPCLinkImplTest {
         when(server.getPort()).thenReturn(SERVICE_PORT);
 
         GRPCLinkImpl.HalvesFactory halvesFactory = mock(GRPCLinkImpl.HalvesFactory.class);
-        final String buildAddress = GRPCLinkImpl.buildAddress(HOSTS[0], PORT);
+        final String buildAddress = GRPCLinkImpl.buildAddress(HOSTS.get(0), PORT);
         when(halvesFactory.newClient(eq(AGENT_ID), eq(buildAddress))).thenReturn(client);
         when(halvesFactory.newServer(eq(client), eq(LOCAL_IP), eq(0))).thenReturn(server);
 

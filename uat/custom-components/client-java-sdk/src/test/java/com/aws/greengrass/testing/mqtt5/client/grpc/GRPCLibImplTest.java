@@ -12,6 +12,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Collections;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -34,7 +37,7 @@ class GRPCLibImplTest {
     void GIVEN_link_WHEN_makeLink_THEN_that_link_returned() throws GRPCException {
         // GIVEN
         final String agentId = "agentId";
-        final String[] hosts = {"hostname"};
+        final List<String> hosts = Collections.singletonList("hostname");
         final int port = 9999;
 
         GRPCLink gRPCLink = mock(GRPCLink.class);
