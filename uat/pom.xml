@@ -23,6 +23,16 @@
 
     <repositories>
         <repository>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>central</id>
+            <url>https://repo1.maven.org/maven2</url>
+        </repository>
+        <repository>
             <id>greengrass-common</id>
             <name>greengrass common</name>
             <!-- CloudFront url fronting the aws-greengrass-testing-standalone in S3-->
