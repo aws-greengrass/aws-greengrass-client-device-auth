@@ -503,6 +503,20 @@ public class MqttControlSteps {
             throw new IllegalStateException("Groups are missing in discovery response");
         }
 
+        log.info("Discovered data for broker {}: ", brokerId);
+        groups.stream().forEach(group -> {
+            log.info("groupId {} with {} CA", group.getGGGroupId(), group.getCAs().size());
+            group.getCores().stream().forEach(core -> {
+                log.info("Core with thing Arn {}", core.getThingArn());
+                core.getConnectivity().stream().forEach(ci -> {
+                    log.info("Connectivity info: id {} host {} port {}",
+                                ci. getId(),
+                                ci.getHostAddress(),
+                                ci.getPortNumber());
+                });
+            });
+        });
+
         brokers.put(brokerId, groups);
     }
 
