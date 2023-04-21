@@ -47,6 +47,16 @@ public interface MqttConnection {
         // TODO: Authentication Method
         // TODO: Authentication Data
         // TODO: user's Properties
+
+        /**
+         * Creates ConnAckInfo for result of MQTT 3.1.1 connect.
+         *
+         * @param sessionPresent the session present flag of MQTT 3.1.1
+         */
+        public ConnAckInfo(Boolean sessionPresent) {
+            super();
+            this.sessionPresent = sessionPresent;
+        }
     }
 
     /**

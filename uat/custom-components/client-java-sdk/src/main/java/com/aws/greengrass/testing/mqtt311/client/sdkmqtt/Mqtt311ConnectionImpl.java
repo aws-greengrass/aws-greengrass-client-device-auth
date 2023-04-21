@@ -18,10 +18,14 @@ import software.amazon.awssdk.iot.AwsIotMqttConnectionBuilder;
 
 import java.io.UnsupportedEncodingException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Implementation of MQTT 3.1.1 connection.
+ * Implementation of MQTT 3.1.1 connection based on AWS IoT SDK.
  */
 public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(Mqtt311ConnectionImpl.class);
@@ -29,13 +33,12 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final AtomicBoolean isConnected = new AtomicBoolean();
 
+    // TODO: remove when receive is implemented
     @SuppressWarnings("PMD.UnusedPrivateField")
     private final GRPCClient grpcClient;
 
-    @SuppressWarnings("PMD.UnusedPrivateField")
     private final MqttClientConnection connection;
 
-    @SuppressWarnings("PMD.UnusedPrivateField")
     private int connectionId = 0;
 
     @SuppressWarnings("PMD.UnusedPrivateField")
@@ -44,12 +47,14 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     class ClientConnectionEvents implements MqttClientConnectionEvents {
         @Override
         public void onConnectionInterrupted(int errorCode) {
-            logger.atInfo().log("MQTT connection interrupted, error code {}", errorCode);
+            isConnected.set(false);
+            logger.atInfo().log("MQTT connection {} interrupted, error code {}", connectionId, errorCode);
         }
 
         @Override
         public void onConnectionResumed(boolean sessionPresent) {
-            logger.atInfo().log("MQTT connection resumed, sessionPresent {}", sessionPresent);
+            isConnected.set(true);
+            logger.atInfo().log("MQTT connection {} resumed, sessionPresent {}", connectionId, sessionPresent);
         }
     }
 
@@ -84,14 +89,34 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     @Override
     public ConnectResult start(long timeout, int connectionId) throws MqttException {
         this.connectionId = connectionId;
-        return null;
+
+        CompletableFuture<Boolean> connectFuture = connection.connect();
+        try {
+            Boolean sessionPresent = connectFuture.get(timeout, TimeUnit.SECONDS);
+            isConnected.set(true);
+            logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
+            return buildConnectResult(true, sessionPresent);
+        } catch (TimeoutException | InterruptedException | ExecutionException ex) {
+            logger.atError().withThrowable(ex).log("Exception occurred during connect");
+            throw new MqttException("Exception occurred during connect", ex);
+        }
     }
 
     @Override
     public void disconnect(long timeout, int reasonCode) throws MqttException {
 
-        // if (!isClosing.getAndSet(true)) {
-        // 
+        if (!isClosing.getAndSet(true)) {
+            CompletableFuture<Void> disconnected = connection.disconnect();
+            try {
+                disconnected.get(timeout, TimeUnit.SECONDS);
+            logger.atInfo().log("MQTT 3.1.1 connection {} has been closed", connectionId);
+            } catch (TimeoutException | InterruptedException | ExecutionException ex) {
+                logger.atError().withThrowable(ex).log("Failed during disconnecting");
+                throw new MqttException("Could not disconnect", ex);
+            } finally {
+                connection.close();
+            }
+        }
     }
 
     @Override
@@ -193,5 +218,10 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         if (isClosing.get()) {
             throw new MqttException("MQTT connection is closing");
         }
+    }
+
+    private static ConnectResult buildConnectResult(boolean success, Boolean sessionPresent) {
+        ConnAckInfo connAckInfo = new ConnAckInfo(sessionPresent);
+        return new ConnectResult(success, connAckInfo, null);
     }
 }
