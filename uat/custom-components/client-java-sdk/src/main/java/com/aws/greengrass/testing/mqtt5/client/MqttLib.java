@@ -44,6 +44,9 @@ public interface MqttLib extends AutoCloseable {
 
         /** Content of MQTT client's private key, optional. */
         private String key;
+
+        /** The true MQTT v5.0 connection is requested. */
+        private boolean mqtt50;
     }
 
     /**
