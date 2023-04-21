@@ -34,6 +34,7 @@ import com.aws.greengrass.testing.resources.iot.IotThingSpec;
 import com.google.protobuf.ByteString;
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.en.And;
+import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
@@ -402,6 +403,7 @@ public class MqttControlSteps {
      * @param clientDeviceId the user defined client device id
      * @param filter the topics filter to unsubscribe
      */
+    @Then("I unsubscribe core device broker as {string} from {string}")
     public void unsubscribe(String clientDeviceId, String filter) {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
