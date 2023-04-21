@@ -62,8 +62,6 @@ import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
 @ScenarioScoped
 public class MqttControlSteps {
     private static final String DEFAULT_CLIENT_DEVICE_POLICY_CONFIG = "/configs/iot/basic_client_device_policy.yaml";
-    private static final DisconnectReasonCode DEFAULT_DISCONNECT_REASON
-            = DisconnectReasonCode.NORMAL_DISCONNECTION;
 
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
 
@@ -278,7 +276,7 @@ public class MqttControlSteps {
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
 
         //do disconnect
-        connectionControl.closeMqttConnection(DEFAULT_DISCONNECT_REASON.getValue());
+        connectionControl.closeMqttConnection(DisconnectReasonCode.NORMAL_DISCONNECTION.getValue());
         log.info("Thing {} was disconnected", clientDeviceId);
     }
 
