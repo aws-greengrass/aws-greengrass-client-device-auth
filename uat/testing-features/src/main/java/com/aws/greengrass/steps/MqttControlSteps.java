@@ -34,6 +34,7 @@ import com.aws.greengrass.testing.resources.iot.IotThingSpec;
 import com.google.protobuf.ByteString;
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.en.And;
+import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
@@ -434,6 +435,41 @@ public class MqttControlSteps {
                 DiscoveryClient client = new DiscoveryClient(config)) {
             processDiscoveryResponse(brokerId, client.discover(clientDeviceThingName).get());
         }
+    }
+
+    /**
+     * Unsubscribe the MQTT topics by filter.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param filter the topics filter to unsubscribe
+     */
+    @Then("I unsubscribe core device broker as {string} from {string}")
+    public void unsubscribe(String clientDeviceId, String filter) {
+        // getting connectionControl by clientDeviceId
+        final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+        ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        // do unsubscribe
+        log.info("Create MQTT unsubscription for Thing {} to topics filter {}", clientDeviceThingName, filter);
+
+        MqttSubscribeReply mqttUnsubscribeReply = connectionControl.unsubscribeMqtt(filter);
+
+        List<Integer> reasons = mqttUnsubscribeReply.getReasonCodesList();
+        if (reasons == null) {
+            throw new RuntimeException("Receive reply to MQTT unsubscribe request with missing reason codes");
+        }
+
+        if (reasons.size() != 1 || reasons.get(0) == null) {
+            throw new RuntimeException("Receive reply to MQTT unsubscribe request with unexpected number "
+                    + "of reason codes should be 1 but has " + reasons.size());
+        }
+
+        int reason = reasons.get(0);
+        if (reason != MQTT5_REASON_SUCCESS) {
+            throw new RuntimeException("Receive reply to MQTT unsubscribe request with unsuccessful reason code "
+                    + reason);
+        }
+        log.info("MQTT topics filter {} has been unsubscribed", filter);
     }
 
     private IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) throws IOException {
