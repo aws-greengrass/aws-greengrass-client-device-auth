@@ -25,6 +25,7 @@ import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.Event;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
+import com.aws.greengrass.testing.mqtt.client.control.implementation.DisconnectReasonCode;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.EventStorageImpl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttMessageEvent;
 import com.aws.greengrass.testing.resources.AWSResources;
@@ -262,6 +263,22 @@ public class MqttControlSteps {
             throw new RuntimeException("No addresses to connect");
         }
         throw lastException;
+    }
+
+    /**
+     * Disconnect IoT Thing.
+     *
+     * @param clientDeviceId string user defined client device id
+     */
+    @And("I disconnect device {string}")
+    public void disconnect(String clientDeviceId) {
+        // getting connectionControl by clientDeviceId
+        final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+        ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        //do disconnect
+        connectionControl.closeMqttConnection(DisconnectReasonCode.NORMAL_DISCONNECTION.getValue());
+        log.info("Thing {} was disconnected", clientDeviceId);
     }
 
     /**
