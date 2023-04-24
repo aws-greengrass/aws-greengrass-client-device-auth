@@ -29,6 +29,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(Mqtt311ConnectionImpl.class);
+    private static final String EXCEPTION_WHEN_CONNECTING = "Exception occurred during connect";
+    private static final String EXCEPTION_WHEN_DISCONNECTING = "Exception occurred during disconnect";
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final AtomicBoolean isConnected = new AtomicBoolean();
@@ -98,11 +100,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             return buildConnectResult(true, sessionPresent);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            logger.atError().withThrowable(ex).log("Exception occurred during connect");
-            throw new MqttException("Exception occurred during connect", ex);
+            logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_CONNECTING);
+            throw new MqttException(EXCEPTION_WHEN_CONNECTING, ex);
         } catch (TimeoutException | ExecutionException ex) {
-            logger.atError().withThrowable(ex).log("Exception occurred during connect");
-            throw new MqttException("Exception occurred during connect", ex);
+            logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_CONNECTING);
+            throw new MqttException(EXCEPTION_WHEN_CONNECTING, ex);
         }
     }
 
@@ -116,11 +118,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             logger.atInfo().log("MQTT 3.1.1 connection {} has been closed", connectionId);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                logger.atError().withThrowable(ex).log("Failed during disconnecting");
-                throw new MqttException("Could not disconnect", ex);
+                logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_DISCONNECTING);
+                throw new MqttException(EXCEPTION_WHEN_DISCONNECTING, ex);
             } catch (TimeoutException | ExecutionException ex) {
-                logger.atError().withThrowable(ex).log("Failed during disconnecting");
-                throw new MqttException("Could not disconnect", ex);
+                logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_DISCONNECTING);
+                throw new MqttException(EXCEPTION_WHEN_DISCONNECTING, ex);
             } finally {
                 connection.close();
             }
