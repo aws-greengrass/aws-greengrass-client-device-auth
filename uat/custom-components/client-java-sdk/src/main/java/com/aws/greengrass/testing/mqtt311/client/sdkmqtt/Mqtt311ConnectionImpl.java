@@ -14,9 +14,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
+import software.amazon.awssdk.crt.mqtt.MqttMessage;
+import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import software.amazon.awssdk.iot.AwsIotMqttConnectionBuilder;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -31,6 +34,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(Mqtt311ConnectionImpl.class);
     private static final String EXCEPTION_WHEN_CONNECTING = "Exception occurred during connect";
     private static final String EXCEPTION_WHEN_DISCONNECTING = "Exception occurred during disconnect";
+    private static final String EXCEPTION_WHEN_PUBLISHING = "Exception occurred during publish";
+    private static final String EXCEPTION_WHEN_SUBSCRIBING = "Exception occurred during subscribe";
+    private static final String EXCEPTION_WHEN_UNSUBSCRIBING = "Exception occurred during unsubscribe";
+
+    private static final int REASON_CODE_SUCCESS = 0;
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final AtomicBoolean isConnected = new AtomicBoolean();
@@ -112,10 +120,10 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     public void disconnect(long timeout, int reasonCode) throws MqttException {
 
         if (!isClosing.getAndSet(true)) {
-            CompletableFuture<Void> disconnected = connection.disconnect();
+            CompletableFuture<Void> disconnnectFuture = connection.disconnect();
             try {
-                disconnected.get(timeout, TimeUnit.SECONDS);
-            logger.atInfo().log("MQTT 3.1.1 connection {} has been closed", connectionId);
+                disconnnectFuture.get(timeout, TimeUnit.SECONDS);
+                logger.atInfo().log("MQTT 3.1.1 connection {} has been disconnected", connectionId);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_DISCONNECTING);
@@ -135,7 +143,24 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
         stateCheck();
 
-        return null;
+        final QualityOfService qos = QualityOfService.getEnumValueFromInteger(message.getQos());
+        final String topic = message.getTopic();
+        final MqttMessage msg = new MqttMessage(topic, message.getPayload(), qos, message.isRetain(), false);
+
+        CompletableFuture<Integer> pubishFuture = connection.publish(msg);
+        try {
+            Integer packetId = pubishFuture.get(timeout, TimeUnit.SECONDS);
+            logger.atInfo().log("Publish on connection {} to topic {} QoS {} packet Id {}",
+                                    connectionId, topic, qos, packetId);
+            return new PubAckInfo(REASON_CODE_SUCCESS, null);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_PUBLISHING);
+            throw new MqttException(EXCEPTION_WHEN_PUBLISHING, ex);
+        } catch (TimeoutException | ExecutionException ex) {
+            logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_PUBLISHING);
+            throw new MqttException(EXCEPTION_WHEN_PUBLISHING, ex);
+        }
     }
 
     @Override
@@ -144,7 +169,33 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
         stateCheck();
 
-        return null;
+        if (subscriptionId != null) {
+            throw new IllegalArgumentException("MQTT v3.1.1 doesn't support subscription id");
+        }
+
+        if (subscriptions.size() != 1) {
+            throw new IllegalArgumentException("Iot device SDK MQTT v3.1.1 client does not support to subscribe on "
+                                            + "multiple filters at once");
+        }
+
+        Subscription subscription = subscriptions.get(0);
+        final String filter = subscription.getFilter();
+        final QualityOfService qos = QualityOfService.getEnumValueFromInteger(subscription.getQos());
+
+        CompletableFuture<Integer> subscribeFuture = connection.subscribe(filter, qos);
+        try {
+            Integer packetId = subscribeFuture.get(timeout, TimeUnit.SECONDS);
+            logger.atInfo().log("Subscribed on connection {} for topics filter {} QoS {} packet Id {}",
+                                    connectionId, filter, qos, packetId);
+            return new SubAckInfo(Collections.singletonList(REASON_CODE_SUCCESS), null);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_SUBSCRIBING);
+            throw new MqttException(EXCEPTION_WHEN_SUBSCRIBING, ex);
+        } catch (TimeoutException | ExecutionException ex) {
+            logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_SUBSCRIBING);
+            throw new MqttException(EXCEPTION_WHEN_SUBSCRIBING, ex);
+        }
     }
 
     @Override
@@ -153,7 +204,28 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
         stateCheck();
 
-        return null;
+        if (filters.size() != 1) {
+            throw new IllegalArgumentException("Iot device SDK MQTT v3.1.1 client does not support to unsubscribe from "
+                                            + "multiple filters at once");
+        }
+
+        final String filter = filters.get(0);
+
+        CompletableFuture<Integer> unsubscribeFuture = connection.unsubscribe(filter);
+        try {
+            Integer packetId = unsubscribeFuture.get(timeout, TimeUnit.SECONDS);
+            logger.atInfo().log("Unsubscribed on connection {} from topics filter {} packet Id {}", connectionId,
+                                    filter, packetId);
+            return new UnsubAckInfo(Collections.singletonList(0), null);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_UNSUBSCRIBING);
+            throw new MqttException(EXCEPTION_WHEN_UNSUBSCRIBING, ex);
+        } catch (TimeoutException | ExecutionException ex) {
+            logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_UNSUBSCRIBING);
+            throw new MqttException(EXCEPTION_WHEN_UNSUBSCRIBING, ex);
+        }
+
     }
 
     /**

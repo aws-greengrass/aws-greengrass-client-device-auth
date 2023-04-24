@@ -49,6 +49,12 @@ Will message not yet supported.
 Currenly information from packets related to QoS2 like PUBREC PUBREL PUBCOMP is missing.
 
 ## MQTT v3.1.1 client
-SDK-based client provides only session present flag of CONNACK packet.
-Connect Return code is missing.
+String result code is not available in MQTT 3.1.1, corresponding fields of gRPC messages will not be set.
 
+SDK-based client does not provide OS specific error code or string, corresponding fields of gRPC messages will be not set.
+
+SDK-based client provides only session present flag of CONNACK packet. The Connect Return code of CONNACK is missing.
+
+Raal SUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
+
+Real PUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
