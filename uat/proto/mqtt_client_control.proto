@@ -222,7 +222,7 @@ message MqttConnectReply {
     bool connected = 1;                                 // true when connection has been established
     MqttConnectionId connectionId = 2;                  // id of establisted connection
     optional Mqtt5ConnAck connAck = 3;                  // information from CONNACK packet
-    string error = 4;                                   // on TCP/TLS error contains error string
+    optional string error = 4;                          // error string if available, has sense on connected = false
     // TODO: add user properties
 }
 

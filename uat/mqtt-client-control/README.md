@@ -59,8 +59,13 @@ By default control will starting gRPC server on port 47619 and any address.
 
 ### Use TLS
 Is a second command line argument.
-By default control will requires to agent to establish TLS connection with broker.
+By default control will requires to agent to establish TLS-secured connection with broker.
 That can be changes by using false keyword for second argument.
+
+### Use MQTT 5.0
+Is a third command line argument.
+By default control will requires to agent to establish MQTT 5.0 connection with broker.
+That can be changes by using false keyword for third argument. In that case MQTT v3.1.1 will be used.
 
 ### Examples
 ```sh

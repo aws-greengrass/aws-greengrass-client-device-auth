@@ -1,6 +1,6 @@
-# Test MQTT5 client bases on AWS IoT Device SDK for Java v2
+# Test MQTT5/311 client bases on AWS IoT Device SDK for Java v2
 
-The controlled `test MQTT v5.0 client` is based on AWS IoT Device SDK for Java v2 is used to test Greengrass v2 MQTT v5.0 compatibility.
+The controlled `test MQTT v5.0/v3.1.1 client` is based on AWS IoT Device SDK for Java v2 is used to test Greengrass v2 MQTT v5.0 compatibility.
 
 ## How to compile
 To compile this client, use the following command:
@@ -38,3 +38,17 @@ mvn exec:java
 ```sh
 java -jar target/client-devices-auth-uat-client-java-sdk.jar agent1 127.0.0.1 47619
 ```
+
+# Limitations
+That client support both MQTT v5.0 and MQTT v3.1.1 protocols.
+But because both clients are based on separated clients implemented in IoT device SDK and CRT libraries it differs in protocol-level information provided to control.
+
+Will message not yet supported.
+
+## MQTT v5.0 client
+Currenly information from packets related to QoS2 like PUBREC PUBREL PUBCOMP is missing.
+
+## MQTT v3.1.1 client
+SDK-based client provides only session present flag of CONNACK packet.
+Connect Return code is missing.
+
