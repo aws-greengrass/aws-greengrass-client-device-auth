@@ -96,7 +96,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             isConnected.set(true);
             logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
             return buildConnectResult(true, sessionPresent);
-        } catch (TimeoutException | InterruptedException | ExecutionException ex) {
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.atError().withThrowable(ex).log("Exception occurred during connect");
+            throw new MqttException("Exception occurred during connect", ex);
+        } catch (TimeoutException | ExecutionException ex) {
             logger.atError().withThrowable(ex).log("Exception occurred during connect");
             throw new MqttException("Exception occurred during connect", ex);
         }
@@ -110,7 +114,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             try {
                 disconnected.get(timeout, TimeUnit.SECONDS);
             logger.atInfo().log("MQTT 3.1.1 connection {} has been closed", connectionId);
-            } catch (TimeoutException | InterruptedException | ExecutionException ex) {
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                logger.atError().withThrowable(ex).log("Failed during disconnecting");
+                throw new MqttException("Could not disconnect", ex);
+            } catch (TimeoutException | ExecutionException ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnecting");
                 throw new MqttException("Could not disconnect", ex);
             } finally {
