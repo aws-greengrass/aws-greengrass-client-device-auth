@@ -50,8 +50,9 @@ import software.amazon.awssdk.iot.discovery.model.GGGroup;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -65,6 +66,10 @@ public class MqttControlSteps {
     private static final String DEFAULT_CLIENT_DEVICE_POLICY_CONFIG = "/configs/iot/basic_client_device_policy.yaml";
 
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
+
+    private static final String MQTT_VERSION_311 = "v3";
+    private static final String MQTT_VERSION_50 = "v5";
+    private static final String DEFAULT_MQTT_VERSION = MQTT_VERSION_50;
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     private static final String DEFAULT_CONTROL_GRPC_IP = "127.0.0.1";
@@ -102,7 +107,8 @@ public class MqttControlSteps {
 
     private final GreengrassV2Client greengrassClient;
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
-    private final ConcurrentHashMap<String, List<GGGroup>> brokers = new ConcurrentHashMap<>();
+    private final Map<String, List<GGGroup>> brokers = new HashMap<>();
+    private final Map<String, MqttProtoVersion> mqttVersions = new HashMap<>();
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
         @Override
@@ -163,6 +169,8 @@ public class MqttControlSteps {
         this.engineControl = engineControl;
         this.eventStorage = eventStorage;
         this.greengrassClient = greengrassClient;
+
+        initMqttVersions();
         startMqttControl();
     }
 
@@ -205,15 +213,28 @@ public class MqttControlSteps {
     }
 
     /**
-     * Pass IoT Thing certificate for connection into specified client component.
+     * Creates MQTT connection.
      *
-     * @param clientDeviceId string user defined client device id
-     * @param componentId    componentId of MQTT client
-     * @param brokerId       broker id
+     * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
+     * @param componentId  the componentId of MQTT client
+     * @param brokerId the id of broker, before must be discovered or added by default
      */
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @And("I connect device {string} on {word} to {string}")
     public void connect(String clientDeviceId, String componentId, String brokerId) {
+        connect(clientDeviceId, componentId, brokerId, DEFAULT_MQTT_VERSION);
+    }
+
+    /**
+     * Creates MQTT connection.
+     *
+     * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
+     * @param componentId  the componentId of MQTT client
+     * @param brokerId the id of broker, before must be discovered or added by default
+     * @param mqttVersion the MQTT version string
+     */
+    @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.UseObjectForClearerAPI"})
+    @And("I connect device {string} on {word} to {string} using mqtt {string}")
+    public void connect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
 
         // get address information about broker
         final List<GGGroup> groups = brokers.get(brokerId);
@@ -222,11 +243,15 @@ public class MqttControlSteps {
                                         + "probably discovery step missing in scenario");
         }
 
+
         // get agent control by componentId
         AgentControl agentControl = getAgentControl(componentId);
 
         // request for new MQTT connection
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+
+        // resolve MQTT version string to gRPC enum
+        MqttProtoVersion version = convertMqttVersion(mqttVersion);
 
         RuntimeException lastException = null;
         for (final GGGroup group : groups) {
@@ -240,10 +265,11 @@ public class MqttControlSteps {
                     final String host = connectivityInfo.getHostAddress();
                     final Integer port = connectivityInfo.getPortNumber();
 
-                    log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {}",
-                                brokerId, host, port, clientDeviceThingName, componentId);
+                    log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {} MQTT {}",
+                                brokerId, host, port, clientDeviceThingName, componentId, mqttVersion);
 
-                    MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, caList, host, port);
+                    MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, caList, host, port,
+                                                                            version);
                     try {
                         ConnectionControl connectionControl
                             = agentControl.createMqttConnection(request, connectionEvents);
@@ -510,10 +536,10 @@ public class MqttControlSteps {
     }
 
     private MqttConnectRequest buildMqttConnectRequest(String clientDeviceThingName, List<String> caList, String host,
-                                                        int port) {
+                                                        int port, MqttProtoVersion version) {
         final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceThingName);
 
-        // TODO: use values from scenario instead of defaults
+        // TODO: use values from scenario instead of defaults for keepAlive, cleanSession
         return MqttConnectRequest.newBuilder()
                                  .setClientId(clientDeviceThingName)
                                  .setHost(host)
@@ -521,7 +547,7 @@ public class MqttControlSteps {
                                  .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
                                  .setCleanSession(CONNECT_CLEAR_SESSION)
                                  .setTls(buildTlsSettings(thingSpec, caList))
-                                 .setProtocolVersion(MqttProtoVersion.MQTT_PROTOCOL_V50)
+                                 .setProtocolVersion(version)
                                  .build();
     }
 
@@ -577,6 +603,13 @@ public class MqttControlSteps {
         return componentName;
     }
 
+    /**
+     * Randomize thing name provided by user in scenario to unique value.
+     * That allow to run the same scenario multiple times in the same time without conflicts on backend.\
+     *
+     * @param clientDeviceId the thing name as provided by user in scenario
+     * @return randomized thing name
+     */
     private String getClientDeviceThingName(@NonNull String clientDeviceId) {
         return testContext.testId().idFor(clientDeviceId);
     }
@@ -649,5 +682,20 @@ public class MqttControlSteps {
                             .setQos(mqttQoS)
                             .setRetain(retain)
                             .build();
+    }
+
+    private void initMqttVersions() {
+        mqttVersions.put(MQTT_VERSION_311, MqttProtoVersion.MQTT_PROTOCOL_V311);
+        mqttVersions.put(MQTT_VERSION_50, MqttProtoVersion.MQTT_PROTOCOL_V50);
+    }
+
+    private MqttProtoVersion convertMqttVersion(String mqqtVersion) {
+        MqttProtoVersion version = mqttVersions.get(mqqtVersion);
+
+        if (version == null) {
+            throw new IllegalArgumentException("Unknown MQTT version " + mqqtVersion);
+        }
+
+        return version;
     }
 }
