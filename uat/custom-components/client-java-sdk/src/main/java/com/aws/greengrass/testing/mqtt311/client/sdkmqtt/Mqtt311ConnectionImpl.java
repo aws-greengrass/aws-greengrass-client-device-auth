@@ -210,13 +210,12 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         }
 
         final String filter = filters.get(0);
-
         CompletableFuture<Integer> unsubscribeFuture = connection.unsubscribe(filter);
         try {
             Integer packetId = unsubscribeFuture.get(timeout, TimeUnit.SECONDS);
             logger.atInfo().log("Unsubscribed on connection {} from topics filter {} packet Id {}", connectionId,
                                     filter, packetId);
-            return new UnsubAckInfo(Collections.singletonList(0), null);
+            return new UnsubAckInfo(Collections.singletonList(REASON_CODE_SUCCESS), null);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_UNSUBSCRIBING);

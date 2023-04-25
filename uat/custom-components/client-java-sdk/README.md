@@ -55,6 +55,6 @@ SDK-based client does not provide OS specific error code or string, correspondin
 
 SDK-based client provides only session present flag of CONNACK packet. The Connect Return code of CONNACK is missing.
 
-Raal SUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
+Real SUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
 
 Real PUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
