@@ -19,6 +19,7 @@ import java.util.List;
 public interface MqttConnection {
     int DEFAULT_DISCONNECT_REASON = 4;
     long DEFAULT_DISCONNECT_TIMEOUT = 10;
+    long MIN_SHUTDOWN_NS = 200_000_000;      // 200ms
 
 
     /**
