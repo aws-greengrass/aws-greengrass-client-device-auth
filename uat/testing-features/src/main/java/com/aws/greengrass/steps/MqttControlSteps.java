@@ -689,11 +689,11 @@ public class MqttControlSteps {
         mqttVersions.put(MQTT_VERSION_50, MqttProtoVersion.MQTT_PROTOCOL_V50);
     }
 
-    private MqttProtoVersion convertMqttVersion(String mqqtVersion) {
-        MqttProtoVersion version = mqttVersions.get(mqqtVersion);
+    private MqttProtoVersion convertMqttVersion(String mqttVersion) {
+        MqttProtoVersion version = mqttVersions.get(mqttVersion);
 
         if (version == null) {
-            throw new IllegalArgumentException("Unknown MQTT version " + mqqtVersion);
+            throw new IllegalArgumentException("Unknown MQTT version " + mqttVersion);
         }
 
         return version;
