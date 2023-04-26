@@ -618,7 +618,7 @@ public class MqttControlSteps {
                     ci.getHostAddress(),
                     ci.getPortNumber(),
                     group.getCAs()))
-                 .collect(Collectors.toCollection(()-> bc));
+                 .collect(Collectors.toCollection(() -> bc));
         });
 
         brokers.put(brokerId, bc);
