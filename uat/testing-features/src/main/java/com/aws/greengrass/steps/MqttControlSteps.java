@@ -30,6 +30,7 @@ import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.Event
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttMessageEvent;
 import com.aws.greengrass.testing.resources.AWSResources;
 import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
+import com.aws.greengrass.testing.resources.iot.IotLifecycle;
 import com.aws.greengrass.testing.resources.iot.IotPolicySpec;
 import com.aws.greengrass.testing.resources.iot.IotThingSpec;
 import com.google.protobuf.ByteString;
@@ -37,25 +38,31 @@ import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import software.amazon.awssdk.crt.io.SocketOptions;
 import software.amazon.awssdk.crt.io.TlsContextOptions;
 import software.amazon.awssdk.iot.discovery.DiscoveryClient;
 import software.amazon.awssdk.iot.discovery.DiscoveryClientConfig;
-import software.amazon.awssdk.iot.discovery.model.ConnectivityInfo;
 import software.amazon.awssdk.iot.discovery.model.DiscoverResponse;
 import software.amazon.awssdk.iot.discovery.model.GGCore;
 import software.amazon.awssdk.iot.discovery.model.GGGroup;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
+import software.amazon.awssdk.utils.CollectionUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
@@ -93,6 +100,8 @@ public class MqttControlSteps {
     private static final Mqtt5RetainHandling SUBSCRIBE_RETAIN_HANDLING
             = Mqtt5RetainHandling.MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION;
 
+    private static final int IOT_CORE_PORT = 443;
+
 
     private final TestContext testContext;
 
@@ -107,7 +116,7 @@ public class MqttControlSteps {
 
     private final GreengrassV2Client greengrassClient;
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
-    private final Map<String, List<GGGroup>> brokers = new HashMap<>();
+    private final Map<String, List<MqttBrokerConnection>> brokers = new HashMap<>();
     private final Map<String, MqttProtoVersion> mqttVersions = new HashMap<>();
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
@@ -237,8 +246,8 @@ public class MqttControlSteps {
     public void connect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
 
         // get address information about broker
-        final List<GGGroup> groups = brokers.get(brokerId);
-        if (groups == null) {
+        final List<MqttBrokerConnection> bc = brokers.get(brokerId);
+        if (CollectionUtils.isNullOrEmpty(bc)) {
             throw new RuntimeException("There is no address information about broker, "
                                         + "probably discovery step missing in scenario");
         }
@@ -254,34 +263,23 @@ public class MqttControlSteps {
         MqttProtoVersion version = convertMqttVersion(mqttVersion);
 
         RuntimeException lastException = null;
-        for (final GGGroup group : groups) {
-            final List<String> caList = group.getCAs();
-            final List<GGCore> cores = group.getCores();
-
-            for (final GGCore core : cores) {
-                List<ConnectivityInfo> connectivityInfoList = core.getConnectivity();
-
-                for (final ConnectivityInfo connectivityInfo : connectivityInfoList) {
-                    final String host = connectivityInfo.getHostAddress();
-                    final Integer port = connectivityInfo.getPortNumber();
-
-                    log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {} MQTT {}",
-                                brokerId, host, port, clientDeviceThingName, componentId, mqttVersion);
-
-                    MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, caList, host, port,
-                                                                            version);
-                    try {
-                        ConnectionControl connectionControl
-                            = agentControl.createMqttConnection(request, connectionEvents);
-                        log.info("Connection with broker {} established to address {}:{} as Thing {} on {}",
-                                    brokerId, host, port, clientDeviceThingName, componentId);
-
-                        setConnectionControl(connectionControl, clientDeviceThingName);
-                        return;
-                    } catch (RuntimeException ex) {
-                        lastException = ex;
-                    }
-                }
+        for (final MqttBrokerConnection broker : bc) {
+            final List<String> caList = broker.getCaList();
+            final String host = broker.getHost();
+            final Integer port = broker.getPort();
+            log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {} MQTT {}",
+                     brokerId, host, port, clientDeviceThingName, componentId, mqttVersion);
+            MqttConnectRequest request = buildMqttConnectRequest(
+                    clientDeviceThingName, caList, host, port, version);
+            try {
+                ConnectionControl connectionControl
+                        = agentControl.createMqttConnection(request, connectionEvents);
+                log.info("Connection with broker {} established to address {}:{} as Thing {} on {}",
+                         brokerId, host, port, clientDeviceThingName, componentId);
+                setConnectionControl(connectionControl, clientDeviceThingName);
+                return;
+            } catch (RuntimeException ex) {
+                lastException = ex;
             }
         }
 
@@ -481,6 +479,20 @@ public class MqttControlSteps {
     }
 
     /**
+     * Set up IoT core broker.
+     *
+     * @param brokerId broker name in tests
+     */
+    @And("I label IoT core broker as {string}")
+    public void discoverCoreDeviceBroker(String brokerId) {
+        final String endpoint = resources.lifecycle(IotLifecycle.class)
+                                         .dataEndpoint();
+        final String ca = registrationContext.rootCA();
+        MqttBrokerConnection broker = new MqttBrokerConnection(endpoint, IOT_CORE_PORT, Collections.singletonList(ca));
+        brokers.put(brokerId, Collections.singletonList(broker));
+    }
+
+    /**
      * Unsubscribe the MQTT topics by filter.
      *
      * @param clientDeviceId the user defined client device id
@@ -596,7 +608,20 @@ public class MqttControlSteps {
             });
         });
 
-        brokers.put(brokerId, groups);
+        List<MqttBrokerConnection> bc = new ArrayList<>();
+        groups.forEach(group -> {
+            group.getCores()
+                 .stream()
+                 .map(GGCore::getConnectivity)
+                 .flatMap(Collection::stream)
+                 .map(ci -> new MqttBrokerConnection(
+                    ci.getHostAddress(),
+                    ci.getPortNumber(),
+                    group.getCAs()))
+                 .collect(Collectors.toCollection(()-> bc));
+        });
+
+        brokers.put(brokerId, bc);
     }
 
     private String getAgentId(String componentName) {
@@ -698,4 +723,17 @@ public class MqttControlSteps {
 
         return version;
     }
+
+
+    @Data
+    @AllArgsConstructor
+    private class MqttBrokerConnection {
+
+        private String host;
+        private Integer port;
+        private List<String> caList;
+
+    }
 }
+
+
