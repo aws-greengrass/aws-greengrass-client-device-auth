@@ -116,7 +116,7 @@ public class MqttControlSteps {
 
     private final GreengrassV2Client greengrassClient;
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
-    private final Map<String, List<MqttBrokerConnection>> brokers = new HashMap<>();
+    private final Map<String, List<MqttBrokerConnectionInfo>> brokers = new HashMap<>();
     private final Map<String, MqttProtoVersion> mqttVersions = new HashMap<>();
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
@@ -246,7 +246,7 @@ public class MqttControlSteps {
     public void connect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
 
         // get address information about broker
-        final List<MqttBrokerConnection> bc = brokers.get(brokerId);
+        final List<MqttBrokerConnectionInfo> bc = brokers.get(brokerId);
         if (CollectionUtils.isNullOrEmpty(bc)) {
             throw new RuntimeException("There is no address information about broker, "
                                         + "probably discovery step missing in scenario");
@@ -263,7 +263,7 @@ public class MqttControlSteps {
         MqttProtoVersion version = convertMqttVersion(mqttVersion);
 
         RuntimeException lastException = null;
-        for (final MqttBrokerConnection broker : bc) {
+        for (final MqttBrokerConnectionInfo broker : bc) {
             final List<String> caList = broker.getCaList();
             final String host = broker.getHost();
             final Integer port = broker.getPort();
@@ -488,7 +488,8 @@ public class MqttControlSteps {
         final String endpoint = resources.lifecycle(IotLifecycle.class)
                                          .dataEndpoint();
         final String ca = registrationContext.rootCA();
-        MqttBrokerConnection broker = new MqttBrokerConnection(endpoint, IOT_CORE_PORT, Collections.singletonList(ca));
+        MqttBrokerConnectionInfo broker = new MqttBrokerConnectionInfo(
+                endpoint, IOT_CORE_PORT, Collections.singletonList(ca));
         brokers.put(brokerId, Collections.singletonList(broker));
     }
 
@@ -608,20 +609,20 @@ public class MqttControlSteps {
             });
         });
 
-        List<MqttBrokerConnection> bc = new ArrayList<>();
+        List<MqttBrokerConnectionInfo> mqttBrokerConnectionInfos = new ArrayList<>();
         groups.forEach(group -> {
             group.getCores()
                  .stream()
                  .map(GGCore::getConnectivity)
                  .flatMap(Collection::stream)
-                 .map(ci -> new MqttBrokerConnection(
+                 .map(ci -> new MqttBrokerConnectionInfo(
                     ci.getHostAddress(),
                     ci.getPortNumber(),
                     group.getCAs()))
-                 .collect(Collectors.toCollection(() -> bc));
+                 .collect(Collectors.toCollection(() -> mqttBrokerConnectionInfos));
         });
 
-        brokers.put(brokerId, bc);
+        brokers.put(brokerId, mqttBrokerConnectionInfos);
     }
 
     private String getAgentId(String componentName) {
@@ -727,7 +728,7 @@ public class MqttControlSteps {
 
     @Data
     @AllArgsConstructor
-    private class MqttBrokerConnection {
+    private class MqttBrokerConnectionInfo {
 
         private String host;
         private Integer port;
