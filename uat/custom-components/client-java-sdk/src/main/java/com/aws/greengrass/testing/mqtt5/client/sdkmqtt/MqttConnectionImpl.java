@@ -50,8 +50,6 @@ import java.util.stream.Collectors;
  * Implementation of MQTT5 connection based on AWS IoT device SDK.
  */
 public class MqttConnectionImpl implements MqttConnection {
-    private static final long MIN_SHUTDOWN_NS = 200_000_000;      // 200ms
-
     private static final Logger logger = LogManager.getLogger(MqttConnectionImpl.class);
 
     private final AtomicBoolean isClosing = new AtomicBoolean();

@@ -6,6 +6,7 @@
 package com.aws.greengrass.testing.mqtt311.client.sdkmqtt;
 
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -23,9 +24,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /**
  * Implementation of MQTT 3.1.1 connection based on AWS IoT SDK.
@@ -43,18 +47,13 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final AtomicBoolean isConnected = new AtomicBoolean();
 
-    // TODO: remove when receive is implemented
-    @SuppressWarnings("PMD.UnusedPrivateField")
     private final GRPCClient grpcClient;
-
     private final MqttClientConnection connection;
-
     private int connectionId = 0;
 
-    @SuppressWarnings("PMD.UnusedPrivateField")
-    private final ClientConnectionEvents connectionEvents = new ClientConnectionEvents();
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();        // TODO: use DI
 
-    class ClientConnectionEvents implements MqttClientConnectionEvents {
+    private final MqttClientConnectionEvents connectionEvents = new MqttClientConnectionEvents() {
         @Override
         public void onConnectionInterrupted(int errorCode) {
             isConnected.set(false);
@@ -66,8 +65,26 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             isConnected.set(true);
             logger.atInfo().log("MQTT connection {} resumed, sessionPresent {}", connectionId, sessionPresent);
         }
-    }
+    };
 
+    private final Consumer<MqttMessage> messageHandler = new Consumer<MqttMessage>() {
+        @Override
+        public void accept(MqttMessage message) {
+            if (message != null) {
+                final int qos = message.getQos().getValue();
+                final String topic = message.getTopic();
+                final boolean isRetain = message.getRetain();
+
+                MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload());
+                executorService.submit(() -> {
+                    grpcClient.onReceiveMqttMessage(connectionId, msg);
+                });
+
+                logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
+                                        connectionId, topic, qos, isRetain);
+            }
+        }
+    };
 
     /**
      * Creates a MQTT 3.1.1 connection.
@@ -81,6 +98,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         super();
         this.grpcClient = grpcClient;
         this.connection = createConnection(connectionParams);
+        this.connection.onMessage(messageHandler);
     }
 
     /**
@@ -122,7 +140,20 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         if (!isClosing.getAndSet(true)) {
             CompletableFuture<Void> disconnnectFuture = connection.disconnect();
             try {
+                final long deadline = System.nanoTime() + timeout * 1_000_000_000;
+
                 disconnnectFuture.get(timeout, TimeUnit.SECONDS);
+
+                long remaining = deadline - System.nanoTime();
+                if (remaining < MIN_SHUTDOWN_NS) {
+                    remaining = MIN_SHUTDOWN_NS;
+                }
+
+                executorService.shutdown();
+                if (!executorService.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
+                    executorService.shutdownNow();
+                }
+
                 logger.atInfo().log("MQTT 3.1.1 connection {} has been disconnected", connectionId);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
