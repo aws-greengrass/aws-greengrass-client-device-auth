@@ -1,7 +1,7 @@
 @GGAD
 Feature: GGAD-1
 
-  As a developer, I can configure my GGAD devices to connect to the local GGC using cloud based discovery
+  As a developer, I can configure my GGAD devices to connect to the local GGC
 
   Background:
     Given my device is registered as a Thing
