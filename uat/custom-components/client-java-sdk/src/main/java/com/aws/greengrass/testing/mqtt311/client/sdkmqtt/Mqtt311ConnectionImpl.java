@@ -42,7 +42,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final String EXCEPTION_WHEN_SUBSCRIBING = "Exception occurred during subscribe";
     private static final String EXCEPTION_WHEN_UNSUBSCRIBING = "Exception occurred during unsubscribe";
 
-    private static final int REASON_CODE_SUCCESS = 0;
+    static final int REASON_CODE_SUCCESS = 0;
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final AtomicBoolean isConnected = new AtomicBoolean();
@@ -53,7 +53,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();        // TODO: use DI
 
-    private final MqttClientConnectionEvents connectionEvents = new MqttClientConnectionEvents() {
+    final MqttClientConnectionEvents connectionEvents = new MqttClientConnectionEvents() {
         @Override
         public void onConnectionInterrupted(int errorCode) {
             isConnected.set(false);
@@ -178,9 +178,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         final String topic = message.getTopic();
         final MqttMessage msg = new MqttMessage(topic, message.getPayload(), qos, message.isRetain(), false);
 
-        CompletableFuture<Integer> pubishFuture = connection.publish(msg);
+        CompletableFuture<Integer> publishFuture = connection.publish(msg);
         try {
-            Integer packetId = pubishFuture.get(timeout, TimeUnit.SECONDS);
+            Integer packetId = publishFuture.get(timeout, TimeUnit.SECONDS);
             logger.atInfo().log("Publish on connection {} to topic {} QoS {} packet Id {}",
                                     connectionId, topic, qos, packetId);
             return new PubAckInfo(REASON_CODE_SUCCESS, null);
