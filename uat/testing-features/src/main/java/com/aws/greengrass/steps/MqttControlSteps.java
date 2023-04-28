@@ -547,7 +547,7 @@ public class MqttControlSteps {
 
         final int boundPort = engineControl.getBoundPort();
         String[] addresses = engineControl.getIPs();
-        log.info("MQTT clients control started gRPC service on port {} adrresses {}", boundPort, addresses);
+        log.info("MQTT clients control started gRPC service on port {} addresses {}", boundPort, addresses);
 
         if (addresses == null || addresses.length == 0) {
             addresses = new String[] { DEFAULT_CONTROL_GRPC_IP };
