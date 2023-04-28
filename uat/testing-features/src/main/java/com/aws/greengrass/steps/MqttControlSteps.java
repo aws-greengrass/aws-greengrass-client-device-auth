@@ -35,9 +35,11 @@ import com.aws.greengrass.testing.resources.iot.IotPolicySpec;
 import com.aws.greengrass.testing.resources.iot.IotThingSpec;
 import com.google.protobuf.ByteString;
 import io.cucumber.guice.ScenarioScoped;
+import io.cucumber.java.After;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import io.grpc.StatusRuntimeException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NonNull;
@@ -319,16 +321,18 @@ public class MqttControlSteps {
      * Subscribe the MQTT topics by filter.
      *
      * @param clientDeviceId the user defined client device id
-     * @param filter the topics filter to subscribe
+     * @param topicFilterString the topics filter to subscribe
      * @param qos the max value of MQTT QoS for subscribe
      * @throws StatusRuntimeException thrown on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
      */
     @When("I subscribe {string} to {string} with qos {int}")
-    public void subscribe(String clientDeviceId, String filter, int qos) {
+    public void subscribe(String clientDeviceId, String topicFilterString, int qos) {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        final String filter = scenarioContext.applyInline(topicFilterString);
 
         // do subscription
         log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {}", clientDeviceThingName,
@@ -372,17 +376,19 @@ public class MqttControlSteps {
      * Publish the MQTT message.
      *
      * @param clientDeviceId user defined client device id
-     * @param topic the topic to publish message
+     * @param topicString the topic to publish message
      * @param qos the value of MQTT QoS for publishing
      * @param message the the content of message to publish
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
      */
     @When("I publish from {string} to {string} with qos {int} and message {string}")
-    public void publish(String clientDeviceId, String topic, int qos, String message) {
+    public void publish(String clientDeviceId, String topicString, int qos, String message) {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        final String topic = scenarioContext.applyInline(topicString);
 
         // do publishing
         log.info("Publishing MQTT message {} as Thing {} to topics filter {} with QoS {}", message,
@@ -408,7 +414,7 @@ public class MqttControlSteps {
      *
      * @param message content of message to receive
      * @param clientDeviceId the user defined client device id
-     * @param topic the topic (not a filter) which message has been sent
+     * @param topicString the topic (not a filter) which message has been sent
      * @param value the duration of time to wait for message
      * @param unit the time unit to wait
      * @throws TimeoutException when matched message was not received in specified duration of time
@@ -417,11 +423,13 @@ public class MqttControlSteps {
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
     @And("message {string} received on {string} from {string} topic within {int} {word}")
-    public void receive(String message, String clientDeviceId, String topic, int value, String unit)
+    public void receive(String message, String clientDeviceId, String topicString, int value, String unit)
                             throws TimeoutException, InterruptedException {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        final String topic = scenarioContext.applyInline(topicString);
 
         // build filter
         EventFilter eventFilter = new EventFilter.Builder()
@@ -535,17 +543,17 @@ public class MqttControlSteps {
     private void startMqttControl() throws IOException {
         if (!engineControl.isEngineRunning()) {
             engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
-
-            final int boundPort = engineControl.getBoundPort();
-            String[] addresses = engineControl.getIPs();
-            log.info("MQTT clients control started gRPC service on port {} adrresses {}", boundPort, addresses);
-
-            if (addresses == null || addresses.length == 0) {
-                addresses = new String[] { DEFAULT_CONTROL_GRPC_IP };
-            }
-            scenarioContext.put(MQTT_CONTROL_ADDRESSES_KEY, String.join(" ", addresses));
-            scenarioContext.put(MQTT_CONTROL_PORT_KEY, String.valueOf(boundPort));
         }
+
+        final int boundPort = engineControl.getBoundPort();
+        String[] addresses = engineControl.getIPs();
+        log.info("MQTT clients control started gRPC service on port {} adrresses {}", boundPort, addresses);
+
+        if (addresses == null || addresses.length == 0) {
+            addresses = new String[] { DEFAULT_CONTROL_GRPC_IP };
+        }
+        scenarioContext.put(MQTT_CONTROL_ADDRESSES_KEY, String.join(" ", addresses));
+        scenarioContext.put(MQTT_CONTROL_PORT_KEY, String.valueOf(boundPort));
     }
 
     private MqttConnectRequest buildMqttConnectRequest(String clientDeviceThingName, List<String> caList, String host,
@@ -645,7 +653,7 @@ public class MqttControlSteps {
 
         AgentControl agentControl = engineControl.getAgent(agentId);
         if (agentControl == null) {
-            throw new IllegalStateException("Agent (MQTT client) with agentId '" + agentId 
+            throw new IllegalStateException("Agent (MQTT client) with agentId '" + agentId
                                                 + "' does not registered in the MQTT Clients Control");
         }
 
@@ -725,6 +733,20 @@ public class MqttControlSteps {
         return version;
     }
 
+    /**
+     * Stop MQTT Control Engine.
+     *
+     * @throws InterruptedException thrown when the current thread was interrupted while waiting
+     */
+    @After
+    public void stopMqttControlEngine() throws InterruptedException {
+        try {
+            engineControl.stopEngine();
+            engineControl.awaitTermination();
+        } catch (StatusRuntimeException e) {
+            log.warn(e);
+        }
+    }
 
     @Data
     @AllArgsConstructor
