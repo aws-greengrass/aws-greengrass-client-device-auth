@@ -327,7 +327,7 @@ public class MqttControlSteps {
      * @throws IllegalArgumentException on invalid QoS argument
      */
     @When("I subscribe {string} to {string} with qos {int}")
-    public void subscribe(String clientDeviceId, String topicFilterString, int qos) {
+    public void subscribe(@NonNull String clientDeviceId, @NonNull String topicFilterString, int qos) {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
