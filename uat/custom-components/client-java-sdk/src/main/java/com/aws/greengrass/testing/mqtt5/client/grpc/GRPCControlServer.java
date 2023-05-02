@@ -145,14 +145,14 @@ class GRPCControlServer {
             }
 
             MqttProtoVersion version = request.getProtocolVersion();
-            if (version != MqttProtoVersion.MQTT_PROTOCOL_V311 && version != MqttProtoVersion.MQTT_PROTOCOL_V50) {
+            if (version != MqttProtoVersion.MQTT_PROTOCOL_V_311 && version != MqttProtoVersion.MQTT_PROTOCOL_V_50) {
                 logger.atWarn().log("invalid protocolVersion {}, {} and {} are only supported",
                                         version,
-                                        MqttProtoVersion.MQTT_PROTOCOL_V311,
-                                        MqttProtoVersion.MQTT_PROTOCOL_V50);
+                                        MqttProtoVersion.MQTT_PROTOCOL_V_311,
+                                        MqttProtoVersion.MQTT_PROTOCOL_V_50);
                 responseObserver.onError(Status.INVALID_ARGUMENT
                                 .withDescription("invalid protocolVersion, only "
-                                                    + "MQTT_PROTOCOL_V311 and MQTT_PROTOCOL_V50 are supported")
+                                                    + "MQTT_PROTOCOL_V_311 and MQTT_PROTOCOL_V_50 are supported")
                                 .asRuntimeException());
                 return;
             }
@@ -183,7 +183,7 @@ class GRPCControlServer {
                             .port(port)
                             .keepalive(keepalive)
                             .cleanSession(request.getCleanSession())
-                            .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V50);
+                            .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V_50);
 
             // check TLS optional settings
             if (request.hasTls()) {
@@ -451,11 +451,11 @@ class GRPCControlServer {
                 }
 
                 boolean noLocal = subscription.getNoLocal();
-                boolean retainAsLocal = subscription.getRetainAsPublished();
-                MqttConnection.Subscription tmp = new MqttConnection.Subscription(filter, qos, noLocal, retainAsLocal,
-                                                                                    retainHandling);
-                logger.atInfo().log("Subscription: filter {} QoS {} noLocal {} retainAsLocal {} retainHandling {}",
-                                        filter, qos, noLocal, retainAsLocal, retainHandling);
+                boolean retainAsPublished = subscription.getRetainAsPublished();
+                MqttConnection.Subscription tmp = new MqttConnection.Subscription(filter, qos, noLocal,
+                                                                                    retainAsPublished, retainHandling);
+                logger.atInfo().log("Subscription: filter {} QoS {} noLocal {} retainAsPublished {} retainHandling {}",
+                                        filter, qos, noLocal, retainAsPublished, retainHandling);
                 outSubscriptions.add(tmp);
                 index++;
             }

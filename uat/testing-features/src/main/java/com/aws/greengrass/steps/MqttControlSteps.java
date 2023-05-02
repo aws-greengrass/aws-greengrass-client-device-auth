@@ -302,7 +302,7 @@ public class MqttControlSteps {
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
 
-        //do disconnect
+        // do disconnect
         connectionControl.closeMqttConnection(reasonCode);
         log.info("Thing {} was disconnected with reason code {}", clientDeviceId, reasonCode);
     }
@@ -719,8 +719,8 @@ public class MqttControlSteps {
     }
 
     private void initMqttVersions() {
-        mqttVersions.put(MQTT_VERSION_311, MqttProtoVersion.MQTT_PROTOCOL_V311);
-        mqttVersions.put(MQTT_VERSION_50, MqttProtoVersion.MQTT_PROTOCOL_V50);
+        mqttVersions.put(MQTT_VERSION_311, MqttProtoVersion.MQTT_PROTOCOL_V_311);
+        mqttVersions.put(MQTT_VERSION_50, MqttProtoVersion.MQTT_PROTOCOL_V_50);
     }
 
     private MqttProtoVersion convertMqttVersion(String mqttVersion) {
