@@ -30,32 +30,41 @@ import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.Event
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttMessageEvent;
 import com.aws.greengrass.testing.resources.AWSResources;
 import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
+import com.aws.greengrass.testing.resources.iot.IotLifecycle;
 import com.aws.greengrass.testing.resources.iot.IotPolicySpec;
 import com.aws.greengrass.testing.resources.iot.IotThingSpec;
 import com.google.protobuf.ByteString;
 import io.cucumber.guice.ScenarioScoped;
+import io.cucumber.java.After;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import io.grpc.StatusRuntimeException;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import software.amazon.awssdk.crt.io.SocketOptions;
 import software.amazon.awssdk.crt.io.TlsContextOptions;
 import software.amazon.awssdk.iot.discovery.DiscoveryClient;
 import software.amazon.awssdk.iot.discovery.DiscoveryClientConfig;
-import software.amazon.awssdk.iot.discovery.model.ConnectivityInfo;
 import software.amazon.awssdk.iot.discovery.model.DiscoverResponse;
 import software.amazon.awssdk.iot.discovery.model.GGCore;
 import software.amazon.awssdk.iot.discovery.model.GGGroup;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
+import software.amazon.awssdk.utils.CollectionUtils;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
@@ -93,6 +102,8 @@ public class MqttControlSteps {
     private static final Mqtt5RetainHandling SUBSCRIBE_RETAIN_HANDLING
             = Mqtt5RetainHandling.MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION;
 
+    private static final int IOT_CORE_PORT = 443;
+
 
     private final TestContext testContext;
 
@@ -107,7 +118,7 @@ public class MqttControlSteps {
 
     private final GreengrassV2Client greengrassClient;
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
-    private final Map<String, List<GGGroup>> brokers = new HashMap<>();
+    private final Map<String, List<MqttBrokerConnectionInfo>> brokers = new HashMap<>();
     private final Map<String, MqttProtoVersion> mqttVersions = new HashMap<>();
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
@@ -237,8 +248,8 @@ public class MqttControlSteps {
     public void connect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
 
         // get address information about broker
-        final List<GGGroup> groups = brokers.get(brokerId);
-        if (groups == null) {
+        final List<MqttBrokerConnectionInfo> bc = brokers.get(brokerId);
+        if (CollectionUtils.isNullOrEmpty(bc)) {
             throw new RuntimeException("There is no address information about broker, "
                                         + "probably discovery step missing in scenario");
         }
@@ -254,34 +265,23 @@ public class MqttControlSteps {
         MqttProtoVersion version = convertMqttVersion(mqttVersion);
 
         RuntimeException lastException = null;
-        for (final GGGroup group : groups) {
-            final List<String> caList = group.getCAs();
-            final List<GGCore> cores = group.getCores();
-
-            for (final GGCore core : cores) {
-                List<ConnectivityInfo> connectivityInfoList = core.getConnectivity();
-
-                for (final ConnectivityInfo connectivityInfo : connectivityInfoList) {
-                    final String host = connectivityInfo.getHostAddress();
-                    final Integer port = connectivityInfo.getPortNumber();
-
-                    log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {} MQTT {}",
-                                brokerId, host, port, clientDeviceThingName, componentId, mqttVersion);
-
-                    MqttConnectRequest request = buildMqttConnectRequest(clientDeviceThingName, caList, host, port,
-                                                                            version);
-                    try {
-                        ConnectionControl connectionControl
-                            = agentControl.createMqttConnection(request, connectionEvents);
-                        log.info("Connection with broker {} established to address {}:{} as Thing {} on {}",
-                                    brokerId, host, port, clientDeviceThingName, componentId);
-
-                        setConnectionControl(connectionControl, clientDeviceThingName);
-                        return;
-                    } catch (RuntimeException ex) {
-                        lastException = ex;
-                    }
-                }
+        for (final MqttBrokerConnectionInfo broker : bc) {
+            final List<String> caList = broker.getCaList();
+            final String host = broker.getHost();
+            final Integer port = broker.getPort();
+            log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {} MQTT {}",
+                     brokerId, host, port, clientDeviceThingName, componentId, mqttVersion);
+            MqttConnectRequest request = buildMqttConnectRequest(
+                    clientDeviceThingName, caList, host, port, version);
+            try {
+                ConnectionControl connectionControl
+                        = agentControl.createMqttConnection(request, connectionEvents);
+                log.info("Connection with broker {} established to address {}:{} as Thing {} on {}",
+                         brokerId, host, port, clientDeviceThingName, componentId);
+                setConnectionControl(connectionControl, clientDeviceThingName);
+                return;
+            } catch (RuntimeException ex) {
+                lastException = ex;
             }
         }
 
@@ -321,16 +321,18 @@ public class MqttControlSteps {
      * Subscribe the MQTT topics by filter.
      *
      * @param clientDeviceId the user defined client device id
-     * @param filter the topics filter to subscribe
+     * @param topicFilterString the topics filter to subscribe
      * @param qos the max value of MQTT QoS for subscribe
      * @throws StatusRuntimeException thrown on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
      */
     @When("I subscribe {string} to {string} with qos {int}")
-    public void subscribe(String clientDeviceId, String filter, int qos) {
+    public void subscribe(@NonNull String clientDeviceId, @NonNull String topicFilterString, int qos) {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        final String filter = scenarioContext.applyInline(topicFilterString);
 
         // do subscription
         log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {}", clientDeviceThingName,
@@ -374,17 +376,19 @@ public class MqttControlSteps {
      * Publish the MQTT message.
      *
      * @param clientDeviceId user defined client device id
-     * @param topic the topic to publish message
+     * @param topicString the topic to publish message
      * @param qos the value of MQTT QoS for publishing
      * @param message the the content of message to publish
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
      */
     @When("I publish from {string} to {string} with qos {int} and message {string}")
-    public void publish(String clientDeviceId, String topic, int qos, String message) {
+    public void publish(String clientDeviceId, String topicString, int qos, String message) {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        final String topic = scenarioContext.applyInline(topicString);
 
         // do publishing
         log.info("Publishing MQTT message {} as Thing {} to topics filter {} with QoS {}", message,
@@ -410,7 +414,7 @@ public class MqttControlSteps {
      *
      * @param message content of message to receive
      * @param clientDeviceId the user defined client device id
-     * @param topic the topic (not a filter) which message has been sent
+     * @param topicString the topic (not a filter) which message has been sent
      * @param value the duration of time to wait for message
      * @param unit the time unit to wait
      * @throws TimeoutException when matched message was not received in specified duration of time
@@ -419,11 +423,13 @@ public class MqttControlSteps {
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
     @And("message {string} received on {string} from {string} topic within {int} {word}")
-    public void receive(String message, String clientDeviceId, String topic, int value, String unit)
+    public void receive(String message, String clientDeviceId, String topicString, int value, String unit)
                             throws TimeoutException, InterruptedException {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        final String topic = scenarioContext.applyInline(topicString);
 
         // build filter
         EventFilter eventFilter = new EventFilter.Builder()
@@ -481,6 +487,21 @@ public class MqttControlSteps {
     }
 
     /**
+     * Set up IoT core broker.
+     *
+     * @param brokerId broker name in tests
+     */
+    @And("I label IoT core broker as {string}")
+    public void discoverCoreDeviceBroker(String brokerId) {
+        final String endpoint = resources.lifecycle(IotLifecycle.class)
+                                         .dataEndpoint();
+        final String ca = registrationContext.rootCA();
+        MqttBrokerConnectionInfo broker = new MqttBrokerConnectionInfo(
+                endpoint, IOT_CORE_PORT, Collections.singletonList(ca));
+        brokers.put(brokerId, Collections.singletonList(broker));
+    }
+
+    /**
      * Unsubscribe the MQTT topics by filter.
      *
      * @param clientDeviceId the user defined client device id
@@ -522,17 +543,17 @@ public class MqttControlSteps {
     private void startMqttControl() throws IOException {
         if (!engineControl.isEngineRunning()) {
             engineControl.startEngine(DEFAULT_CONTROL_GRPC_PORT, engineEvents);
-
-            final int boundPort = engineControl.getBoundPort();
-            String[] addresses = engineControl.getIPs();
-            log.info("MQTT clients control started gRPC service on port {} adrresses {}", boundPort, addresses);
-
-            if (addresses == null || addresses.length == 0) {
-                addresses = new String[] { DEFAULT_CONTROL_GRPC_IP };
-            }
-            scenarioContext.put(MQTT_CONTROL_ADDRESSES_KEY, String.join(" ", addresses));
-            scenarioContext.put(MQTT_CONTROL_PORT_KEY, String.valueOf(boundPort));
         }
+
+        final int boundPort = engineControl.getBoundPort();
+        String[] addresses = engineControl.getIPs();
+        log.info("MQTT clients control started gRPC service on port {} addresses {}", boundPort, addresses);
+
+        if (addresses == null || addresses.length == 0) {
+            addresses = new String[] { DEFAULT_CONTROL_GRPC_IP };
+        }
+        scenarioContext.put(MQTT_CONTROL_ADDRESSES_KEY, String.join(" ", addresses));
+        scenarioContext.put(MQTT_CONTROL_PORT_KEY, String.valueOf(boundPort));
     }
 
     private MqttConnectRequest buildMqttConnectRequest(String clientDeviceThingName, List<String> caList, String host,
@@ -596,7 +617,20 @@ public class MqttControlSteps {
             });
         });
 
-        brokers.put(brokerId, groups);
+        List<MqttBrokerConnectionInfo> mqttBrokerConnectionInfos = new ArrayList<>();
+        groups.forEach(group -> {
+            group.getCores()
+                 .stream()
+                 .map(GGCore::getConnectivity)
+                 .flatMap(Collection::stream)
+                 .map(ci -> new MqttBrokerConnectionInfo(
+                    ci.getHostAddress(),
+                    ci.getPortNumber(),
+                    group.getCAs()))
+                 .collect(Collectors.toCollection(() -> mqttBrokerConnectionInfos));
+        });
+
+        brokers.put(brokerId, mqttBrokerConnectionInfos);
     }
 
     private String getAgentId(String componentName) {
@@ -619,7 +653,7 @@ public class MqttControlSteps {
 
         AgentControl agentControl = engineControl.getAgent(agentId);
         if (agentControl == null) {
-            throw new IllegalStateException("Agent (MQTT client) with agentId '" + agentId 
+            throw new IllegalStateException("Agent (MQTT client) with agentId '" + agentId
                                                 + "' does not registered in the MQTT Clients Control");
         }
 
@@ -698,4 +732,31 @@ public class MqttControlSteps {
 
         return version;
     }
+
+    /**
+     * Stop MQTT Control Engine.
+     *
+     * @throws InterruptedException thrown when the current thread was interrupted while waiting
+     */
+    @After
+    public void stopMqttControlEngine() throws InterruptedException {
+        try {
+            engineControl.stopEngine();
+            engineControl.awaitTermination();
+        } catch (StatusRuntimeException e) {
+            log.warn(e);
+        }
+    }
+
+    @Data
+    @AllArgsConstructor
+    private class MqttBrokerConnectionInfo {
+
+        private String host;
+        private Integer port;
+        private List<String> caList;
+
+    }
 }
+
+
