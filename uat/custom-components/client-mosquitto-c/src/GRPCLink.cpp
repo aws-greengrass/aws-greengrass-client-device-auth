@@ -87,7 +87,7 @@ void GRPCLink::tryOneHost(const std::string & agent_id, const std::string & host
                         m_client = client;
                         m_server = server;
                     } else {
-                         throw GRPCException("Couldn't discovery client");  // TODO: add strerror(errno)
+                         throw GRPCException("Couldn't discover client");  // TODO: add strerror(errno)
                     }
                 } else {
                     throw GRPCException("Couldn't create GRPCControlServer instance");

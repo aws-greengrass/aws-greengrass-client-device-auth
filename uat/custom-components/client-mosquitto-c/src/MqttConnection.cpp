@@ -23,8 +23,8 @@
 #define DEFAULT_DISCONNECT_REASON       MQTT_RC_NORMAL_DISCONNECTION
 #define DEFAULT_DISCONNECT_TIMEOUT      10
 
-#define CONNECT_REQUST_ID               (1024*64 + 1)
-#define DISCONNECT_REQUST_ID            (1024*64 + 2)
+#define CONNECT_REQUEST_ID               (1024*64 + 1)
+#define DISCONNECT_REQUEST_ID            (1024*64 + 2)
 
 class AsyncResult {
 public:
@@ -199,13 +199,13 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
             destroyLocked();
             throw MqttException("couldn't establish MQTT connection", rc);
         }
-        request = createPendingRequestLocked(CONNECT_REQUST_ID);
+        request = createPendingRequestLocked(CONNECT_REQUEST_ID);
     }
 
 
     std::shared_ptr<AsyncResult> result = request->waitForResult(timeout);
 
-    removePendingRequestUnlocked(CONNECT_REQUST_ID);
+    removePendingRequestUnlocked(CONNECT_REQUEST_ID);
 
     ClientControl::Mqtt5ConnAck * conn_ack = convertPropListToConnack(result->rc, result->flags, result->props);
 
@@ -222,7 +222,7 @@ void MqttConnection::onConnect(int reason_code, int flags, const mosquitto_prope
 
     std::lock_guard<std::mutex> lk(m_mutex);
 
-    PendingRequest * request = getValidPendingRequestLocked(CONNECT_REQUST_ID);
+    PendingRequest * request = getValidPendingRequestLocked(CONNECT_REQUEST_ID);
     if (request) {
         std::shared_ptr<AsyncResult> result(new AsyncResult(reason_code, flags, props));
         request->submitResult(result);
@@ -250,14 +250,14 @@ void MqttConnection::disconnect(unsigned timeout, unsigned char reason_code) {
             if (rc != MOSQ_ERR_SUCCESS) {
                 throw MqttException("couldn't disconnect from MQTT broker", rc);
             }
-            request = createPendingRequestLocked(DISCONNECT_REQUST_ID);
+            request = createPendingRequestLocked(DISCONNECT_REQUEST_ID);
         }
     }
 
     if (request) {
         std::shared_ptr<AsyncResult> result = request->waitForResult(timeout);
 
-        removePendingRequestUnlocked(DISCONNECT_REQUST_ID);
+        removePendingRequestUnlocked(DISCONNECT_REQUEST_ID);
         destroyUnlocked();
 
         int rc = result->rc;
@@ -276,7 +276,7 @@ void MqttConnection::onDisconnect(int rc, const mosquitto_property * props) {
 
     std::lock_guard<std::mutex> lk(m_mutex);
 
-    PendingRequest * request = getValidPendingRequestLocked(DISCONNECT_REQUST_ID);
+    PendingRequest * request = getValidPendingRequestLocked(DISCONNECT_REQUEST_ID);
     if (request) {
         std::shared_ptr<AsyncResult> result(new AsyncResult(rc, 0, props));
         request->submitResult(result);
@@ -472,48 +472,6 @@ void MqttConnection::removePendingRequestLocked(int request_id) {
         m_requests.erase(it);
     }
 }
-
-/*
-message Mqtt5ConnAck {
-    optional bool sessionPresent = 1;                   // TODO
-    optional int32 reasonCode = 2;                      // TODO
-
-
-    // TODO: int32 topicAliasMaximum;                   // MQTT_PROP_TOPIC_ALIAS_MAXIMUM
-    // TODO: Authentication Method
-    // TODO: Authentication Data
-    // TODO: user's Properties
-};
-
-MQTT_PROP_PAYLOAD_FORMAT_INDICATOR      property option.
-MQTT_PROP_MESSAGE_EXPIRY_INTERVAL       property option.
-MQTT_PROP_CONTENT_TYPE  property option.
-MQTT_PROP_RESPONSE_TOPIC        property option.
-MQTT_PROP_CORRELATION_DATA      property option.
-MQTT_PROP_SUBSCRIPTION_IDENTIFIER       property option.
-    MQTT_PROP_SESSION_EXPIRY_INTERVAL       property option.
-    MQTT_PROP_ASSIGNED_CLIENT_IDENTIFIER    property option.
-    MQTT_PROP_SERVER_KEEP_ALIVE     property option.
-MQTT_PROP_AUTHENTICATION_METHOD property option.
-MQTT_PROP_AUTHENTICATION_DATA   property option.
-MQTT_PROP_REQUEST_PROBLEM_INFORMATION   property option.
-MQTT_PROP_WILL_DELAY_INTERVAL   property option.
-MQTT_PROP_REQUEST_RESPONSE_INFORMATION  property option.
-    MQTT_PROP_RESPONSE_INFORMATION  property option.
-    MQTT_PROP_SERVER_REFERENCE      property option.
-    MQTT_PROP_REASON_STRING property option.
-    MQTT_PROP_RECEIVE_MAXIMUM       property option.
-MQTT_PROP_TOPIC_ALIAS_MAXIMUM   property option.
-MQTT_PROP_TOPIC_ALIAS   property option.
-    MQTT_PROP_MAXIMUM_QOS   property option.
-    MQTT_PROP_RETAIN_AVAILABLE      property option.
-MQTT_PROP_USER_PROPERTY property option.
-    MQTT_PROP_MAXIMUM_PACKET_SIZE   property option.
-    MQTT_PROP_WILDCARD_SUB_AVAILABLE        property option.
-    MQTT_PROP_SUBSCRIPTION_ID_AVAILABLE     property option.
-    MQTT_PROP_SHARED_SUB_AVAILABLE  property option.
-
-*/
 
 ClientControl::Mqtt5ConnAck * MqttConnection::convertPropListToConnack(int reason_code, int flags, const mosquitto_property * proplist) {
     uint32_t value32;
