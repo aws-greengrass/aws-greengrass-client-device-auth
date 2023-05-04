@@ -20,5 +20,6 @@
 
     <modules>
         <module>client-java-sdk</module>
+        <module>client-ipc</module>
     </modules>
 </project>

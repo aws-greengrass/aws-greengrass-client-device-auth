@@ -1,0 +1,24 @@
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+
+---
+RecipeFormatVersion: '2020-01-25'
+ComponentName: aws.greengrass.client.IpcClient
+ComponentVersion: '1.0.0'
+ComponentDescription: IPC Client for tests
+ComponentPublisher: Amazon
+ComponentConfiguration:
+  DefaultConfiguration:
+    topicsToSubscribe: "*"
+
+Manifests:
+  - Artifacts:
+      - URI: classpath:/greengrass/artifacts/aws.greengrass.client.IpcClient.jar
+        Permission:
+          Read: ALL
+          Execute: ALL
+    Lifecycle:
+      Run: |
+        java -DcomponentName="LocalIpcSubscriber" -jar {artifacts:path}/aws.greengrass.client.IpcClient.jar {configuration:/topicsToSubscribe}
