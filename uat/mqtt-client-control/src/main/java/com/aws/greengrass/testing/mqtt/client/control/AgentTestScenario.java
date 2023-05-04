@@ -178,8 +178,8 @@ class AgentTestScenario implements Runnable {
                     .setKeepalive(KEEP_ALIVE)
                     .setCleanSession(CLEAN_SESSION)
                     .setTimeout(CONNECT_TIMEOUT)
-                    .setProtocolVersion(mqtt50  ? MqttProtoVersion.MQTT_PROTOCOL_V50
-                                                : MqttProtoVersion.MQTT_PROTOCOL_V311);
+                    .setProtocolVersion(mqtt50  ? MqttProtoVersion.MQTT_PROTOCOL_V_50
+                                                : MqttProtoVersion.MQTT_PROTOCOL_V_311);
 
         if (useTLS) {
             TLSSettings tlsSettings = TLSSettings.newBuilder().addCaList(ca).setCert(cert).setKey(key).build();

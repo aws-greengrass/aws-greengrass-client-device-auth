@@ -135,10 +135,10 @@ service MqttClientControl {
 
 // Versions of MQTT protocol, used for compatibility, only MQTT_PROTOCOL_V50 actually supported
 enum MqttProtoVersion {
-    MQTT_PROTOCOL_V0    = 0;
-    MQTT_PROTOCOL_V31   = 3;            // unsupported
-    MQTT_PROTOCOL_V311  = 4;            // supported
-    MQTT_PROTOCOL_V50   = 5;            // supported
+    MQTT_PROTOCOL_V_0    = 0;
+    MQTT_PROTOCOL_V_31   = 3;           // unsupported
+    MQTT_PROTOCOL_V_311  = 4;           // supported
+    MQTT_PROTOCOL_V_50   = 5;           // supported
 };
 
 // MQTT QoS values
@@ -245,9 +245,9 @@ message MqttSubscribeRequest {
 
 // Response to subscribe request
 message MqttSubscribeReply {
-    repeated int32 reasonCodes = 1;                     // MQTT v5.0 SUBBACK reason codes
+    repeated int32 reasonCodes = 1;                     // MQTT v5.0 SUBACK reason codes
     optional string reasonString = 2;                   // MQTT v5.0 SUBACK  reason string
-    optional Mqtt5Properties properties = 3;            // MQTT v5.0 SUBBACK user's properties
+    optional Mqtt5Properties properties = 3;            // MQTT v5.0 SUBACK user's properties
 }
 
 // Request to unsubscribe from MQTT topic(s)

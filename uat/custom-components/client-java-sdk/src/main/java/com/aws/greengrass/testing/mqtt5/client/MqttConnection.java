@@ -17,7 +17,7 @@ import java.util.List;
  * Interface of MQTT5 connection.
  */
 public interface MqttConnection {
-    int DEFAULT_DISCONNECT_REASON = 4;
+    int DEFAULT_DISCONNECT_REASON = 0;       // MQTT_RC_NORMAL_DISCONNECTION
     long DEFAULT_DISCONNECT_TIMEOUT = 10;
     long MIN_SHUTDOWN_NS = 200_000_000;      // 200ms
 
