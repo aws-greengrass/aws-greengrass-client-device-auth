@@ -57,7 +57,7 @@ Feature: GGMQ-1
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
     And I discover core device broker as "default_broker" from "clientDeviceTest"
-    And I connect device "clientDeviceTest" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker"
+    And I connect device "clientDeviceTest" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0
     When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Test message"
     And message "Test message" received on "clientDeviceTest" from "iot_data_0" topic within 5 seconds
