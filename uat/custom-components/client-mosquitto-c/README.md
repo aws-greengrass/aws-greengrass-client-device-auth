@@ -1,12 +1,6 @@
 # mosquitto test client
 
-MQTT v5.0 C client for tests based on mosquitto library
-
-## Cloning the repo
-```bash
-
-git clone git@gitlab.klika-tech.com:mzon-ggmq/mosquitto-test-client.git
-```
+MQTT 3.1.1/5.0 client for tests based on C mosquitto library
 
 ## Install requirements
 ```bash
