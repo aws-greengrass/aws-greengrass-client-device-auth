@@ -5,22 +5,26 @@
 
 ---
 RecipeFormatVersion: '2020-01-25'
-ComponentName: aws.greengrass.client.Mqtt5JavaSdkClient
+ComponentName: aws.greengrass.client.MqttMosquittoClient
 ComponentVersion: '1.0.0'
-ComponentDescription: MQTT 5.0/3.1.1 Java Client powered by AWS Java SDK
+ComponentDescription: MQTT 5.0/3.1.1 client based on Mosquitto C library
 ComponentPublisher: Amazon
 ComponentConfiguration:
   DefaultConfiguration:
     # agentId should be the same as ComponentName
-    agentId: aws.greengrass.client.Mqtt5JavaSdkClient
+    agentId: aws.greengrass.client.MqttMosquittoClient
     controlAddresses: 127.0.0.1
     controlPort: 47619
 Manifests:
+- Platform:
+    os: "linux"
+    architecture: "amd64"
+  Lifecycle:
   - Artifacts:
-      - URI: classpath:/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar
+      - URI: classpath:/greengrass/artifacts/mosquitto-test-client
         Permission:
           Read: ALL
           Execute: ALL
     Lifecycle:
       Run: |
-        java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}
+        "{artifacts:path}/mosquitto-test-client" "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}
