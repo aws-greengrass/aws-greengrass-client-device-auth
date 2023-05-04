@@ -21,4 +21,4 @@ Manifests:
           Execute: ALL
     Lifecycle:
       Run: |
-        java -DcomponentName="LocalIpcSubscriber" -jar {artifacts:path}/aws.greengrass.client.IpcClient.jar {configuration:/topicsToSubscribe}
+        java -DcomponentName="LocalIpcSubscriber" -jar "{artifacts:path}/aws.greengrass.client.IpcClient.jar" "{configuration:/topicsToSubscribe}"
