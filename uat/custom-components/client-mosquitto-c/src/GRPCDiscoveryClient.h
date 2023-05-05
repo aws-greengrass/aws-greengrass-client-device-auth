@@ -11,7 +11,6 @@
 
 #include "mqtt_client_control.grpc.pb.h"
 
-using google::protobuf::Empty;
 using grpc::Channel;
 using grpc::Status;
 using ClientControl::MqttAgentDiscovery;

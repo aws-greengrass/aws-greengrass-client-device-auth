@@ -8,6 +8,7 @@
 
 using grpc::ClientContext;
 
+using ClientControl::Empty;
 using ClientControl::RegisterReply;
 using ClientControl::RegisterRequest;
 using ClientControl::DiscoveryRequest;
