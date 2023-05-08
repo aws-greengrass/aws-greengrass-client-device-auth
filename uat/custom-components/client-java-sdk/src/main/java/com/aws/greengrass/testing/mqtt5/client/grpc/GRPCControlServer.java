@@ -52,7 +52,7 @@ class GRPCControlServer {
     private static final int TIMEOUT_MIN = 1;
 
     private static final int QOS_MIN = 0;
-    private static final int QOS_MAX = 3;
+    private static final int QOS_MAX = 2;
 
     private static final int PORT_MIN = 1;
     private static final int PORT_MAX = 65_535;
@@ -315,7 +315,7 @@ class GRPCControlServer {
             if (qos < QOS_MIN || qos > QOS_MAX) {
                 logger.atWarn().log("invalid QoS {}, must be in range [{},{}]", qos, QOS_MIN, QOS_MAX);
                 responseObserver.onError(Status.INVALID_ARGUMENT
-                                            .withDescription("invalid QoS, must be in range [0,3]")
+                                            .withDescription("invalid QoS, must be in range [0,2]")
                                             .asRuntimeException());
                 return;
             }
@@ -435,7 +435,7 @@ class GRPCControlServer {
                     logger.atWarn().log("invalid QoS {} at subscription index {}, must be in range [{},{}]",
                                             qos, index, QOS_MIN, QOS_MAX);
                     responseObserver.onError(Status.INVALID_ARGUMENT
-                                                .withDescription("invalid QoS, must be in range [0,3]")
+                                                .withDescription("invalid QoS, must be in range [0,2]")
                                                 .asRuntimeException());
                     return;
                 }

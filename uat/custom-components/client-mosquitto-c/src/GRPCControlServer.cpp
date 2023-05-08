@@ -32,7 +32,7 @@
 #define SIBSCRIPTION_ID_MAX             268435455
 
 #define QOS_MIN                         0
-#define QOS_MAX                         3
+#define QOS_MAX                         2
 
 #define RETAIN_HANDLING_MIN             0
 #define RETAIN_HANDLING_MAX             2
@@ -235,7 +235,7 @@ Status GRPCControlServer::PublishMqtt(ServerContext * context, const MqttPublish
     MqttQoS qos = message.qos();
     if (qos < QOS_MIN || qos > QOS_MAX) {
         loge("PublishMqtt: invalid QoS %d, must be in range [%d,%d]\n", (int)qos, QOS_MIN, QOS_MAX);
-        return Status(StatusCode::INVALID_ARGUMENT, "invalid QoS, must be in range [0,3]");
+        return Status(StatusCode::INVALID_ARGUMENT, "invalid QoS, must be in range [0,2]");
     }
 
     const std::string & topic = message.topic();
@@ -326,7 +326,7 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext * context, const MqttSubsc
         const int qos = subscription.qos();
         if (qos < QOS_MIN || qos > QOS_MAX) {
             loge("SubscribeMqtt: invalid QoS %d at subscription index %d, must be in range [{},{}]\n", qos, index, QOS_MIN, QOS_MAX);
-            return Status(StatusCode::INVALID_ARGUMENT, "invalid QoS, must be in range [0,3]");
+            return Status(StatusCode::INVALID_ARGUMENT, "invalid QoS, must be in range [0,2]");
         }
 
         int retain_handling = subscription.retainhandling();
