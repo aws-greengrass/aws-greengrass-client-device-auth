@@ -32,7 +32,7 @@
 #define SIBSCRIPTION_ID_MAX             268435455
 
 #define QOS_MIN                         0
-#define QOS_MAX                         3
+#define QOS_MAX                         2
 
 #define RETAIN_HANDLING_MIN             0
 #define RETAIN_HANDLING_MAX             2
@@ -43,6 +43,8 @@ using grpc::StatusCode;
 using ClientControl::MqttConnectionId;
 using ClientControl::MqttProtoVersion;
 using ClientControl::TLSSettings;
+using ClientControl::Mqtt5Message;
+using ClientControl::MqttQoS;
 
 
 std::string GRPCControlServer::buildAddress(const char * host, unsigned short port) {
@@ -180,6 +182,7 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext * context, const Mq
 
         return Status::OK;
     } catch (MqttException & ex) {
+        loge("CreateMqttConnection: exception during connecting\n");
         return Status(StatusCode::INTERNAL, ex.getMessage());
     }
 }
@@ -205,6 +208,7 @@ Status GRPCControlServer::CloseMqttConnection(ServerContext * context, const Mqt
 
     MqttConnection * connection = m_mqtt->unregisterConnection(connection_id);
     if (!connection) {
+        loge("CloseMqttConnection: connection with id %d doesn't found\n", connection_id);
         return Status(StatusCode::NOT_FOUND, "connection for that id doesn't found");
     }
 
@@ -213,29 +217,75 @@ Status GRPCControlServer::CloseMqttConnection(ServerContext * context, const Mqt
         delete connection;
         return Status::OK;
     } catch (MqttException & ex) {
+        loge("CloseMqttConnection: exception during disconnecting\n");
         return Status(StatusCode::INTERNAL, ex.getMessage());
     }
 }
 
 Status GRPCControlServer::PublishMqtt(ServerContext * context, const MqttPublishRequest * request, MqttPublishReply * reply) {
     (void)context;
-    (void)reply;
+
+
+    if (!request->has_msg()) {
+        loge("PublishMqtt: message is missing\n");
+        return Status(StatusCode::INVALID_ARGUMENT, "message is missing");
+    }
+
+    const Mqtt5Message & message = request->msg();
+    MqttQoS qos = message.qos();
+    if (qos < QOS_MIN || qos > QOS_MAX) {
+        loge("PublishMqtt: invalid QoS %d, must be in range [%d,%d]\n", (int)qos, QOS_MIN, QOS_MAX);
+        return Status(StatusCode::INVALID_ARGUMENT, "invalid QoS, must be in range [0,2]");
+    }
+
+    const std::string & topic = message.topic();
+    if (topic.empty()) {
+        loge("PublishMqtt: topic is empty\n");
+        return Status(StatusCode::INVALID_ARGUMENT, "topic is empty");
+    }
+
+    int timeout = request->timeout();
+    if (timeout < TIMEOUT_MIN) {
+        loge("PublishMqtt: invalid timeout, must be at least %u second\n", TIMEOUT_MIN);
+        return Status(StatusCode::INVALID_ARGUMENT, "invalid publish timeout, must be >= 1");
+    }
 
 
     if (!request->has_connectionid()) {
+        loge("PublishMqtt: missing connection id\n");
         return Status(StatusCode::INVALID_ARGUMENT, "missing connectionId");
     }
 
     const MqttConnectionId & connection_id_obj = request->connectionid();
     int connection_id = connection_id_obj.connectionid();
-    logd("PublishMqtt connection_id %d\n", connection_id);
+
+    bool is_retain = message.retain();
+    logd("PublishMqtt connection_id %d topic %s retain %d\n", connection_id, topic.c_str(), (int)is_retain);
 
     MqttConnection * connection = m_mqtt->getConnection(connection_id);
     if (!connection) {
-        return Status(StatusCode::NOT_FOUND, "connection for that id doesn't found");
+        loge("PublishMqtt: connection with id %d doesn't found\n", connection_id);
+        return Status(StatusCode::NOT_FOUND, "PublishMqtt: connection for that id doesn't found");
     }
 
-    // TODO: implement
+    try {
+        ClientControl::MqttPublishReply * result = connection->publish(timeout, qos, is_retain, topic, message.payload());
+        if (result) {
+            if (result->has_reasoncode()) {
+                reply->set_reasoncode(result->reasoncode());
+            }
+            if (result->has_reasonstring()) {
+                reply->set_reasonstring(result->reasonstring());
+            }
+            // TODO: copy also user properties
+            delete result;
+        }
+        return Status::OK;
+    } catch (MqttException & ex) {
+        loge("PublishMqtt: exception during publishing\n");
+        return Status(StatusCode::INTERNAL, ex.getMessage());
+    }
+
     return Status::OK;
 }
 
@@ -276,7 +326,7 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext * context, const MqttSubsc
         const int qos = subscription.qos();
         if (qos < QOS_MIN || qos > QOS_MAX) {
             loge("SubscribeMqtt: invalid QoS %d at subscription index %d, must be in range [{},{}]\n", qos, index, QOS_MIN, QOS_MAX);
-            return Status(StatusCode::INVALID_ARGUMENT, "invalid QoS, must be in range [0,3]");
+            return Status(StatusCode::INVALID_ARGUMENT, "invalid QoS, must be in range [0,2]");
         }
 
         int retain_handling = subscription.retainhandling();
@@ -326,6 +376,7 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext * context, const MqttSubsc
 
     MqttConnection * connection = m_mqtt->getConnection(connection_id);
     if (!connection) {
+        loge("SubscribeMqtt: connection with id %d doesn't found\n", connection_id);
         return Status(StatusCode::NOT_FOUND, "connection for that id doesn't found");
     }
 
@@ -337,6 +388,7 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext * context, const MqttSubsc
 
         return Status::OK;
     } catch (MqttException & ex) {
+        loge("SubscribeMqtt: exception during subscribing\n");
         return Status(StatusCode::INTERNAL, ex.getMessage());
     }
 }

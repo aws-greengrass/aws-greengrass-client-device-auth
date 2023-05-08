@@ -91,10 +91,6 @@ private:
 };
 
 
-static void on_publish(struct mosquitto *, void *, int, int, const mosquitto_property *) {
-    logd("on_publish\n");
-}
-
 static void on_message(struct mosquitto *, void *, const struct mosquitto_message *, const mosquitto_property *) {
     logd("on_message\n");
 }
@@ -207,7 +203,7 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
 
     removePendingRequestUnlocked(CONNECT_REQUEST_ID);
 
-    ClientControl::Mqtt5ConnAck * conn_ack = convertPropListToConnack(result->rc, result->flags, result->props);
+    ClientControl::Mqtt5ConnAck * conn_ack = convertToConnack(result->rc, result->flags, result->props);
 
     logd("Establishing MQTT connection to %s:%hu completed with reason code %d\n" , m_host.c_str(), m_port, result->rc);
     return conn_ack;
@@ -283,7 +279,7 @@ void MqttConnection::onDisconnect(int rc, const mosquitto_property * props) {
     }
 }
 
-std::vector<int> MqttConnection::subscribe(unsigned timeout, int * subscription_id, const std::list<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published) {
+std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscription_id, const std::list<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published) {
 
     PendingRequest * request = 0;
     mosquitto_property * properties = NULL;
@@ -328,7 +324,7 @@ std::vector<int> MqttConnection::subscribe(unsigned timeout, int * subscription_
         // TODO: pass also user properties
         rc = mosquitto_subscribe_multiple(m_mosq, &message_id, count, array, qos, options, properties);
         if (rc != MOSQ_ERR_SUCCESS) {
-            loge("subscribe callback return error code %d: %s\n", rc, mosquitto_strerror(rc));
+            loge("mosquitto_subscribe_multiple failed with code %d: %s\n", rc, mosquitto_strerror(rc));
             mosquitto_property_free_all(&properties);
             throw MqttException("couldn't subscribe", rc);
         }
@@ -341,7 +337,7 @@ std::vector<int> MqttConnection::subscribe(unsigned timeout, int * subscription_
 
     int rc = result->rc;
     if (rc != MOSQ_ERR_SUCCESS) {
-        loge("mosquitto_subscribe_multiple failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+        loge("subscribe callback failed with code %d: %s\n", rc, mosquitto_strerror(rc));
         destroyUnlocked();
         mosquitto_property_free_all(&properties);
         throw MqttException("couldn't subscribe", rc);
@@ -356,11 +352,11 @@ std::vector<int> MqttConnection::subscribe(unsigned timeout, int * subscription_
     return result->granted_qos;
 }
 
-void MqttConnection::on_subscribe(struct mosquitto *, void * obj, int mid, int qos_count, const int * granted_qos, const mosquitto_property *props) {
+void MqttConnection::on_subscribe(struct mosquitto *, void * obj, int mid, int qos_count, const int * granted_qos, const mosquitto_property * props) {
     ((MqttConnection*)obj)->onSubscribe(mid, qos_count, granted_qos, props);
 }
 
-void MqttConnection::onSubscribe(int mid, int qos_count, const int * granted_qos, const mosquitto_property *props) {
+void MqttConnection::onSubscribe(int mid, int qos_count, const int * granted_qos, const mosquitto_property * props) {
     logd("onSubscribe mid %d qos_count %d granted_qos %p props %p\n", mid, qos_count, granted_qos, props);
 
     std::lock_guard<std::mutex> lk(m_mutex);
@@ -371,6 +367,48 @@ void MqttConnection::onSubscribe(int mid, int qos_count, const int * granted_qos
         request->submitResult(result);
     }
 }
+
+
+ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int qos, bool is_retain, const std::string & topic, const std::string & payload) {
+    PendingRequest * request = 0;
+    int message_id = 0;
+    {
+        std::lock_guard<std::mutex> lk(m_mutex);
+        stateCheck();
+
+        // TODO: pass also user properties
+        int rc = mosquitto_publish_v5(m_mosq, &message_id, topic.c_str(), payload.length(), payload.data(), qos, is_retain, NULL);
+        if (rc != MOSQ_ERR_SUCCESS) {
+            loge("mosquitto_publish_v5 failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+            throw MqttException("couldn't publish", rc);
+        }
+
+        request = createPendingRequestLocked(message_id);
+    }
+
+    std::shared_ptr<AsyncResult> result = request->waitForResult(timeout);
+    removePendingRequestUnlocked(message_id);
+
+    logd("Published to '%s' QoS %d  id %d\n", topic.c_str(), qos, message_id);
+    return convertToPublishReply(result->rc, result->props);
+}
+
+void MqttConnection::on_publish(struct mosquitto *, void * obj, int mid, int rc, const mosquitto_property * props) {
+    ((MqttConnection*)obj)->onPublish(mid, rc, props);
+}
+
+void MqttConnection::onPublish(int mid, int rc, const mosquitto_property * props) {
+    logd("onPublish mid %d rc %d props %p\n", mid, rc, props);
+
+    std::lock_guard<std::mutex> lk(m_mutex);
+
+    PendingRequest * request = getValidPendingRequestLocked(mid);
+    if (request) {
+        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, 0, props));
+        request->submitResult(result);
+    }
+}
+
 
 void MqttConnection::destroyLocked() {
     if (m_mosq) {
@@ -473,7 +511,7 @@ void MqttConnection::removePendingRequestLocked(int request_id) {
     }
 }
 
-ClientControl::Mqtt5ConnAck * MqttConnection::convertPropListToConnack(int reason_code, int flags, const mosquitto_property * proplist) {
+ClientControl::Mqtt5ConnAck * MqttConnection::convertToConnack(int reason_code, int flags, const mosquitto_property * proplist) {
     uint32_t value32;
     uint16_t value16;
     uint8_t value8;
@@ -546,4 +584,26 @@ ClientControl::Mqtt5ConnAck * MqttConnection::convertPropListToConnack(int reaso
         }
     }
     return conn_ack;
+}
+
+ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reason_code, const mosquitto_property * proplist) {
+    char * value_str;
+
+    ClientControl::MqttPublishReply * reply = new ClientControl::MqttPublishReply();
+    reply->set_reasoncode(reason_code);
+
+    for (const mosquitto_property * prop = proplist; prop != NULL; prop = mosquitto_property_next(prop)) {
+        int id = mosquitto_property_identifier(prop);
+        switch (id) {
+            case MQTT_PROP_REASON_STRING:
+                mosquitto_property_read_string(prop, id, &value_str, false);
+                reply->set_reasonstring(value_str);
+                break;
+            default:
+                logw("Unhandled PUBACK property with id %d\n", id);
+                break;
+        }
+    }
+
+    return reply;
 }
