@@ -13,6 +13,7 @@
 
 namespace ClientControl {
     class Mqtt5ConnAck;
+    class MqttPublishReply;
 }
 class PendingRequest;
 
@@ -48,7 +49,7 @@ public:
      * Starts a MQTT connection.
      *
      * @param timeout the timeout in seconds to connect
-     * @return the pointer to gRPC representation of CONNACK
+     * @return the pointer to allocated gRPC representation of CONNACK
      * @throw MqttException on errors
      */
     ClientControl::Mqtt5ConnAck * start(unsigned timeout);
@@ -66,7 +67,21 @@ public:
      * @return the vector of reason codes for each filter
      * @throw MqttException on errors
      */
-    std::vector<int> subscribe(unsigned timeout, int * subscription_id, const std::list<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published);
+    std::vector<int> subscribe(unsigned timeout, const int * subscription_id, const std::list<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published);
+
+
+    /**
+     * Publishes MQTT message.
+     *
+     * @param timeout the timeout in seconds to publish
+     * @param qos the QoS value
+     * @param is_retain the retain flag
+     * @param topic the topic to publish
+     * @param payload the payload of the message
+     * @return pointer to allocated gRPC MqttPublishReply
+     * @throw MqttException on errors
+     */
+    ClientControl::MqttPublishReply * publish(unsigned timeout, int qos, bool is_retain, const std::string & topic, const std::string & payload);
 
     /**
      * Disconnect from the broker.
@@ -85,13 +100,18 @@ private:
 
     static void on_connect(struct mosquitto *, void * obj, int reason_code, int flags, const mosquitto_property * props);
     void onConnect(int reason_code, int flags, const mosquitto_property * props);
-    ClientControl::Mqtt5ConnAck * convertPropListToConnack(int reason_code, int flags, const mosquitto_property * proplist);
+    ClientControl::Mqtt5ConnAck * convertToConnack(int reason_code, int flags, const mosquitto_property * proplist);
 
     static void on_disconnect(struct mosquitto *, void * obj, int rc, const mosquitto_property * props);
     void onDisconnect(int rc, const mosquitto_property * props);
 
     static void on_subscribe(struct mosquitto *, void * obj, int mid, int qos_count, const int * granted_qos, const mosquitto_property *props);
     void onSubscribe(int mid, int qos_count, const int * granted_qos, const mosquitto_property *props);
+
+    static void on_publish(struct mosquitto *, void * obj, int mid, int rc, const mosquitto_property * props);
+    void onPublish(int mid, int rc, const mosquitto_property * props);
+    ClientControl::MqttPublishReply * convertToPublishReply(int reason_code, const mosquitto_property * proplist);
+
 
     static void removeFile(std::string & file);
     static std::string saveToTempFile(const std::string & content);
