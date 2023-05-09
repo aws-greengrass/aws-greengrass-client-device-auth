@@ -128,6 +128,8 @@ private:
     ClientControl::Mqtt5Message * convertToMqtt5Message(const struct mosquitto_message * message, const mosquitto_property * props);
 
 
+    static void on_log(struct mosquitto *, void *, int level, const char * str);
+
     static void removeFile(std::string & file);
     static std::string saveToTempFile(const std::string & content);
 

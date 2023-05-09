@@ -96,10 +96,6 @@ static void on_unsubscribe(struct mosquitto *, void *, int, const mosquitto_prop
     logd("on_unsubscribe\n");
 }
 
-static void on_log(struct mosquitto *, void *, int level, const char * str) {
-    logd("on_log level %d: %s\n", level, str);
-}
-
 MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5)
     : m_mutex(), m_grpc_client(grpc_client), m_client_id(client_id), m_host(host), m_port(port), m_keepalive(keepalive), m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_mosq(0), m_requests() {
 
@@ -418,6 +414,20 @@ void MqttConnection::onMessage(const struct mosquitto_message * message, const m
     logd("onMessage message %p props %p\n", message, props);
     ClientControl::Mqtt5Message * msg = convertToMqtt5Message(message, props);
     m_grpc_client.onReceiveMqttMessage(m_connection_id, msg);
+}
+
+void MqttConnection::on_log(struct mosquitto *, void *, int level, const char * str) {
+    if (level & MOSQ_LOG_DEBUG) {
+        logd("mosquitto: %s\n", str);
+    } else if (level & MOSQ_LOG_ERR) {
+        loge("mosquitto: %s\n", str);
+    } else if (level & MOSQ_LOG_WARNING) {
+        logw("mosquitto: %s\n", str);
+    } else if (level & MOSQ_LOG_NOTICE) {
+        logn("mosquitto: %s\n", str);
+    } else if (level & MOSQ_LOG_INFO) {
+        logi("mosquitto: %s\n", str);
+    }
 }
 
 void MqttConnection::destroyLocked() {

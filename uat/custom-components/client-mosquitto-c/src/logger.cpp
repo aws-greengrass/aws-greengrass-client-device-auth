@@ -7,29 +7,43 @@
 #include <stdarg.h>                             /* va_start() va_end() va_list */
 
 #include "logger.h"                             /* functions declaration */
+
+static void logall(const char * tag, FILE * stream, const char *fmt, va_list ap) {
+    fprintf(stream, "[%s]: ", tag);
+    vfprintf(stream, fmt, ap);
+}
+
 void logd(const char *fmt, ...) {
     va_list args;
-
-    fprintf(stdout, "[DEBUG]: ");
     va_start(args, fmt);
-    vfprintf(stdout, fmt, args);
+    logall("DEBUG", stdout, fmt, args);
     va_end(args);
 }
 
 void logw(const char *fmt, ...) {
     va_list args;
-
-    fprintf(stdout, "[WARN]: ");
     va_start(args, fmt);
-    vfprintf(stdout, fmt, args);
+    logall("WARN", stdout, fmt, args);
     va_end(args);
 }
 
 void loge(const char *fmt, ...) {
     va_list args;
-
-    fprintf(stdout, "[ERROR]: ");
     va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
+    logall("ERROR", stderr, fmt, args);
+    va_end(args);
+}
+
+void logn(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    logall("NOTICE", stdout, fmt, args);
+    va_end(args);
+}
+
+void logi(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    logall("INFO", stdout, fmt, args);
     va_end(args);
 }
