@@ -11,6 +11,7 @@
 #include <unordered_map>
 
 class MqttConnection;
+class GRPCDiscoveryClient;
 
 /**
  * MQTT library class.
@@ -21,7 +22,9 @@ public:
     ~MqttLib();
 
     /**
-     * Create a MQTT connection.
+     * Creates a MQTT connection.
+     *
+     * @param grpc_client the reference to gRPC client
      * @param client_id MQTT client id
      * @param host hostname of IP address of MQTT broker
      * @param port port of MQTT broker
@@ -34,7 +37,7 @@ public:
      * @return MqttConnection on success
      * @throw MqttException on errors
      */
-    MqttConnection * createConnection(const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5);
+    MqttConnection * createConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5);
 
 
     int registerConnection(MqttConnection * connection);
