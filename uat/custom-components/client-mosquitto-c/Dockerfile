@@ -26,7 +26,7 @@ COPY proto          /usr/src/aws-greengrass-client-device-auth/uat/proto
 RUN set -ex; \
     cd /usr/src/aws-greengrass-client-device-auth/uat/custom-components/client-mosquitto-c && \
     CXXFLAGS="-Wall -Wextra -O2" cmake -Bbuild -H. && \
-    cmake --build build -j --target all && \
+    cmake --build build -j `nproc` --target all && \
     cmake --install build --prefix "/usr/local"
 
 # Define the default command

@@ -30,8 +30,8 @@ MqttLib::~MqttLib() {
     logd("Shutdown MQTT library\n");
 }
 
-MqttConnection * MqttLib::createConnection(const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5) {
-    return new MqttConnection(client_id, host, port, keepalive, clean_session, ca, cert, key, v5);
+MqttConnection * MqttLib::createConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5) {
+    return new MqttConnection(grpc_client, client_id, host, port, keepalive, clean_session, ca, cert, key, v5);
 }
 
 
@@ -45,6 +45,7 @@ int MqttLib::registerConnection(MqttConnection * connection) {
         if (it == m_connections.end()) {
             m_connections.insert(std::make_pair(connection_id, connection));
             logd("Connection registered with id %d\n", connection_id);
+            connection->setConnectionId(connection_id);
             return connection_id;
         } else {
             // test next connection_id;

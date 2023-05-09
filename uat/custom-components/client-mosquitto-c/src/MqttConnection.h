@@ -13,9 +13,12 @@
 
 namespace ClientControl {
     class Mqtt5ConnAck;
+    class Mqtt5Disconnect;
+    class Mqtt5Message;
     class MqttPublishReply;
 }
 class PendingRequest;
+class GRPCDiscoveryClient;
 
 extern "C" struct mosquitto;
 extern "C" typedef struct mqtt5__property mosquitto_property;
@@ -31,6 +34,7 @@ public:
     /**
      * Creates a MQTT connection.
      *
+     * @param grpc_client the reference to gRPC client
      * @param client_id MQTT client id
      * @param host hostname of IP address of MQTT broker
      * @param port port of MQTT broker
@@ -42,8 +46,13 @@ public:
      * @param v5 use MQTT v5.0
      * @throw MqttException on errors
      */
-    MqttConnection(const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5);
+    MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5);
     ~MqttConnection();
+
+
+    void setConnectionId(int connection_id) {
+        m_connection_id = connection_id;
+    }
 
     /**
      * Starts a MQTT connection.
@@ -104,6 +113,8 @@ private:
 
     static void on_disconnect(struct mosquitto *, void * obj, int rc, const mosquitto_property * props);
     void onDisconnect(int rc, const mosquitto_property * props);
+    ClientControl::Mqtt5Disconnect * convertToDisconnect(int reason_code, const mosquitto_property * props);
+
 
     static void on_subscribe(struct mosquitto *, void * obj, int mid, int qos_count, const int * granted_qos, const mosquitto_property *props);
     void onSubscribe(int mid, int qos_count, const int * granted_qos, const mosquitto_property *props);
@@ -112,6 +123,12 @@ private:
     void onPublish(int mid, int rc, const mosquitto_property * props);
     ClientControl::MqttPublishReply * convertToPublishReply(int reason_code, const mosquitto_property * proplist);
 
+    static void on_message(struct mosquitto *, void * obj, const struct mosquitto_message * message, const mosquitto_property * props);
+    void onMessage(const struct mosquitto_message * message, const mosquitto_property * props);
+    ClientControl::Mqtt5Message * convertToMqtt5Message(const struct mosquitto_message * message, const mosquitto_property * props);
+
+
+    static void on_log(struct mosquitto *, void *, int level, const char * str);
 
     static void removeFile(std::string & file);
     static std::string saveToTempFile(const std::string & content);
@@ -122,12 +139,14 @@ private:
 
 
     std::mutex m_mutex;
+    GRPCDiscoveryClient & m_grpc_client;
     std::string m_client_id;
     std::string m_host;
     unsigned short m_port;
     unsigned short m_keepalive;
     bool m_clean_session;
     bool m_v5;
+    int m_connection_id;
 
     std::string m_ca;
     std::string m_cert;

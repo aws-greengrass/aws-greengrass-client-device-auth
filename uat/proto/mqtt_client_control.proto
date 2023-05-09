@@ -174,8 +174,8 @@ message Mqtt5ConnAck {
     optional int32 serverKeepAlive = 13;
     optional string responseInformation = 14;
     optional string serverReference = 15;
+    optional int32 topicAliasMaximum = 16;
 
-    // TODO: int32 topicAliasMaximum;
     // TODO: Authentication Method
     // TODO: Authentication Data
     // TODO: user's Properties

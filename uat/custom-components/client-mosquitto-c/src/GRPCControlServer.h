@@ -14,6 +14,11 @@ using grpc::Server;
 using grpc::ServerContext;
 using grpc::Status;
 
+namespace ClientControl {
+    class Mqtt5ConnAck;
+    class MqttPublishReply;
+}
+
 using ClientControl::Empty;
 using ClientControl::MqttConnectReply;
 using ClientControl::MqttConnectRequest;

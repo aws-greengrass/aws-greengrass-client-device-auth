@@ -13,6 +13,8 @@ extern "C" {
 void logd(const char *fmt, ...);
 void logw(const char *fmt, ...);
 void loge(const char *fmt, ...);
+void logn(const char *fmt, ...);
+void logi(const char *fmt, ...);
 
 #ifdef __cplusplus
 } /* extern "C" */

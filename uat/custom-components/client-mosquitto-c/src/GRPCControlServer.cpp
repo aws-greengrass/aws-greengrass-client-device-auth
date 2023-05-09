@@ -169,7 +169,7 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext * context, const Mq
     }
 
     try {
-        MqttConnection * connection = m_mqtt->createConnection(client_id, host, port, keepalive, request->cleansession(), ca_char, cert_char, key_char, v5);
+        MqttConnection * connection = m_mqtt->createConnection(m_client, client_id, host, port, keepalive, request->cleansession(), ca_char, cert_char, key_char, v5);
         ClientControl::Mqtt5ConnAck * conn_ack = connection->start(timeout);
         int connection_id = m_mqtt->registerConnection(connection);
 
@@ -311,10 +311,10 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext * context, const MqttSubsc
     }
 
     std::list<std::string> filters;
-    int common_qos;
-    int common_retain_handling;
-    bool common_no_local;
-    bool common_retain_as_published;
+    int common_qos = 0;
+    int common_retain_handling = 0;
+    bool common_no_local = false;
+    bool common_retain_as_published = false;
     int index = 0;
     for (auto const & subscription : request->subscriptions()) {
         const std::string filter = subscription.filter();
