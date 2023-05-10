@@ -284,16 +284,15 @@ std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscri
     PendingRequest * request = 0;
     mosquitto_property * properties = NULL;
     int message_id = 0;
-    std::unique_ptr<char*> filters_array(new char*[filters.size()]);
+
+    std::vector<const char*> pointers;
+    for (const std::string & filter : filters) {
+        pointers.push_back(filter.c_str());
+    }
 
     {
         std::lock_guard<std::mutex> lk(m_mutex);
         stateCheck();
-
-        int i = 0;
-        for (auto it = filters.begin(); it != filters.end(); ++it, i++) {
-            filters_array.get()[i] = const_cast<char*>(it->c_str());
-        }
 
         int options = 0;
         if (no_local) {
@@ -322,7 +321,7 @@ std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscri
         }
 
         // TODO: pass also user properties
-        rc = mosquitto_subscribe_multiple(m_mosq, &message_id, i, filters_array.get(), qos, options, properties);
+        rc = mosquitto_subscribe_multiple(m_mosq, &message_id, pointers.size(), const_cast<char* const*>(pointers.data()), qos, options, properties);
         if (rc != MOSQ_ERR_SUCCESS) {
             loge("mosquitto_subscribe_multiple failed with code %d: %s\n", rc, mosquitto_strerror(rc));
             mosquitto_property_free_all(&properties);
@@ -374,19 +373,19 @@ void MqttConnection::onSubscribe(int mid, int qos_count, const int * granted_qos
 std::vector<int> MqttConnection::unsubscribe(unsigned timeout, const std::vector<std::string> & filters) {
     PendingRequest * request = 0;
     int message_id = 0;
-    std::unique_ptr<char*> filters_array(new char*[filters.size()]);
+
+    std::vector<const char*> pointers;
+    for (const std::string & filter : filters) {
+        pointers.push_back(filter.c_str());
+    }
 
     {
         std::lock_guard<std::mutex> lk(m_mutex);
         stateCheck();
 
-        int i = 0;
-        for (auto it = filters.begin(); it != filters.end(); ++it, i++) {
-            filters_array.get()[i] = const_cast<char*>(it->c_str());
-        }
 
         // TODO: pass also user properties
-        int rc = mosquitto_unsubscribe_multiple(m_mosq, &message_id, i, filters_array.get(), NULL);
+        int rc = mosquitto_unsubscribe_multiple(m_mosq, &message_id, pointers.size(), const_cast<char* const*>(pointers.data()), NULL);
         if (rc != MOSQ_ERR_SUCCESS) {
             loge("mosquitto_unsubscribe_multiple failed with code %d: %s\n", rc, mosquitto_strerror(rc));
             throw MqttException("couldn't unsubscribe", rc);
