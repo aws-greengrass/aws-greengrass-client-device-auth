@@ -49,3 +49,6 @@ It violates MQTT v5.0 where topic filters have separate QoS and other properties
 At same time usage mosquitto_subscribe_v5() in a loop can can break logic of subscription id.
 In result we check all values of QoS and properties in gRPC SubscribeMqtt request and if are not the same report an error in that client.
 
+
+3. Unsubscription
+In Mosquitto API call mosquitto_unsubscribe_v5_callback_set() callback does not provides result codes, instead repeated zero code will be returned on success.

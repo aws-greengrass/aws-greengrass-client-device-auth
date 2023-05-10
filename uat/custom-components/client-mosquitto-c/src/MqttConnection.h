@@ -80,6 +80,16 @@ public:
 
 
     /**
+     * Unsubscribes from filters.
+     *
+     * @param timeout the timeout in seconds to subscribe
+     * @param filters the filters of topics subscribe to
+     * @return the vector of reason codes for each filter
+     * @throw MqttException on errors
+     */
+    std::vector<int> unsubscribe(unsigned timeout, const std::list<std::string> & filters);
+
+    /**
      * Publishes MQTT message.
      *
      * @param timeout the timeout in seconds to publish
@@ -127,6 +137,8 @@ private:
     void onMessage(const struct mosquitto_message * message, const mosquitto_property * props);
     ClientControl::Mqtt5Message * convertToMqtt5Message(const struct mosquitto_message * message, const mosquitto_property * props);
 
+    static void on_unsubscribe(struct mosquitto *, void * obj, int mid, const mosquitto_property * props);
+    void onUnsubscribe(int mid, const mosquitto_property * props);
 
     static void on_log(struct mosquitto *, void *, int level, const char * str);
 

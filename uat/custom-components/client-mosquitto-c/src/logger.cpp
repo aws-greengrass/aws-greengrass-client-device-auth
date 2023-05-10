@@ -23,7 +23,7 @@ void logd(const char *fmt, ...) {
 void logw(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    logall("WARN", stdout, fmt, args);
+    logall("WARN ", stdout, fmt, args);
     va_end(args);
 }
 
@@ -37,13 +37,13 @@ void loge(const char *fmt, ...) {
 void logn(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    logall("NOTICE", stdout, fmt, args);
+    logall("NOTIC", stdout, fmt, args);
     va_end(args);
 }
 
 void logi(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    logall("INFO", stdout, fmt, args);
+    logall("INFO ", stdout, fmt, args);
     va_end(args);
 }
