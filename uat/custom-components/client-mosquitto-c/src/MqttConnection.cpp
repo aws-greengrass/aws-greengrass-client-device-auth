@@ -279,7 +279,7 @@ void MqttConnection::onDisconnect(int rc, const mosquitto_property * props) {
     }
 }
 
-std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscription_id, const std::list<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published) {
+std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscription_id, const std::vector<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published) {
 
     PendingRequest * request = 0;
     mosquitto_property * properties = NULL;
@@ -371,7 +371,7 @@ void MqttConnection::onSubscribe(int mid, int qos_count, const int * granted_qos
 }
 
 
-std::vector<int> MqttConnection::unsubscribe(unsigned timeout, const std::list<std::string> & filters) {
+std::vector<int> MqttConnection::unsubscribe(unsigned timeout, const std::vector<std::string> & filters) {
     PendingRequest * request = 0;
     int message_id = 0;
     std::unique_ptr<char*> filters_array(new char*[filters.size()]);

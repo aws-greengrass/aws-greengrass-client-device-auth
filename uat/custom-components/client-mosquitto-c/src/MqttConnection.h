@@ -6,7 +6,6 @@
 #ifndef MOSQUITTO_TEST_CLIENT_MQTTCONNECTION_H
 #define MOSQUITTO_TEST_CLIENT_MQTTCONNECTION_H
 
-#include <list>
 #include <vector>
 #include <unordered_map>
 #include <mutex>
@@ -76,7 +75,7 @@ public:
      * @return the vector of reason codes for each filter
      * @throw MqttException on errors
      */
-    std::vector<int> subscribe(unsigned timeout, const int * subscription_id, const std::list<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published);
+    std::vector<int> subscribe(unsigned timeout, const int * subscription_id, const std::vector<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published);
 
 
     /**
@@ -87,7 +86,7 @@ public:
      * @return the vector of reason codes for each filter
      * @throw MqttException on errors
      */
-    std::vector<int> unsubscribe(unsigned timeout, const std::list<std::string> & filters);
+    std::vector<int> unsubscribe(unsigned timeout, const std::vector<std::string> & filters);
 
     /**
      * Publishes MQTT message.

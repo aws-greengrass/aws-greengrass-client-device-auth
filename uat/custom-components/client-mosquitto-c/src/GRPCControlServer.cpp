@@ -296,7 +296,7 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext *, const MqttSubscribeRequ
         subscription_id_ptr = &subscription_id;
     }
 
-    std::list<std::string> filters;
+    std::vector<std::string> filters;
     int common_qos = 0;
     int common_retain_handling = 0;
     bool common_no_local = false;
@@ -408,7 +408,7 @@ Status GRPCControlServer::UnsubscribeMqtt(ServerContext *, const MqttUnsubscribe
         return Status(StatusCode::NOT_FOUND, "connection for that id doesn't found");
     }
 
-    std::list<std::string> filters(request->filters().begin(), request->filters().end());
+    std::vector<std::string> filters(request->filters().begin(), request->filters().end());
     try {
         std::vector<int> reason_codes = connection->unsubscribe(timeout, filters);
         for (int reason_code : reason_codes) {
