@@ -25,6 +25,7 @@ import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.Event;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
+import com.aws.greengrass.testing.mqtt.client.control.implementation.SubscribeReasonCode;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.EventStorageImpl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttMessageEvent;
 import com.aws.greengrass.testing.resources.AWSResources;
@@ -35,6 +36,7 @@ import com.aws.greengrass.testing.resources.iot.IotThingSpec;
 import com.google.protobuf.ByteString;
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.After;
+import io.cucumber.java.ParameterType;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -373,6 +375,60 @@ public class MqttControlSteps {
     }
 
     /**
+     * Subscribe the MQTT topics by filter.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param topicFilterString the topics filter to subscribe
+     * @param qos the max value of MQTT QoS for subscribe
+     * @param expectedStatus the status of MQTT QoS for subscribe reply
+     * @throws StatusRuntimeException thrown on gRPC errors
+     * @throws IllegalArgumentException on invalid QoS argument
+     */
+    @When("I subscribe {string} to {string} with qos {int} and expect status {string}")
+    public void subscribe(@NonNull String clientDeviceId, @NonNull String topicFilterString,
+                          int qos, String expectedStatus) {
+        // getting connectionControl by clientDeviceId
+        final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+        ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        final String filter = scenarioContext.applyInline(topicFilterString);
+
+        // do subscription
+        log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {}", clientDeviceThingName,
+                filter, qos);
+
+        Mqtt5Subscription mqtt5Subscription = buildMqtt5Subscription(filter,
+                qos,
+                SUBSCRIBE_NO_LOCAL,
+                SUBSCRIBE_RETAIN_AS_PUBLISHED,
+                SUBSCRIBE_RETAIN_HANDLING);
+        MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, mqtt5Subscription);
+        if (mqttSubscribeReply == null) {
+            throw new RuntimeException("Do not receive reply to MQTT subscribe request");
+        }
+
+        List<Integer> reasons = mqttSubscribeReply.getReasonCodesList();
+        if (reasons == null) {
+            throw new RuntimeException("Receive reply to MQTT subscribe request with missing reason codes");
+        }
+
+        if (reasons.size() != 1 || reasons.get(0) == null) {
+            throw new RuntimeException("Receive reply to MQTT subscribe request with unexpected number "
+                    + "of reason codes should be 1 but has " + reasons.size());
+        }
+
+        int reason = reasons.get(0);
+        SubscribeReasonCode expectedReasonCodeReply = SubscribeReasonCode.valueOf(expectedStatus);
+        if (expectedReasonCodeReply.getValue() == reason) {
+            log.info("MQTT subscription has on topics filter {} been created with status {}", filter, expectedStatus);
+        } else {
+            log.error("MQTT subscription has on topics filter {} been failed. Expected reasonCode was {},"
+                    + " but returned {}", filter, expectedReasonCodeReply.getValue(), reason);
+            throw new RuntimeException("Receive reply to MQTT subscribe request with missing reason codes");
+        }
+    }
+
+    /**
      * Publish the MQTT message.
      *
      * @param clientDeviceId user defined client device id
@@ -384,6 +440,22 @@ public class MqttControlSteps {
      */
     @When("I publish from {string} to {string} with qos {int} and message {string}")
     public void publish(String clientDeviceId, String topicString, int qos, String message) {
+        publish(clientDeviceId, topicString, qos, message, MQTT5_REASON_SUCCESS);
+    }
+
+    /**
+     * Publish the MQTT message.
+     *
+     * @param clientDeviceId user defined client device id
+     * @param topicString the topic to publish message
+     * @param qos the value of MQTT QoS for publishing
+     * @param message the the content of message to publish
+     * @param expectedStatus the status of MQTT QoS for publish reply
+     * @throws StatusRuntimeException on gRPC errors
+     * @throws IllegalArgumentException on invalid QoS argument
+     */
+    @When("I publish from {string} to {string} with qos {int} and message {string} and expect status {int}")
+    public void publish(String clientDeviceId, String topicString, int qos, String message, int expectedStatus) {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
@@ -400,13 +472,18 @@ public class MqttControlSteps {
             throw new RuntimeException("Do not receive reply to MQTT publish request");
         }
 
-        // TODO: compare with expected reason code passed from scenario
         final int reasonCode = mqttPublishReply.getReasonCode();
-        if (reasonCode != MQTT5_REASON_SUCCESS) {
+        if (reasonCode != expectedStatus) {
             throw new RuntimeException("MQTT publish completed with negative reason code " + reasonCode);
         }
 
         log.info("MQTT message {} has been succesfully published", message);
+    }
+
+    @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
+    @ParameterType(value = "true|True|TRUE|false|False|FALSE")
+    public Boolean booleanValue(String value) {
+        return Boolean.valueOf(value);
     }
 
     /**
@@ -424,6 +501,27 @@ public class MqttControlSteps {
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
     @And("message {string} received on {string} from {string} topic within {int} {word}")
     public void receive(String message, String clientDeviceId, String topicString, int value, String unit)
+                            throws TimeoutException, InterruptedException {
+        receive(message, clientDeviceId, topicString, value, unit, true);
+    }
+
+    /**
+     * Verify is MQTT message is received in limited duration of time.
+     *
+     * @param message content of message to receive
+     * @param clientDeviceId the user defined client device id
+     * @param topicString the topic (not a filter) which message has been sent
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @param isExpectedMessage used for setting message expectation
+     * @throws TimeoutException when matched message was not received in specified duration of time
+     * @throws RuntimeException on internal errors
+     * @throws InterruptedException then thread has been interrupted
+     */
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
+    @And("message {string} received on {string} from {string} topic within {int} {word} is {booleanValue} expected")
+    public void receive(String message, String clientDeviceId, String topicString, int value,
+                        String unit, Boolean isExpectedMessage)
                             throws TimeoutException, InterruptedException {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
@@ -444,12 +542,17 @@ public class MqttControlSteps {
         // awaiting for message
         log.info("Awaiting for MQTT message {} on topic {} on Thing {} for {} {}", message, topic,
                     getClientDeviceThingName(clientDeviceId), value, unit);
-        List<Event> events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
-
-        // check events is not empty, actually never happens due ro TimeoutException
-        if (events.isEmpty()) {
-            // no message(s) were received
-            throw new RuntimeException("No matched MQTT messages have been received");
+        List<Event> events = new ArrayList<>();
+        try {
+            events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
+        } catch (TimeoutException e) {
+            if (isExpectedMessage) {
+                log.error("No matched MQTT messages have been received, ex: {}", e.getMessage());
+                throw new RuntimeException(e);
+            }
+        }
+        if (!isExpectedMessage && !events.isEmpty()) {
+            throw new RuntimeException("MQTT unexpected messages have been received");
         }
     }
 

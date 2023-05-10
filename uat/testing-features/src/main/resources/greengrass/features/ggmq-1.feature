@@ -67,6 +67,121 @@ Feature: GGMQ-1
       | v3     |
       | v5     |
 
+  Scenario Outline: GGMQ-1-T13-<mqtt-v>: As a customer, I can connect two GGADs and send message from one GGAD to the other based on CDA configuration
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                                        |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                        |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
+      | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
+    And I create client device "publisher"
+    And I create client device "subscriber"
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+   "MERGE":{
+      "deviceGroups":{
+         "formatVersion":"2021-03-05",
+         "definitions":{
+            "MyPermissiveDeviceGroup":{
+               "selectionRule": "thingName: ${publisher} OR thingName: ${subscriber}",
+               "policyName":"MyPermissivePolicy"
+            }
+         },
+         "policies":{
+            "MyPermissivePolicy":{
+               "AllowConnect": {
+                "statementDescription": "Allow client devices to connect.",
+                  "operations": [
+                    "mqtt:connect"
+                  ],
+                  "resources": [
+                    "*"
+                  ]
+                },
+                "AllowPublish": {
+                  "statementDescription": "Allow client devices to publish on test/topic.",
+                    "operations": [
+                      "mqtt:publish"
+                    ],
+                     "resources": [
+                      "*"
+                     ]
+                  }
+            }
+         }
+      }
+   }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.client.Mqtt5JavaSdkClient configuration to:
+    """
+{
+   "MERGE":{
+      "agentId":"aws.greengrass.client.Mqtt5JavaSdkClient",
+      "controlAddresses":"${mqttControlAddresses}",
+      "controlPort":"${mqttControlPort}"
+   }
+}
+    """
+    When I associate "publisher" with ggc
+    When I associate "subscriber" with ggc
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 300 seconds
+    And I discover core device broker as "default_broker" from "publisher"
+    And I discover core device broker as "default_broker" from "subscriber"
+    And I connect device "publisher" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
+    And I connect device "subscriber" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
+    When I subscribe "subscriber" to "iot_data_0" with qos 0 and expect status "<subscribe-status>"
+    When I subscribe "subscriber" to "iot_data_1" with qos 1 and expect status "<subscribe-status>"
+    When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world"
+    When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world" and expect status <publish-status>
+    Then message "Hello world" received on "subscriber" from "iot_data_1" topic within 10 seconds is false expected
+    And I disconnect device "subscriber" with reason code 0
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+   "MERGE":{
+      "deviceGroups":{
+         "formatVersion":"2021-03-05",
+         "definitions":{
+            "MyPermissiveDeviceGroup":{
+               "selectionRule": "thingName: ${subscriber}",
+               "policyName":"MyPermissiveSubscribePolicy"
+            }
+         },
+         "policies":{
+            "MyPermissiveSubscribePolicy":{
+                "AllowSubscribe": {
+                  "statementDescription": "Allow client devices to subscribe to iot_data_1.",
+                  "operations": [
+                  "mqtt:subscribe"
+                   ],
+                   "resources": [
+                      "mqtt:topicfilter:iot_data_1"
+                   ]
+                  }
+            }
+         }
+      }
+   }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 120 seconds
+    And I connect device "publisher" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
+    And I connect device "subscriber" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
+    When I subscribe "subscriber" to "iot_data_0" with qos 0 and expect status "<subscribe-status>"
+    When I subscribe "subscriber" to "iot_data_1" with qos 1 and expect status "<subscribe-status-auth>"
+    When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world"
+    When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world"
+    Then message "Hello world" received on "subscriber" from "iot_data_0" topic within 10 seconds is false expected
+    Then message "Hello world" received on "subscriber" from "iot_data_1" topic within 10 seconds
+
+    Examples:
+      | mqtt-v | subscribe-status | publish-status | subscribe-status-auth |
+      | v3     | SUCCESS          | 0              | SUCCESS               |
+      | v5     | NOT_AUTHORIZED   | 16             | GRANTED_QOS_1         |
+
   Scenario: GGMQ-1-T14: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                                        |
