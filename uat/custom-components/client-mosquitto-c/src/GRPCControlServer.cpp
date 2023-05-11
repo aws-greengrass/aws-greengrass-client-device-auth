@@ -81,10 +81,7 @@ void GRPCControlServer::wait(MqttLib & mqtt) {
     separate_thread.join();
 }
 
-Status GRPCControlServer::ShutdownAgent(ServerContext * context, const ShutdownRequest * request, Empty * reply) {
-    (void)context;
-    (void)reply;
-
+Status GRPCControlServer::ShutdownAgent(ServerContext *, const ShutdownRequest * request, Empty *) {
     m_shutdown_reason = request->reason();
     logd("ShutdownAgent with reason '%s'\n", m_shutdown_reason.c_str());
 
@@ -92,9 +89,7 @@ Status GRPCControlServer::ShutdownAgent(ServerContext * context, const ShutdownR
     return Status::OK;
 }
 
-Status GRPCControlServer::CreateMqttConnection(ServerContext * context, const MqttConnectRequest * request, MqttConnectReply * reply) {
-    (void)context;
-
+Status GRPCControlServer::CreateMqttConnection(ServerContext *, const MqttConnectRequest * request, MqttConnectReply * reply) {
     const std::string & client_id = request->clientid();
     const std::string & host = request->host();
     int port = request->port();
@@ -187,10 +182,7 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext * context, const Mq
     }
 }
 
-Status GRPCControlServer::CloseMqttConnection(ServerContext * context, const MqttCloseRequest * request, Empty * reply) {
-    (void)context;
-    (void)reply;
-
+Status GRPCControlServer::CloseMqttConnection(ServerContext *, const MqttCloseRequest * request, Empty *) {
     int timeout = request->timeout();
     if (timeout < TIMEOUT_MIN) {
         loge("CloseMqttConnection: invalid timeout, must be at least %u second\n", TIMEOUT_MIN);
@@ -222,10 +214,7 @@ Status GRPCControlServer::CloseMqttConnection(ServerContext * context, const Mqt
     }
 }
 
-Status GRPCControlServer::PublishMqtt(ServerContext * context, const MqttPublishRequest * request, MqttPublishReply * reply) {
-    (void)context;
-
-
+Status GRPCControlServer::PublishMqtt(ServerContext *, const MqttPublishRequest * request, MqttPublishReply * reply) {
     if (!request->has_msg()) {
         loge("PublishMqtt: message is missing\n");
         return Status(StatusCode::INVALID_ARGUMENT, "message is missing");
@@ -289,10 +278,7 @@ Status GRPCControlServer::PublishMqtt(ServerContext * context, const MqttPublish
     return Status::OK;
 }
 
-Status GRPCControlServer::SubscribeMqtt(ServerContext * context, const MqttSubscribeRequest * request, MqttSubscribeReply * reply) {
-    (void)context;
-    (void)reply;
-
+Status GRPCControlServer::SubscribeMqtt(ServerContext *, const MqttSubscribeRequest * request, MqttSubscribeReply * reply) {
     int timeout = request->timeout();
     if (timeout < TIMEOUT_MIN) {
         loge("SubscribeMqtt: invalid timeout, must be at least %u second\n", TIMEOUT_MIN);
@@ -310,7 +296,7 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext * context, const MqttSubsc
         subscription_id_ptr = &subscription_id;
     }
 
-    std::list<std::string> filters;
+    std::vector<std::string> filters;
     int common_qos = 0;
     int common_retain_handling = 0;
     bool common_no_local = false;
@@ -393,13 +379,24 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext * context, const MqttSubsc
     }
 }
 
-Status GRPCControlServer::UnsubscribeMqtt(ServerContext * context, const MqttUnsubscribeRequest * request, MqttSubscribeReply * reply) {
-    (void)context;
-    (void)reply;
+Status GRPCControlServer::UnsubscribeMqtt(ServerContext *, const MqttUnsubscribeRequest * request, MqttSubscribeReply * reply) {
+    int timeout = request->timeout();
+    if (timeout < TIMEOUT_MIN) {
+        loge("UnsubscribeMqtt: invalid timeout, must be at least %u second\n", TIMEOUT_MIN);
+        return Status(StatusCode::INVALID_ARGUMENT, "invalid timeout, must be at least 1");
+    }
 
     if (!request->has_connectionid()) {
+        loge("UnsubscribeMqtt: missing connection id\n");
         return Status(StatusCode::INVALID_ARGUMENT, "missing connectionId");
     }
+
+    if (request->filters_size() < 1) {
+        loge("UnsubscribeMqtt: empty filters list\n");
+        return Status(StatusCode::INVALID_ARGUMENT, "empty filters list");
+    }
+
+    // convert filters
 
     const MqttConnectionId & connection_id_obj = request->connectionid();
     int connection_id = connection_id_obj.connectionid();
@@ -407,10 +404,21 @@ Status GRPCControlServer::UnsubscribeMqtt(ServerContext * context, const MqttUns
 
     MqttConnection * connection = m_mqtt->getConnection(connection_id);
     if (!connection) {
+        loge("UnsubscribeMqtt: connection with id %d doesn't found\n", connection_id);
         return Status(StatusCode::NOT_FOUND, "connection for that id doesn't found");
     }
-    // TODO: implement
-    return Status::OK;
+
+    std::vector<std::string> filters(request->filters().begin(), request->filters().end());
+    try {
+        std::vector<int> reason_codes = connection->unsubscribe(timeout, filters);
+        for (int reason_code : reason_codes) {
+            reply->add_reasoncodes(reason_code);
+        }
+        return Status::OK;
+    } catch (MqttException & ex) {
+        loge("UnsubscribeMqtt: exception during unsubscribing\n");
+        return Status(StatusCode::INTERNAL, ex.getMessage());
+    }
 }
 
 
