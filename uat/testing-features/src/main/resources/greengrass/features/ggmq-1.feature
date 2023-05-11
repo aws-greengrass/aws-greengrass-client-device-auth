@@ -137,6 +137,12 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world" and expect status <publish-status>
     Then message "Hello world" received on "subscriber" from "iot_data_1" topic within 10 seconds is false expected
     And I disconnect device "subscriber" with reason code 0
+    And I disconnect device "publisher" with reason code 0
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                                        |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                        |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
+      | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
