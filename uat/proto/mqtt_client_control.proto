@@ -9,11 +9,13 @@ option java_multiple_files = true;
 option java_package = "com.aws.greengrass.testing.mqtt.client";
 option java_outer_classname = "ClientProto";
 
-import "google/protobuf/empty.proto";
 
 package ClientControl;
 
 // Common part
+
+message Empty {
+}
 
 // Logical Id of MQTT connection, unique for a agent, but not over
 message MqttConnectionId {
@@ -47,16 +49,16 @@ service MqttAgentDiscovery {
     rpc RegisterAgent(RegisterRequest) returns (RegisterReply) {}
 
     // Discovery MQTT client address
-    rpc DiscoveryAgent(DiscoveryRequest) returns (google.protobuf.Empty) {}
+    rpc DiscoveryAgent(DiscoveryRequest) returns (Empty) {}
 
     // Unregister MQTT client address
-    rpc UnregisterAgent(UnregisterRequest) returns (google.protobuf.Empty) {}
+    rpc UnregisterAgent(UnregisterRequest) returns (Empty) {}
 
     // called when client receives MQTT message on subscription
-    rpc OnReceiveMessage(OnReceiveMessageRequest) returns (google.protobuf.Empty) {}
+    rpc OnReceiveMessage(OnReceiveMessageRequest) returns (Empty) {}
 
     // called when MQTT client lost connection (by request or from other party)
-    rpc OnMqttDisconnect(OnMqttDisconnectRequest) returns (google.protobuf.Empty) {}
+    rpc OnMqttDisconnect(OnMqttDisconnectRequest) returns (Empty) {}
 }
 
 // Request to register new agent, contains the agent id.
@@ -115,13 +117,13 @@ message Mqtt5Disconnect {
  */
 service MqttClientControl {
     // request to terminate agent
-    rpc ShutdownAgent(ShutdownRequest) returns (google.protobuf.Empty) {}
+    rpc ShutdownAgent(ShutdownRequest) returns (Empty) {}
 
     // create MQTT connection
     rpc CreateMqttConnection(MqttConnectRequest) returns (MqttConnectReply) {}
 
     // close MQTT connection
-    rpc CloseMqttConnection(MqttCloseRequest) returns (google.protobuf.Empty) {}
+    rpc CloseMqttConnection(MqttCloseRequest) returns (Empty) {}
 
     // MQTT subscribe
     rpc SubscribeMqtt(MqttSubscribeRequest) returns (MqttSubscribeReply) {}
@@ -146,7 +148,6 @@ enum MqttQoS {
     MQTT_QOS_0 = 0;
     MQTT_QOS_1 = 1;
     MQTT_QOS_2 = 2;
-    MQTT_QOS_3 = 3;
 };
 
 // Retain handling values
@@ -173,8 +174,8 @@ message Mqtt5ConnAck {
     optional int32 serverKeepAlive = 13;
     optional string responseInformation = 14;
     optional string serverReference = 15;
+    optional int32 topicAliasMaximum = 16;
 
-    // TODO: int32 topicAliasMaximum;
     // TODO: Authentication Method
     // TODO: Authentication Data
     // TODO: user's Properties

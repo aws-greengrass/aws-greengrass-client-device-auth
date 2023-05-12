@@ -4,13 +4,14 @@ MQTT 3.1.1/5.0 client for tests based on C mosquitto library
 
 ## Install requirements
 ```bash
-sudo apt-get install -y cmake libmosquitto-dev libssl-dev
+sudo apt-get install -y build-essential gcc cmake git autoconf libtool pkg-config libmosquitto-dev
 ```
+Note: required version 2.0 or above of mosquitto
 
 ## Build
 ```bash
-cmake -Bbuild
-cmake --build build
+CXXFLAGS="-Wall -Wextra -g -O0" cmake -Bbuild -H.
+cmake --build build -j 4 --target all
 ```
 
 ## Run
@@ -48,3 +49,6 @@ It violates MQTT v5.0 where topic filters have separate QoS and other properties
 At same time usage mosquitto_subscribe_v5() in a loop can can break logic of subscription id.
 In result we check all values of QoS and properties in gRPC SubscribeMqtt request and if are not the same report an error in that client.
 
+
+3. Unsubscription
+In Mosquitto API call mosquitto_unsubscribe_v5_callback_set() callback does not provides result codes, instead repeated zero code will be returned on success.

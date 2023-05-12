@@ -11,10 +11,11 @@
 
 #include "mqtt_client_control.grpc.pb.h"
 
-using google::protobuf::Empty;
 using grpc::Channel;
 using grpc::Status;
 using ClientControl::MqttAgentDiscovery;
+using ClientControl::Mqtt5Message;
+using ClientControl::Mqtt5Disconnect;
 
 class Status;
 
@@ -31,9 +32,27 @@ public:
     bool DiscoveryAgent(const char * address, unsigned short port);
     bool UnregisterAgent(const std::string & reason);
 
+    /**
+     * Sends OnReceiveMqttMessage request to the control.
+     *
+     * @param connection_id the id MQTT connection
+     * @param message the gRPC presentation of MQTT message, that function gets ownership of the pointer
+     * @return true on success
+     */
+    bool onReceiveMqttMessage(int connection_id, Mqtt5Message * message);
+
+    /**
+     * Sends OnMqttDisconnect request to the control.
+     *
+     * @param connection_id the id MQTT connection
+     * @param disconnect the gRPC presentation of DISCONNECT package info, that function gets ownership of the pointer
+     * @param error the optional OS error string
+     * @return true on success
+     */
+    bool onMqttDisconnect(int connection_id, Mqtt5Disconnect * disconnect, const char * error);
+
 private:
     bool checkStatus(const Status & status);
-
 
     std::string m_agent_id;
     std::unique_ptr<MqttAgentDiscovery::Stub> m_stub;

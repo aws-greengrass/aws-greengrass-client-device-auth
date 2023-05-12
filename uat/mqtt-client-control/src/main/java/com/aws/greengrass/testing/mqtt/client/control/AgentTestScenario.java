@@ -216,8 +216,8 @@ class AgentTestScenario implements Runnable {
     private void testPublish(ConnectionControl connectionControl) {
         Mqtt5Message msg = createPublishMessage(PUBLISH_QOS, PUBLISH_RETAIN, PUBLISH_TOPIC, PUBLISH_TEXT.getBytes());
         MqttPublishReply reply = connectionControl.publishMqtt(msg);
-        logger.atInfo().log("Published connectionId {} reasonCode {} reasonString {}",
-                                connectionControl.getConnectionId(), reply.getReasonCode(), reply.getReasonCode());
+        logger.atInfo().log("Published connectionId {} reason code {} reason string '{}'",
+                                connectionControl.getConnectionId(), reply.getReasonCode(), reply.getReasonString());
     }
 
     private Mqtt5Message createPublishMessage(MqttQoS qos, boolean retain, String topic, byte[] data) {

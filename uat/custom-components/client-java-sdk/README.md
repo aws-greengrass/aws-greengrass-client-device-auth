@@ -48,6 +48,8 @@ Will message not yet supported.
 ## MQTT v5.0 client
 Currenly information from packets related to QoS2 like PUBREC PUBREL PUBCOMP is missing.
 
+Topic alias maximum is not provided by [ConnAckPacket](https://awslabs.github.io/aws-crt-java/software/amazon/awssdk/crt/mqtt5/packets/ConnAckPacket.html).
+
 ## MQTT v3.1.1 client
 String result code is not available in MQTT 3.1.1, corresponding fields of gRPC messages will not be set.
 

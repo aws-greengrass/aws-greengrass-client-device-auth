@@ -6,6 +6,7 @@
 package com.aws.greengrass.testing.mqtt.client.control.implementation.grpc;
 
 import com.aws.greengrass.testing.mqtt.client.DiscoveryRequest;
+import com.aws.greengrass.testing.mqtt.client.Empty;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.MqttAgentDiscoveryGrpc;
@@ -15,7 +16,6 @@ import com.aws.greengrass.testing.mqtt.client.RegisterReply;
 import com.aws.greengrass.testing.mqtt.client.RegisterRequest;
 import com.aws.greengrass.testing.mqtt.client.UnregisterRequest;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.DiscoveryEvents;
-import com.google.protobuf.Empty;
 import io.grpc.stub.StreamObserver;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

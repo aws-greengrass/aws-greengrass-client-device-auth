@@ -1,41 +1,62 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
+  ~ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
 
-    Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-    SPDX-License-Identifier: Apache-2.0
-
--->
-
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
         <groupId>com.aws.greengrass</groupId>
-        <artifactId>client-devices-auth-uat</artifactId>
+        <artifactId>client-devices-auth-custom-components</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>client-devices-auth-testing-features</artifactId>
+    <artifactId>client-devices-auth-uat-client-ipc</artifactId>
+    <packaging>jar</packaging>
 
-    <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <skipTests>false</skipTests>
-        <greengrass.testing.version>1.1.0-SNAPSHOT</greengrass.testing.version>
-        <shade.plugin.version>3.4.1</shade.plugin.version>
-    </properties>
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
     <dependencies>
         <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>aws-greengrass-testing-mqtt-client-control</artifactId>
-            <version>${project.parent.version}</version>
+            <groupId>com.google.dagger</groupId>
+            <artifactId>dagger</artifactId>
+            <version>${dagger.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.aws.greengrass</groupId>
-            <artifactId>aws-greengrass-testing-standalone</artifactId>
-            <version>${greengrass.testing.version}</version>
+            <groupId>com.google.dagger</groupId>
+            <artifactId>dagger-compiler</artifactId>
+            <version>${dagger.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk.iotdevicesdk</groupId>
+            <artifactId>aws-iot-device-sdk</artifactId>
+            <version>${iot.device.sdk.version}</version>
             <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-1.2-api</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+            <version>${javax.annotation.api.version}</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -44,45 +65,20 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.google.auto.service</groupId>
-            <artifactId>auto-service</artifactId>
-            <version>${auto.service.version}</version>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>${jupiter.api.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.junit.jupiter.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
     <build>
         <plugins>
-            <plugin>
-                <groupId>com.mycila</groupId>
-                <artifactId>license-maven-plugin</artifactId>
-                <version>${license.plugin.version}</version>
-                <configuration>
-                    <licenseSets>
-                        <licenseSet>
-                            <header>../../.license/header.txt</header>
-                            <headerDefinitions>
-                                <headerDefinition>../../.license/style.xml</headerDefinition>
-                            </headerDefinitions>
-                            <useDefaultExcludes>true</useDefaultExcludes>
-                            <excludes>
-                                <exclude>*</exclude>
-                                <exclude>src/*/resources/**</exclude>
-                            </excludes>
-                        </licenseSet>
-                    </licenseSets>
-                    <mapping>
-                        <java>JAVA_STYLE</java>
-                        <properties>SHELL_STYLE</properties>
-                    </mapping>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>${checkstyle.plugin.version}</version>
@@ -95,10 +91,9 @@
                 </dependencies>
                 <configuration>
                     <logViolationsToConsole>true</logViolationsToConsole>
-                    <configLocation>../../codestyle/checkstyle.xml</configLocation>
+                    <configLocation>../../../codestyle/checkstyle.xml</configLocation>
                     <violationSeverity>warning</violationSeverity>
                     <maxAllowedViolations>0</maxAllowedViolations>
-                    <excludes>**/TODO</excludes>
                     <skip>${skipTests}</skip>
                 </configuration>
                 <executions>
@@ -121,8 +116,8 @@
                     <maxAllowedViolations>0</maxAllowedViolations>
                     <printFailingErrors>true</printFailingErrors>
                     <rulesets>
-                        <ruleset>../../codestyle/pmd-eg-ruleset.xml</ruleset>
-                        <ruleset>../../codestyle/pmd-eg-tests-ruleset.xml</ruleset>
+                        <ruleset>../../../codestyle/pmd-eg-ruleset.xml</ruleset>
+                        <ruleset>../../../codestyle/pmd-eg-tests-ruleset.xml</ruleset>
                     </rulesets>
                     <includeTests>true</includeTests>
                     <skip>${skipTests}</skip>
@@ -143,6 +138,28 @@
                 </executions>
             </plugin>
             <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs.plugin.version}</version>
+                <configuration>
+                    <skip>${skipTests}</skip>
+                    <effort>Max</effort>
+                    <!-- Reports all bugs (other values are medium and max) -->
+                    <threshold>Low</threshold>
+                    <xmlOutput>true</xmlOutput>
+                    <excludeFilterFile>../../../codestyle/findbugs-exclude.xml</excludeFilterFile>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>analyze-compile</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>${shade.plugin.version}</version>
@@ -153,12 +170,11 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <finalName>client-devices-auth-testing-features</finalName>
+                            <finalName>${jar.name}</finalName>
                             <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.aws.greengrass.testing.launcher.TestLauncher</mainClass>
+                                    <mainClass>com.aws.greengrass.testing.ipc.IpcClientMainRouter</mainClass>
                                 </transformer>
                             </transformers>
                             <filters>
@@ -169,6 +185,9 @@
                                     -->
                                     <artifact>*:*</artifact>
                                     <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
                                         <exclude>**/Log4j2Plugins.dat</exclude>
                                     </excludes>
                                 </filter>
@@ -177,32 +196,17 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <version>${antrun.plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>copy-artifact-to-classpath</id>
-                        <phase>process-classes</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                        <configuration>
-                            <target name="copy SDK-client component under test artifact">
-                                <copy
-                                        file="${project.basedir}/../custom-components/client-java-sdk/target/client-devices-auth-uat-client-java-sdk.jar"
-                                      tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar"/>
-                                <copy
-                                        file="${project.basedir}/../custom-components/client-ipc/target/client-devices-auth-uat-client-ipc.jar"
-                                        tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.IpcClient.jar"/>
-                            </target>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
     </build>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <skipTests>false</skipTests>
+        <groups></groups>
+        <jar.name>client-devices-auth-uat-client-ipc</jar.name>
+        <main.class>com.aws.greengrass.testing.ipc.client.Main</main.class>
+    </properties>
     <distributionManagement>
         <snapshotRepository>
             <id>greengrass-dev-snapshot</id>
