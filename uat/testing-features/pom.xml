@@ -196,6 +196,9 @@
                                 <copy
                                         file="${project.basedir}/../custom-components/client-ipc/target/client-devices-auth-uat-client-ipc.jar"
                                         tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.IpcClient.jar"/>
+                                <copy
+                                        file="${project.basedir}/../custom-components/client-mosquitto-c/mosquitto-test-client.amd64.tar.gz"
+                                        tofile="${project.basedir}/target/classes/greengrass/artifacts/mosquitto-test-client.amd64.tar.gz"/>
                             </target>
                         </configuration>
                     </execution>

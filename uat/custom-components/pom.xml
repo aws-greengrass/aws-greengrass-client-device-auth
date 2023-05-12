@@ -19,8 +19,9 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>client-java-sdk</module>
         <module>client-ipc</module>
         <module>client-java-paho</module>
+        <module>client-java-sdk</module>
+        <module>client-mosquitto-c</module>
     </modules>
 </project>

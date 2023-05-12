@@ -18,7 +18,7 @@ Manifests:
       - URI: classpath:/greengrass/artifacts/aws.greengrass.client.IpcClient.jar
         Permission:
           Read: ALL
-          Execute: ALL
+          Execute: NONE
     Lifecycle:
       Run: |
         java -DcomponentName="LocalIpcSubscriber" -jar "{artifacts:path}/aws.greengrass.client.IpcClient.jar" "{configuration:/topicsToSubscribe}"
