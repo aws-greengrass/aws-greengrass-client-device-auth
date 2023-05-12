@@ -128,7 +128,6 @@ Feature: GGMQ-1
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
     And I discover core device broker as "default_broker" from "publisher"
-    And I discover core device broker as "default_broker" from "subscriber"
     And I connect device "publisher" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     When I subscribe "subscriber" to "iot_data_0" with qos 0 and expect status "<subscribe-status>"
@@ -139,10 +138,10 @@ Feature: GGMQ-1
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                                        |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                        |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
-      | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
+      | aws.greengrass.clientdevices.Auth        | LATEST |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST |
+      | aws.greengrass.client.Mqtt5JavaSdkClient | LATEST |
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
@@ -150,7 +149,7 @@ Feature: GGMQ-1
       "deviceGroups":{
          "formatVersion":"2021-03-05",
          "definitions":{
-            "MyPermissiveDeviceGroup":{
+            "SubscriberDeviceGroup":{
                "selectionRule": "thingName: ${subscriber}",
                "policyName":"MyPermissiveSubscribePolicy"
             }
@@ -174,6 +173,7 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 120 seconds
+    And I discover core device broker as "default_broker" from "subscriber"
     And I connect device "publisher" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     When I subscribe "subscriber" to "iot_data_0" with qos 0 and expect status "<subscribe-status>"
