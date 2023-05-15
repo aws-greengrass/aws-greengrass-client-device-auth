@@ -1,4 +1,4 @@
-# Test MQTT5/311 client bases on AWS IoT Device Paho for Java v2
+# Test MQTT5/311 client bases on Eclipse Paho for Java
 
 The controlled `test MQTT v5.0/v3.1.1 client` is based on Paho Java is used to test Greengrass v2 MQTT v5.0 compatibility.
 
