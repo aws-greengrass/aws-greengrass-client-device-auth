@@ -58,7 +58,7 @@ public interface MqttLib extends AutoCloseable {
      * @throws MqttException on errors
      */
     MqttConnection createConnection(@NonNull ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
-            throws MqttException, org.eclipse.paho.client.mqttv3.MqttException, org.eclipse.paho.mqttv5.common.MqttException;
+            throws MqttException;
 
     /**
      * Register the MQTT connection.

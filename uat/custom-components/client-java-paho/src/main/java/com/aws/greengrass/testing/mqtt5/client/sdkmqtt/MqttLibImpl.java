@@ -35,7 +35,8 @@ public class MqttLibImpl implements MqttLib {
 
     interface ConnectionFactory {
         MqttConnection newConnection(@NonNull ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
-                throws MqttException, org.eclipse.paho.client.mqttv3.MqttException, org.eclipse.paho.mqttv5.common.MqttException;
+                throws MqttException, org.eclipse.paho.client.mqttv3.MqttException,
+                org.eclipse.paho.mqttv5.common.MqttException;
     }
 
     /**
@@ -45,11 +46,12 @@ public class MqttLibImpl implements MqttLib {
         this(new ConnectionFactory() {
             @Override
             public MqttConnection newConnection(@NonNull ConnectionParams connectionParams,
-                                                    @NonNull GRPCClient grpcClient) throws org.eclipse.paho.client.mqttv3.MqttException, org.eclipse.paho.mqttv5.common.MqttException {
+                                                @NonNull GRPCClient grpcClient)
+                    throws org.eclipse.paho.client.mqttv3.MqttException, org.eclipse.paho.mqttv5.common.MqttException {
                 if (connectionParams.isMqtt50()) {
-                    return new MqttConnectionImpl(connectionParams, grpcClient);
+                    return new MqttConnectionImpl(connectionParams);
                 } else {
-                    return new Mqtt311ConnectionImpl(connectionParams, grpcClient);
+                    return new Mqtt311ConnectionImpl(connectionParams);
                 }
             }
         });
@@ -67,20 +69,24 @@ public class MqttLibImpl implements MqttLib {
 
     @Override
     public MqttConnection createConnection(@NonNull ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
-            throws MqttException, org.eclipse.paho.client.mqttv3.MqttException, org.eclipse.paho.mqttv5.common.MqttException {
-        return connectionFactory.newConnection(connectionParams, grpcClient);
+            throws MqttException {
+        try {
+            return connectionFactory.newConnection(connectionParams, grpcClient);
+        } catch (org.eclipse.paho.client.mqttv3.MqttException | org.eclipse.paho.mqttv5.common.MqttException e) {
+            throw new MqttException(e);
+        }
     }
 
     @Override
     public int registerConnection(@NonNull MqttConnection mqttConnection) {
         int connectionId = 0;
         final boolean[] wasSet = new boolean[1];
-        while (! wasSet[0]) {
+        while (!wasSet[0]) {
             connectionId = nextConnectionId.incrementAndGet();
             connections.computeIfAbsent(connectionId, key -> {
                 wasSet[0] = true;
                 return mqttConnection;
-                });
+            });
         }
         return connectionId;
     }
@@ -109,10 +115,9 @@ public class MqttLibImpl implements MqttLib {
                 // delete if value is up to date, otherwise leave for next round
                 if (connections.remove(key, connection)) {
                     connection.disconnect(MqttConnection.DEFAULT_DISCONNECT_TIMEOUT,
-                                            MqttConnection.DEFAULT_DISCONNECT_REASON);
+                            MqttConnection.DEFAULT_DISCONNECT_REASON);
                 }
-            } catch (MqttException | org.eclipse.paho.client.mqttv3.MqttException |
-                     org.eclipse.paho.mqttv5.common.MqttException ex) {
+            } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnect");
             }
         });

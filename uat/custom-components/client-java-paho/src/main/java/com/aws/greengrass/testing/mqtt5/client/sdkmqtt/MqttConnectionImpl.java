@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 
-import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -18,8 +17,6 @@ import org.eclipse.paho.mqttv5.client.MqttClient;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -29,34 +26,27 @@ public class MqttConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(MqttConnectionImpl.class);
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
-    private final AtomicBoolean isConnected = new AtomicBoolean();
 
-    private final GRPCClient grpcClient;
     private final MqttConnectionOptions connectionOptions;
     private final IMqttClient client;
-    private int connectionId = 0;
-
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();        // TODO: use DI
 
     /**
      * Creates a MQTT5 connection.
      *
      * @param connectionParams the connection parameters
-     * @param grpcClient the consumer of received messages and disconnect events
-     * @throws MqttException on errors
+     * @throws org.eclipse.paho.mqttv5.common.MqttException on errors
      */
-    public MqttConnectionImpl(@NonNull MqttLib.ConnectionParams connectionParams, @NonNull GRPCClient grpcClient) throws org.eclipse.paho.mqttv5.common.MqttException {
+    public MqttConnectionImpl(@NonNull MqttLib.ConnectionParams connectionParams)
+            throws org.eclipse.paho.mqttv5.common.MqttException {
         super();
 
-        this.grpcClient = grpcClient;
         this.client = createClient(connectionParams);
         this.connectionOptions = convertParams(connectionParams);
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public ConnectResult start(long timeout, int connectionId) throws org.eclipse.paho.mqttv5.common.MqttException, MqttException {
-        this.connectionId = connectionId;
+    public ConnectResult start(long timeout, int connectionId) throws MqttException {
         try {
             IMqttToken token = client.connectWithResult(connectionOptions);
             token.waitForCompletion();
@@ -69,15 +59,13 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @SuppressWarnings({"PMD.UseTryWithResources", "PMD.AvoidCatchingGenericException"})
     @Override
-    public void disconnect(long timeout, int reasonCode) throws MqttException, org.eclipse.paho.mqttv5.common.MqttException {
+    public void disconnect(long timeout, int reasonCode) throws MqttException {
         if (!isClosing.getAndSet(true)) {
             try {
-                client.disconnect();
+                disconnectAndClose();
             } catch (Exception ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnecting from MQTT broker");
                 throw new MqttException("Could not disconnect", ex);
-            } finally {
-                client.close();
             }
         }
     }
@@ -87,31 +75,25 @@ public class MqttConnectionImpl implements MqttConnection {
      *
      * @param connectionParams connection parameters
      */
-    private IMqttClient createClient(MqttLib.ConnectionParams connectionParams) throws org.eclipse.paho.mqttv5.common.MqttException {
+    private IMqttClient createClient(MqttLib.ConnectionParams connectionParams)
+            throws org.eclipse.paho.mqttv5.common.MqttException {
         return new MqttClient(connectionParams.getHost(),
                 connectionParams.getClientId(), new MemoryPersistence());
     }
 
-    private MqttConnectionOptions convertParams(MqttLib.ConnectionParams connectionParams) {
-        MqttConnectionOptions connectionOptions = new MqttConnectionOptions();
-        connectionOptions.setServerURIs(new String[] {connectionParams.getHost()});
-
-        return connectionOptions;
+    private void disconnectAndClose() throws org.eclipse.paho.mqttv5.common.MqttException {
+        try {
+            client.disconnect();
+        } finally {
+            client.close();
+        }
     }
 
-    /**
-     * Checks connection state.
-     *
-     * @throws MqttException when connection state is not allow opertation
-     */
-    private void stateCheck() throws MqttException {
-        if (!isConnected.get()) {
-            throw new MqttException("MQTT client is not in connected state");
-        }
+    private MqttConnectionOptions convertParams(MqttLib.ConnectionParams connectionParams) {
+        MqttConnectionOptions connectionOptions = new MqttConnectionOptions();
+        connectionOptions.setServerURIs(new String[]{connectionParams.getHost()});
 
-        if (isClosing.get()) {
-            throw new MqttException("MQTT connection is closing");
-        }
+        return connectionOptions;
     }
 
     private static ConnectResult buildConnectResult(boolean success, IMqttToken token) {
@@ -123,24 +105,23 @@ public class MqttConnectionImpl implements MqttConnection {
         if (token == null) {
             return null;
         }
-
-        int[] reasonCodes = token.getReasonCodes();
+        Integer reasonCode = token.getReasonCodes().length == 0 ? null : token.getReasonCodes()[0];
         return new ConnAckInfo(token.getSessionPresent(),
-                (reasonCodes == null || reasonCodes.length == 0) ? null : reasonCodes[0],
+                reasonCode,
                 convertLongToInteger(token.getRequestProperties().getSessionExpiryInterval()),
-                                token.getResponseProperties().getReceiveMaximum(),
-                                token.getResponseProperties().getMaximumQoS(),
-                                token.getResponseProperties().isRetainAvailable(),
+                token.getResponseProperties().getReceiveMaximum(),
+                token.getResponseProperties().getMaximumQoS(),
+                token.getResponseProperties().isRetainAvailable(),
                 convertLongToInteger(token.getResponseProperties().getMaximumPacketSize()),
-                                token.getResponseProperties().getAssignedClientIdentifier(),
-                                token.getResponseProperties().getReasonString(),
-                                token.getRequestProperties().isWildcardSubscriptionsAvailable(),
-                                token.getRequestProperties().isSubscriptionIdentifiersAvailable(),
-                                token.getRequestProperties().isSharedSubscriptionAvailable(),
-                                token.getResponseProperties().getServerKeepAlive(),
-                                token.getResponseProperties().getResponseInfo(),
-                                token.getResponseProperties().getServerReference()
-                                );
+                token.getResponseProperties().getAssignedClientIdentifier(),
+                token.getResponseProperties().getReasonString(),
+                token.getRequestProperties().isWildcardSubscriptionsAvailable(),
+                token.getRequestProperties().isSubscriptionIdentifiersAvailable(),
+                token.getRequestProperties().isSharedSubscriptionAvailable(),
+                token.getResponseProperties().getServerKeepAlive(),
+                token.getResponseProperties().getResponseInfo(),
+                token.getResponseProperties().getServerReference()
+        );
     }
 
     private static Integer convertLongToInteger(Long value) {

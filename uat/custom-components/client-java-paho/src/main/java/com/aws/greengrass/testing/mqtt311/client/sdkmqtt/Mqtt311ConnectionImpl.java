@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.testing.mqtt311.client.sdkmqtt;
 
-import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -17,8 +16,6 @@ import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -30,24 +27,19 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final AtomicBoolean isConnected = new AtomicBoolean();
-
-    private final GRPCClient grpcClient;
     private final IMqttClient mqttClient;
     private int connectionId = 0;
 
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();        // TODO: use DI
 
     /**
      * Creates a MQTT 3.1.1 connection.
      *
      * @param connectionParams the connection parameters
-     * @param grpcClient the consumer of received messages and disconnect events
-     * @throws MqttException on errors
+     * @throws org.eclipse.paho.client.mqttv3.MqttException on errors
      */
-    public Mqtt311ConnectionImpl(@NonNull MqttLib.ConnectionParams connectionParams, @NonNull GRPCClient grpcClient)
+    public Mqtt311ConnectionImpl(@NonNull MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.client.mqttv3.MqttException {
         super();
-        this.grpcClient = grpcClient;
         this.mqttClient = createClient(connectionParams);
     }
 
@@ -67,17 +59,12 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public void disconnect(long timeout, int reasonCode) throws MqttException, org.eclipse.paho.client.mqttv3.MqttException {
-
+    public void disconnect(long timeout, int reasonCode) throws MqttException {
         if (!isClosing.getAndSet(true)) {
             try {
-                mqttClient.disconnect();
-
-                logger.atInfo().log("MQTT 3.1.1 connection {} has been disconnected", connectionId);
+                disconnectAndClose();
             } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
-                throw new RuntimeException(e);
-            } finally {
-                mqttClient.close();
+                throw new MqttException("Could not disconnect", e);
             }
         }
     }
@@ -87,26 +74,19 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
      *
      * @param connectionParams connection parameters
      * @return MQTT 3.1.1 connection
-     * @throws MqttException on errors
+     * @throws org.eclipse.paho.client.mqttv3.MqttException on errors
      */
-    private IMqttClient createClient(MqttLib.ConnectionParams connectionParams) throws org.eclipse.paho.client.mqttv3.MqttException {
-        IMqttClient client = new MqttClient(connectionParams.getHost(), connectionParams.getClientId());
-        return client;
+    private IMqttClient createClient(MqttLib.ConnectionParams connectionParams)
+            throws org.eclipse.paho.client.mqttv3.MqttException {
+        return new MqttClient(connectionParams.getHost(), connectionParams.getClientId());
     }
 
-
-    /**
-     * Checks connection state.
-     *
-     * @throws MqttException when connection state is not allow opertation
-     */
-    private void stateCheck() throws MqttException {
-        if (!isConnected.get()) {
-            throw new MqttException("MQTT client is not in connected state");
-        }
-
-        if (isClosing.get()) {
-            throw new MqttException("MQTT connection is closing");
+    private void disconnectAndClose() throws org.eclipse.paho.client.mqttv3.MqttException {
+        try {
+            mqttClient.disconnect();
+            logger.atInfo().log("MQTT 3.1.1 connection {} has been disconnected", connectionId);
+        } finally {
+            mqttClient.close();
         }
     }
 

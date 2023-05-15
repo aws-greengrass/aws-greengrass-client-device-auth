@@ -9,7 +9,6 @@ import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NonNull;
 
 import java.util.List;
 
@@ -158,14 +157,14 @@ public interface MqttConnection {
      * @return ConnectResult on success
      * @throws MqttException on errors
      */
-    ConnectResult start(long timeout, int connectionId) throws MqttException, org.eclipse.paho.mqttv5.common.MqttException;
+    ConnectResult start(long timeout, int connectionId) throws MqttException;
 
     /**
      * Closes MQTT connection.
      *
      * @param timeout disconnect operation timeout in seconds
      * @param reasonCode reason why connection is closed
-     * @throws MqttException on errors
+     * @exception MqttException on errors
      */
-    void disconnect(long timeout, int reasonCode) throws MqttException, org.eclipse.paho.client.mqttv3.MqttException, org.eclipse.paho.mqttv5.common.MqttException;
+    void disconnect(long timeout, int reasonCode) throws MqttException;
 }
