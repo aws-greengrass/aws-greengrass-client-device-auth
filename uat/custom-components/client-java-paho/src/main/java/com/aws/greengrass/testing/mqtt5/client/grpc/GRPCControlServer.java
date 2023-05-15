@@ -165,7 +165,8 @@ class GRPCControlServer {
                     .port(port)
                     .keepalive(keepalive)
                     .cleanSession(request.getCleanSession())
-                    .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V_50);
+                    .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V_50)
+                    .connectionTimeout(timeout);
 
             // check TLS optional settings
             if (request.hasTls()) {
@@ -206,11 +207,12 @@ class GRPCControlServer {
             MqttConnectReply.Builder builder = MqttConnectReply.newBuilder();
 
             AtomicReference<Integer> connectionId = new AtomicReference<>();
+            MqttLib.ConnectionParams connectionParams = connectionParamsBuilder.build();
             try {
-                MqttConnection connection = mqttLib.createConnection(connectionParamsBuilder.build(), client);
+                MqttConnection connection = mqttLib.createConnection(connectionParams, client);
                 connectionId.set(mqttLib.registerConnection(connection));
 
-                MqttConnection.ConnectResult connectResult = connection.start(timeout, connectionId.get());
+                MqttConnection.ConnectResult connectResult = connection.start(connectionParams, connectionId.get());
                 if (connectResult != null) {
                     builder.setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId.get()).build());
                     convertConnectResult(connectResult, builder);

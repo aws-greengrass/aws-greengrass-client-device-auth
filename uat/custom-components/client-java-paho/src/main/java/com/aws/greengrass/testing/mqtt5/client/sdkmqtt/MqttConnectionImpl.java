@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
+import com.aws.greengrass.testing.util.SslUtil;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,7 +18,10 @@ import org.eclipse.paho.mqttv5.client.MqttClient;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.net.ssl.SSLSocketFactory;
 
 /**
  * Implementation of MQTT5 connection based on AWS IoT device SDK.
@@ -26,8 +30,6 @@ public class MqttConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(MqttConnectionImpl.class);
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
-
-    private final MqttConnectionOptions connectionOptions;
     private final IMqttClient client;
 
     /**
@@ -41,17 +43,17 @@ public class MqttConnectionImpl implements MqttConnection {
         super();
 
         this.client = createClient(connectionParams);
-        this.connectionOptions = convertParams(connectionParams);
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
-    public ConnectResult start(long timeout, int connectionId) throws MqttException {
+    public ConnectResult start(MqttLib.ConnectionParams connectionParams, int connectionId) throws MqttException {
         try {
+            MqttConnectionOptions connectionOptions = convertParams(connectionParams);
             IMqttToken token = client.connectWithResult(connectionOptions);
             token.waitForCompletion();
             return buildConnectResult(true, token);
-        } catch (Exception ex) {
+        } catch (IOException | GeneralSecurityException | org.eclipse.paho.mqttv5.common.MqttException ex) {
             logger.atError().withThrowable(ex).log("Exception occurred during connect");
             throw new MqttException("Exception occurred during connect", ex);
         }
@@ -62,7 +64,7 @@ public class MqttConnectionImpl implements MqttConnection {
     public void disconnect(long timeout, int reasonCode) throws MqttException {
         if (!isClosing.getAndSet(true)) {
             try {
-                disconnectAndClose();
+                disconnectAndClose(timeout);
             } catch (Exception ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnecting from MQTT broker");
                 throw new MqttException("Could not disconnect", ex);
@@ -81,17 +83,21 @@ public class MqttConnectionImpl implements MqttConnection {
                 connectionParams.getClientId(), new MemoryPersistence());
     }
 
-    private void disconnectAndClose() throws org.eclipse.paho.mqttv5.common.MqttException {
+    private void disconnectAndClose(long timeout) throws org.eclipse.paho.mqttv5.common.MqttException {
         try {
-            client.disconnect();
+            client.disconnectForcibly(timeout);
         } finally {
             client.close();
         }
     }
 
-    private MqttConnectionOptions convertParams(MqttLib.ConnectionParams connectionParams) {
+    private MqttConnectionOptions convertParams(MqttLib.ConnectionParams connectionParams)
+            throws IOException, GeneralSecurityException {
         MqttConnectionOptions connectionOptions = new MqttConnectionOptions();
         connectionOptions.setServerURIs(new String[]{connectionParams.getHost()});
+        connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
+        SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
+        connectionOptions.setSocketFactory(sslSocketFactory);
 
         return connectionOptions;
     }
@@ -130,5 +136,4 @@ public class MqttConnectionImpl implements MqttConnection {
         }
         return value.intValue();
     }
-
 }

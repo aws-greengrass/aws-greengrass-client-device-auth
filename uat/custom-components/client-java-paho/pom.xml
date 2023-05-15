@@ -51,12 +51,17 @@
         <dependency>
             <groupId>org.eclipse.paho</groupId>
             <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
-            <version>1.2.5</version>
+            <version>${paho.agent.version}</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.paho</groupId>
             <artifactId>org.eclipse.paho.mqttv5.client</artifactId>
-            <version>1.2.5</version>
+            <version>${paho.agent.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk15on</artifactId>
+            <version>${bouncycastle.version}</version>
         </dependency>
 
         <dependency>
@@ -149,7 +154,7 @@
                 <configuration>
                     <mainClass>${main.class}</mainClass>
                     <arguments>
-                        <argument>agent1</argument>
+                        <argument>paho-java-agent</argument>
                     </arguments>
                 </configuration>
             </plugin>

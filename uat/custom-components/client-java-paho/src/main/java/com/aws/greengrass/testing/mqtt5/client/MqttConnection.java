@@ -152,12 +152,12 @@ public interface MqttConnection {
     /**
      * Starts MQTT connection.
      *
-     * @param timeout connect operation timeout in seconds
+     * @param connectionParams connect parameters
      * @param connectionId connection id as assigned by MQTT library
      * @return ConnectResult on success
      * @throws MqttException on errors
      */
-    ConnectResult start(long timeout, int connectionId) throws MqttException;
+    ConnectResult start(MqttLib.ConnectionParams connectionParams, int connectionId) throws MqttException;
 
     /**
      * Closes MQTT connection.
