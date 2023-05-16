@@ -12,7 +12,7 @@ phases:
     commands:
       - curl -s https://d2s8p88vqu9w66.cloudfront.net/releases/greengrass-nucleus-latest.zip > /tmp/greengrass-nucleus-latest.zip
       - mvn -U -ntp clean verify -f uat/pom.xml
-      - sudo java -Dggc.archive=/tmp/greengrass-nucleus-latest.zip -Dtags=GGMQ -Dggc.install.root=$CODEBUILD_SRC_DIR -jar uat/testing-features/target/client-devices-auth-testing-features.jar
+      - sudo -E java -Dggc.archive=/tmp/greengrass-nucleus-latest.zip -Dtags=GGMQ -Dggc.install.root=$CODEBUILD_SRC_DIR -jar uat/testing-features/target/client-devices-auth-testing-features.jar
 
 artifacts:
   files:
