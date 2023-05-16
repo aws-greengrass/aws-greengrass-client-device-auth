@@ -24,9 +24,32 @@
             <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
         </license>
     </licenses>
-
-    <dependencies>
-    </dependencies>
+    <profiles>
+        <profile>
+            <id>Unix</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                </os>
+            </activation>
+            <properties>
+                <script.executor>sh</script.executor>
+                <script.to.execute>scripts/produce_docker_container.sh</script.to.execute>
+            </properties>
+        </profile>
+        <profile>
+            <id>Windows</id>
+            <activation>
+                <os>
+                    <family>Windows</family>
+                </os>
+            </activation>
+            <properties>
+                <script.executor>cmd.exe</script.executor>
+                <script.to.execute>/C scripts\\rebuild_windows.bat</script.to.execute>
+            </properties>
+        </profile>
+    </profiles>
     <pluginRepositories>
         <pluginRepository>
             <id>yle-public</id>
@@ -51,13 +74,12 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <executable>scripts/produce_docker_container.sh</executable>
+                    <executable>${script.executor}</executable>
+                    <commandlineArgs>${script.to.execute}</commandlineArgs>
                 </configuration>
             </plugin>
         </plugins>
     </build>
-    <properties>
-    </properties>
     <distributionManagement>
         <snapshotRepository>
             <id>greengrass-dev-snapshot</id>
