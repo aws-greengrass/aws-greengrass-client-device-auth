@@ -161,7 +161,7 @@ class GRPCControlServer {
             MqttLib.ConnectionParams.ConnectionParamsBuilder connectionParamsBuilder
                     = MqttLib.ConnectionParams.builder()
                     .clientId(clientId)
-                    .host("tcp://".concat(host))
+                    .host("ssl://".concat(host))
                     .port(port)
                     .keepalive(keepalive)
                     .cleanSession(request.getCleanSession())

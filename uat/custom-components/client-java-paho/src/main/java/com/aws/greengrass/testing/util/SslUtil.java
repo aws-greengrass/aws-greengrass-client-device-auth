@@ -6,22 +6,23 @@
 package com.aws.greengrass.testing.util;
 
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.jcajce.util.DefaultJcaJceHelper;
+import org.bouncycastle.jcajce.util.JcaJceHelper;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
-import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 
-import java.io.BufferedInputStream;
-import java.io.FileReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.security.GeneralSecurityException;
-import java.security.KeyPair;
 import java.security.KeyStore;
+import java.security.PrivateKey;
 import java.security.Security;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.spec.PKCS8EncodedKeySpec;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
@@ -46,9 +47,9 @@ public final class SslUtil {
     /**
      * generate SSL socket factory.
      *
-     * @param caCrtFile client certification
-     * @param crtFile client certification
-     * @param keyFile client certification
+     * @param caCrtFile CA
+     * @param crtFile certification
+     * @param keyFile private key
      * @throws IOException on errors
      * @throws GeneralSecurityException on errors
      */
@@ -60,7 +61,7 @@ public final class SslUtil {
         // load CA certificate
         X509Certificate caCert = null;
 
-        BufferedInputStream bis = new BufferedInputStream(Files.newInputStream(Paths.get(caCrtFile)));
+        InputStream bis = new ByteArrayInputStream(caCrtFile.getBytes());
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
 
         while (bis.available() > 0) {
@@ -68,7 +69,7 @@ public final class SslUtil {
         }
 
         // load client certificate
-        bis = new BufferedInputStream(Files.newInputStream(Paths.get(crtFile)));
+        bis = new ByteArrayInputStream(crtFile.getBytes());
         X509Certificate cert = null;
         while (bis.available() > 0) {
             cert = (X509Certificate) cf.generateCertificate(bis);
@@ -87,13 +88,16 @@ public final class SslUtil {
         ks.setCertificateEntry("certificate", cert);
 
         // load client private key
-        PEMParser pemParser = new PEMParser(new FileReader(keyFile));
-        Object object = pemParser.readObject();
-        JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
-        pemParser.close();
-        KeyPair key = converter.getKeyPair((PEMKeyPair) object);
+        Object object;
+        try (PEMParser pemParser = new PEMParser(new InputStreamReader(new ByteArrayInputStream(keyFile.getBytes())))) {
+            object = pemParser.readObject();
+        }
+        PrivateKeyInfo keyInfo = (PrivateKeyInfo) object;
+        JcaJceHelper jcaJceHelper = new DefaultJcaJceHelper();
+        PrivateKey privateKey = jcaJceHelper.createKeyFactory(keyInfo.getPrivateKeyAlgorithm().getAlgorithm().getId())
+                .generatePrivate(new PKCS8EncodedKeySpec(keyInfo.getEncoded()));
 
-        ks.setKeyEntry("private-key", key.getPrivate(), "".toCharArray(),
+        ks.setKeyEntry("private-key", privateKey, "".toCharArray(),
                 new java.security.cert.Certificate[]{cert});
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory
                 .getDefaultAlgorithm());
