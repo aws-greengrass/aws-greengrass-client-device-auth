@@ -199,11 +199,6 @@
         </plugins>
     </build>
     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <skipTests>false</skipTests>
-        <groups></groups>
         <jar.name>client-devices-auth-uat-client-ipc</jar.name>
         <main.class>com.aws.greengrass.testing.ipc.client.Main</main.class>
     </properties>

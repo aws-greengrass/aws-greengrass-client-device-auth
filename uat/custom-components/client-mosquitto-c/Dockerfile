@@ -1,3 +1,4 @@
+# container to build agent
 FROM public.ecr.aws/lts/ubuntu:22.04_stable AS builder
 LABEL Description="Mosquitto MQTT client build environment"
 
@@ -31,3 +32,18 @@ RUN set -ex; \
 
 # Define the default command
 CMD ["bash"]
+
+
+# container to run agent
+FROM public.ecr.aws/lts/ubuntu:22.04_stable AS runner
+LABEL Description="Mosquitto MQTT client runtime environment"
+
+ENV HOME /root
+SHELL ["/bin/bash", "-c"]
+
+COPY --from=builder /usr/local/sbin/mosquitto-test-client /usr/local/sbin/mosquitto-test-client
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libmosquitto.so.1 /usr/lib/x86_64-linux-gnu/libmosquitto.so.1
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libmosquitto.so.2.0.11 /usr/lib/x86_64-linux-gnu/libmosquitto.so.2.0.11
+
+ENTRYPOINT [ "/usr/local/sbin/mosquitto-test-client" ]
+CMD [ "mosquitto_agent", "47619", "172.17.0.1", "127.0.0.1" ]

@@ -9,8 +9,8 @@ the `aws.greengrass.clientdevices.Auth` component.
 ### Requirements
 Some scenarios require to install and run the EMQX, Auth, IPDetector Greengrass components.
 
-#### Docker
-Because EMQX compoment running in a docker containter docker should be installed on workstation where scenario is running.
+#### Docker on Linux
+Because EMQX component running in a docker containter on Linux, docker should be installed on workstation where scenario is running.
 
 #### Privileges
 Also it requires privileges, for Greengrass components that means posix user which running Nucleus can execute sudo command without password requirement.
@@ -30,6 +30,17 @@ on Windows Powershell
 $Env:AWS_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID>
 $Env:AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY>
 ```
+
+- Configure user credentials for Windows devices
+    - create user ggc_user
+    - assign gcc_user to Administrators group and remove from Users group
+    - log out as your used and log in as ggc_user
+    - open cmd as Administrator
+
+
+- Configure user credentials for Linux devices
+    - create user ggc_user
+    - add ggc_user to docker group
 
 ### Build the test Jar
 For UATs to run you will need to package your entire application along with `aws-greengrass-testing-standalone` into
@@ -51,9 +62,15 @@ curl -s https://d2s8p88vqu9w66.cloudfront.net/releases/greengrass-nucleus-latest
 ### Run scenarios
 Execute the UATs by running the following commands from the root of the project.
 
-```
+```bash
 java -Dggc.archive=<path-to-nucleus-zip> -Dtest.log.path=<path-to-test-results-folder> -Dtags=GGMQ -jar <path-to-test-jar>
 java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags=GGMQ -jar uat/testing-features/target/client-devices-auth-testing-features.jar
+```
+
+On Windows
+Due to mosquitto-based client is not yet build on Windows use a little modified command.
+```cmd
+java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags="@GGMQ and not @mosquitto-c" -jar uat/testing-features/target/client-devices-auth-testing-features.jar
 ```
 
 Command arguments:

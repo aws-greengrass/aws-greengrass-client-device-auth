@@ -44,6 +44,9 @@
         <revision>1.0-SNAPSHOT</revision>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
+        <skipTests>false</skipTests>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
         <!-- Dependency versions -->
         <protobuf.plugin.version>0.6.1</protobuf.plugin.version>
         <protobuf.version>3.21.7</protobuf.version>
@@ -63,20 +66,22 @@
         <mockito.junit.jupiter.version>3.5.13</mockito.junit.jupiter.version>
         <mockito.inline.version>5.2.0</mockito.inline.version>
         <dagger.version>2.46</dagger.version>
+        <puppycrawl.checkstyle.version>8.29</puppycrawl.checkstyle.version>
+        <junit.version>5.9.2</junit.version>
+        <mockito.version>3.2.0</mockito.version>
+        <auto.service.version>1.0.1</auto.service.version>
+        <greengrass.testing.version>1.1.0-SNAPSHOT</greengrass.testing.version>
+
         <!-- Plugin versions -->
         <jar.plugin.version>3.3.0</jar.plugin.version>
         <shade.plugin.version>3.4.1</shade.plugin.version>
         <exec.plugin.version>3.1.0</exec.plugin.version>
         <license.plugin.version>4.2.rc3</license.plugin.version>
         <checkstyle.plugin.version>3.1.0</checkstyle.plugin.version>
-        <puppycrawl.checkstyle.version>8.29</puppycrawl.checkstyle.version>
         <pmd.plugin.version>3.20.0</pmd.plugin.version>
         <compiler.plugin.version>3.8.1</compiler.plugin.version>
         <spotbugs.plugin.version>4.0.0</spotbugs.plugin.version>
         <antrun.plugin.version>3.0.0</antrun.plugin.version>
         <surefire.plugin.version>3.0.0</surefire.plugin.version>
-        <junit.version>5.9.2</junit.version>
-        <mockito.version>3.2.0</mockito.version>
-        <auto.service.version>1.0.1</auto.service.version>
     </properties>
 </project>

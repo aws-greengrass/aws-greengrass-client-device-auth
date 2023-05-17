@@ -1,0 +1,31 @@
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+---
+RecipeFormatVersion: 2020-01-25
+ComponentName: aws.greengrass.client.MqttMosquittoClient
+ComponentVersion: 1.0.0
+ComponentDescription: MQTT 5.0/3.1.1 client based on Mosquitto C library
+ComponentPublisher: Amazon
+ComponentConfiguration:
+  DefaultConfiguration:
+    agentId: aws.greengrass.client.MqttMosquittoClient
+    controlAddresses: 127.0.0.1
+    controlPort: 47619
+    requiresPrivilege: false
+    startupTimeoutSeconds: 60
+Manifests:
+  - Artifacts:
+      - URI: classpath:/greengrass/artifacts/mosquitto-test-client.amd64.tar.gz
+        Permission:
+          Read: ALL
+          Execute: NONE
+    Lifecycle:
+      Install:
+        RequiresPrivilege: "{configuration:/requiresPrivilege}"
+        Script: |
+          docker rmi client-mosquitto-c:runner-amd64
+          docker load --input {artifacts:path}/mosquitto-test-client.amd64.tar.gz
+      Run:
+        Script: docker run --rm --name=client-mosquitto-c client-mosquitto-c:runner-amd64 "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}
