@@ -17,14 +17,31 @@
     </parent>
 
     <artifactId>client-devices-auth-testing-features</artifactId>
-
-    <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <skipTests>false</skipTests>
-        <greengrass.testing.version>1.1.0-SNAPSHOT</greengrass.testing.version>
-        <shade.plugin.version>3.4.1</shade.plugin.version>
-    </properties>
+    <profiles>
+        <profile>
+            <id>Unix</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                </os>
+            </activation>
+            <properties>
+                <mosquitto.agent.artifact>mosquitto-test-client.amd64.tar.gz</mosquitto.agent.artifact>
+            </properties>
+        </profile>
+        <profile>
+            <id>Windows</id>
+            <activation>
+                <os>
+                    <family>Windows</family>
+                </os>
+            </activation>
+            <properties>
+                <!-- TODO: replace to actual windows artifact -->
+                <mosquitto.agent.artifact>README.md</mosquitto.agent.artifact>
+            </properties>
+        </profile>
+    </profiles>
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -201,6 +218,9 @@
                                 <copy
                                         file="${project.basedir}/../custom-components/client-ipc/target/client-devices-auth-uat-client-ipc.jar"
                                         tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.IpcClient.jar"/>
+                                <copy
+                                        file="${project.basedir}/../custom-components/client-mosquitto-c/${mosquitto.agent.artifact}"
+                                        tofile="${project.basedir}/target/classes/greengrass/artifacts/${mosquitto.agent.artifact}"/>
                             </target>
                         </configuration>
                     </execution>

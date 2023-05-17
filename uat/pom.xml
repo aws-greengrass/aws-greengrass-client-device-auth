@@ -44,6 +44,9 @@
         <revision>1.0-SNAPSHOT</revision>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
+        <skipTests>false</skipTests>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
         <!-- Dependency versions -->
         <protobuf.plugin.version>0.6.1</protobuf.plugin.version>
         <protobuf.version>3.21.7</protobuf.version>
@@ -52,6 +55,8 @@
         <os.plugin.version>1.7.1</os.plugin.version>
         <lombok.version>1.18.22</lombok.version>
         <iot.device.sdk.version>1.11.2</iot.device.sdk.version>
+        <paho.agent.version>1.2.5</paho.agent.version>
+        <bouncycastle.version>1.70</bouncycastle.version>
         <tomcat.annotations.api.version>6.0.53</tomcat.annotations.api.version>
         <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
         <log4j.version>2.20.0</log4j.version>
@@ -61,6 +66,11 @@
         <mockito.junit.jupiter.version>3.5.13</mockito.junit.jupiter.version>
         <mockito.inline.version>5.2.0</mockito.inline.version>
         <dagger.version>2.46</dagger.version>
+        <puppycrawl.checkstyle.version>8.29</puppycrawl.checkstyle.version>
+        <junit.version>5.9.2</junit.version>
+        <mockito.version>3.2.0</mockito.version>
+        <auto.service.version>1.0.1</auto.service.version>
+        <greengrass.testing.version>1.1.0-SNAPSHOT</greengrass.testing.version>
         <wiremock.version>2.27.2</wiremock.version>
         <jackson.version>2.15.0</jackson.version>
         <!-- Plugin versions -->
@@ -69,14 +79,10 @@
         <exec.plugin.version>3.1.0</exec.plugin.version>
         <license.plugin.version>4.2.rc3</license.plugin.version>
         <checkstyle.plugin.version>3.1.0</checkstyle.plugin.version>
-        <puppycrawl.checkstyle.version>8.29</puppycrawl.checkstyle.version>
         <pmd.plugin.version>3.20.0</pmd.plugin.version>
         <compiler.plugin.version>3.8.1</compiler.plugin.version>
         <spotbugs.plugin.version>4.0.0</spotbugs.plugin.version>
         <antrun.plugin.version>3.0.0</antrun.plugin.version>
         <surefire.plugin.version>3.0.0</surefire.plugin.version>
-        <junit.version>5.9.2</junit.version>
-        <mockito.version>3.2.0</mockito.version>
-        <auto.service.version>1.0.1</auto.service.version>
     </properties>
 </project>
