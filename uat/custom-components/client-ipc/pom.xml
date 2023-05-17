@@ -125,7 +125,7 @@
                         <exclude>**/generated/*.java</exclude>
                     </excludes>
                     <excludeRoots>
-                        <excludeRoot>target/generated-sources/protobuf</excludeRoot>
+                        <excludeRoot>target/generated-sources</excludeRoot>
                     </excludeRoots>
                 </configuration>
                 <executions>
