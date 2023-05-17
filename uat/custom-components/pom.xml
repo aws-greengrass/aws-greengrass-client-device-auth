@@ -21,5 +21,6 @@
     <modules>
         <module>client-java-sdk</module>
         <module>client-ipc</module>
+        <module>client-java-paho</module>
     </modules>
 </project>

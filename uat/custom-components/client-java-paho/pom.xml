@@ -15,7 +15,7 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>client-devices-auth-uat-client-java-sdk</artifactId>
+    <artifactId>client-devices-auth-uat-client-java-paho</artifactId>
     <packaging>jar</packaging>
 
     <licenses>
@@ -47,12 +47,23 @@
             <artifactId>log4j-core</artifactId>
             <version>${log4j.version}</version>
         </dependency>
+
         <dependency>
-            <groupId>software.amazon.awssdk.iotdevicesdk</groupId>
-            <artifactId>aws-iot-device-sdk</artifactId>
-            <version>${iot.device.sdk.version}</version>
-            <scope>compile</scope>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+            <version>${paho.agent.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.mqttv5.client</artifactId>
+            <version>${paho.agent.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk15on</artifactId>
+            <version>${bouncycastle.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-bom</artifactId>
@@ -143,7 +154,7 @@
                 <configuration>
                     <mainClass>${main.class}</mainClass>
                     <arguments>
-                        <argument>sdk-java-agent</argument>
+                        <argument>paho-java-agent</argument>
                     </arguments>
                 </configuration>
             </plugin>
@@ -349,7 +360,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <skipTests>false</skipTests>
         <groups></groups>
-        <jar.name>client-devices-auth-uat-client-java-sdk</jar.name>
+        <jar.name>client-devices-auth-uat-client-java-paho</jar.name>
         <main.class>com.aws.greengrass.testing.mqtt5.client.Main</main.class>
     </properties>
     <distributionManagement>
