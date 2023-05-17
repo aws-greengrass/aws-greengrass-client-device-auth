@@ -61,6 +61,8 @@
         <mockito.junit.jupiter.version>3.5.13</mockito.junit.jupiter.version>
         <mockito.inline.version>5.2.0</mockito.inline.version>
         <dagger.version>2.46</dagger.version>
+        <wiremock.version>2.27.2</wiremock.version>
+        <jackson.version>2.15.0</jackson.version>
         <!-- Plugin versions -->
         <jar.plugin.version>3.3.0</jar.plugin.version>
         <shade.plugin.version>3.4.1</shade.plugin.version>
