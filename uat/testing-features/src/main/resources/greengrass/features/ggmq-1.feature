@@ -172,7 +172,8 @@ Feature: GGMQ-1
                }
            }
        },
-       "topicsToSubscribe": "topic/to/pubsub,topic/device1/humidity,topic/device2/temperature,prefix/topic/with/prefix"
+       "topicsToSubscribe": "topic/to/pubsub,topic/device1/humidity,topic/device2/temperature,prefix/topic/with/prefix",
+       "assertionServerUrl": "${assertionServerUrl}"
    }
 }
     """
