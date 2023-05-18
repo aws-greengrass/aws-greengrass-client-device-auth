@@ -6,23 +6,21 @@
 package com.aws.greengrass.testing.util;
 
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
-import org.bouncycastle.jcajce.util.DefaultJcaJceHelper;
-import org.bouncycastle.jcajce.util.JcaJceHelper;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.security.GeneralSecurityException;
+import java.security.KeyPair;
 import java.security.KeyStore;
-import java.security.PrivateKey;
 import java.security.Security;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.security.spec.PKCS8EncodedKeySpec;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
@@ -47,13 +45,12 @@ public final class SslUtil {
     /**
      * generate SSL socket factory.
      *
-     * @param caCrtFile CA
+     * @param caCrtFile certificate authority
      * @param crtFile certification
      * @param keyFile private key
      * @throws IOException on errors
      * @throws GeneralSecurityException on errors
      */
-    @SuppressWarnings({"PMD.CloseResource", "PMD.AvoidFileStream"})
     public static SSLSocketFactory getSocketFactory(final String caCrtFile, final String crtFile, final String keyFile)
             throws IOException, GeneralSecurityException {
         Security.addProvider(new BouncyCastleProvider());
@@ -89,15 +86,14 @@ public final class SslUtil {
 
         // load client private key
         Object object;
+        KeyPair key;
         try (PEMParser pemParser = new PEMParser(new InputStreamReader(new ByteArrayInputStream(keyFile.getBytes())))) {
             object = pemParser.readObject();
-        }
-        PrivateKeyInfo keyInfo = (PrivateKeyInfo) object;
-        JcaJceHelper jcaJceHelper = new DefaultJcaJceHelper();
-        PrivateKey privateKey = jcaJceHelper.createKeyFactory(keyInfo.getPrivateKeyAlgorithm().getAlgorithm().getId())
-                .generatePrivate(new PKCS8EncodedKeySpec(keyInfo.getEncoded()));
+            JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
+            key = converter.getKeyPair((PEMKeyPair) object);
 
-        ks.setKeyEntry("private-key", privateKey, "".toCharArray(),
+        }
+        ks.setKeyEntry("private-key", key.getPrivate(), "".toCharArray(),
                 new java.security.cert.Certificate[]{cert});
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory
                 .getDefaultAlgorithm());

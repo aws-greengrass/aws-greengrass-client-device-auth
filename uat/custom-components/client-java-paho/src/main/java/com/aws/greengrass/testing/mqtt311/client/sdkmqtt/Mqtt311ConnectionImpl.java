@@ -31,7 +31,6 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final String EXCEPTION_WHEN_CONFIGURE_SSL_CA = "Exception occurred during SSL configuration";
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
-    private final AtomicBoolean isConnected = new AtomicBoolean();
     private final IMqttClient mqttClient;
     private int connectionId = 0;
 
@@ -55,7 +54,6 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             MqttConnectOptions connectOptions = convertParams(connectionParams);
             IMqttToken token = mqttClient.connectWithResult(connectOptions);
             token.waitForCompletion();
-            isConnected.set(true);
             logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
             return buildConnectResult(true, token.isComplete());
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {

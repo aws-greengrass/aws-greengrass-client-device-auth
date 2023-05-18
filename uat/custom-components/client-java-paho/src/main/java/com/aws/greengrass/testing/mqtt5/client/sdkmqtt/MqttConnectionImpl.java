@@ -17,6 +17,7 @@ import org.eclipse.paho.mqttv5.client.IMqttToken;
 import org.eclipse.paho.mqttv5.client.MqttClient;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
+import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -45,7 +46,6 @@ public class MqttConnectionImpl implements MqttConnection {
         this.client = createClient(connectionParams);
     }
 
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
     public ConnectResult start(MqttLib.ConnectionParams connectionParams, int connectionId) throws MqttException {
         try {
@@ -59,13 +59,12 @@ public class MqttConnectionImpl implements MqttConnection {
         }
     }
 
-    @SuppressWarnings({"PMD.UseTryWithResources", "PMD.AvoidCatchingGenericException"})
     @Override
     public void disconnect(long timeout, int reasonCode) throws MqttException {
         if (!isClosing.getAndSet(true)) {
             try {
                 disconnectAndClose(timeout);
-            } catch (Exception ex) {
+            } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnecting from MQTT broker");
                 throw new MqttException("Could not disconnect", ex);
             }
@@ -111,19 +110,32 @@ public class MqttConnectionImpl implements MqttConnection {
         if (token == null) {
             return null;
         }
-        Integer reasonCode = token.getReasonCodes().length == 0 ? null : token.getReasonCodes()[0];
+        Integer sessionExpiryInterval = null;
+        Boolean wildcardSubscriptionsAvailable = null;
+        Boolean subscriptionIdentifiersAvailable = null;
+        Boolean sharedSubscriptionAvailable = null;
+
+        MqttProperties requestProperties = token.getRequestProperties();
+        if (requestProperties != null) {
+            sessionExpiryInterval = convertLongToInteger(requestProperties.getSessionExpiryInterval());
+            wildcardSubscriptionsAvailable = requestProperties.isWildcardSubscriptionsAvailable();
+            subscriptionIdentifiersAvailable = requestProperties.isSubscriptionIdentifiersAvailable();
+            sharedSubscriptionAvailable = requestProperties.isSharedSubscriptionAvailable();
+        }
+        int[] reasonCodes = token.getReasonCodes();
+        Integer reasonCode = reasonCodes == null ? null : reasonCodes[0];
         return new ConnAckInfo(token.getSessionPresent(),
                 reasonCode,
-                convertLongToInteger(token.getRequestProperties().getSessionExpiryInterval()),
+                sessionExpiryInterval,
                 token.getResponseProperties().getReceiveMaximum(),
                 token.getResponseProperties().getMaximumQoS(),
                 token.getResponseProperties().isRetainAvailable(),
                 convertLongToInteger(token.getResponseProperties().getMaximumPacketSize()),
                 token.getResponseProperties().getAssignedClientIdentifier(),
                 token.getResponseProperties().getReasonString(),
-                token.getRequestProperties().isWildcardSubscriptionsAvailable(),
-                token.getRequestProperties().isSubscriptionIdentifiersAvailable(),
-                token.getRequestProperties().isSharedSubscriptionAvailable(),
+                wildcardSubscriptionsAvailable,
+                subscriptionIdentifiersAvailable,
+                sharedSubscriptionAvailable,
                 token.getResponseProperties().getServerKeepAlive(),
                 token.getResponseProperties().getResponseInfo(),
                 token.getResponseProperties().getServerReference()
