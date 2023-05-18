@@ -11,7 +11,7 @@ ComponentDescription: IPC Client for tests
 ComponentPublisher: Amazon
 ComponentDependencies:
   aws.greengrass.clientdevices.mqtt.Bridge:
-    VersionRequirement: ">=1.0.0"
+    VersionRequirement: ">=2.0.0"
     DependencyType: HARD
 ComponentConfiguration:
   DefaultConfiguration:
