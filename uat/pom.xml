@@ -71,7 +71,8 @@
         <mockito.version>3.2.0</mockito.version>
         <auto.service.version>1.0.1</auto.service.version>
         <greengrass.testing.version>1.1.0-SNAPSHOT</greengrass.testing.version>
-
+        <wiremock.version>2.27.2</wiremock.version>
+        <jackson.version>2.15.0</jackson.version>
         <!-- Plugin versions -->
         <jar.plugin.version>3.3.0</jar.plugin.version>
         <shade.plugin.version>3.4.1</shade.plugin.version>

@@ -81,14 +81,15 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
-  Scenario: GGMQ-1-T8: As a customer, I can configure local MQTT messages to be forwarded to a PubSub topic
+  Scenario Outline: GGMQ-1-T8-<mqtt-v>-<name>: As a customer, I can configure local MQTT messages to be forwarded to a PubSub topic
+    When I start an assertion server
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                                        |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                        |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
-      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                                        |
-      | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
-      | aws.greengrass.client.IpcClient          | classpath:/greengrass/components/recipes/client_ipc.yaml      |
+      | aws.greengrass.clientdevices.Auth        | LATEST                                                   |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                   |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                                   |
+      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                                   |
+      | <agent>                                  | classpath:/greengrass/components/recipes/<recipe>        |
+      | aws.greengrass.client.IpcClient          | classpath:/greengrass/components/recipes/client_ipc.yaml |
     And I create client device "publisher"
     When I associate "publisher" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.Bridge configuration to:
@@ -150,7 +151,7 @@ Feature: GGMQ-1
    }
 }
     """
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.client.Mqtt5JavaSdkClient configuration to:
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
     """
 {
    "MERGE":{
@@ -172,23 +173,45 @@ Feature: GGMQ-1
                }
            }
        },
-       "topicsToSubscribe": "topic/to/pubsub,topic/device1/humidity,topic/device2/temperature,prefix/topic/with/prefix"
+       "topicsToSubscribe": "topic/to/pubsub,topic/device1/humidity,topic/device2/temperature,prefix/topic/with/prefix",
+       "assertionServerUrl": "${assertionServerUrl}"
    }
 }
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
     Then I discover core device broker as "localMqttBroker" from "publisher"
-    And I connect device "publisher" on aws.greengrass.client.Mqtt5JavaSdkClient to "localMqttBroker"
-    And I wait 10 seconds
+    And I connect device "publisher" on <agent> to "localMqttBroker" using mqtt "<mqtt-v>"
+    And I wait 5 seconds
     When I publish from "publisher" to "topic/to/pubsub" with qos 1 and message "Hello world"
-    Then the aws.greengrass.client.IpcClient log on the device contains the line "RECEIVED TOPIC=topic/to/pubsub, MESSAGE: Hello world" within 30 seconds
     When I publish from "publisher" to "topic/device1/humidity" with qos 1 and message "device1 humidity"
-    Then the aws.greengrass.client.IpcClient log on the device contains the line "RECEIVED TOPIC=topic/device1/humidity, MESSAGE: device1 humidity" within 30 seconds
     When I publish from "publisher" to "topic/device2/temperature" with qos 1 and message "device2 temperature"
-    Then the aws.greengrass.client.IpcClient log on the device contains the line "RECEIVED TOPIC=topic/device2/temperature, MESSAGE: device2 temperature" within 30 seconds
     When I publish from "publisher" to "topic/with/prefix" with qos 1 and message "topicPrefix message"
-    Then the aws.greengrass.client.IpcClient log on the device contains the line "RECEIVED TOPIC=prefix/topic/with/prefix, MESSAGE: topicPrefix message" within 30 seconds
+    Then I wait 5 seconds
+    And I get 1 assertions with context "ReceivedPubsubMessage" and message "Hello world"
+    And I get 1 assertions with context "ReceivedPubsubMessage" and message "device1 humidity"
+    And I get 1 assertions with context "ReceivedPubsubMessage" and message "device2 temperature"
+    And I get 1 assertions with context "ReceivedPubsubMessage" and message "topicPrefix message"
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name     | agent                                    | recipe               |
+      | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml |
+
+    @mqtt3 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name     | agent                                    | recipe               |
+      | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml |
+
+    @mqtt5 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
   Scenario Outline: GGMQ-1-T13-<mqtt-v>: As a customer, I can connect two GGADs and send message from one GGAD to the other based on CDA configuration
     When I create a Greengrass deployment with components
