@@ -82,6 +82,7 @@ Feature: GGMQ-1
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
   Scenario Outline: GGMQ-1-T8-<mqtt-v>-<name>: As a customer, I can configure local MQTT messages to be forwarded to a PubSub topic
+    When I start an assertion server
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                                   |
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                   |
