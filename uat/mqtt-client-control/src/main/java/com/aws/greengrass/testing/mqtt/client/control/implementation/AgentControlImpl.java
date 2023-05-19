@@ -197,6 +197,17 @@ public class AgentControlImpl implements AgentControl {
     }
 
     /**
+     * Checks is agent receives request on that gRPC server address.
+     *
+     * @param the address address of gRPC server of agent (MQTT client)
+     * @param the port port of gRPC server of agent (MQTT client)
+     * @return true when address is the same
+     */
+    boolean isOnThatAddress(@NonNull String address, int port) {
+        return this.port == port && this.address.equals(address);
+    }
+
+    /**
      * Do MQTT subscription(s).
      *
      * @param subscribeRequest subscribe request

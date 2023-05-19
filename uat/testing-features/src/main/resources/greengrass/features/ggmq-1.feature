@@ -333,6 +333,7 @@ Feature: GGMQ-1
       | v3     | SUCCESS          | 0              | SUCCESS               |
       | v5     | NOT_AUTHORIZED   | 16             | GRANTED_QOS_1         |
 
+  @GGMQ-1-T14
   Scenario: GGMQ-1-T14: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                                        |
