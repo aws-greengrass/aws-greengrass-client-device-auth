@@ -65,6 +65,11 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <version>${jupiter.api.version}</version>
@@ -125,7 +130,7 @@
                         <exclude>**/generated/*.java</exclude>
                     </excludes>
                     <excludeRoots>
-                        <excludeRoot>target/generated-sources/protobuf</excludeRoot>
+                        <excludeRoot>target/generated-sources</excludeRoot>
                     </excludeRoots>
                 </configuration>
                 <executions>
@@ -199,11 +204,6 @@
         </plugins>
     </build>
     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <skipTests>false</skipTests>
-        <groups></groups>
         <jar.name>client-devices-auth-uat-client-ipc</jar.name>
         <main.class>com.aws.greengrass.testing.ipc.client.Main</main.class>
     </properties>

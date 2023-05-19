@@ -9,16 +9,21 @@ ComponentName: aws.greengrass.client.IpcClient
 ComponentVersion: '1.0.0'
 ComponentDescription: IPC Client for tests
 ComponentPublisher: Amazon
+ComponentDependencies:
+  aws.greengrass.clientdevices.mqtt.Bridge:
+    VersionRequirement: ">=2.0.0"
+    DependencyType: HARD
 ComponentConfiguration:
   DefaultConfiguration:
     topicsToSubscribe: "*"
+    assertionServerUrl: http://localhost:8080
 
 Manifests:
   - Artifacts:
       - URI: classpath:/greengrass/artifacts/aws.greengrass.client.IpcClient.jar
         Permission:
           Read: ALL
-          Execute: ALL
+          Execute: NONE
     Lifecycle:
       Run: |
-        java -DcomponentName="LocalIpcSubscriber" -jar "{artifacts:path}/aws.greengrass.client.IpcClient.jar" "{configuration:/topicsToSubscribe}"
+        java -DcomponentName="LocalIpcSubscriber" -jar "{artifacts:path}/aws.greengrass.client.IpcClient.jar" "{configuration:/topicsToSubscribe}" "{configuration:/assertionServerUrl}"

@@ -20,7 +20,7 @@ Manifests:
       - URI: classpath:/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar
         Permission:
           Read: ALL
-          Execute: ALL
+          Execute: NONE
     Lifecycle:
       Run: |
         java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}
