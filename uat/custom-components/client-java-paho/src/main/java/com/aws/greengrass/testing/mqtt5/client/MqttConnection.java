@@ -5,10 +5,12 @@
 
 package com.aws.greengrass.testing.mqtt5.client;
 
+import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NonNull;
 
 import java.util.List;
 
@@ -158,6 +160,15 @@ public interface MqttConnection {
      * @throws MqttException on errors
      */
     ConnectResult start(MqttLib.ConnectionParams connectionParams, int connectionId) throws MqttException;
+
+    /**
+     * Subscribes to topics.
+     *
+     * @param timeout subscribe operation timeout in seconds
+     * @param subscriptions list of subscriptions
+     * @return useful information from SUBACK packet
+     */
+    MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions);
 
     /**
      * Closes MQTT connection.

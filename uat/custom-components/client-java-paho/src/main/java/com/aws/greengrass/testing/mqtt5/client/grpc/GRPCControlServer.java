@@ -7,12 +7,15 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 
 import com.aws.greengrass.testing.mqtt.client.Empty;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttClientControlGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttCloseRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectReply;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttProtoVersion;
+import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
+import com.aws.greengrass.testing.mqtt.client.MqttSubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.ShutdownRequest;
 import com.aws.greengrass.testing.mqtt.client.TLSSettings;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
@@ -29,6 +32,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -38,9 +42,12 @@ import java.util.concurrent.atomic.AtomicReference;
 class GRPCControlServer {
     private static final Logger logger = LogManager.getLogger(GRPCControlServer.class);
 
+    private static final int QOS_MIN = 0;
+    private static final int QOS_MAX = 2;
     private static final String CONNECTION_WITH_DOES_NOT_FOUND = "connection with id {} doesn't found";
     private static final String CONNECTION_DOES_NOT_FOUND = "connection doesn't found";
-
+    private static final int RETAIN_HANDLING_MIN = 0;
+    private static final int RETAIN_HANDLING_MAX = 2;
     private static final int TIMEOUT_MIN = 1;
 
     private static final int PORT_MIN = 1;
@@ -281,6 +288,101 @@ class GRPCControlServer {
 
             Empty reply = Empty.newBuilder().build();
             responseObserver.onNext(reply);
+            responseObserver.onCompleted();
+        }
+
+        /**
+         * Handler of SubscribeMqtt gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
+        @SuppressWarnings("PMD.CognitiveComplexity")
+        @Override
+        public void subscribeMqtt(MqttSubscribeRequest request, StreamObserver<MqttSubscribeReply> responseObserver) {
+
+            int timeout = request.getTimeout();
+            if (timeout < TIMEOUT_MIN) {
+                logger.atWarn().log("invalid subscribe timeout {}, must be >= {}", timeout, TIMEOUT_MIN);
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                        .withDescription("invalid subscribe timeout, must be >= 1")
+                        .asRuntimeException());
+                return;
+            }
+
+            if (request.hasSubscriptionId()) {
+                logger.warn("paho-agent doesn't support getSubscriptionId {}", request.getSubscriptionId());
+            }
+            List<Mqtt5Subscription> subscriptions = request.getSubscriptionsList();
+            if (subscriptions.isEmpty()) {
+                logger.atWarn().log("empty subscriptions list");
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                        .withDescription("empty subscriptions list")
+                        .asRuntimeException());
+                return;
+            }
+
+            List<MqttConnection.Subscription> outSubscriptions = new ArrayList<>();
+            int index = 0;
+            for (Mqtt5Subscription subscription : subscriptions) {
+                String filter = subscription.getFilter();
+                if (filter == null || filter.isEmpty()) {
+                    logger.atWarn().log("empty filter at subscription index {}", index);
+                    responseObserver.onError(Status.INVALID_ARGUMENT
+                            .withDescription("empty filter")
+                            .asRuntimeException());
+                    return;
+                }
+
+                int qos = subscription.getQosValue();
+                if (qos < QOS_MIN || qos > QOS_MAX) {
+                    logger.atWarn().log("invalid QoS {} at subscription index {}, must be in range [{},{}]",
+                            qos, index, QOS_MIN, QOS_MAX);
+                    responseObserver.onError(Status.INVALID_ARGUMENT
+                            .withDescription("invalid QoS, must be in range [0,2]")
+                            .asRuntimeException());
+                    return;
+                }
+
+                int retainHandling = subscription.getRetainHandlingValue();
+                if (retainHandling < RETAIN_HANDLING_MIN || retainHandling > RETAIN_HANDLING_MAX) {
+                    logger.atWarn().log("invalid retainHandling {} at subscription index {}, must be in range [{},{}]",
+                            qos, index, RETAIN_HANDLING_MIN, RETAIN_HANDLING_MAX);
+                    responseObserver.onError(Status.INVALID_ARGUMENT
+                            .withDescription("invalid retainHandling, must be in range [0,2]")
+                            .asRuntimeException());
+                    return;
+                }
+
+                boolean noLocal = subscription.getNoLocal();
+                boolean retainAsPublished = subscription.getRetainAsPublished();
+                MqttConnection.Subscription tmp = new MqttConnection.Subscription(filter, qos, noLocal,
+                        retainAsPublished, retainHandling);
+                logger.atInfo().log("Subscription: filter {} QoS {} noLocal {} retainAsPublished {} retainHandling {}",
+                        filter, qos, noLocal, retainAsPublished, retainHandling);
+                outSubscriptions.add(tmp);
+                index++;
+            }
+
+            int connectionId = request.getConnectionId().getConnectionId();
+            MqttConnection connection = mqttLib.getConnection(connectionId);
+            if (connection == null) {
+                logger.atWarn().log(CONNECTION_WITH_DOES_NOT_FOUND, connectionId);
+                responseObserver.onError(Status.NOT_FOUND
+                        .withDescription(CONNECTION_DOES_NOT_FOUND)
+                        .asRuntimeException());
+                return;
+            }
+            logger.atInfo().log("Subscribe: connectionId {} for {} filters",
+                    connectionId, outSubscriptions.size());
+
+            // TODO: pass also user's properties
+            MqttSubscribeReply subscribeReply = connection.subscribe(timeout, outSubscriptions);
+            if (subscribeReply != null) {
+                logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string {}",
+                        connectionId, subscribeReply.getReasonCodesList(), subscribeReply.getReasonString());
+            }
+            responseObserver.onNext(subscribeReply);
             responseObserver.onCompleted();
         }
 

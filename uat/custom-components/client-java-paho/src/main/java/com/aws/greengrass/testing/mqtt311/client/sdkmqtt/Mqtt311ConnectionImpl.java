@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt311.client.sdkmqtt;
 
+import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -19,6 +20,7 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.net.ssl.SSLSocketFactory;
 
@@ -63,6 +65,23 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             logger.atError().withThrowable(e).log(EXCEPTION_WHEN_CONFIGURE_SSL_CA);
             throw new MqttException(EXCEPTION_WHEN_CONFIGURE_SSL_CA, e);
         }
+    }
+
+    @Override
+    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions) {
+        if (subscriptions.size() != 1) {
+            throw new IllegalArgumentException("Iot device SDK MQTT v3.1.1 client does not support to subscribe on "
+                    + "multiple filters at once");
+        }
+        MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
+        try {
+            mqttClient.subscribeWithResponse(subscriptions.get(0).getFilter(), subscriptions.get(0).getQos());
+            builder.addReasonCodes(0);
+        } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
+            builder.addReasonCodes(e.getReasonCode());
+            builder.setReasonString(e.getMessage());
+        }
+        return builder.build();
     }
 
     @Override

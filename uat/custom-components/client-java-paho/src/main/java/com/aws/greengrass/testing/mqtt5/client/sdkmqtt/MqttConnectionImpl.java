@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
 
+import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -21,7 +22,10 @@ import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import javax.net.ssl.SSLSocketFactory;
 
 /**
@@ -51,12 +55,33 @@ public class MqttConnectionImpl implements MqttConnection {
         try {
             MqttConnectionOptions connectionOptions = convertParams(connectionParams);
             IMqttToken token = client.connectWithResult(connectionOptions);
-            token.waitForCompletion();
+            token.waitForCompletion(connectionParams.getConnectionTimeout() * 1000L);
             return buildConnectResult(true, token);
         } catch (IOException | GeneralSecurityException | org.eclipse.paho.mqttv5.common.MqttException ex) {
             logger.atError().withThrowable(ex).log("Exception occurred during connect");
             throw new MqttException("Exception occurred during connect", ex);
         }
+    }
+
+    @Override
+    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions) {
+        String[] filters = new String[subscriptions.size()];
+        int[] qos = new int[subscriptions.size()];
+        for (int i = 0; i < subscriptions.size(); i++) {
+            filters[i] = subscriptions.get(i).getFilter();
+            qos[i] = subscriptions.get(i).getQos();
+        }
+        MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
+        try {
+            IMqttToken response = client.subscribe(filters, qos);
+            response.waitForCompletion(timeout * 1000L);
+            List<Integer> reasonCodes = Arrays.stream(response.getReasonCodes()).boxed().collect(Collectors.toList());
+            builder.addAllReasonCodes(reasonCodes);
+        } catch (org.eclipse.paho.mqttv5.common.MqttException e) {
+            builder.addReasonCodes(e.getReasonCode());
+            builder.setReasonString(e.getMessage());
+        }
+        return builder.build();
     }
 
     @Override
