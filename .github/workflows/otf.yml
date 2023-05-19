@@ -6,9 +6,14 @@ name: OTF UATS
 
 on:
   push:
-    branches: 'main'
+    branches:
+      - main
+      - uat-dev
+      - GGMQ-211-codebuild
   pull_request:
-    branches: 'main'
+    branches:
+      - main
+      - uat-dev
 
 jobs:
   uat-linux:
@@ -24,7 +29,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         with:
           role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
-          role-session-name: logManagerCI
+          role-session-name: clientDeviceAuthCI
           aws-region: ${{ env.AWS_REGION }}
       - name: Run UAT on linux
         uses: aws-actions/aws-codebuild-run-build@v1
