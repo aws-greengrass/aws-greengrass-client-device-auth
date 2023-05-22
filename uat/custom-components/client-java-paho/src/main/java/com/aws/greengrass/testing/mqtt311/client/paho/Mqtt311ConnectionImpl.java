@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.testing.mqtt311.client.sdkmqtt;
+package com.aws.greengrass.testing.mqtt311.client.paho;
 
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import com.aws.greengrass.testing.util.SslUtil;
+import com.aws.greengrass.testing.util.TimeUtil;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -55,7 +56,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         try {
             MqttConnectOptions connectOptions = convertParams(connectionParams);
             IMqttToken token = mqttClient.connectWithResult(connectOptions);
-            token.waitForCompletion();
+            token.waitForCompletion(connectionParams.getConnectionTimeout());
             logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
             return buildConnectResult(true, token.isComplete());
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
@@ -69,13 +70,16 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     @Override
     public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions) {
-        if (subscriptions.size() != 1) {
-            throw new IllegalArgumentException("Iot device SDK MQTT v3.1.1 client does not support to subscribe on "
-                    + "multiple filters at once");
+        String[] filters = new String[subscriptions.size()];
+        int[] qos = new int[subscriptions.size()];
+        for (int i = 0; i < subscriptions.size(); i++) {
+            filters[i] = subscriptions.get(i).getFilter();
+            qos[i] = subscriptions.get(i).getQos();
         }
         MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
         try {
-            mqttClient.subscribeWithResponse(subscriptions.get(0).getFilter(), subscriptions.get(0).getQos());
+            IMqttToken token = mqttClient.subscribeWithResponse(filters, qos);
+            token.waitForCompletion(TimeUtil.secondToMls(timeout));
             builder.addReasonCodes(0);
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
             builder.addReasonCodes(e.getReasonCode());
@@ -111,7 +115,6 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             throws GeneralSecurityException, IOException {
         MqttConnectOptions connectionOptions = new MqttConnectOptions();
         connectionOptions.setServerURIs(new String[]{connectionParams.getHost()});
-        connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
         SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
         connectionOptions.setSocketFactory(sslSocketFactory);
         return connectionOptions;
