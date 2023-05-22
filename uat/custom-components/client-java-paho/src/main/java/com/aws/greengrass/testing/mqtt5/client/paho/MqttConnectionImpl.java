@@ -10,7 +10,6 @@ import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import com.aws.greengrass.testing.util.SslUtil;
-import com.aws.greengrass.testing.util.TimeUtil;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,6 +24,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLSocketFactory;
@@ -56,7 +56,7 @@ public class MqttConnectionImpl implements MqttConnection {
         try {
             MqttConnectionOptions connectionOptions = convertParams(connectionParams);
             IMqttToken token = client.connectWithResult(connectionOptions);
-            token.waitForCompletion(TimeUtil.secondToMls(connectionParams.getConnectionTimeout()));
+            token.waitForCompletion(TimeUnit.SECONDS.toMillis(connectionParams.getConnectionTimeout()));
             return buildConnectResult(true, token, null);
         } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
             logger.atError().withThrowable(ex).log("Exception occurred during connect reason code {}",
@@ -79,7 +79,7 @@ public class MqttConnectionImpl implements MqttConnection {
         MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
         try {
             IMqttToken response = client.subscribe(filters, qos);
-            response.waitForCompletion(TimeUtil.secondToMls(timeout));
+            response.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
             List<Integer> reasonCodes = Arrays.stream(response.getReasonCodes()).boxed().collect(Collectors.toList());
             builder.addAllReasonCodes(reasonCodes);
             MqttProperties responseProps = response.getResponseProperties();

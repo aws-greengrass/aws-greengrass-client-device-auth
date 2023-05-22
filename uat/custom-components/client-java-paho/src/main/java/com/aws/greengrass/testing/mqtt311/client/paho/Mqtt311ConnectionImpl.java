@@ -10,7 +10,6 @@ import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import com.aws.greengrass.testing.util.SslUtil;
-import com.aws.greengrass.testing.util.TimeUtil;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,6 +21,7 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.net.ssl.SSLSocketFactory;
 
@@ -79,7 +79,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
         try {
             IMqttToken token = mqttClient.subscribeWithResponse(filters, qos);
-            token.waitForCompletion(TimeUtil.secondToMls(timeout));
+            token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
             builder.addReasonCodes(0);
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
             builder.addReasonCodes(e.getReasonCode());
