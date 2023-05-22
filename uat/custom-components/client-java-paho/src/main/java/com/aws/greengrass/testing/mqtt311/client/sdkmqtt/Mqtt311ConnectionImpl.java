@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt311.client.sdkmqtt;
 
+import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -16,6 +17,7 @@ import org.eclipse.paho.client.mqttv3.IMqttClient;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -74,6 +76,26 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 throw new MqttException("Could not disconnect", e);
             }
         }
+    }
+
+    @Override
+    public MqttPublishReply publish(long timeout, @NonNull Message message) {
+        MqttMessage mqttMessage = new MqttMessage();
+        mqttMessage.setQos(message.getQos());
+        mqttMessage.setPayload(message.getPayload());
+        mqttMessage.setRetained(message.isRetain());
+        MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
+        try {
+            mqttClient.publish(message.getTopic(), mqttMessage);
+            builder.setReasonCode(0);
+        } catch (org.eclipse.paho.client.mqttv3.MqttException ex) {
+            logger.atError().withThrowable(ex)
+                    .log("Failed during publishing message with reasonCode {} and reasonString {}",
+                            ex.getReasonCode(), ex.getMessage());
+            builder.setReasonCode(ex.getReasonCode());
+            builder.setReasonString(ex.getMessage());
+        }
+        return builder.build();
     }
 
     /**

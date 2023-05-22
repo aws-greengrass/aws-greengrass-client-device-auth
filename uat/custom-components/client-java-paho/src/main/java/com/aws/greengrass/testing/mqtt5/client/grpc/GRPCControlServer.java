@@ -7,12 +7,15 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 
 import com.aws.greengrass.testing.mqtt.client.Empty;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.MqttClientControlGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttCloseRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectReply;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttProtoVersion;
+import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
+import com.aws.greengrass.testing.mqtt.client.MqttPublishRequest;
 import com.aws.greengrass.testing.mqtt.client.ShutdownRequest;
 import com.aws.greengrass.testing.mqtt.client.TLSSettings;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
@@ -45,7 +48,8 @@ class GRPCControlServer {
 
     private static final int PORT_MIN = 1;
     private static final int PORT_MAX = 65_535;
-
+    private static final int QOS_MIN = 0;
+    private static final int QOS_MAX = 2;
     private static final int KEEPALIVE_OFF = 0;
     private static final int KEEPALIVE_MIN = 5;
     private static final int KEEPALIVE_MAX = 65_535;
@@ -150,11 +154,7 @@ class GRPCControlServer {
             }
 
             int timeout = request.getTimeout();
-            if (timeout < TIMEOUT_MIN) {
-                logger.atWarn().log("invalid connect timeout {} must be >= {}", timeout, TIMEOUT_MIN);
-                responseObserver.onError(Status.INVALID_ARGUMENT
-                        .withDescription("invalid connect timeout, must be >= 1")
-                        .asRuntimeException());
+            if (!isValidTimeout(timeout, "connect", responseObserver)) {
                 return;
             }
 
@@ -234,6 +234,57 @@ class GRPCControlServer {
         }
 
         /**
+         * Handler of PublishMqtt gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
+        @Override
+        public void publishMqtt(MqttPublishRequest request, StreamObserver<MqttPublishReply> responseObserver) {
+
+            Mqtt5Message message = request.getMsg();
+
+            int qos = message.getQosValue();
+            if (!isValidQos(qos, responseObserver)) {
+                return;
+            }
+
+            String topic = message.getTopic();
+            if (!isValidTopic(topic, responseObserver)) {
+                return;
+            }
+
+            int timeout = request.getTimeout();
+            if (!isValidTimeout(timeout, "publish", responseObserver)) {
+                return;
+            }
+
+            int connectionId = request.getConnectionId().getConnectionId();
+            MqttConnection connection = mqttLib.getConnection(connectionId);
+            if (!isValidConnection(connection, connectionId, responseObserver)) {
+                return;
+            }
+
+            boolean isRetain = message.getRetain();
+            logger.atInfo().log("Publish: connectionId {} topic {} QoS {} retain {}",
+                    connectionId, topic, qos, isRetain);
+
+            MqttConnection.Message internalMessage = MqttConnection.Message.builder()
+                    .qos(qos)
+                    .retain(isRetain)
+                    .topic(topic)
+                    .payload(message.getPayload().toByteArray())
+                    .build();
+            MqttPublishReply publishReply = connection.publish(timeout, internalMessage);
+                if (publishReply != null) {
+                    logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",
+                            connectionId, publishReply.getReasonCode(), publishReply.getReasonString());
+                }
+            responseObserver.onNext(publishReply);
+            responseObserver.onCompleted();
+        }
+
+        /**
          * Handler of CloseMqttConnection gRPC call.
          *
          * @param request incoming request
@@ -252,21 +303,13 @@ class GRPCControlServer {
             }
 
             int timeout = request.getTimeout();
-            if (timeout < TIMEOUT_MIN) {
-                logger.atWarn().log("invalid disconnect timeout, must be >= {}", timeout, TIMEOUT_MIN);
-                responseObserver.onError(Status.INVALID_ARGUMENT
-                        .withDescription("invalid disconnect timeout, must be >= 1")
-                        .asRuntimeException());
+            if (!isValidTimeout(timeout, "disconnect", responseObserver)) {
                 return;
             }
 
             int connectionId = request.getConnectionId().getConnectionId();
             MqttConnection connection = mqttLib.unregisterConnection(connectionId);
-            if (connection == null) {
-                logger.atWarn().log(CONNECTION_WITH_DOES_NOT_FOUND, connectionId);
-                responseObserver.onError(Status.NOT_FOUND
-                        .withDescription(CONNECTION_DOES_NOT_FOUND)
-                        .asRuntimeException());
+            if (!isValidConnection(connection, connectionId, responseObserver)) {
                 return;
             }
 
@@ -441,5 +484,49 @@ class GRPCControlServer {
         }
 
         return builder.build();
+    }
+
+    private boolean isValidQos(int qos, StreamObserver<MqttPublishReply> responseObserver) {
+        if (qos < QOS_MIN || qos > QOS_MAX) {
+            logger.atWarn().log("invalid QoS {}, must be in range [{},{}]", qos, QOS_MIN, QOS_MAX);
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("invalid QoS, must be in range [0,2]")
+                    .asRuntimeException());
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isValidTopic(String topic, StreamObserver<MqttPublishReply> responseObserver) {
+        if (topic == null || topic.isEmpty()) {
+            logger.atWarn().log("empty topic");
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("empty topic")
+                    .asRuntimeException());
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isValidTimeout(int timeout, String command, StreamObserver responseObserver) {
+        if (timeout < TIMEOUT_MIN) {
+            logger.atWarn().log("invalid {} timeout {}, must be >= {}", command, timeout, TIMEOUT_MIN);
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("invalid ".concat(command).concat(" timeout, must be >= 1"))
+                    .asRuntimeException());
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isValidConnection(MqttConnection connection, int connectionId, StreamObserver responseObserver) {
+        if (connection == null) {
+            logger.atWarn().log(CONNECTION_WITH_DOES_NOT_FOUND, connectionId);
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(CONNECTION_DOES_NOT_FOUND)
+                    .asRuntimeException());
+            return false;
+        }
+        return true;
     }
 }

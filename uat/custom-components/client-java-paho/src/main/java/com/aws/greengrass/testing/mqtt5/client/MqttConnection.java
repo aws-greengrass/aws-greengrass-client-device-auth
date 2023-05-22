@@ -5,10 +5,12 @@
 
 package com.aws.greengrass.testing.mqtt5.client;
 
+import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NonNull;
 
 import java.util.List;
 
@@ -125,20 +127,6 @@ public interface MqttConnection {
     }
 
     /**
-     * Useful information from PUBACK packet.
-     */
-    @Getter
-    @AllArgsConstructor
-    class PubAckInfo {
-        /** MQTT v5.0 Reason code of PUBACK packet. */
-        private Integer reasonCode;
-
-        /** MQTT v5.0 Reason string of PUBACK packet. */
-        private String reasonString;
-        // TODO: add user's properties
-    }
-
-    /**
      * Useful information from UNSUBACK packet.
      * Actually is the same as SubAckInfo.
      */
@@ -167,4 +155,13 @@ public interface MqttConnection {
      * @exception MqttException on errors
      */
     void disconnect(long timeout, int reasonCode) throws MqttException;
+
+    /**
+     * Publishes MQTT message.
+     *
+     * @param timeout publish operation timeout in seconds
+     * @param message message to publish
+     * @return useful information from PUBACK packet or null of no PUBACK has been received (as for QoS 0)
+     */
+    MqttPublishReply publish(long timeout, @NonNull Message message);
 }
