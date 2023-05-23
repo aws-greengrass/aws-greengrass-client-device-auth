@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client.paho;
 
+import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
@@ -18,6 +19,7 @@ import org.eclipse.paho.mqttv5.client.IMqttToken;
 import org.eclipse.paho.mqttv5.client.MqttClient;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
+import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
 
 import java.io.IOException;
@@ -103,6 +105,26 @@ public class MqttConnectionImpl implements MqttConnection {
                 throw new MqttException("Could not disconnect", ex);
             }
         }
+    }
+
+    @Override
+    public MqttPublishReply publish(long timeout, @NonNull Message message) {
+        MqttMessage mqttMessage = new MqttMessage();
+        mqttMessage.setQos(message.getQos());
+        mqttMessage.setPayload(message.getPayload());
+        mqttMessage.setRetained(message.isRetain());
+        MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
+        try {
+            client.publish(message.getTopic(), mqttMessage);
+            builder.setReasonCode(0);
+        } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
+            logger.atError().withThrowable(ex)
+                    .log("Failed during publishing message with reasonCode {} and reasonString {}",
+                            ex.getReasonCode(), ex.getMessage());
+            builder.setReasonCode(ex.getReasonCode());
+            builder.setReasonString(ex.getMessage());
+        }
+        return builder.build();
     }
 
     /**
