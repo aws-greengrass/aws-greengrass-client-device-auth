@@ -15,10 +15,10 @@ import com.aws.greengrass.testing.mqtt.client.MqttConnectReply;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttProtoVersion;
-import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
-import com.aws.greengrass.testing.mqtt.client.MqttSubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishRequest;
+import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
+import com.aws.greengrass.testing.mqtt.client.MqttSubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.ShutdownRequest;
 import com.aws.greengrass.testing.mqtt.client.TLSSettings;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
@@ -45,8 +45,6 @@ import java.util.concurrent.atomic.AtomicReference;
 class GRPCControlServer {
     private static final Logger logger = LogManager.getLogger(GRPCControlServer.class);
 
-    private static final int QOS_MIN = 0;
-    private static final int QOS_MAX = 2;
     private static final String CONNECTION_WITH_DOES_NOT_FOUND = "connection with id {} doesn't found";
     private static final String CONNECTION_DOES_NOT_FOUND = "connection doesn't found";
     private static final int RETAIN_HANDLING_MIN = 0;

@@ -5,8 +5,8 @@
 
 package com.aws.greengrass.testing.mqtt5.client;
 
-import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
+import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
