@@ -13,7 +13,6 @@ import io.cucumber.java.After;
 import io.cucumber.java.en.When;
 import lombok.extern.log4j.Log4j2;
 
-import java.util.Optional;
 import javax.inject.Inject;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
