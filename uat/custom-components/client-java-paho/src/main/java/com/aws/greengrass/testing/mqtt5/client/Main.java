@@ -7,7 +7,7 @@ package com.aws.greengrass.testing.mqtt5.client;
 
 import com.aws.greengrass.testing.mqtt5.client.exceptions.ClientException;
 import com.aws.greengrass.testing.mqtt5.client.grpc.GRPCLibImpl;
-import com.aws.greengrass.testing.mqtt5.client.sdkmqtt.MqttLibImpl;
+import com.aws.greengrass.testing.mqtt5.client.paho.MqttLibImpl;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.experimental.UtilityClass;

@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
+package com.aws.greengrass.testing.mqtt5.client.paho;
 
-import com.aws.greengrass.testing.mqtt311.client.sdkmqtt.Mqtt311ConnectionImpl;
+import com.aws.greengrass.testing.mqtt311.client.paho.Mqtt311ConnectionImpl;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;

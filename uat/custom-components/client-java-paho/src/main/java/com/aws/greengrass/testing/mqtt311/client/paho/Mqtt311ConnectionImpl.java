@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.testing.mqtt311.client.sdkmqtt;
+package com.aws.greengrass.testing.mqtt311.client.paho;
 
+import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -19,6 +20,8 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.net.ssl.SSLSocketFactory;
 
@@ -53,7 +56,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         try {
             MqttConnectOptions connectOptions = convertParams(connectionParams);
             IMqttToken token = mqttClient.connectWithResult(connectOptions);
-            token.waitForCompletion();
+            token.waitForCompletion(connectionParams.getConnectionTimeout());
             logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
             return buildConnectResult(true, token.isComplete());
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
@@ -63,6 +66,26 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             logger.atError().withThrowable(e).log(EXCEPTION_WHEN_CONFIGURE_SSL_CA);
             throw new MqttException(EXCEPTION_WHEN_CONFIGURE_SSL_CA, e);
         }
+    }
+
+    @Override
+    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions) {
+        String[] filters = new String[subscriptions.size()];
+        int[] qos = new int[subscriptions.size()];
+        for (int i = 0; i < subscriptions.size(); i++) {
+            filters[i] = subscriptions.get(i).getFilter();
+            qos[i] = subscriptions.get(i).getQos();
+        }
+        MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
+        try {
+            IMqttToken token = mqttClient.subscribeWithResponse(filters, qos);
+            token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
+            builder.addReasonCodes(0);
+        } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
+            builder.addReasonCodes(e.getReasonCode());
+            builder.setReasonString(e.getMessage());
+        }
+        return builder.build();
     }
 
     @Override
@@ -92,7 +115,6 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             throws GeneralSecurityException, IOException {
         MqttConnectOptions connectionOptions = new MqttConnectOptions();
         connectionOptions.setServerURIs(new String[]{connectionParams.getHost()});
-        connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
         SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
         connectionOptions.setSocketFactory(sslSocketFactory);
         return connectionOptions;

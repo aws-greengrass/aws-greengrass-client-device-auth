@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package com.aws.greengrass.testing.mqtt5.client.sdkmqtt;
+package com.aws.greengrass.testing.mqtt5.client.paho;
 
+import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -21,7 +22,11 @@ import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import javax.net.ssl.SSLSocketFactory;
 
 /**
@@ -51,12 +56,41 @@ public class MqttConnectionImpl implements MqttConnection {
         try {
             MqttConnectionOptions connectionOptions = convertParams(connectionParams);
             IMqttToken token = client.connectWithResult(connectionOptions);
-            token.waitForCompletion();
-            return buildConnectResult(true, token);
-        } catch (IOException | GeneralSecurityException | org.eclipse.paho.mqttv5.common.MqttException ex) {
+            token.waitForCompletion(TimeUnit.SECONDS.toMillis(connectionParams.getConnectionTimeout()));
+            return buildConnectResult(true, token, null);
+        } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
+            logger.atError().withThrowable(ex).log("Exception occurred during connect reason code {}",
+                    ex.getReasonCode());
+            return buildConnectResult(false, null, ex.getMessage());
+        } catch (IOException | GeneralSecurityException ex) {
             logger.atError().withThrowable(ex).log("Exception occurred during connect");
             throw new MqttException("Exception occurred during connect", ex);
         }
+    }
+
+    @Override
+    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions) {
+        String[] filters = new String[subscriptions.size()];
+        int[] qos = new int[subscriptions.size()];
+        for (int i = 0; i < subscriptions.size(); i++) {
+            filters[i] = subscriptions.get(i).getFilter();
+            qos[i] = subscriptions.get(i).getQos();
+        }
+        MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
+        try {
+            IMqttToken response = client.subscribe(filters, qos);
+            response.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
+            List<Integer> reasonCodes = Arrays.stream(response.getReasonCodes()).boxed().collect(Collectors.toList());
+            builder.addAllReasonCodes(reasonCodes);
+            MqttProperties responseProps = response.getResponseProperties();
+            if (responseProps != null && responseProps.getReasonString() != null) {
+                builder.setReasonString(responseProps.getReasonString());
+            }
+        } catch (org.eclipse.paho.mqttv5.common.MqttException e) {
+            builder.addReasonCodes(e.getReasonCode());
+            builder.setReasonString(e.getMessage());
+        }
+        return builder.build();
     }
 
     @Override
@@ -101,9 +135,9 @@ public class MqttConnectionImpl implements MqttConnection {
         return connectionOptions;
     }
 
-    private static ConnectResult buildConnectResult(boolean success, IMqttToken token) {
+    private static ConnectResult buildConnectResult(boolean success, IMqttToken token, String error) {
         ConnAckInfo connAckInfo = convertConnAckPacket(token);
-        return new ConnectResult(success, connAckInfo, null);
+        return new ConnectResult(success, connAckInfo, error);
     }
 
     private static ConnAckInfo convertConnAckPacket(IMqttToken token) {

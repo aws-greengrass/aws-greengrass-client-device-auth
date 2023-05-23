@@ -40,7 +40,8 @@ java -jar target/client-devices-auth-uat-client-java-paho.jar agent1 127.0.0.1 4
 ```
 
 # Limitations
-
+That client support both MQTT v5.0 and MQTT v3.1.1 protocols. 
+But version v3.1.1 doesn't support **"reason string"** in subscribe on success. 
 
 ## MQTT v5.0 client
 Currenly information from packets related to QoS2 like PUBREC PUBREL PUBCOMP is missing.
