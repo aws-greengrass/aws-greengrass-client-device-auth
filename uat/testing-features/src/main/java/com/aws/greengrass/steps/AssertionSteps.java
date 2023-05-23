@@ -13,6 +13,7 @@ import io.cucumber.java.After;
 import io.cucumber.java.en.When;
 import lombok.extern.log4j.Log4j2;
 
+import java.util.Optional;
 import javax.inject.Inject;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -70,8 +71,9 @@ public class AssertionSteps {
      * Stop Assertion Server.
      */
     @After
-    public void stopMqttControlEngine() {
-        wireMockServer.shutdown();
+    public void stopAssertionServer() {
+        Optional.ofNullable(wireMockServer)
+                .ifPresent(s -> wireMockServer.shutdown());
     }
 
 }
