@@ -70,8 +70,10 @@ public class AssertionSteps {
      * Stop Assertion Server.
      */
     @After
-    public void stopMqttControlEngine() {
-        wireMockServer.shutdown();
+    public void stopAssertionServer() {
+        if (wireMockServer != null) {
+            wireMockServer.shutdown();
+        }
     }
 
 }
