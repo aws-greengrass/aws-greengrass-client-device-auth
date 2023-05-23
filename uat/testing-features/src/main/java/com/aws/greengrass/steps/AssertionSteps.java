@@ -72,8 +72,9 @@ public class AssertionSteps {
      */
     @After
     public void stopAssertionServer() {
-        Optional.ofNullable(wireMockServer)
-                .ifPresent(s -> wireMockServer.shutdown());
+        if (wireMockServer != null) {
+            wireMockServer.shutdown();
+        }
     }
 
 }
