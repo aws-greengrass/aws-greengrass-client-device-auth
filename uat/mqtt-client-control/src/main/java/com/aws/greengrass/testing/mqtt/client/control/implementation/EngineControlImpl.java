@@ -218,7 +218,6 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     private void unregisterAllAgent() {
         agents.forEach((agentId, agentControl) -> {
             if (agents.remove(agentId, agentControl)) {
-                // agentControl.stopAgent();
                 if (engineEvents != null) {
                     engineEvents.onAgentDeattached(agentControl);
                 }
