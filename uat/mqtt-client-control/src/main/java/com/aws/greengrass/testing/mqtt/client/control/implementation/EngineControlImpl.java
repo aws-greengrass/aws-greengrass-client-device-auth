@@ -164,10 +164,21 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
             });
 
         if (isNew[0]) {
+            // completely new agent
             logger.atInfo().log("Created new agent control for {} on {}:{}", agentId, address, port);
             agentControl.startAgent();
             if (engineEvents != null) {
                 engineEvents.onAgentAttached(agentControl);
+            }
+        } else {
+            // check agent is relocated after restart
+            if (agentControl.isOnThatAddress(address, port)) {
+                logger.atInfo().log("Agent {} on {}:{} send duplicated DiscoveryAgent", agentId, address, port);
+            } else {
+                logger.atInfo().log("Agent {} relocated to {}:{}", agentId, address, port);
+                agents.remove(agentId);
+                // recursion
+                onDiscoveryAgent(agentId, address, port);
             }
         }
     }
@@ -206,11 +217,8 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
 
     private void unregisterAllAgent() {
         agents.forEach((agentId, agentControl) -> {
-            if (agents.remove(agentId, agentControl)) {
-                agentControl.stopAgent();
-                if (engineEvents != null) {
-                    engineEvents.onAgentDeattached(agentControl);
-                }
+            if (agents.remove(agentId, agentControl) && engineEvents != null) {
+                engineEvents.onAgentDeattached(agentControl);
             }
         });
     }
