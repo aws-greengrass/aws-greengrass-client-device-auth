@@ -75,6 +75,9 @@ java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags
 
 Command arguments:
 
-Dggc.archive - path to the nucleus zip that was downloaded
-Dtest.log.path - path where you would like the test results to be stored
-
+Dggc.archive - path to the nucleus zip that was downloaded<br />
+Dtest.log.path - path where you would like the test results to be stored<br />
+Dtags can be extended, if you would like to test exact scenario, you can do as follows:<br />
+```bash
+java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags="@GGMQ and @GGMQ-1-T1 and @sdk-java and @mqtt3" -jar uat/testing-features/target/client-devices-auth-testing-features.jar
+```
