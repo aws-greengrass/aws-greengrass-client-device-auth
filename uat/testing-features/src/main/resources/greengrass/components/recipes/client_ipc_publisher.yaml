@@ -1,0 +1,29 @@
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+
+---
+RecipeFormatVersion: '2020-01-25'
+ComponentName: aws.greengrass.client.IpcClient
+ComponentVersion: '1.0.0'
+ComponentDescription: IPC Client for tests
+ComponentPublisher: Amazon
+ComponentDependencies:
+  aws.greengrass.clientdevices.mqtt.Bridge:
+    VersionRequirement: ">=2.0.0"
+    DependencyType: HARD
+ComponentConfiguration:
+  DefaultConfiguration:
+    topicsToPublish: "pubsub/topic/to/publish/on"
+    message: "Hello world"
+
+Manifests:
+  - Artifacts:
+      - URI: classpath:/greengrass/artifacts/aws.greengrass.client.IpcClient.jar
+        Permission:
+          Read: ALL
+          Execute: NONE
+    Lifecycle:
+      Run: |
+        java -DcomponentName="LocalIpcPublisher" -jar "{artifacts:path}/aws.greengrass.client.IpcClient.jar" "{configuration:/topicsToPublish}"  "{configuration:/message}"
