@@ -62,6 +62,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -95,12 +96,12 @@ public class MqttControlSteps {
     private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
     private static final boolean CONNECT_CLEAR_SESSION = true;
 
-    private static final boolean PUBLISH_RETAIN = false;
+    private static final boolean DEFAULT_PUBLISH_RETAIN = false;
 
     private static final Integer SUBSCRIPTION_ID = null;                        // NOTE: do not set for IoT Core !!!
     private static final boolean SUBSCRIBE_NO_LOCAL = false;
     private static final boolean SUBSCRIBE_RETAIN_AS_PUBLISHED = false;
-    private static final Mqtt5RetainHandling SUBSCRIBE_RETAIN_HANDLING
+    private static final Mqtt5RetainHandling DEFAULT_SUBSCRIBE_RETAIN_HANDLING
             = Mqtt5RetainHandling.MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION;
 
     private static final int IOT_CORE_PORT = 443;
@@ -330,6 +331,23 @@ public class MqttControlSteps {
      */
     @When("I subscribe {string} to {string} with qos {int}")
     public void subscribe(@NonNull String clientDeviceId, @NonNull String topicFilterString, int qos) {
+        subscribe(clientDeviceId, topicFilterString, qos,
+                Mqtt5RetainHandling.MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION.getNumber());
+    }
+
+    /**
+     * Subscribe the MQTT topics by filter.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param topicFilterString the topics filter to subscribe
+     * @param qos the max value of MQTT QoS for subscribe
+     * @param retainHandling retainHandling value of MQTT QoS for subscribe
+     * @throws StatusRuntimeException thrown on gRPC errors
+     * @throws IllegalArgumentException on invalid QoS argument
+     */
+    @When("I subscribe {string} to {string} with qos {int} with retainHandling {int}")
+    public void subscribe(@NonNull String clientDeviceId, @NonNull String topicFilterString,
+                          int qos, int retainHandling) {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
@@ -339,13 +357,15 @@ public class MqttControlSteps {
         // do subscription
         log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {}", clientDeviceThingName,
                     filter, qos);
+        Mqtt5RetainHandling mqtt5RetainHandling = Optional.ofNullable(Mqtt5RetainHandling.forNumber(retainHandling))
+                .orElse(DEFAULT_SUBSCRIBE_RETAIN_HANDLING);
 
         // TODO: use non default settings here
         Mqtt5Subscription mqtt5Subscription = buildMqtt5Subscription(filter,
                                                                         qos,
                                                                         SUBSCRIBE_NO_LOCAL,
                                                                         SUBSCRIBE_RETAIN_AS_PUBLISHED,
-                                                                        SUBSCRIBE_RETAIN_HANDLING);
+                                                                        mqtt5RetainHandling);
         MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, mqtt5Subscription);
         if (mqttSubscribeReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT subscribe request");
@@ -401,7 +421,7 @@ public class MqttControlSteps {
                 qos,
                 SUBSCRIBE_NO_LOCAL,
                 SUBSCRIBE_RETAIN_AS_PUBLISHED,
-                SUBSCRIBE_RETAIN_HANDLING);
+                DEFAULT_SUBSCRIBE_RETAIN_HANDLING);
         MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, mqtt5Subscription);
         if (mqttSubscribeReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT subscribe request");
@@ -440,7 +460,7 @@ public class MqttControlSteps {
      */
     @When("I publish from {string} to {string} with qos {int} and message {string}")
     public void publish(String clientDeviceId, String topicString, int qos, String message) {
-        publish(clientDeviceId, topicString, qos, message, MQTT5_REASON_SUCCESS);
+        publish(clientDeviceId, topicString, qos, message, MQTT5_REASON_SUCCESS, DEFAULT_PUBLISH_RETAIN);
     }
 
     /**
@@ -451,11 +471,14 @@ public class MqttControlSteps {
      * @param qos the value of MQTT QoS for publishing
      * @param message the the content of message to publish
      * @param expectedStatus the status of MQTT QoS for publish reply
+     * @param isRetain retain flag
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
      */
-    @When("I publish from {string} to {string} with qos {int} and message {string} and expect status {int}")
-    public void publish(String clientDeviceId, String topicString, int qos, String message, int expectedStatus) {
+    @When("I publish from {string} to {string} with qos {int} and message {string} and expect status {int}"
+            + " and retain {booleanValue}")
+    public void publish(String clientDeviceId, String topicString, int qos, String message, int expectedStatus,
+                        Boolean isRetain) {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
@@ -465,8 +488,7 @@ public class MqttControlSteps {
         // do publishing
         log.info("Publishing MQTT message {} as Thing {} to topics filter {} with QoS {}", message,
                     clientDeviceThingName, topic, qos);
-        // TODO: replace default retain value to passed from scenario
-        Mqtt5Message mqtt5Message = buildMqtt5Message(qos, PUBLISH_RETAIN, topic, message);
+        Mqtt5Message mqtt5Message = buildMqtt5Message(qos, isRetain, topic, message);
         MqttPublishReply mqttPublishReply = connectionControl.publishMqtt(mqtt5Message);
         if (mqttPublishReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT publish request");
