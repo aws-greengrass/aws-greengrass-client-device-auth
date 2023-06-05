@@ -216,6 +216,9 @@
                                         file="${project.basedir}/../custom-components/client-java-sdk/target/client-devices-auth-uat-client-java-sdk.jar"
                                       tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar"/>
                                 <copy
+                                        file="${project.basedir}/../custom-components/client-java-paho/target/client-devices-auth-uat-client-java-paho.jar"
+                                        tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaPahoClient.jar"/>
+                                <copy
                                         file="${project.basedir}/../custom-components/client-ipc/target/client-devices-auth-uat-client-ipc.jar"
                                         tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.IpcClient.jar"/>
                                 <copy
