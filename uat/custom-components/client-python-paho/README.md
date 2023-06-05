@@ -49,7 +49,7 @@ Value 47619 will be used by default.
 ### Run
 
 ```cmd
-python src/main.py agent1 47619 127.0.0.1
+python src/main.py paho-python-agent 47619 127.0.0.1
 ```
 
 ### Run linting and checking
@@ -57,7 +57,7 @@ python src/main.py agent1 47619 127.0.0.1
 Windows
 
 ```cmd
-scripts\\lint_run.bat
+scripts\lint_run.bat
 ```
 
 Linux
@@ -71,7 +71,7 @@ Linux
 Windows
 
 ```cmd
-scripts\\black_run.bat
+scripts\black_run.bat
 ```
 
 Linux
