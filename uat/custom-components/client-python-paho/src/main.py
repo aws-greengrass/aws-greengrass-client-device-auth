@@ -91,9 +91,6 @@ class Main:
         Run program.
         """
         arguments = self.parse_args()
-        print(arguments.agent_id)
-        print(arguments.port)
-        print(arguments.hosts)
         grpc_lib = GRPCLib()
         link = await grpc_lib.make_link(
             agent_id=arguments.agent_id,
