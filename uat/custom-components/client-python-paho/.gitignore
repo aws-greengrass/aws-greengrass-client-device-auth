@@ -1,0 +1,7 @@
+src/dev-env
+*__pycache__*
+scripts/win_setup.bat
+scripts/linux_setup.sh
+scripts/install_lint.bat
+scripts/install_lint.sh
+mqtt_client_control_pb2*

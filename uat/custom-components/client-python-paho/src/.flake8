@@ -1,0 +1,4 @@
+[flake8]
+exclude =
+    dev-env
+    *grpc_client_server/grpc_generated
