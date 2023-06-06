@@ -27,7 +27,7 @@
         <padLines>false</padLines>
     </batch>
     <shell>
-        <firstLine># </firstLine>
+        <firstLine>#</firstLine>
         <beforeEachLine># </beforeEachLine>
         <endLine>#</endLine>
         <firstLineDetectionPattern>#(\\s|\\t)*.*$</firstLineDetectionPattern>

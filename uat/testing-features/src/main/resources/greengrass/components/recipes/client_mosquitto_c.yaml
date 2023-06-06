@@ -10,11 +10,11 @@ ComponentDescription: MQTT 5.0/3.1.1 client based on Mosquitto C library
 ComponentPublisher: Amazon
 ComponentConfiguration:
   DefaultConfiguration:
+    # agentId should be the same as ComponentName
     agentId: aws.greengrass.client.MqttMosquittoClient
     controlAddresses: 127.0.0.1
     controlPort: 47619
     requiresPrivilege: false
-    startupTimeoutSeconds: 60
 Manifests:
   - Artifacts:
       - URI: classpath:/greengrass/artifacts/mosquitto-test-client.amd64.tar.gz
@@ -25,7 +25,9 @@ Manifests:
       Install:
         RequiresPrivilege: "{configuration:/requiresPrivilege}"
         Script: |
-          docker rmi client-mosquitto-c:runner-amd64
+          docker stop client-mosquitto-c
+          docker rmi --force client-mosquitto-c:runner-amd64
           docker load --input {artifacts:path}/mosquitto-test-client.amd64.tar.gz
       Run:
+        RequiresPrivilege: "{configuration:/requiresPrivilege}"
         Script: docker run --rm --name=client-mosquitto-c client-mosquitto-c:runner-amd64 "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}

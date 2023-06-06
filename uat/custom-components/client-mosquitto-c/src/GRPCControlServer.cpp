@@ -177,7 +177,7 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext *, const MqttConnec
 
         return Status::OK;
     } catch (MqttException & ex) {
-        loge("CreateMqttConnection: exception during connecting\n");
+        loge("CreateMqttConnection: exception during connecting: %s\n", ex.getMessage().c_str());
         return Status(StatusCode::INTERNAL, ex.getMessage());
     }
 }

@@ -25,6 +25,7 @@ import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.EngineControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.Event;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
+import com.aws.greengrass.testing.mqtt.client.control.implementation.PublishReasonCode;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.SubscribeReasonCode;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.EventStorageImpl;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttMessageEvent;
@@ -62,11 +63,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.inject.Inject;
 
 import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
@@ -89,22 +91,23 @@ public class MqttControlSteps {
     private static final int DEFAULT_CONTROL_GRPC_PORT = 0;
     private static final String MQTT_CONTROL_PORT_KEY = "mqttControlPort";
 
-    private static final int MQTT5_REASON_SUCCESS = 0;
-    private static final int MQTT5_GRANTED_QOS_2 = 2;
+
+    private static final int MIN_QOS = 0;
+    private static final int MAX_QOS = 2;
 
     // TODO: use scenario supplied values instead of defaults
     private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
-    private static final boolean CONNECT_CLEAR_SESSION = true;
+    private static final boolean DEFAULT_CONNECT_CLEAR_SESSION = true;
 
     private static final boolean DEFAULT_PUBLISH_RETAIN = false;
 
-    private static final Integer SUBSCRIPTION_ID = null;                        // NOTE: do not set for IoT Core !!!
-    private static final boolean SUBSCRIBE_NO_LOCAL = false;
-    private static final boolean SUBSCRIBE_RETAIN_AS_PUBLISHED = false;
+    private static final Integer DEFAULT_SUBSCRIPTION_ID = null;        // NOTE: do not set for IoT Core broker !!!
+    private static final boolean DEFAULT_SUBSCRIBE_NO_LOCAL = false;
+    private static final boolean DEFAULT_SUBSCRIBE_RETAIN_AS_PUBLISHED = false;
     private static final Mqtt5RetainHandling DEFAULT_SUBSCRIBE_RETAIN_HANDLING
             = Mqtt5RetainHandling.MQTT5_RETAIN_SEND_AT_SUBSCRIPTION;
 
-    private static final int IOT_CORE_PORT = 443;
+    private static final int IOT_CORE_MQTT_PORT = 8883;
 
 
     private final TestContext testContext;
@@ -119,7 +122,21 @@ public class MqttControlSteps {
     private final EventStorageImpl eventStorage;
 
     private final GreengrassV2Client greengrassClient;
+
+    /** Actual value of timeout in seconds used in all MQTT opetations. */
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
+
+    /** Actual value of subscribe no local option. */
+    private boolean subscribeNoLocal = DEFAULT_SUBSCRIBE_NO_LOCAL;
+
+    private boolean subscribeRetainAsPublished = DEFAULT_SUBSCRIBE_RETAIN_AS_PUBLISHED;
+
+    /** Actual value of subscribe retain handling option. */
+    private Mqtt5RetainHandling subscribeRetainHandling = DEFAULT_SUBSCRIBE_RETAIN_HANDLING;
+
+    /** Actual value of publish retain option. */
+    private boolean publishRetain = DEFAULT_PUBLISH_RETAIN;
+
     private final Map<String, List<MqttBrokerConnectionInfo>> brokers = new HashMap<>();
     private final Map<String, MqttProtoVersion> mqttVersions = new HashMap<>();
 
@@ -310,14 +327,62 @@ public class MqttControlSteps {
         log.info("Thing {} was disconnected with reason code {}", clientDeviceId, reasonCode);
     }
 
+    @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
+    @ParameterType(value = "true|True|TRUE|false|False|FALSE")
+    public Boolean booleanValue(String value) {
+        return Boolean.valueOf(value);
+    }
+
     /**
-     * Set MQTT operations timeout value.
+     * Sets MQTT operations timeout value.
      *
      * @param mqttTimeoutSec MQTT operations timeout in seconds
      */
-    @And("I set MQTT timeout {int}")
+    @And("I set MQTT timeout to {int} second(s)")
     public void setMqttTimeoutSec(int mqttTimeoutSec) {
         this.mqttTimeoutSec = mqttTimeoutSec;
+    }
+
+    /**
+     * Sets MQTT subscribe 'no local' flag.
+     *
+     * @param subscribeNoLocal the new values of 'no local' flag.
+     */
+    @And("I set MQTT subscribe no local flag to {booleanValue}")
+    public void setSubscribeNoLocal(Boolean subscribeNoLocal) {
+        this.subscribeNoLocal = subscribeNoLocal;
+    }
+
+    /**
+     * Sets MQTT subscribe 'retain as published' flag.
+     *
+     * @param subscribeRetainAsPublished the new values of 'retain as published' flag.
+     */
+    @And("I set MQTT subscribe retain as published flag to {booleanValue}")
+    public void setSubscribeNoLocal(Boolean subscribeRetainAsPublished) {
+        this.subscribeRetainAsPublished = subscribeRetainAsPublished;
+    }
+
+
+
+    /**
+     * Sets MQTT subscribe 'retain handling' property.
+     *
+     * @param subscribeRetainHandling the new values of 'retain handling' property.
+     */
+    @And("I set MQTT subscribe retain handling property to {string}")
+    public void setSubscribeRetainHandling(String subscribeRetainHandling) {
+        this.subscribeRetainHandling = Mqtt5RetainHandling.valueOf(subscribeRetainHandling);
+    }
+
+    /**
+     * Sets MQTT publish 'retain' flag.
+     *
+     * @param retain the new values of publish 'retain' flag.
+     */
+    @And("I set MQTT publish retain flag to {booleanValue}")
+    public void setPublishRetain(Boolean retain) {
+        this.publishRetain = retain;
     }
 
     /**
@@ -331,66 +396,8 @@ public class MqttControlSteps {
      */
     @When("I subscribe {string} to {string} with qos {int}")
     public void subscribe(@NonNull String clientDeviceId, @NonNull String topicFilterString, int qos) {
-        subscribe(clientDeviceId, topicFilterString, qos, DEFAULT_SUBSCRIBE_RETAIN_HANDLING.getNumber());
-    }
-
-    /**
-     * Subscribe the MQTT topics by filter.
-     *
-     * @param clientDeviceId the user defined client device id
-     * @param topicFilterString the topics filter to subscribe
-     * @param qos the max value of MQTT QoS for subscribe
-     * @param retainHandling retainHandling value of MQTT QoS for subscribe
-     * @throws StatusRuntimeException thrown on gRPC errors
-     * @throws IllegalArgumentException on invalid QoS argument
-     */
-    @When("I subscribe {string} to {string} with qos {int} with retainHandling {int}")
-    public void subscribe(@NonNull String clientDeviceId, @NonNull String topicFilterString,
-                          int qos, int retainHandling) {
-        // getting connectionControl by clientDeviceId
-        final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
-        ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
-
-        final String filter = scenarioContext.applyInline(topicFilterString);
-
-        // do subscription
-        log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {}", clientDeviceThingName,
-                    filter, qos);
-        Mqtt5RetainHandling mqtt5RetainHandling = Optional.ofNullable(Mqtt5RetainHandling.forNumber(retainHandling))
-                .orElse(DEFAULT_SUBSCRIBE_RETAIN_HANDLING);
-
-        // TODO: use non default settings here
-        Mqtt5Subscription mqtt5Subscription = buildMqtt5Subscription(filter,
-                                                                        qos,
-                                                                        SUBSCRIBE_NO_LOCAL,
-                                                                        SUBSCRIBE_RETAIN_AS_PUBLISHED,
-                                                                        mqtt5RetainHandling);
-        MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, mqtt5Subscription);
-        if (mqttSubscribeReply == null) {
-            throw new RuntimeException("Do not receive reply to MQTT subscribe request");
-        }
-
-        List<Integer> reasons = mqttSubscribeReply.getReasonCodesList();
-        if (reasons == null) {
-            throw new RuntimeException("Receive reply to MQTT subscribe request with missing reason codes");
-        }
-
-        if (reasons.size() != 1 || reasons.get(0) == null) {
-            throw new RuntimeException("Receive reply to MQTT subscribe request with unexpected number "
-                                        + "of reason codes should be 1 but has " + reasons.size());
-        }
-
-        int reason = reasons.get(0);
-        if (reason > MQTT5_GRANTED_QOS_2) {
-            throw new RuntimeException("Receive reply to MQTT subscribe request with unsuccessful reason code "
-                                        + reason);
-        }
-
-        if (reason != qos) {
-            throw new RuntimeException("Receive reply to MQTT subscribe request with unexpected reason code should be "
-                                        + qos + " but has " + reason);
-        }
-        log.info("MQTT subscription has on topics filter {} been created", filter);
+        final Set<Integer> expectedSet = IntStream.rangeClosed(0, qos).boxed().collect(Collectors.toSet());
+        subscribe(clientDeviceId, topicFilterString, qos, expectedSet);
     }
 
     /**
@@ -406,6 +413,26 @@ public class MqttControlSteps {
     @When("I subscribe {string} to {string} with qos {int} and expect status {string}")
     public void subscribe(@NonNull String clientDeviceId, @NonNull String topicFilterString,
                           int qos, String expectedStatus) {
+        subscribe(clientDeviceId, topicFilterString, qos,
+                  Collections.singleton(SubscribeReasonCode.valueOf(expectedStatus).getValue()));
+    }
+
+    /**
+     * Subscribe the MQTT topics by filter.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param topicFilterString the topics filter to subscribe
+     * @param qos the max value of MQTT QoS for subscribe
+     * @param expectedStatuses the set of expected statuses of MQTT subscribe reply
+     * @throws StatusRuntimeException thrown on gRPC errors
+     * @throws IllegalArgumentException on invalid QoS argument
+     */
+    private void subscribe(@NonNull String clientDeviceId, @NonNull String topicFilterString,
+                          int qos, final Set<Integer> expectedStatuses) {
+        if (qos < MIN_QOS || qos > MAX_QOS) {
+            throw new IllegalArgumentException("Invalid QoS value " + qos + " requested");
+        }
+
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
@@ -413,15 +440,17 @@ public class MqttControlSteps {
         final String filter = scenarioContext.applyInline(topicFilterString);
 
         // do subscription
-        log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {}", clientDeviceThingName,
-                filter, qos);
+        log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {} subscribeNoLocal {} "
+                    + "retain handling {} ", clientDeviceThingName, filter, qos, subscribeNoLocal,
+                    subscribeRetainHandling);
 
         Mqtt5Subscription mqtt5Subscription = buildMqtt5Subscription(filter,
                 qos,
-                SUBSCRIBE_NO_LOCAL,
-                SUBSCRIBE_RETAIN_AS_PUBLISHED,
-                DEFAULT_SUBSCRIBE_RETAIN_HANDLING);
-        MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, mqtt5Subscription);
+                subscribeNoLocal,
+                subscribeRetainAsPublished,
+                subscribeRetainHandling);
+        MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(DEFAULT_SUBSCRIPTION_ID,
+                                                                                mqtt5Subscription);
         if (mqttSubscribeReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT subscribe request");
         }
@@ -436,13 +465,17 @@ public class MqttControlSteps {
                     + "of reason codes should be 1 but has " + reasons.size());
         }
 
-        int reason = reasons.get(0);
-        SubscribeReasonCode expectedReasonCodeReply = SubscribeReasonCode.valueOf(expectedStatus);
-        if (expectedReasonCodeReply.getValue() == reason) {
-            log.info("MQTT subscription has on topics filter {} been created with status {}", filter, expectedStatus);
+        final int reason = reasons.get(0);
+        if (expectedStatuses.contains(reason)) {
+            log.info("MQTT subscription has on topics filter {} been created with reason code {}", filter, reason);
         } else {
-            log.error("MQTT subscription has on topics filter {} been failed. Expected reasonCode was {},"
-                    + " but returned {}", filter, expectedReasonCodeReply.getValue(), reason);
+            if (expectedStatuses.size() == 1) {
+                log.error("MQTT subscription has on topics filter {} been failed. Expected reason code was {},"
+                    + " but returned {}", filter, expectedStatuses.iterator().next(), reason);
+            } else {
+                log.error("MQTT subscription has on topics filter {} been failed. Unexpected reason code {}", filter,
+                          reason);
+            }
             throw new RuntimeException("Receive reply to MQTT subscribe request with missing reason codes");
         }
     }
@@ -459,7 +492,7 @@ public class MqttControlSteps {
      */
     @When("I publish from {string} to {string} with qos {int} and message {string}")
     public void publish(String clientDeviceId, String topicString, int qos, String message) {
-        publish(clientDeviceId, topicString, qos, message, MQTT5_REASON_SUCCESS, DEFAULT_PUBLISH_RETAIN);
+        publish(clientDeviceId, topicString, qos, message, PublishReasonCode.SUCCESS.getValue());
     }
 
     /**
@@ -470,14 +503,11 @@ public class MqttControlSteps {
      * @param qos the value of MQTT QoS for publishing
      * @param message the the content of message to publish
      * @param expectedStatus the status of MQTT QoS for publish reply
-     * @param isRetain retain flag
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
      */
-    @When("I publish from {string} to {string} with qos {int} and message {string} and expect status {int}"
-            + " and retain {booleanValue}")
-    public void publish(String clientDeviceId, String topicString, int qos, String message, int expectedStatus,
-                        Boolean isRetain) {
+    @When("I publish from {string} to {string} with qos {int} and message {string} and expect status {int}")
+    public void publish(String clientDeviceId, String topicString, int qos, String message, int expectedStatus) {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
@@ -485,9 +515,9 @@ public class MqttControlSteps {
         final String topic = scenarioContext.applyInline(topicString);
 
         // do publishing
-        log.info("Publishing MQTT message {} as Thing {} to topics filter {} with QoS {}", message,
-                    clientDeviceThingName, topic, qos);
-        Mqtt5Message mqtt5Message = buildMqtt5Message(qos, isRetain, topic, message);
+        log.info("Publishing MQTT message {} as Thing {} to topics filter {} with QoS {} and retain {}", message,
+                    clientDeviceThingName, topic, qos, publishRetain);
+        Mqtt5Message mqtt5Message = buildMqtt5Message(qos, publishRetain, topic, message);
         MqttPublishReply mqttPublishReply = connectionControl.publishMqtt(mqtt5Message);
         if (mqttPublishReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT publish request");
@@ -501,11 +531,6 @@ public class MqttControlSteps {
         log.info("MQTT message {} has been succesfully published", message);
     }
 
-    @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
-    @ParameterType(value = "true|True|TRUE|false|False|FALSE")
-    public Boolean booleanValue(String value) {
-        return Boolean.valueOf(value);
-    }
 
     /**
      * Verify is MQTT message is received in limited duration of time.
@@ -562,7 +587,7 @@ public class MqttControlSteps {
 
         // awaiting for message
         log.info("Awaiting for MQTT message {} on topic {} on Thing {} for {} {}", message, topic,
-                    getClientDeviceThingName(clientDeviceId), value, unit);
+                    clientDeviceThingName, value, unit);
         List<Event> events = new ArrayList<>();
         try {
             events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
@@ -621,7 +646,7 @@ public class MqttControlSteps {
                                          .dataEndpoint();
         final String ca = registrationContext.rootCA();
         MqttBrokerConnectionInfo broker = new MqttBrokerConnectionInfo(
-                endpoint, IOT_CORE_PORT, Collections.singletonList(ca));
+                endpoint, IOT_CORE_MQTT_PORT, Collections.singletonList(ca));
         brokers.put(brokerId, Collections.singletonList(broker));
     }
 
@@ -653,7 +678,7 @@ public class MqttControlSteps {
         }
 
         int reason = reasons.get(0);
-        if (reason != MQTT5_REASON_SUCCESS) {
+        if (reason != PublishReasonCode.SUCCESS.getValue()) {
             throw new RuntimeException("Receive reply to MQTT unsubscribe request with unsuccessful reason code "
                     + reason);
         }
@@ -690,7 +715,7 @@ public class MqttControlSteps {
                                  .setHost(host)
                                  .setPort(port)
                                  .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
-                                 .setCleanSession(CONNECT_CLEAR_SESSION)
+                                 .setCleanSession(DEFAULT_CONNECT_CLEAR_SESSION)
                                  .setTls(buildTlsSettings(thingSpec, caList))
                                  .setProtocolVersion(version)
                                  .build();
@@ -875,12 +900,8 @@ public class MqttControlSteps {
     @Data
     @AllArgsConstructor
     private class MqttBrokerConnectionInfo {
-
         private String host;
         private Integer port;
         private List<String> caList;
-
     }
 }
-
-
