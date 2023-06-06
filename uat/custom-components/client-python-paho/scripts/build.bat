@@ -1,3 +1,8 @@
+@REM -------------------------------
+@REM Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+@REM SPDX-License-Identifier: Apache-2.0
+@REM -------------------------------
+
 @echo off
 set start_dir=%cd%
 cd %~dp0../src
