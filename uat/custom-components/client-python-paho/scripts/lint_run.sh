@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-DIR=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
+DIR=$(realpath "$(dirname "$0")")
 export PYTHONPATH=$DIR/../src/
 export PYLINTRC=$DIR/../src/.pylintrc
 pylint $DIR/../src/
