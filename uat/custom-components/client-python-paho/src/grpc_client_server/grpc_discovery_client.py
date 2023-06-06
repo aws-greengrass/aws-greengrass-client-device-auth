@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0.
+
 """Client of gRPC MqttAgentDiscovery service."""
 # pylint: disable=no-member
 import logging

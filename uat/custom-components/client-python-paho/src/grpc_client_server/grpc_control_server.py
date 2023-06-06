@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0.
+
 """GRPC Control server implementation."""
 # pylint: disable=no-name-in-module,invalid-overridden-method
 import asyncio

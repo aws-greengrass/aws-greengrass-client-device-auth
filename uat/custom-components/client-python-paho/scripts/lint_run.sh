@@ -1,3 +1,5 @@
+#!/bin/sh
+
 DIR=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
 export PYTHONPATH=$DIR/../src/
 export PYLINTRC=$DIR/../src/.pylintrc
