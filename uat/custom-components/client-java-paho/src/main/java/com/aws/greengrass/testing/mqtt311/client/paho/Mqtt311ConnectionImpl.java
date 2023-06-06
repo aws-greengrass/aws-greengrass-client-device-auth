@@ -7,6 +7,7 @@ package com.aws.greengrass.testing.mqtt311.client.paho;
 
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -15,6 +16,7 @@ import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.paho.client.mqttv3.IMqttClient;
+import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
@@ -23,6 +25,8 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.net.ssl.SSLSocketFactory;
@@ -37,19 +41,23 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final IMqttClient mqttClient;
+    private final GRPCClient grpcClient;
     private int connectionId = 0;
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
 
     /**
      * Creates a MQTT 3.1.1 connection.
      *
      * @param connectionParams the connection parameters
+     * @param grpcClient the consumer of received messages and disconnect events
      * @throws org.eclipse.paho.client.mqttv3.MqttException on errors
      */
-    public Mqtt311ConnectionImpl(@NonNull MqttLib.ConnectionParams connectionParams)
+    public Mqtt311ConnectionImpl(@NonNull MqttLib.ConnectionParams connectionParams, GRPCClient grpcClient)
             throws org.eclipse.paho.client.mqttv3.MqttException {
         super();
         this.mqttClient = createClient(connectionParams);
+        this.grpcClient = grpcClient;
     }
 
     @Override
@@ -74,13 +82,15 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions) {
         String[] filters = new String[subscriptions.size()];
         int[] qos = new int[subscriptions.size()];
+        MqttMessageListener[] messageListeners = new MqttMessageListener[subscriptions.size()];
         for (int i = 0; i < subscriptions.size(); i++) {
             filters[i] = subscriptions.get(i).getFilter();
             qos[i] = subscriptions.get(i).getQos();
+            messageListeners[i] = new MqttMessageListener();
         }
         MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
         try {
-            IMqttToken token = mqttClient.subscribeWithResponse(filters, qos);
+            IMqttToken token = mqttClient.subscribeWithResponse(filters, qos, messageListeners);
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
             builder.addReasonCodes(0);
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
@@ -154,5 +164,19 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static ConnectResult buildConnectResult(boolean success, Boolean sessionPresent) {
         ConnAckInfo connAckInfo = new ConnAckInfo(sessionPresent);
         return new ConnectResult(success, connAckInfo, null);
+    }
+
+    private class MqttMessageListener implements IMqttMessageListener {
+
+        @Override
+        public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
+            GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload());
+            executorService.submit(() -> {
+                grpcClient.onReceiveMqttMessage(connectionId, message);
+                logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
+                        connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
+            });
+        }
     }
 }

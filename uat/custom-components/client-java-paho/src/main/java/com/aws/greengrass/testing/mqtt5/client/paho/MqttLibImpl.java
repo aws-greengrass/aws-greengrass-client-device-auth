@@ -49,9 +49,9 @@ public class MqttLibImpl implements MqttLib {
                                                 @NonNull GRPCClient grpcClient)
                     throws org.eclipse.paho.client.mqttv3.MqttException, org.eclipse.paho.mqttv5.common.MqttException {
                 if (connectionParams.isMqtt50()) {
-                    return new MqttConnectionImpl(connectionParams);
+                    return new MqttConnectionImpl(connectionParams, grpcClient);
                 } else {
-                    return new Mqtt311ConnectionImpl(connectionParams);
+                    return new Mqtt311ConnectionImpl(connectionParams, grpcClient);
                 }
             }
         });

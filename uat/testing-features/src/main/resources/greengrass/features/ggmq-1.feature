@@ -577,17 +577,17 @@ Feature: GGMQ-1
       | mqtt-v | name     | agent                                    | recipe               | retainHandling-2 |
       | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml | true             |
 
-    @mqtt3 @mosquitto-c
+    @mqtt3 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | retainHandling-2 |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | true             |
+      | mqtt-v | name      | agent                                     | recipe                | retainHandling-2 |
+      | v3     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml | true             |
 
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name     | agent                                    | recipe               | retainHandling-2 |
       | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml | false            |
 
-    @mqtt5 @mosquitto-c
+    @mqtt5 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | retainHandling-2 |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | false            |
+      | mqtt-v | name      | agent                                     | recipe                | retainHandling-2 |
+      | v5     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml | false            |
