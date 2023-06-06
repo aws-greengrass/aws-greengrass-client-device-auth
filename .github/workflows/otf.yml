@@ -5,13 +5,15 @@
 name: OTF UATS
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
       - uat-dev
+
+env:
+  AWS_REGION: "us-west-2"
+  CODE_BUILD_PROJECT_LINUX: "CDAUatCodeBuildLinux"
+  AWS_ROLE_TO_ASSUME: "arn:aws:iam::686385081908:role/aws-greengrass-client-device-auth-codebuild-uat-role-linux"
 
 jobs:
   uat-linux:
@@ -26,13 +28,11 @@ jobs:
       - name: configure aws credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
-          role-session-name: clientDeviceAuthCI
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          role-session-name: cdaCI
+          aws-region: ${{ env.AWS_REGION }}
       - name: Run UAT on linux
         uses: aws-actions/aws-codebuild-run-build@v1
         with:
-          project-name: ${{ vars.CODE_BUILD_PROJECT_LINUX }}
+          project-name: ${{ env.CODE_BUILD_PROJECT_LINUX }}
           buildspec-override: uat/codebuild/uat_linux_buildspec.yaml
