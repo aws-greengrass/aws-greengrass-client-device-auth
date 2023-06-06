@@ -103,9 +103,9 @@
                         </licenseSet>
                     </licenseSets>
                     <mapping>
-                        <py>PYTHON</py>
+                        <py>SHELL</py>
                         <bat>BATCH</bat>
-                        <sh>PYTHON</sh>
+                        <sh>SHELL</sh>
                     </mapping>
                 </configuration>
                 <executions>

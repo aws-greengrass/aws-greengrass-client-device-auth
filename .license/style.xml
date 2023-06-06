@@ -27,16 +27,6 @@
         <padLines>false</padLines>
     </batch>
     <shell>
-        <firstLine># </firstLine>
-        <beforeEachLine># </beforeEachLine>
-        <endLine>#</endLine>
-        <firstLineDetectionPattern>#(\\s|\\t)*.*$</firstLineDetectionPattern>
-        <lastLineDetectionPattern>#(\\s|\\t)*.*$</lastLineDetectionPattern>
-        <allowBlankLines>false</allowBlankLines>
-        <isMultiline>true</isMultiline>
-        <padLines>false</padLines>
-    </shell>
-    <python>
         <firstLine>#</firstLine>
         <beforeEachLine># </beforeEachLine>
         <endLine>#</endLine>
@@ -45,5 +35,5 @@
         <allowBlankLines>false</allowBlankLines>
         <isMultiline>true</isMultiline>
         <padLines>false</padLines>
-    </python>
+    </shell>
 </additionalHeaders>
