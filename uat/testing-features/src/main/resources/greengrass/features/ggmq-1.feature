@@ -496,8 +496,8 @@ Feature: GGMQ-1
     When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/with/prefix" with qos 1 and message "Hello world"
     Then message "Hello world" received on "localMqttSubscriber" from "prefix/${localMqttSubscriber}topic/with/prefix" topic within 10 seconds
 
-  @GGMQ-1-RETAIN
-  Scenario Outline: GGMQ-1-RETAIN-<mqtt-v>-<name>: As a customer, I can configure retain flag and retain handling
+  @GGMQ-1-101
+  Scenario Outline: GGMQ-1-101-<mqtt-v>-<name>: As a customer, I can configure retain flag and retain handling
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth       | LATEST                                            |
       | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                            |

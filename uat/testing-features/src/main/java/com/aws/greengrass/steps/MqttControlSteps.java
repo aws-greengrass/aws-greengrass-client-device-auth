@@ -102,7 +102,7 @@ public class MqttControlSteps {
     private static final boolean SUBSCRIBE_NO_LOCAL = false;
     private static final boolean SUBSCRIBE_RETAIN_AS_PUBLISHED = false;
     private static final Mqtt5RetainHandling DEFAULT_SUBSCRIBE_RETAIN_HANDLING
-            = Mqtt5RetainHandling.MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION;
+            = Mqtt5RetainHandling.MQTT5_RETAIN_SEND_AT_SUBSCRIPTION;
 
     private static final int IOT_CORE_PORT = 443;
 
@@ -331,8 +331,7 @@ public class MqttControlSteps {
      */
     @When("I subscribe {string} to {string} with qos {int}")
     public void subscribe(@NonNull String clientDeviceId, @NonNull String topicFilterString, int qos) {
-        subscribe(clientDeviceId, topicFilterString, qos,
-                Mqtt5RetainHandling.MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION.getNumber());
+        subscribe(clientDeviceId, topicFilterString, qos, DEFAULT_SUBSCRIBE_RETAIN_HANDLING.getNumber());
     }
 
     /**
