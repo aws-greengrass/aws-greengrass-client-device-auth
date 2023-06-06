@@ -1,9 +1,9 @@
+#!/bin/sh
+
 #
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-#!/bin/sh
 
 STARTDIR=$(realpath "$(dirname "${BASH_SOURCE[0]}")")
 cd $STARTDIR/../src
