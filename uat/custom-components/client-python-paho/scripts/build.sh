@@ -9,7 +9,7 @@ STARTDIR=$(realpath "$(dirname "$0")")
 cd $STARTDIR/../src
 pip3 install virtualenv
 python3 -m venv dev-env
-source dev-env/bin/activate
+. ./dev-env/bin/activate
 pip3 install pyinstaller
 pip3 install -r requirements.txt
 python3 -m grpc_tools.protoc -I../../../proto --python_out=../src/grpc_client_server/grpc_generated --pyi_out=../src/grpc_client_server/grpc_generated --grpc_python_out=../src/grpc_client_server/grpc_generated ../../../proto/mqtt_client_control.proto
