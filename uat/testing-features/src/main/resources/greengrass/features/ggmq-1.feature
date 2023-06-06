@@ -8,7 +8,7 @@ Feature: GGMQ-1
     And my device is running Greengrass
 
   @GGMQ-1-T1
-  Scenario Outline: GGMQ-1-T1-<mqtt-v>-<name>: As a customer, I can connect, subscribe, publish and receive using client application to MQTT topic
+  Scenario Outline: GGMQ-1-T1-<mqtt-v>-<name>: As a customer, I can connect, subscribe/publish at QoS 0 and 1 and receive using client application to MQTT topic
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                            |
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                            |
@@ -145,6 +145,8 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q0 | subscribe-status-q1| publish-statusq1 | publish-statusq10 |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | SUCCESS             | SUCCESS            | 0                | 0                 |
 
+
+  @GGMQ-1-T8
   Scenario Outline: GGMQ-1-T8-<mqtt-v>-<name>: As a customer, I can configure local MQTT messages to be forwarded to a PubSub topic
     When I start an assertion server
     When I create a Greengrass deployment with components
@@ -259,8 +261,8 @@ Feature: GGMQ-1
 
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name     | agent                                    | recipe               |
-      | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml |
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
     @mqtt3 @mosquitto-c
     Examples:
@@ -269,20 +271,23 @@ Feature: GGMQ-1
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name     | agent                                    | recipe               |
-      | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml |
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
     @mqtt5 @mosquitto-c
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
+
+  @GGMQ-1-T13
   Scenario Outline: GGMQ-1-T13-<mqtt-v>: As a customer, I can connect two GGADs and send message from one GGAD to the other based on CDA configuration
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                                        |
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                        |
       | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
       | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
+
     And I create client device "publisher"
     And I create client device "subscriber"
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
@@ -392,10 +397,16 @@ Feature: GGMQ-1
     Then message "Hello world" received on "subscriber" from "iot_data_0" topic within 10 seconds is false expected
     Then message "Hello world" received on "subscriber" from "iot_data_1" topic within 10 seconds
 
+    @mqtt3 @sdk-java
+     Examples:
+       | mqtt-v | subscribe-status | publish-status | subscribe-status-auth |
+       | v3     | SUCCESS          | 0              | SUCCESS               |
+
+    @mqtt5 @sdk-java
     Examples:
       | mqtt-v | subscribe-status | publish-status | subscribe-status-auth |
-      | v3     | SUCCESS          | 0              | SUCCESS               |
       | v5     | NOT_AUTHORIZED   | 16             | GRANTED_QOS_1         |
+
 
   @GGMQ-1-T14
   Scenario: GGMQ-1-T14: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic
@@ -496,8 +507,9 @@ Feature: GGMQ-1
     When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/with/prefix" with qos 1 and message "Hello world"
     Then message "Hello world" received on "localMqttSubscriber" from "prefix/${localMqttSubscriber}topic/with/prefix" topic within 10 seconds
 
-  @GGMQ-1-101
-  Scenario Outline: GGMQ-1-101-<mqtt-v>-<name>: As a customer, I can configure retain flag and retain handling
+
+  @GGMQ-1-T101
+  Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can configure retain flag and retain handling
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth       | LATEST                                            |
       | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                            |
