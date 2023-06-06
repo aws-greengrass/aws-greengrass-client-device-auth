@@ -70,7 +70,7 @@ Feature: GGMQ-1
     When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0 and expect status "<subscribe-status-q0>"
     When I subscribe "clientDeviceTest" to "iot_data _1" with qos 1 and expect status "<subscribe-status-q1>"
     When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Hello world"
-    When I publish from "clientDeviceTest" to "iot_data_1" with qos 1 and message "Hello world" and expect status <publish-statusq1>
+    When I publish from "clientDeviceTest" to "iot_data_1" with qos 1 and message "Hello world" and expect status <publish-statusq1> and retain false
     Then message "Hello world" received on "clientDeviceTest" from "iot_data_1" topic within 10 seconds is false expected
     And I disconnect device "clientDeviceTest" with reason code 0
     When I create a Greengrass deployment with components
@@ -120,7 +120,7 @@ Feature: GGMQ-1
     And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
     When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0 and expect status "<subscribe-status-q0>"
     When I subscribe "clientDeviceTest" to "iot_data_1" with qos 1 and expect status "<subscribe-status-q1>"
-    When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Hello world" and expect status <publish-statusq10>
+    When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Hello world" and expect status <publish-statusq10> and retain false
     When I publish from "clientDeviceTest" to "iot_data_1" with qos 1 and message "Hello world"
     Then message "Hello world" received on "clientDeviceTest" from "iot_data_0" topic within 10 seconds is false expected
     Then message "Hello world" received on "clientDeviceTest" from "iot_data_1" topic within 10 seconds
@@ -342,7 +342,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "iot_data_0" with qos 0 and expect status "<subscribe-status>"
     When I subscribe "subscriber" to "iot_data_1" with qos 1 and expect status "<subscribe-status>"
     When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world"
-    When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world" and expect status <publish-status>
+    When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world" and expect status <publish-status> and retain false
     Then message "Hello world" received on "subscriber" from "iot_data_1" topic within 10 seconds is false expected
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
@@ -495,3 +495,99 @@ Feature: GGMQ-1
     Then message "T=100C" received on "localMqttSubscriber" from "${localMqttSubscriber}topic/device2/temperature" topic within 10 seconds
     When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/with/prefix" with qos 1 and message "Hello world"
     Then message "Hello world" received on "localMqttSubscriber" from "prefix/${localMqttSubscriber}topic/with/prefix" topic within 10 seconds
+
+  @GGMQ-1-101
+  Scenario Outline: GGMQ-1-101-<mqtt-v>-<name>: As a customer, I can configure retain flag and retain handling
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth       | LATEST                                            |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                            |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                            |
+      | <agent>                                 | classpath:/greengrass/components/recipes/<recipe> |
+    And I create client device "publisher"
+    And I create client device "subscriber"
+    When I associate "subscriber" with ggc
+    When I associate "publisher" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+   "MERGE":{
+      "deviceGroups":{
+         "formatVersion":"2021-03-05",
+         "definitions":{
+            "MyPermissiveDeviceGroup":{
+               "selectionRule": "thingName: ${publisher} OR thingName: ${subscriber}",
+               "policyName":"MyPermissivePolicy"
+            }
+         },
+         "policies":{
+            "MyPermissivePolicy":{
+               "AllowAll":{
+                  "statementDescription":"Allow client devices to perform all actions.",
+                  "operations":[
+                     "*"
+                  ],
+                  "resources":[
+                     "*"
+                  ]
+               }
+            }
+         }
+      }
+   }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+   "MERGE":{
+      "controlAddresses":"${mqttControlAddresses}",
+      "controlPort":"${mqttControlPort}"
+   }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 300 seconds
+    Then I discover core device broker as "localMqttBroker" from "publisher"
+    Then I discover core device broker as "localMqttBroker" from "subscriber"
+    And I connect device "publisher" on <agent> to "localMqttBroker" using mqtt "<mqtt-v>"
+    And I connect device "subscriber" on <agent> to "localMqttBroker" using mqtt "<mqtt-v>"
+
+    When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world" and expect status 0 and retain true
+    When I subscribe "subscriber" to "iot_data_0" with qos 0 with retainHandling 0
+    And message "Hello world" received on "subscriber" from "iot_data_0" topic within 5 seconds
+    When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world" and expect status 0 and retain true
+    When I subscribe "subscriber" to "iot_data_1" with qos 0 with retainHandling 1
+    And message "Hello world" received on "subscriber" from "iot_data_1" topic within 5 seconds
+    When I publish from "publisher" to "iot_data_2" with qos 0 and message "Hello world" and expect status 0 and retain true
+    When I subscribe "subscriber" to "iot_data_2" with qos 0 with retainHandling 2
+    And message "Hello world" received on "subscriber" from "iot_data_2" topic within 5 seconds is <retainHandling-2> expected
+
+    When I publish from "publisher" to "iot_data_3" with qos 0 and message "Hello world" and expect status 0 and retain false
+    When I subscribe "subscriber" to "iot_data_3" with qos 0 with retainHandling 0
+    And message "Hello world" received on "subscriber" from "iot_data_3" topic within 5 seconds is false expected
+    When I publish from "publisher" to "iot_data_4" with qos 0 and message "Hello world" and expect status 0 and retain false
+    When I subscribe "subscriber" to "iot_data_4" with qos 0 with retainHandling 1
+    And message "Hello world" received on "subscriber" from "iot_data_4" topic within 5 seconds is false expected
+    When I publish from "publisher" to "iot_data_5" with qos 0 and message "Hello world" and expect status 0 and retain false
+    When I subscribe "subscriber" to "iot_data_5" with qos 0 with retainHandling 2
+    And message "Hello world" received on "subscriber" from "iot_data_5" topic within 5 seconds is false expected
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name     | agent                                    | recipe               | retainHandling-2 |
+      | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml | true             |
+
+    @mqtt3 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  | retainHandling-2 |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | true             |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name     | agent                                    | recipe               | retainHandling-2 |
+      | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml | false            |
+
+    @mqtt5 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  | retainHandling-2 |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | false            |

@@ -43,7 +43,8 @@ java -jar target/client-devices-auth-uat-client-java-sdk.jar agent1 127.0.0.1 47
 That client support both MQTT v5.0 and MQTT v3.1.1 protocols.
 But because both clients are based on separated clients implemented in IoT device SDK and CRT libraries it differs in protocol-level information provided to control.
 
-Will message not yet supported.
+Will message not yet supported.<br>
+MQTT v3.1.1 protocol doesn't support RetainHandling in subscription method.
 
 ## MQTT v5.0 client
 Currenly information from packets related to QoS2 like PUBREC PUBREL PUBCOMP is missing.
