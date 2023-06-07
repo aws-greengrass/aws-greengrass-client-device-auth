@@ -171,7 +171,8 @@ class GRPCControlServer {
                     .keepalive(keepalive)
                     .cleanSession(request.getCleanSession())
                     .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V_50)
-                    .connectionTimeout(timeout);
+                    .connectionTimeout(timeout)
+                    .userProperties(request.getProperties().getUserPropertiesMap());
 
             // check TLS optional settings
             if (request.hasTls()) {
@@ -279,6 +280,7 @@ class GRPCControlServer {
                     .retain(isRetain)
                     .topic(topic)
                     .payload(message.getPayload().toByteArray())
+                    .userProperties(message.getProperties().getUserPropertiesMap())
                     .build();
             MqttPublishReply publishReply = connection.publish(timeout, internalMessage);
                 if (publishReply != null) {

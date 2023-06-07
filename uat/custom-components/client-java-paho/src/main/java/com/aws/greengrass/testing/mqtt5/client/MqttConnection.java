@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Interface of MQTT5 connection.
@@ -123,6 +124,9 @@ public interface MqttConnection {
 
         /** Payload of message. */
         private byte[] payload;
+
+        /** User properties. */
+        private Map<String, String> userProperties;
 
         // TODO: add user's properties and so one
     }

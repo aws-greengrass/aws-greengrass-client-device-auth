@@ -26,6 +26,7 @@ message MqttConnectionId {
 message Mqtt5Properties {
     // TODO:
     int32 stub = 1;
+    map<string, string> userProperties = 2;
 };
 
 // The MQTT v5.0 message

@@ -7,6 +7,7 @@ package com.aws.greengrass.testing.mqtt.client.control;
 
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5RetainHandling;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
@@ -178,6 +179,7 @@ class AgentTestScenario implements Runnable {
                     .setKeepalive(KEEP_ALIVE)
                     .setCleanSession(CLEAN_SESSION)
                     .setTimeout(CONNECT_TIMEOUT)
+                    .setProperties(createMqtt5Properties())
                     .setProtocolVersion(mqtt50  ? MqttProtoVersion.MQTT_PROTOCOL_V_50
                                                 : MqttProtoVersion.MQTT_PROTOCOL_V_311);
 
@@ -226,7 +228,15 @@ class AgentTestScenario implements Runnable {
                             .setPayload(ByteString.copyFrom(data))
                             .setQos(qos)
                             .setRetain(retain)
+                            .setProperties(createMqtt5Properties())
                             .build();
+    }
+
+    private Mqtt5Properties createMqtt5Properties() {
+        return Mqtt5Properties.newBuilder()
+                .putUserProperties("region", "US")
+                .putUserProperties("type", "JSON")
+                .build();
     }
 
     private void testUnsubscribe(ConnectionControl connectionControl) {

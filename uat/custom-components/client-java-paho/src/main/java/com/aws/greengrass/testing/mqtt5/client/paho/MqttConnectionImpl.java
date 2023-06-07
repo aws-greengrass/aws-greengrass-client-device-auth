@@ -23,11 +23,14 @@ import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
+import org.eclipse.paho.mqttv5.common.packet.UserProperty;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -127,6 +130,9 @@ public class MqttConnectionImpl implements MqttConnection {
         mqttMessage.setQos(message.getQos());
         mqttMessage.setPayload(message.getPayload());
         mqttMessage.setRetained(message.isRetain());
+        MqttProperties properties = new MqttProperties();
+        properties.setUserProperties(convertUserProperties(message.getUserProperties()));
+        mqttMessage.setProperties(properties);
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
         try {
             client.publish(message.getTopic(), mqttMessage);
@@ -167,6 +173,7 @@ public class MqttConnectionImpl implements MqttConnection {
         connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
         SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
         connectionOptions.setSocketFactory(sslSocketFactory);
+        connectionOptions.setUserProperties(convertUserProperties(connectionParams.getUserProperties()));
 
         return connectionOptions;
     }
@@ -229,6 +236,20 @@ public class MqttConnectionImpl implements MqttConnection {
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
                         connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
             });
+            if (mqttMessage.getProperties() != null) {
+                for (UserProperty property : mqttMessage.getProperties().getUserProperties()) {
+                    logger.atInfo()
+                            .log("Received MQTT userProperties: {}, {}", property.getKey(), property.getValue());
+                }
+            }
         }
+    }
+
+    private List<UserProperty> convertUserProperties(Map<String, String> properties) {
+        List<UserProperty> userProperties = new ArrayList<>();
+        if (properties != null) {
+            properties.forEach((key, value) -> userProperties.add(new UserProperty(key, value)));
+        }
+        return userProperties;
     }
 }
