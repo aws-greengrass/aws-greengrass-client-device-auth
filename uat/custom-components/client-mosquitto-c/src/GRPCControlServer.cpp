@@ -427,11 +427,8 @@ std::string GRPCControlServer::getJoinedCA(const TLSSettings & tls_settings) {
     const RepeatedPtrField<std::string> & ca_list = tls_settings.calist();
 
     std::string result;
-    logd("Has %d items in calist\n", ca_list.size());
 
     for (const std::string & ca : ca_list) {
-        logd("CA has length %d\n", ca.length());
-
         if (!result.empty()) {
             result.append("\n");
         }
@@ -439,8 +436,6 @@ std::string GRPCControlServer::getJoinedCA(const TLSSettings & tls_settings) {
         result.append(ca);
 
     }
-
-    logd("Joined CAs length %d\n", result.length());
 
     return result;
 }

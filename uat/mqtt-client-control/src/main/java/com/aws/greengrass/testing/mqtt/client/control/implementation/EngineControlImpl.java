@@ -187,10 +187,10 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     public void onUnregisterAgent(@NonNull String agentId) {
         AgentControlImpl agentControl = agents.remove(agentId);
         if (agentControl != null) {
+            agentControl.stopAgent();
             if (engineEvents != null) {
                 engineEvents.onAgentDeattached(agentControl);
             }
-            agentControl.stopAgent();
         }
     }
 

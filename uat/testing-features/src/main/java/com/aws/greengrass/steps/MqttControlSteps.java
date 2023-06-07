@@ -438,7 +438,7 @@ public class MqttControlSteps {
         final String filter = scenarioContext.applyInline(topicFilterString);
 
         // do subscription
-        log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {} subscribeNoLocal {} "
+        log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {} no local {} "
                     + "retain handling {} ", clientDeviceThingName, filter, qos, subscribeNoLocal,
                     subscribeRetainHandling);
 
