@@ -32,9 +32,14 @@ class GRPCDiscoveryClient:
         self.__logger = GRPCDiscoveryClient.logger
         self.__agent_id = agent_id
         self.__channel = grpc.insecure_channel(address)
-        self.__stub = mqtt_client_control_pb2_grpc.MqttAgentDiscoveryStub(
-            self.__channel
-        )
+
+        try:
+            self.__stub = mqtt_client_control_pb2_grpc.MqttAgentDiscoveryStub(
+                self.__channel
+            )
+        except Exception as error:
+            self.close()
+            raise error
 
     def discovery_agent(self, address: str, port: int):
         """
