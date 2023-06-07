@@ -128,22 +128,22 @@ Feature: GGMQ-1
     @mqtt3 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q0 | subscribe-status-q1| publish-statusq1 | publish-statusq10 |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | SUCCESS             | SUCCESS            | 0                | 0                 |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       | GRANTED_QOS_0      | 0                | 0                 |
 
     @mqtt3 @mosquitto-c
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q0 | subscribe-status-q1| publish-statusq1 | publish-statusq10 |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | SUCCESS             | SUCCESS            | 0                | 0                 |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_0       | GRANTED_QOS_0      | 0                | 0                 |
 
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q0 | subscribe-status-q1| publish-statusq1 | publish-statusq10 |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | SUCCESS             | GRANTED_QOS_1      | 135              | 0                 |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       | GRANTED_QOS_1      | 135              | 0                 |
 
     @mqtt5 @mosquitto-c
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q0 | subscribe-status-q1| publish-statusq1 | publish-statusq10 |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | SUCCESS             | SUCCESS            | 0                | 0                 |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_0       | GRANTED_QOS_0      | 0                | 0                 |
 
 
   @GGMQ-1-T8
@@ -400,7 +400,7 @@ Feature: GGMQ-1
     @mqtt3 @sdk-java
     Examples:
       | mqtt-v | subscribe-status | publish-status | subscribe-status-auth |
-      | v3     | SUCCESS          | 0              | SUCCESS               |
+      | v3     | GRANTED_QOS_0    | 0              | GRANTED_QOS_0         |
 
     @mqtt5 @sdk-java
     Examples:
