@@ -91,7 +91,6 @@ public class MqttControlSteps {
     private static final int DEFAULT_CONTROL_GRPC_PORT = 0;
     private static final String MQTT_CONTROL_PORT_KEY = "mqttControlPort";
 
-
     private static final int MIN_QOS = 0;
     private static final int MAX_QOS = 2;
 
@@ -288,7 +287,7 @@ public class MqttControlSteps {
             final List<String> caList = broker.getCaList();
             final String host = broker.getHost();
             final Integer port = broker.getPort();
-            log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {} MQTT {}",
+            log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {} using MQTT {}",
                      brokerId, host, port, clientDeviceThingName, componentId, mqttVersion);
             MqttConnectRequest request = buildMqttConnectRequest(
                     clientDeviceThingName, caList, host, port, version);
@@ -359,10 +358,9 @@ public class MqttControlSteps {
      * @param subscribeRetainAsPublished the new values of 'retain as published' flag.
      */
     @And("I set MQTT subscribe retain as published flag to {booleanValue}")
-    public void setSubscribeNoLocal(Boolean subscribeRetainAsPublished) {
+    public void setSubscribeRetainAsPublished(Boolean subscribeRetainAsPublished) {
         this.subscribeRetainAsPublished = subscribeRetainAsPublished;
     }
-
 
 
     /**
@@ -603,14 +601,14 @@ public class MqttControlSteps {
     }
 
     /**
-     * Discover IoT core device broker.
+     * Discover IoT core device broker directly in OTF.
      *
      * @param brokerId       broker name in tests
      * @param clientDeviceId user defined client device id
      * @throws ExecutionException   thrown when future completed exceptionally
      * @throws InterruptedException thrown when the current thread was interrupted while waiting
      */
-    @And("I discover core device broker as {string} from {string}")
+    @And("I discover core device broker as {string} from {string} in OTF")
     public void discoverCoreDeviceBroker(String brokerId, String clientDeviceId)
             throws ExecutionException, InterruptedException {
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
@@ -640,7 +638,7 @@ public class MqttControlSteps {
      *
      * @param brokerId broker name in tests
      */
-    @And("I label IoT core broker as {string}")
+    @And("I label IoT Core broker as {string}")
     public void discoverCoreDeviceBroker(String brokerId) {
         final String endpoint = resources.lifecycle(IotLifecycle.class)
                                          .dataEndpoint();
@@ -648,6 +646,7 @@ public class MqttControlSteps {
         MqttBrokerConnectionInfo broker = new MqttBrokerConnectionInfo(
                 endpoint, IOT_CORE_MQTT_PORT, Collections.singletonList(ca));
         brokers.put(brokerId, Collections.singletonList(broker));
+        log.info("Added IoT Core broker as {} with endpoint {}:{}", brokerId, endpoint, IOT_CORE_MQTT_PORT);
     }
 
     /**

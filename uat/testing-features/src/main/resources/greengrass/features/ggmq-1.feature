@@ -65,7 +65,7 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    And I discover core device broker as "default_broker" from "clientDeviceTest"
+    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
     And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
     When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0 and expect status "<subscribe-status-q0>"
     When I subscribe "clientDeviceTest" to "iot_data _1" with qos 1 and expect status "<subscribe-status-q1>"
@@ -246,7 +246,7 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    Then I discover core device broker as "localMqttBroker" from "publisher"
+    Then I discover core device broker as "localMqttBroker" from "publisher" in OTF
     And I connect device "publisher" on <agent> to "localMqttBroker" using mqtt "<mqtt-v>"
     And I wait 5 seconds
     When I publish from "publisher" to "topic/to/pubsub" with qos 1 and message "Hello world"
@@ -341,7 +341,7 @@ Feature: GGMQ-1
     When I associate "subscriber" with ggc
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    And I discover core device broker as "default_broker" from "publisher"
+    And I discover core device broker as "default_broker" from "publisher" in OTF
     And I connect device "publisher" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     When I subscribe "subscriber" to "iot_data_0" with qos 0 and expect status "<subscribe-status>"
@@ -387,7 +387,7 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 120 seconds
-    And I discover core device broker as "default_broker" from "subscriber"
+    And I discover core device broker as "default_broker" from "subscriber" in OTF
     And I connect device "publisher" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     When I subscribe "subscriber" to "iot_data_0" with qos 0 and expect status "<subscribe-status>"
@@ -489,22 +489,26 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    When I discover core device broker as "localBroker" from "localMqttSubscriber"
-    And I label IoT core broker as "iotCoreBroker"
+    When I discover core device broker as "localBroker" from "localMqttSubscriber" in OTF
+    And I label IoT Core broker as "iotCoreBroker"
     And I connect device "localMqttSubscriber" on <agent> to "localBroker" using mqtt "<mqtt-v>"
     And I connect device "iotCorePublisher" on <agent> to "iotCoreBroker" using mqtt "<mqtt-v>"
     And I subscribe "localMqttSubscriber" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1
     And I subscribe "localMqttSubscriber" to "${localMqttSubscriber}topic/device2/#" with qos 1
     And I subscribe "localMqttSubscriber" to "${localMqttSubscriber}topic/+/humidity" with qos 1
     And I subscribe "localMqttSubscriber" to "prefix/${localMqttSubscriber}topic/with/prefix" with qos 1
-    When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1 and message "Hello world"
-    Then message "Hello world" received on "localMqttSubscriber" from "${localMqttSubscriber}topic/to/localmqtt" topic within 10 seconds
+
+    When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1 and message "Hello world1"
+    Then message "Hello world1" received on "localMqttSubscriber" from "${localMqttSubscriber}topic/to/localmqtt" topic within 10 seconds
+
     When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/device1/humidity" with qos 1 and message "H=10%"
     Then message "H=10%" received on "localMqttSubscriber" from "${localMqttSubscriber}topic/device1/humidity" topic within 10 seconds
+
     When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/device2/temperature" with qos 1 and message "T=100C"
     Then message "T=100C" received on "localMqttSubscriber" from "${localMqttSubscriber}topic/device2/temperature" topic within 10 seconds
-    When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/with/prefix" with qos 1 and message "Hello world"
-    Then message "Hello world" received on "localMqttSubscriber" from "prefix/${localMqttSubscriber}topic/with/prefix" topic within 10 seconds
+
+    When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/with/prefix" with qos 1 and message "Hello world2"
+    Then message "Hello world2" received on "localMqttSubscriber" from "prefix/${localMqttSubscriber}topic/with/prefix" topic within 10 seconds
 
     @mqtt3 @sdk-java
     Examples:
@@ -578,44 +582,44 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    Then I discover core device broker as "localMqttBroker1" from "publisher"
-    Then I discover core device broker as "localMqttBroker2" from "subscriber"
+    Then I discover core device broker as "localMqttBroker1" from "publisher" in OTF
+    Then I discover core device broker as "localMqttBroker2" from "subscriber" in OTF
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
 
     And I set MQTT publish retain flag to true
 
-    When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world"
+    When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world0"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_SEND_AT_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_0" with qos 0
-    And message "Hello world" received on "subscriber" from "iot_data_0" topic within 5 seconds
+    And message "Hello world0" received on "subscriber" from "iot_data_0" topic within 5 seconds
 
-    When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world"
+    When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world1"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_SEND_AT_NEW_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_1" with qos 0
-    And message "Hello world" received on "subscriber" from "iot_data_1" topic within 5 seconds
+    And message "Hello world1" received on "subscriber" from "iot_data_1" topic within 5 seconds
 
-    When I publish from "publisher" to "iot_data_2" with qos 0 and message "Hello world"
+    When I publish from "publisher" to "iot_data_2" with qos 0 and message "Hello world2"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_2" with qos 0
-    And message "Hello world" received on "subscriber" from "iot_data_2" topic within 5 seconds is <retainHandling-2> expected
+    And message "Hello world2" received on "subscriber" from "iot_data_2" topic within 5 seconds is <retainHandling-2> expected
 
     And I set MQTT publish retain flag to false
 
-    When I publish from "publisher" to "iot_data_3" with qos 0 and message "Hello world"
+    When I publish from "publisher" to "iot_data_3" with qos 0 and message "Hello world3"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_SEND_AT_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_3" with qos 0
-    And message "Hello world" received on "subscriber" from "iot_data_3" topic within 5 seconds is false expected
+    And message "Hello world3" received on "subscriber" from "iot_data_3" topic within 5 seconds is false expected
 
-    When I publish from "publisher" to "iot_data_4" with qos 0 and message "Hello world"
+    When I publish from "publisher" to "iot_data_4" with qos 0 and message "Hello world4"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_SEND_AT_NEW_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_4" with qos 0
-    And message "Hello world" received on "subscriber" from "iot_data_4" topic within 5 seconds is false expected
+    And message "Hello world4" received on "subscriber" from "iot_data_4" topic within 5 seconds is false expected
 
-    When I publish from "publisher" to "iot_data_5" with qos 0 and message "Hello world"
+    When I publish from "publisher" to "iot_data_5" with qos 0 and message "Hello world5"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_5" with qos 0
-    And message "Hello world" received on "subscriber" from "iot_data_5" topic within 5 seconds is false expected
+    And message "Hello world5" received on "subscriber" from "iot_data_5" topic within 5 seconds is false expected
 
     @mqtt3 @sdk-java
     Examples:

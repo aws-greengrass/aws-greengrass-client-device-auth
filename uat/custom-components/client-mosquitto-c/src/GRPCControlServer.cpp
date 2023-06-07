@@ -13,7 +13,7 @@
 #include "MqttLib.h"
 #include "MqttConnection.h"
 #include "MqttException.h"
-#include "logger.h"                             /* logd() */
+#include "logger.h"                             /* logd() loge() */
 
 
 #define PORT_MIN                        1
@@ -134,12 +134,13 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext *, const MqttConnec
         return Status(StatusCode::INVALID_ARGUMENT, "invalid timeout, must be at least 1");
     }
 
+    std::string ca;
     const char * ca_char = NULL;
     const char * cert_char = NULL;
     const char * key_char = NULL;
     if (request->has_tls()) {
         const TLSSettings & tls_settings = request->tls();
-        const std::string ca = getJoinedCA(tls_settings);
+        ca = getJoinedCA(tls_settings);
         const std::string & cert = tls_settings.cert();
         const std::string & key = tls_settings.key();
 
@@ -425,8 +426,21 @@ Status GRPCControlServer::UnsubscribeMqtt(ServerContext *, const MqttUnsubscribe
 std::string GRPCControlServer::getJoinedCA(const TLSSettings & tls_settings) {
     const RepeatedPtrField<std::string> & ca_list = tls_settings.calist();
 
-    std::ostringstream imploded;
-    std::copy(ca_list.begin(), ca_list.end(), std::ostream_iterator<std::string>(imploded, "\n"));
+    std::string result;
+    logd("Has %d items in calist\n", ca_list.size());
 
-    return imploded.str();
+    for (const std::string & ca : ca_list) {
+        logd("CA has length %d\n", ca.length());
+
+        if (!result.empty()) {
+            result.append("\n");
+        }
+
+        result.append(ca);
+
+    }
+
+    logd("Joined CAs length %d\n", result.length());
+
+    return result;
 }

@@ -170,6 +170,8 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
             // TODO: select TLS version with mosquitto_tls_opts_set();
             // NOTE: enable for tests only
             // mosquitto_tls_insecure_set(m_mosq, true);
+        } else {
+            logd("TLS credentials does not provided, continue without encryption\n");
         }
 
         // TODO
@@ -531,7 +533,7 @@ void MqttConnection::removeFile(std::string & file) {
 
 // FIXME: place credentials to temporary files is dangerous
 std::string MqttConnection::saveToTempFile(const std::string & content) {
-    char buffer[1024];
+    char buffer[L_tmpnam + 1];
     char * filename = tmpnam(buffer);                                   // TODO: replace unsafe tmpnam()
     if (filename) {
         FILE* fp = fopen(filename, "w");
