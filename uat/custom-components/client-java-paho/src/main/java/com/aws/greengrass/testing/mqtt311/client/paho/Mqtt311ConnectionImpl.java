@@ -25,6 +25,7 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +39,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(Mqtt311ConnectionImpl.class);
     private static final String EXCEPTION_WHEN_CONNECTING = "Exception occurred during connect";
     private static final String EXCEPTION_WHEN_CONFIGURE_SSL_CA = "Exception occurred during SSL configuration";
+
+    // MQTT 3.1.1 doesn't support user properties
+    private static final Map<String, String> USER_PROPERTIES = null;
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final IMqttClient mqttClient;
@@ -171,7 +175,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload());
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(), USER_PROPERTIES);
             executorService.submit(() -> {
                 grpcClient.onReceiveMqttMessage(connectionId, message);
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",

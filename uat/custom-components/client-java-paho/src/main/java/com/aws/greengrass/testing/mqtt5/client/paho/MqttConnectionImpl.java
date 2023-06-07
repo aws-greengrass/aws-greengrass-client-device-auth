@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -131,7 +132,7 @@ public class MqttConnectionImpl implements MqttConnection {
         mqttMessage.setPayload(message.getPayload());
         mqttMessage.setRetained(message.isRetain());
         MqttProperties properties = new MqttProperties();
-        properties.setUserProperties(convertUserProperties(message.getUserProperties()));
+        properties.setUserProperties(convertUserPropertiesToList(message.getUserProperties()));
         mqttMessage.setProperties(properties);
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
         try {
@@ -173,7 +174,7 @@ public class MqttConnectionImpl implements MqttConnection {
         connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
         SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
         connectionOptions.setSocketFactory(sslSocketFactory);
-        connectionOptions.setUserProperties(convertUserProperties(connectionParams.getUserProperties()));
+        connectionOptions.setUserProperties(convertUserPropertiesToList(connectionParams.getUserProperties()));
 
         return connectionOptions;
     }
@@ -229,27 +230,35 @@ public class MqttConnectionImpl implements MqttConnection {
     private class MqttMessageListener implements IMqttMessageListener {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) {
+            Map<String, String> userProps = convertUserPropertiesToMap(mqttMessage.getProperties());
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload());
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(), userProps);
             executorService.submit(() -> {
                 grpcClient.onReceiveMqttMessage(connectionId, message);
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
                         connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
             });
-            if (mqttMessage.getProperties() != null) {
-                for (UserProperty property : mqttMessage.getProperties().getUserProperties()) {
-                    logger.atInfo()
-                            .log("Received MQTT userProperties: {}, {}", property.getKey(), property.getValue());
-                }
-            }
+            userProps.forEach((key, value) -> logger.atInfo()
+                    .log("Received MQTT userProperties: {}, {}", key, value));
         }
     }
 
-    private List<UserProperty> convertUserProperties(Map<String, String> properties) {
+    private List<UserProperty> convertUserPropertiesToList(Map<String, String> properties) {
         List<UserProperty> userProperties = new ArrayList<>();
         if (properties != null) {
             properties.forEach((key, value) -> userProperties.add(new UserProperty(key, value)));
         }
         return userProperties;
+    }
+
+    private Map<String, String> convertUserPropertiesToMap(MqttProperties properties) {
+        Map<String, String> userProps = new HashMap<>();
+        if (properties == null || properties.getUserProperties() == null) {
+            return userProps;
+        }
+        for (UserProperty property : properties.getUserProperties()) {
+            userProps.put(property.getKey(), property.getValue());
+        }
+        return userProps;
     }
 }

@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 import com.aws.greengrass.testing.mqtt.client.DiscoveryRequest;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.MqttAgentDiscoveryGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttQoS;
@@ -17,7 +18,6 @@ import com.aws.greengrass.testing.mqtt.client.RegisterReply;
 import com.aws.greengrass.testing.mqtt.client.RegisterRequest;
 import com.aws.greengrass.testing.mqtt.client.UnregisterRequest;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
-import com.aws.greengrass.testing.mqtt5.client.GRPCClient.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
 import com.google.protobuf.ByteString;
 import io.grpc.Grpc;
@@ -122,6 +122,9 @@ class GRPCDiscoveryClient implements GRPCClient {
                                         .setPayload(ByteString.copyFrom(message.getPayload()))
                                         .setQos(MqttQoS.forNumber(message.getQos()))
                                         .setRetain(message.isRetain())
+                                        .setProperties(
+                                                Mqtt5Properties.newBuilder()
+                                                .putAllUserProperties(message.getUserProperties()).build())
                                         .build();
 
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
