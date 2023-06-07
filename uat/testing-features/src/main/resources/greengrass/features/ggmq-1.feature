@@ -532,7 +532,7 @@ Feature: GGMQ-1
 
 
   @GGMQ-1-T101
-  Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can configure retain flag and retain handling
+  Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can use publish retain flag and subscribe retain handling as expected
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth       | LATEST                                            |
       | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                            |
@@ -623,20 +623,30 @@ Feature: GGMQ-1
 
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name     | agent                                      | recipe               | retainHandling-2  |
-      | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient   | client_java_sdk.yaml | true              |
+      | mqtt-v | name        | agent                                     | recipe                  | retainHandling-2 |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | true             |
 
     @mqtt3 @paho-java
     Examples:
-      | mqtt-v | name      | agent                                     | recipe                | retainHandling-2 |
-      | v3     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml | true             |
+      | mqtt-v | name        | agent                                     | recipe                  | retainHandling-2 |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | true             |
+
+    @mqtt3 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  | retainHandling-2 |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | true             |
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name     | agent                                      | recipe               | retainHandling-2  |
-      | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient   | client_java_sdk.yaml | false             |
+      | mqtt-v | name        | agent                                     | recipe                  | retainHandling-2 |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | false            |
 
     @mqtt5 @paho-java
     Examples:
-      | mqtt-v | name      | agent                                     | recipe                | retainHandling-2 |
-      | v5     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml | false            |
+      | mqtt-v | name        | agent                                     | recipe                  | retainHandling-2 |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | false            |
+
+    @mqtt5 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  | retainHandling-2 |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | false            |

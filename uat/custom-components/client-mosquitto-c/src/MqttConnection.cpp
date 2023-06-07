@@ -347,7 +347,7 @@ std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscri
     {
         std::ostringstream imploded;
         std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, " "));
-        logd("Subscribed on '%s' filters QoS %d message id %d\n", imploded.str().c_str(), qos, message_id);
+        logd("Subscribed on filters '%s' QoS %d no local %d retain as published %d retain handing %d with message id %d\n", imploded.str().c_str(), qos, no_local, retain_as_published, retain_handling, message_id);
     }
 
     mosquitto_property_free_all(&properties);
@@ -409,7 +409,7 @@ std::vector<int> MqttConnection::unsubscribe(unsigned timeout, const std::vector
     {
         std::ostringstream imploded;
         std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, " "));
-        logd("Unsubscribed from '%s' filters message id %d\n", imploded.str().c_str(), message_id);
+        logd("Unsubscribed from filters '%s' with message id %d\n", imploded.str().c_str(), message_id);
     }
 
     // NOTE: mosquitto does not provides result code(s) from unsubscribe; produce vector of successes
@@ -453,7 +453,7 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
     std::shared_ptr<AsyncResult> result = request->waitForResult(timeout);
     removePendingRequestUnlocked(message_id);
 
-    logd("Published to '%s' QoS %d  id %d\n", topic.c_str(), qos, message_id);
+    logd("Published on topic '%s' QoS %d retain %d with message id %d\n", topic.c_str(), qos, is_retain, message_id);
     return convertToPublishReply(result->rc, result->props);
 }
 

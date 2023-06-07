@@ -56,8 +56,10 @@ public interface AgentControl {
 
     /**
      * Stops the agent control.
+     *
+     * @param sendShutdown when set shutdown request will be sent to agent and all MQTT connection are closed
      */
-    void stopAgent();
+    void stopAgent(boolean sendShutdown);
 
     /**
      * Gets id of the agent.
