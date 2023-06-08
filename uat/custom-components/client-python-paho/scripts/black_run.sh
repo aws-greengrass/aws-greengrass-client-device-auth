@@ -6,4 +6,4 @@
 #
 
 DIR=$(realpath "$(dirname "$0")")
-black --line-length 79 --verbose --exclude="dev-env|grpc_client_server/grpc_generated" $DIR\..\src
+black --line-length 120 --verbose --exclude="dev-env|grpc_client_server/grpc_generated" $DIR\..\src

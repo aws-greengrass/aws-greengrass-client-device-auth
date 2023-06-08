@@ -23,7 +23,7 @@ pip install -r src/requirements_lint.txt
 Windows
 
 ```cmd
-scripts\\generate_grpc.bat
+scripts\generate_grpc.bat
 ```
 
 Linux

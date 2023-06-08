@@ -1,2 +1,5 @@
 [MASTER]
 ignore=grpc_generated
+
+[FORMAT]
+max-line-length=120
