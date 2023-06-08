@@ -83,7 +83,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions) {
+    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
+                                        Map<String, String> userProperties) {
         String[] filters = new String[subscriptions.size()];
         int[] qos = new int[subscriptions.size()];
         MqttMessageListener[] messageListeners = new MqttMessageListener[subscriptions.size()];

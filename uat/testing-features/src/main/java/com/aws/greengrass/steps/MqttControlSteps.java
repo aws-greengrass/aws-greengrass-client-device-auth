@@ -365,7 +365,8 @@ public class MqttControlSteps {
                                                                         SUBSCRIBE_NO_LOCAL,
                                                                         SUBSCRIBE_RETAIN_AS_PUBLISHED,
                                                                         mqtt5RetainHandling);
-        MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, mqtt5Subscription);
+        MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, null,
+                mqtt5Subscription);
         if (mqttSubscribeReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT subscribe request");
         }
@@ -421,7 +422,8 @@ public class MqttControlSteps {
                 SUBSCRIBE_NO_LOCAL,
                 SUBSCRIBE_RETAIN_AS_PUBLISHED,
                 DEFAULT_SUBSCRIBE_RETAIN_HANDLING);
-        MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, mqtt5Subscription);
+        MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, null,
+                mqtt5Subscription);
         if (mqttSubscribeReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT subscribe request");
         }

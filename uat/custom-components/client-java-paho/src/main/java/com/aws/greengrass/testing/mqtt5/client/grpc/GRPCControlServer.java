@@ -36,7 +36,9 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -163,6 +165,11 @@ class GRPCControlServer {
                 return;
             }
 
+            Map<String, String> userProperties = new HashMap<>();
+            if (request.hasProperties()) {
+                userProperties = request.getProperties().getUserPropertiesMap();
+            }
+
             MqttLib.ConnectionParams.ConnectionParamsBuilder connectionParamsBuilder
                     = MqttLib.ConnectionParams.builder()
                     .clientId(clientId)
@@ -172,7 +179,7 @@ class GRPCControlServer {
                     .cleanSession(request.getCleanSession())
                     .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V_50)
                     .connectionTimeout(timeout)
-                    .userProperties(request.getProperties().getUserPropertiesMap());
+                    .userProperties(userProperties);
 
             // check TLS optional settings
             if (request.hasTls()) {
@@ -275,12 +282,17 @@ class GRPCControlServer {
             logger.atInfo().log("Publish: connectionId {} topic {} QoS {} retain {}",
                     connectionId, topic, qos, isRetain);
 
+            Map<String, String> userProperties = new HashMap<>();
+            if (message.hasProperties()) {
+                userProperties = message.getProperties().getUserPropertiesMap();
+            }
+
             MqttConnection.Message internalMessage = MqttConnection.Message.builder()
                     .qos(qos)
                     .retain(isRetain)
                     .topic(topic)
                     .payload(message.getPayload().toByteArray())
-                    .userProperties(message.getProperties().getUserPropertiesMap())
+                    .userProperties(userProperties)
                     .build();
             MqttPublishReply publishReply = connection.publish(timeout, internalMessage);
                 if (publishReply != null) {
@@ -418,9 +430,8 @@ class GRPCControlServer {
             }
             logger.atInfo().log("Subscribe: connectionId {} for {} filters",
                     connectionId, outSubscriptions.size());
-
-            // TODO: pass also user's properties
-            MqttSubscribeReply subscribeReply = connection.subscribe(timeout, outSubscriptions);
+            Map<String, String> userProperties = request.getUserPropertiesMap();
+            MqttSubscribeReply subscribeReply = connection.subscribe(timeout, outSubscriptions, userProperties);
             if (subscribeReply != null) {
                 logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string {}",
                         connectionId, subscribeReply.getReasonCodesList(), subscribeReply.getReasonString());
@@ -583,6 +594,11 @@ class GRPCControlServer {
         String serverReference = conAckInfo.getServerReference();
         if (serverReference != null) {
             builder.setServerReference(serverReference);
+        }
+
+        Map<String, String> userProperties = conAckInfo.getUserProperties();
+        if (userProperties != null) {
+            builder.putAllUserProperties(userProperties);
         }
 
         return builder.build();

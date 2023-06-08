@@ -196,7 +196,8 @@ class AgentTestScenario implements Runnable {
         Mqtt5Subscription subscription = createSubscription(SUBSCRIBE_FILTER, SUBSCRIBE_QOS, SUBSCRIBE_NO_LOCAL,
                                                             SUBSCRIBE_RETAIN_AS_PUBLISHED, SUBSCRIBE_RETAIN_HANDLING);
 
-        MqttSubscribeReply reply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, subscription);
+        MqttSubscribeReply reply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, createMqtt5Properties(),
+                subscription);
         logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string '{}'",
                                 connectionControl.getConnectionId(),
                                 reply.getReasonCodesList(),

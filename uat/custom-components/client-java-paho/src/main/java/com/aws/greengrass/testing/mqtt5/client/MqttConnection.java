@@ -46,11 +46,11 @@ public interface MqttConnection {
         private Integer serverKeepAlive;
         private String responseInformation;
         private String serverReference;
+        private Map<String, String> userProperties;
 
         // TODO: int topicAliasMaximum;          // miss for AWS IoT device SDK MQTT5 client ?
         // TODO: Authentication Method
         // TODO: Authentication Data
-        // TODO: user's Properties
 
         /**
          * Creates ConnAckInfo for result of MQTT 3.1.1 connect.
@@ -157,9 +157,11 @@ public interface MqttConnection {
      *
      * @param timeout subscribe operation timeout in seconds
      * @param subscriptions list of subscriptions
+     * @param userProperties  Map of user's properties MQTT v5.0
      * @return useful information from SUBACK packet
      */
-    MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions);
+    MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
+                                 Map<String, String> userProperties);
 
     /**
      * Closes MQTT connection.

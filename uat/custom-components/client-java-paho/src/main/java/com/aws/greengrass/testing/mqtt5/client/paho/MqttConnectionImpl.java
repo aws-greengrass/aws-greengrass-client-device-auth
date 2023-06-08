@@ -85,7 +85,8 @@ public class MqttConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions) {
+    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
+                                        Map<String, String> userProperties) {
         MqttSubscription[] mqttSubscriptions = new MqttSubscription[subscriptions.size()];
         MqttMessageListener[] listeners = new MqttMessageListener[subscriptions.size()];
         for (int i = 0; i < subscriptions.size(); i++) {
@@ -96,9 +97,13 @@ public class MqttConnectionImpl implements MqttConnection {
             mqttSubscriptions[i] = subscription;
             listeners[i] = new MqttMessageListener();
         }
+        MqttProperties properties = new MqttProperties();
+        if (userProperties != null && !userProperties.isEmpty()) {
+            properties.setUserProperties(convertUserPropertiesToList(userProperties));
+        }
         MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
         try {
-            IMqttToken response = client.subscribe(mqttSubscriptions, null, null, listeners, new MqttProperties());
+            IMqttToken response = client.subscribe(mqttSubscriptions, null, null, listeners, properties);
             response.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
             List<Integer> reasonCodes = Arrays.stream(response.getReasonCodes()).boxed().collect(Collectors.toList());
             builder.addAllReasonCodes(reasonCodes);
@@ -131,9 +136,11 @@ public class MqttConnectionImpl implements MqttConnection {
         mqttMessage.setQos(message.getQos());
         mqttMessage.setPayload(message.getPayload());
         mqttMessage.setRetained(message.isRetain());
-        MqttProperties properties = new MqttProperties();
-        properties.setUserProperties(convertUserPropertiesToList(message.getUserProperties()));
-        mqttMessage.setProperties(properties);
+        if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
+            MqttProperties properties = new MqttProperties();
+            properties.setUserProperties(convertUserPropertiesToList(message.getUserProperties()));
+            mqttMessage.setProperties(properties);
+        }
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
         try {
             client.publish(message.getTopic(), mqttMessage);
@@ -174,7 +181,9 @@ public class MqttConnectionImpl implements MqttConnection {
         connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
         SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
         connectionOptions.setSocketFactory(sslSocketFactory);
-        connectionOptions.setUserProperties(convertUserPropertiesToList(connectionParams.getUserProperties()));
+        if (connectionParams.getUserProperties() != null && !connectionParams.getUserProperties().isEmpty()) {
+            connectionOptions.setUserProperties(convertUserPropertiesToList(connectionParams.getUserProperties()));
+        }
 
         return connectionOptions;
     }
@@ -216,7 +225,8 @@ public class MqttConnectionImpl implements MqttConnection {
                 sharedSubscriptionAvailable,
                 token.getResponseProperties().getServerKeepAlive(),
                 token.getResponseProperties().getResponseInfo(),
-                token.getResponseProperties().getServerReference()
+                token.getResponseProperties().getServerReference(),
+                convertUserPropertiesToMap(token.getResponseProperties().getUserProperties())
         );
     }
 
@@ -245,18 +255,21 @@ public class MqttConnectionImpl implements MqttConnection {
 
     private List<UserProperty> convertUserPropertiesToList(Map<String, String> properties) {
         List<UserProperty> userProperties = new ArrayList<>();
-        if (properties != null) {
-            properties.forEach((key, value) -> userProperties.add(new UserProperty(key, value)));
-        }
+        properties.forEach((key, value) -> userProperties.add(new UserProperty(key, value)));
         return userProperties;
     }
 
-    private Map<String, String> convertUserPropertiesToMap(MqttProperties properties) {
+    private static Map<String, String> convertUserPropertiesToMap(MqttProperties properties) {
         Map<String, String> userProps = new HashMap<>();
         if (properties == null || properties.getUserProperties() == null) {
             return userProps;
         }
-        for (UserProperty property : properties.getUserProperties()) {
+        return convertUserPropertiesToMap(properties.getUserProperties());
+    }
+
+    private static Map<String, String> convertUserPropertiesToMap(List<UserProperty> properties) {
+        Map<String, String> userProps = new HashMap<>();
+        for (UserProperty property : properties) {
             userProps.put(property.getKey(), property.getValue());
         }
         return userProps;

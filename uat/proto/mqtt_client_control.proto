@@ -24,7 +24,6 @@ message MqttConnectionId {
 
 // MQTT 5.0 user's properties used in most of packets
 message Mqtt5Properties {
-    // TODO:
     int32 stub = 1;
     map<string, string> userProperties = 2;
 };
@@ -35,7 +34,7 @@ message Mqtt5Message {
     bytes payload = 2;
     MqttQoS qos = 3;
     bool retain = 4;
-    Mqtt5Properties properties = 5;
+    optional Mqtt5Properties properties = 5;
 };
 
 // End of common part
@@ -176,10 +175,10 @@ message Mqtt5ConnAck {
     optional string responseInformation = 14;
     optional string serverReference = 15;
     optional int32 topicAliasMaximum = 16;
+    map<string, string> userProperties = 17;
 
     // TODO: Authentication Method
     // TODO: Authentication Data
-    // TODO: user's Properties
 };
 
 
@@ -225,7 +224,6 @@ message MqttConnectReply {
     MqttConnectionId connectionId = 2;                  // id of establisted connection
     optional Mqtt5ConnAck connAck = 3;                  // information from CONNACK packet
     optional string error = 4;                          // error string if available, has sense on connected = false
-    // TODO: add user properties
 }
 
 // Request to close MQTT connection
@@ -242,7 +240,7 @@ message MqttSubscribeRequest {
     int32 timeout = 2;                                  // subscribe timeout in seconds
     optional int32 subscriptionId = 3;                  // optional subscription id
     repeated Mqtt5Subscription subscriptions = 4;       // list of filter with options
-    // TODO: add user properties
+    map<string, string> userProperties = 5;             // MQTT v5.0 user's properties
 }
 
 // Response to subscribe request
