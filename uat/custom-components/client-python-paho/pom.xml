@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.aws.greengrass</groupId>
+        <artifactId>client-devices-auth-custom-components</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>client-devices-auth-uat-client-python-paho</artifactId>
+    <packaging>jar</packaging>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+    <profiles>
+        <profile>
+            <id>Unix</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                </os>
+            </activation>
+            <properties>
+                <script.executor>sh</script.executor>
+                <script.to.execute>scripts/build.sh</script.to.execute>
+            </properties>
+        </profile>
+        <profile>
+            <id>Windows</id>
+            <activation>
+                <os>
+                    <family>Windows</family>
+                </os>
+            </activation>
+            <properties>
+                <script.executor>cmd.exe</script.executor>
+                <script.to.execute>/C scripts\\build.bat</script.to.execute>
+            </properties>
+        </profile>
+    </profiles>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>yle-public</id>
+            <name>Yle public repository</name>
+            <url>https://d2x444wtt5plvm.cloudfront.net/release</url>
+            <layout>default</layout>
+        </pluginRepository>
+    </pluginRepositories>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>client-python-docker-build</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <executable>${script.executor}</executable>
+                    <commandlineArgs>${script.to.execute}</commandlineArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>${license.plugin.version}</version>
+                <configuration>
+                    <licenseSets>
+                        <licenseSet>
+                            <header>../../../.license/header.txt</header>
+                            <headerDefinitions>
+                                <headerDefinition>../../../.license/style.xml</headerDefinition>
+                            </headerDefinitions>
+                            <useDefaultExcludes>true</useDefaultExcludes>
+                            <excludes>
+                                <exclude>pom.xml</exclude>
+                                <exclude>**/.pylintrc</exclude>
+                                <exclude>**/.flake8</exclude>
+                                <exclude>**/*.spec</exclude>
+                                <exclude>**/*requirements*.txt</exclude>
+                                <exclude>**/mqtt_client_control_pb2*</exclude>
+                                <exclude>**/__pycache__/**</exclude>
+                                <exclude>**/dev-env/**</exclude>
+                            </excludes>
+                        </licenseSet>
+                    </licenseSets>
+                    <mapping>
+                        <py>SHELL</py>
+                        <bat>BATCH</bat>
+                        <sh>SHELL</sh>
+                    </mapping>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+    <distributionManagement>
+        <snapshotRepository>
+            <id>greengrass-dev-snapshot</id>
+            <name>Greengrass Dev Snapshot</name>
+            <url>${dev-snapshot-repository-url}</url>
+        </snapshotRepository>
+    </distributionManagement>
+</project>
