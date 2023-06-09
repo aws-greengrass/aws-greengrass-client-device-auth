@@ -117,20 +117,20 @@ class GRPCDiscoveryClient implements GRPCClient {
 
     @Override
     public void onReceiveMqttMessage(int connectionId, MqttReceivedMessage message) {
-        Mqtt5Message msg = Mqtt5Message.newBuilder()
+        Mqtt5Message.Builder msgBuilder = Mqtt5Message.newBuilder()
                                         .setTopic(message.getTopic())
                                         .setPayload(ByteString.copyFrom(message.getPayload()))
                                         .setQos(MqttQoS.forNumber(message.getQos()))
-                                        .setRetain(message.isRetain())
-                                        .setProperties(
-                                                Mqtt5Properties.newBuilder()
-                                                .putAllUserProperties(message.getUserProperties()).build())
-                                        .build();
+                                        .setRetain(message.isRetain());
+        if (message.getUserProperties() != null) {
+            msgBuilder.setProperties(Mqtt5Properties.newBuilder()
+                    .putAllUserProperties(message.getUserProperties()).build());
+        }
 
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
                         .setAgentId(agentId)
                         .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
-                        .setMsg(msg)
+                        .setMsg(msgBuilder.build())
                         .build();
         try {
             blockingStub.onReceiveMessage(request);

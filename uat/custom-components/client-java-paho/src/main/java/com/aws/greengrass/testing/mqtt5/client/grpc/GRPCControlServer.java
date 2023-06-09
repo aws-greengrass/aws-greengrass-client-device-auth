@@ -36,7 +36,6 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -165,11 +164,6 @@ class GRPCControlServer {
                 return;
             }
 
-            Map<String, String> userProperties = new HashMap<>();
-            if (request.hasProperties()) {
-                userProperties = request.getProperties().getUserPropertiesMap();
-            }
-
             MqttLib.ConnectionParams.ConnectionParamsBuilder connectionParamsBuilder
                     = MqttLib.ConnectionParams.builder()
                     .clientId(clientId)
@@ -178,8 +172,11 @@ class GRPCControlServer {
                     .keepalive(keepalive)
                     .cleanSession(request.getCleanSession())
                     .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V_50)
-                    .connectionTimeout(timeout)
-                    .userProperties(userProperties);
+                    .connectionTimeout(timeout);
+
+            if (request.hasProperties()) {
+                connectionParamsBuilder.userProperties(request.getProperties().getUserPropertiesMap());
+            }
 
             // check TLS optional settings
             if (request.hasTls()) {
@@ -282,19 +279,16 @@ class GRPCControlServer {
             logger.atInfo().log("Publish: connectionId {} topic {} QoS {} retain {}",
                     connectionId, topic, qos, isRetain);
 
-            Map<String, String> userProperties = new HashMap<>();
-            if (message.hasProperties()) {
-                userProperties = message.getProperties().getUserPropertiesMap();
-            }
-
-            MqttConnection.Message internalMessage = MqttConnection.Message.builder()
+            MqttConnection.Message.MessageBuilder internalMessage = MqttConnection.Message.builder()
                     .qos(qos)
                     .retain(isRetain)
                     .topic(topic)
-                    .payload(message.getPayload().toByteArray())
-                    .userProperties(userProperties)
-                    .build();
-            MqttPublishReply publishReply = connection.publish(timeout, internalMessage);
+                    .payload(message.getPayload().toByteArray());
+            if (message.hasProperties()) {
+                internalMessage.userProperties(message.getProperties().getUserPropertiesMap());
+            }
+
+            MqttPublishReply publishReply = connection.publish(timeout, internalMessage.build());
                 if (publishReply != null) {
                     logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",
                             connectionId, publishReply.getReasonCode(), publishReply.getReasonString());

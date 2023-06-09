@@ -24,8 +24,7 @@ message MqttConnectionId {
 
 // MQTT 5.0 user's properties used in most of packets
 message Mqtt5Properties {
-    int32 stub = 1;
-    map<string, string> userProperties = 2;
+    map<string, string> userProperties = 1;
 };
 
 // The MQTT v5.0 message

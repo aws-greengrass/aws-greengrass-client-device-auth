@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client.paho;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
@@ -108,8 +109,14 @@ public class MqttConnectionImpl implements MqttConnection {
             List<Integer> reasonCodes = Arrays.stream(response.getReasonCodes()).boxed().collect(Collectors.toList());
             builder.addAllReasonCodes(reasonCodes);
             MqttProperties responseProps = response.getResponseProperties();
-            if (responseProps != null && responseProps.getReasonString() != null) {
-                builder.setReasonString(responseProps.getReasonString());
+            if (responseProps != null) {
+                if (responseProps.getReasonString() != null) {
+                    builder.setReasonString(responseProps.getReasonString());
+                }
+                if (responseProps.getUserProperties() != null) {
+                    builder.setProperties(Mqtt5Properties.newBuilder().putAllUserProperties(
+                            convertUserPropertiesToMap(responseProps.getUserProperties())).build());
+                }
             }
         } catch (org.eclipse.paho.mqttv5.common.MqttException e) {
             builder.addReasonCodes(e.getReasonCode());
@@ -143,8 +150,18 @@ public class MqttConnectionImpl implements MqttConnection {
         }
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
         try {
-            client.publish(message.getTopic(), mqttMessage);
+            IMqttToken response = client.publish(message.getTopic(), mqttMessage);
             builder.setReasonCode(0);
+            MqttProperties responseProps = response.getResponseProperties();
+            if (responseProps != null) {
+                if (responseProps.getReasonString() != null) {
+                    builder.setReasonString(responseProps.getReasonString());
+                }
+                if (responseProps.getUserProperties() != null) {
+                    builder.setProperties(Mqtt5Properties.newBuilder().putAllUserProperties(
+                            convertUserPropertiesToMap(responseProps.getUserProperties())).build());
+                }
+            }
         } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
             logger.atError().withThrowable(ex)
                     .log("Failed during publishing message with reasonCode {} and reasonString {}",
@@ -211,6 +228,10 @@ public class MqttConnectionImpl implements MqttConnection {
         }
         int[] reasonCodes = token.getReasonCodes();
         Integer reasonCode = reasonCodes == null ? null : reasonCodes[0];
+        Map<String, String> userProperties = null;
+        if (token.getResponseProperties() != null && token.getResponseProperties().getUserProperties() != null) {
+            userProperties = convertUserPropertiesToMap(token.getResponseProperties().getUserProperties());
+        }
         return new ConnAckInfo(token.getSessionPresent(),
                 reasonCode,
                 sessionExpiryInterval,
@@ -226,7 +247,7 @@ public class MqttConnectionImpl implements MqttConnection {
                 token.getResponseProperties().getServerKeepAlive(),
                 token.getResponseProperties().getResponseInfo(),
                 token.getResponseProperties().getServerReference(),
-                convertUserPropertiesToMap(token.getResponseProperties().getUserProperties())
+                userProperties
         );
     }
 
