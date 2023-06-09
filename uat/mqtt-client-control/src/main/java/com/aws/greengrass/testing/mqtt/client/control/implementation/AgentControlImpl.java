@@ -138,9 +138,11 @@ public class AgentControlImpl implements AgentControl {
     }
 
     @Override
-    public void stopAgent() {
-        closeAllMqttConnections();
-        disconnect();
+    public void stopAgent(boolean sendShutdown) {
+        if (sendShutdown) {
+            closeAllMqttConnections();
+        }
+        disconnect(sendShutdown);
     }
 
     @Override
@@ -311,14 +313,14 @@ public class AgentControlImpl implements AgentControl {
         });
     }
 
-    private void disconnect() {
+    private void disconnect(boolean sendShutdown) {
         if (!isDisconnected.getAndSet(true)) {
-            if (!isShutdownSent.getAndSet(true)) {
+            if (sendShutdown && !isShutdownSent.getAndSet(true)) {
                 shutdownAgent("none");
             }
             channel.shutdown();
             try {
-                channel.awaitTermination(1, TimeUnit.SECONDS);
+                channel.awaitTermination(10, TimeUnit.SECONDS);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             }

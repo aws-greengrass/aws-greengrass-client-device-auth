@@ -15,7 +15,7 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>client-devices-auth-uat-client-mosquitto-c</artifactId>
+    <artifactId>client-devices-auth-uat-client-python-paho</artifactId>
     <packaging>jar</packaging>
 
     <licenses>
@@ -34,7 +34,7 @@
             </activation>
             <properties>
                 <script.executor>sh</script.executor>
-                <script.to.execute>scripts/produce_docker_container.sh</script.to.execute>
+                <script.to.execute>scripts/build.sh</script.to.execute>
             </properties>
         </profile>
         <profile>
@@ -46,7 +46,7 @@
             </activation>
             <properties>
                 <script.executor>cmd.exe</script.executor>
-                <script.to.execute>/C scripts\\rebuild_windows.bat</script.to.execute>
+                <script.to.execute>/C scripts\\build.bat</script.to.execute>
             </properties>
         </profile>
     </profiles>
@@ -61,6 +61,24 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>client-python-docker-build</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <executable>${script.executor}</executable>
+                    <commandlineArgs>${script.to.execute}</commandlineArgs>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
                 <version>${license.plugin.version}</version>
@@ -73,16 +91,21 @@
                             </headerDefinitions>
                             <useDefaultExcludes>true</useDefaultExcludes>
                             <excludes>
-                                <exclude>*</exclude>
+                                <exclude>pom.xml</exclude>
+                                <exclude>**/.pylintrc</exclude>
+                                <exclude>**/.flake8</exclude>
+                                <exclude>**/*.spec</exclude>
+                                <exclude>**/*requirements*.txt</exclude>
+                                <exclude>**/mqtt_client_control_pb2*</exclude>
+                                <exclude>**/__pycache__/**</exclude>
+                                <exclude>**/dev-env/**</exclude>
                             </excludes>
                         </licenseSet>
                     </licenseSets>
                     <mapping>
-                        <cpp>JAVA_STYLE</cpp>
-                        <h>JAVA_STYLE</h>
+                        <py>SHELL</py>
                         <bat>BATCH</bat>
-                        <proto>JAVA_STYLE</proto>
-                        <txt>SHELL</txt>
+                        <sh>SHELL</sh>
                     </mapping>
                 </configuration>
                 <executions>
@@ -93,24 +116,6 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>${exec.plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>client-mosquitto-docker-build</id>
-                        <phase>compile</phase>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <executable>${script.executor}</executable>
-                    <commandlineArgs>${script.to.execute}</commandlineArgs>
-                </configuration>
             </plugin>
         </plugins>
     </build>

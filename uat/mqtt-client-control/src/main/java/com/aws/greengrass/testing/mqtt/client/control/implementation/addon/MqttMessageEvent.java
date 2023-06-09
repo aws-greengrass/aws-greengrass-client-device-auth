@@ -70,6 +70,11 @@ public class MqttMessageEvent extends EventImpl {
             }
         }
 
+        matched = isRetainMatched(filter.getRetain());
+        if (!matched) {
+            return false;
+        }
+
         // TODO: check QoS ?
 
         // check content
@@ -107,6 +112,10 @@ public class MqttMessageEvent extends EventImpl {
         } else {
             return Arrays.equals(expected, byteStringPayload.toByteArray());
         }
+    }
+
+    private boolean isRetainMatched(Boolean retain) {
+        return retain == null || retain == message.getRetain();
     }
 
     private static boolean isTopicMatched(@NonNull String topic, @NonNull String topicFilter) {

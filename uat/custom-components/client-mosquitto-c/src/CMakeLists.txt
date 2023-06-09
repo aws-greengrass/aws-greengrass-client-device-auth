@@ -1,3 +1,8 @@
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+
 function(GRPC_GENERATE PROTO_SRCS GRPC_SRCS DEST)
     foreach(FIL ${ARGN})
         get_filename_component(ABS_FIL ${FIL} ABSOLUTE)

@@ -267,7 +267,7 @@ class EngineControlImplTest {
 
         // THEN
         assertNull(engineControl.getAgent(agentId));
-        verify(agentControl, times(1)).stopAgent();
+        verify(agentControl, times(1)).stopAgent(false);
         verify(engineEvents).onAgentDeattached(eq(agentControl));
     }
 

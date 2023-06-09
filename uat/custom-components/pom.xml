@@ -23,5 +23,6 @@
         <module>client-java-paho</module>
         <module>client-java-sdk</module>
         <module>client-mosquitto-c</module>
+        <module>client-python-paho</module>
     </modules>
 </project>

@@ -52,6 +52,7 @@ public:
         : rc(MOSQ_ERR_SUCCESS), flags(0), props(0), mid(mid_), granted_qos(granted_qos_, granted_qos_ + qos_count_) {
         mosquitto_property_copy_all(&props, props_);
     }
+
     AsyncResult(const AsyncResult &) = delete;
     AsyncResult & operator=(const AsyncResult &) = delete;
 
@@ -170,6 +171,8 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
             // TODO: select TLS version with mosquitto_tls_opts_set();
             // NOTE: enable for tests only
             // mosquitto_tls_insecure_set(m_mosq, true);
+        } else {
+            logd("TLS credentials does not provided, continue without encryption\n");
         }
 
         // TODO
@@ -345,7 +348,7 @@ std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscri
     {
         std::ostringstream imploded;
         std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, " "));
-        logd("Subscribed on '%s' filters QoS %d message id %d\n", imploded.str().c_str(), qos, message_id);
+        logd("Subscribed on filters '%s' QoS %d no local %d retain as published %d retain handing %d with message id %d\n", imploded.str().c_str(), qos, no_local, retain_as_published, retain_handling, message_id);
     }
 
     mosquitto_property_free_all(&properties);
@@ -407,7 +410,7 @@ std::vector<int> MqttConnection::unsubscribe(unsigned timeout, const std::vector
     {
         std::ostringstream imploded;
         std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, " "));
-        logd("Unsubscribed from '%s' filters message id %d\n", imploded.str().c_str(), message_id);
+        logd("Unsubscribed from filters '%s' with message id %d\n", imploded.str().c_str(), message_id);
     }
 
     // NOTE: mosquitto does not provides result code(s) from unsubscribe; produce vector of successes
@@ -451,7 +454,7 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
     std::shared_ptr<AsyncResult> result = request->waitForResult(timeout);
     removePendingRequestUnlocked(message_id);
 
-    logd("Published to '%s' QoS %d  id %d\n", topic.c_str(), qos, message_id);
+    logd("Published on topic '%s' QoS %d retain %d with message id %d\n", topic.c_str(), qos, is_retain, message_id);
     return convertToPublishReply(result->rc, result->props);
 }
 
@@ -531,7 +534,7 @@ void MqttConnection::removeFile(std::string & file) {
 
 // FIXME: place credentials to temporary files is dangerous
 std::string MqttConnection::saveToTempFile(const std::string & content) {
-    char buffer[1024];
+    char buffer[L_tmpnam + 1];
     char * filename = tmpnam(buffer);                                   // TODO: replace unsafe tmpnam()
     if (filename) {
         FILE* fp = fopen(filename, "w");
