@@ -200,10 +200,10 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    Then I discover core device broker as "default_broker" from "publisher" in OTF
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 60 seconds
 
+    Then I discover core device broker as "default_broker" from "publisher" in OTF
     And I connect device "publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
-    And I wait 5 seconds
 
     When I publish from "publisher" to "topic/to/pubsub" with qos 1 and message "Hello world"
     Then I wait 5 seconds
