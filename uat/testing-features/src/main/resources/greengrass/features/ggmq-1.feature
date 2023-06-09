@@ -58,7 +58,7 @@ Feature: GGMQ-1
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
 
-    And I discover core device broker as "default_broker" from "clientDeviceTest"
+    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
     And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
 
     When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0 and expect status "GRANTED_QOS_0"
@@ -193,17 +193,25 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    Then I discover core device broker as "localMqttBroker" from "publisher" in OTF
-    And I connect device "publisher" on <agent> to "localMqttBroker" using mqtt "<mqtt-v>"
+    Then I discover core device broker as "default_broker" from "publisher" in OTF
+
+    And I connect device "publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
     And I wait 5 seconds
+
     When I publish from "publisher" to "topic/to/pubsub" with qos 1 and message "Hello world"
-    When I publish from "publisher" to "topic/device1/humidity" with qos 1 and message "device1 humidity"
-    When I publish from "publisher" to "topic/device2/temperature" with qos 1 and message "device2 temperature"
-    When I publish from "publisher" to "topic/with/prefix" with qos 1 and message "topicPrefix message"
     Then I wait 5 seconds
     And I get 1 assertions with context "ReceivedPubsubMessage" and message "Hello world"
+
+    When I publish from "publisher" to "topic/device1/humidity" with qos 1 and message "device1 humidity"
+    Then I wait 5 seconds
     And I get 1 assertions with context "ReceivedPubsubMessage" and message "device1 humidity"
+
+    When I publish from "publisher" to "topic/device2/temperature" with qos 1 and message "device2 temperature"
+    Then I wait 5 seconds
     And I get 1 assertions with context "ReceivedPubsubMessage" and message "device2 temperature"
+
+    When I publish from "publisher" to "topic/with/prefix" with qos 1 and message "topicPrefix message"
+    Then I wait 5 seconds
     And I get 1 assertions with context "ReceivedPubsubMessage" and message "topicPrefix message"
 
     @mqtt3 @sdk-java
