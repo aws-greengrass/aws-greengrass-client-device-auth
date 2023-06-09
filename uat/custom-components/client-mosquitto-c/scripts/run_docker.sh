@@ -1,4 +1,8 @@
 #!/bin/sh
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
 
 docker build -f Dockerfile --target runner -t client-mosquitto-c:runner-amd64 .
 

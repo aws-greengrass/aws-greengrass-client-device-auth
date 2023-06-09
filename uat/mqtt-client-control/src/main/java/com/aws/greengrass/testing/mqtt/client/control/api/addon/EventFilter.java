@@ -26,6 +26,7 @@ public final class EventFilter {
     private final String topic;
     private final String topicFilter;
     private final byte[] content;
+    private final Boolean retain;
 
     EventFilter(Builder builder) {
         super();
@@ -39,6 +40,7 @@ public final class EventFilter {
         this.topic = builder.topic;
         this.topicFilter = builder.topicFilter;
         this.content = builder.content;
+        this.retain = builder.retain;
     }
 
     /**
@@ -55,6 +57,7 @@ public final class EventFilter {
         private String topic;
         private String topicFilter;
         private byte[] content;
+        private Boolean retain;
 
         /**
          * Sets type of event.
@@ -176,10 +179,21 @@ public final class EventFilter {
          * Applicable only for MQTT message events
          * Both withContent() set the same field
          *
-         * @param content the byte arrat content of MQTT message
+         * @param content the byte array content of MQTT message
          */
         public Builder withContent(@NonNull byte[] content) {
             this.content = content;
+            return this;
+        }
+
+        /**
+         * Sets retain flag.
+         * Applicable only for MQTT message events
+         *
+         * @param retain the retain flag of the message
+         */
+        public Builder withRetain(boolean retain) {
+            this.retain = retain;
             return this;
         }
 

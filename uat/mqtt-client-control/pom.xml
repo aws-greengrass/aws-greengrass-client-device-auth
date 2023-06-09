@@ -155,6 +155,7 @@
                     <arguments>
                         <argument>47619</argument>
                         <argument>true</argument>
+                        <argument>true</argument>
                     </arguments>
                 </configuration>
             </plugin>

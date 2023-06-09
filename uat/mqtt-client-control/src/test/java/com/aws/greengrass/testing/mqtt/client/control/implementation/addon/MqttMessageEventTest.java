@@ -236,4 +236,100 @@ class MqttMessageEventTest {
         verify(message).getTopic();
         verify(message).getPayload();
     }
+
+    @Test
+    void GIVEN_retain_and_matched_filter_WHEN_is_matched_THEN_is() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+        final boolean retain = true;
+
+        lenient().when(message.getRetain()).thenReturn(retain);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .withRetain(retain)
+                                        .build();
+
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertTrue(result);
+        verify(message).getRetain();
+    }
+
+    @Test
+    void GIVEN_not_retain_and_matched_filter_WHEN_is_matched_THEN_is() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+        final boolean retain = false;
+
+        lenient().when(message.getRetain()).thenReturn(retain);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .withRetain(retain)
+                                        .build();
+
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertTrue(result);
+        verify(message).getRetain();
+    }
+
+    @Test
+    void GIVEN_retain_and_not_matched_filter_WHEN_is_matched_THEN_is_not() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+        final boolean retain = true;
+
+        lenient().when(message.getRetain()).thenReturn(retain);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .withRetain(!retain)
+                                        .build();
+
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertFalse(result);
+        verify(message).getRetain();
+    }
+
+    @Test
+    void GIVEN_not_retain_and_not_matched_filter_WHEN_is_matched_THEN_is_not() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+        final boolean retain = false;
+
+        lenient().when(message.getRetain()).thenReturn(retain);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .withRetain(!retain)
+                                        .build();
+
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertFalse(result);
+        verify(message).getRetain();
+    }
 }

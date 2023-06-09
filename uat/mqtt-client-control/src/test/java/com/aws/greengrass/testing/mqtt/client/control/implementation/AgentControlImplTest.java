@@ -65,7 +65,7 @@ class AgentControlImplTest {
 
     @AfterEach
     void teardown() {
-        agentControl.stopAgent();
+        agentControl.stopAgent(false);
     }
 
     @Test

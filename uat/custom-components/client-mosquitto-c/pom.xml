@@ -61,6 +61,40 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>${license.plugin.version}</version>
+                <configuration>
+                    <licenseSets>
+                        <licenseSet>
+                            <header>../../../.license/header.txt</header>
+                            <headerDefinitions>
+                                <headerDefinition>../../../.license/style.xml</headerDefinition>
+                            </headerDefinitions>
+                            <useDefaultExcludes>true</useDefaultExcludes>
+                            <excludes>
+                                <exclude>*</exclude>
+                            </excludes>
+                        </licenseSet>
+                    </licenseSets>
+                    <mapping>
+                        <cpp>JAVA_STYLE</cpp>
+                        <h>JAVA_STYLE</h>
+                        <bat>BATCH</bat>
+                        <proto>JAVA_STYLE</proto>
+                        <txt>SHELL</txt>
+                    </mapping>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>${exec.plugin.version}</version>
