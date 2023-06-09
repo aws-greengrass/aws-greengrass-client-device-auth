@@ -16,7 +16,7 @@ public enum SubscribeReasonCode {
      * the maximum QoS sent will be QoS 0.
      * This might be a lower QoS than was requested.
      */
-    SUCCESS(0),
+    GRANTED_QOS_0(0),
 
     /**
      * Returned when the subscription is accepted and
@@ -24,6 +24,13 @@ public enum SubscribeReasonCode {
      * This might be a lower QoS than was requested.
      */
     GRANTED_QOS_1(1),
+
+    /**
+     * Returned when the subscription is accepted and
+     * the maximum QoS sent will be QoS 2.
+     * This might be a lower QoS than was requested.
+     */
+    GRANTED_QOS_2(2),
 
     /**
      * Returned when the subscription is not accepted and the Server either does not wish to reveal the reason
