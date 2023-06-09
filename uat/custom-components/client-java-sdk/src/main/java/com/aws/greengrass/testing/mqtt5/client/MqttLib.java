@@ -10,6 +10,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NonNull;
 
+import java.util.Map;
+
 /**
  * Interface of MQTT5 library.
  */
@@ -47,6 +49,9 @@ public interface MqttLib extends AutoCloseable {
 
         /** The true MQTT v5.0 connection is requested. */
         private boolean mqtt50;
+
+        /** User properties. */
+        private Map<String, String> userProperties;
     }
 
     /**

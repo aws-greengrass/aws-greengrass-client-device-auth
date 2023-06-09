@@ -136,7 +136,7 @@ class Mqtt311ConnectionImplTest {
         connectFuture.complete(null);
 
         // WHEN
-        mqttConnectionImpl.disconnect(timeoutSeconds, reasonCode);
+        mqttConnectionImpl.disconnect(timeoutSeconds, reasonCode, null);
 
         // THEN
         verify(connection).disconnect();
@@ -154,7 +154,7 @@ class Mqtt311ConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
-            mqttConnectionImpl.disconnect(timeoutSeconds, reasonCode);
+            mqttConnectionImpl.disconnect(timeoutSeconds, reasonCode, null);
         }, "Could not disconnect");
 
         verify(connection).disconnect();
@@ -287,7 +287,7 @@ class Mqtt311ConnectionImplTest {
         subscribeFuture.complete(packetId);
 
         // WHEN
-        SubAckInfo subAckInfo = mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, subscriptions);
+        SubAckInfo subAckInfo = mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, null, subscriptions);
 
         // THEN
         // check result in subAckInfo
@@ -322,7 +322,7 @@ class Mqtt311ConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
-            mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, subscriptions);
+            mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, null, subscriptions);
         }, "MQTT client is not in connected state");
     }
 
@@ -347,7 +347,7 @@ class Mqtt311ConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
-                mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, subscriptions);
+                mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, null, subscriptions);
         }, "Could not subscribe");
 
         verify(connection).subscribe(eq(filter), eq(QualityOfService.getEnumValueFromInteger(QoS)));
@@ -371,7 +371,7 @@ class Mqtt311ConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(IllegalArgumentException.class, () -> {
-                mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, subscriptions);
+                mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, null, subscriptions);
         }, "MQTT v3.1.1 doesn't support subscription id");
     }
 
@@ -394,7 +394,7 @@ class Mqtt311ConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(IllegalArgumentException.class, () -> {
-                mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, subscriptions);
+                mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, null, subscriptions);
         }, "Iot device SDK MQTT v3.1.1 client does not support to subscribe on multiple filters at once");
     }
 
@@ -417,7 +417,7 @@ class Mqtt311ConnectionImplTest {
         mqttConnectionImpl.connectionEvents.onConnectionResumed(true);
 
         // WHEN
-        UnsubAckInfo unsubAckInfo = mqttConnectionImpl.unsubscribe(timeoutSeconds, filters);
+        UnsubAckInfo unsubAckInfo = mqttConnectionImpl.unsubscribe(timeoutSeconds, null, filters);
 
         // THEN
         // check result in subAckInfo
@@ -442,7 +442,7 @@ class Mqtt311ConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
-            mqttConnectionImpl.unsubscribe(timeoutSeconds, filters);
+            mqttConnectionImpl.unsubscribe(timeoutSeconds, null, filters);
         }, "MQTT client is not in connected state");
     }
 
@@ -461,7 +461,7 @@ class Mqtt311ConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
-                mqttConnectionImpl.unsubscribe(timeoutSeconds, filters);
+                mqttConnectionImpl.unsubscribe(timeoutSeconds, null, filters);
         }, "Could not unsubscribe");
 
         verify(connection).unsubscribe(eq(filter));
@@ -479,7 +479,7 @@ class Mqtt311ConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(IllegalArgumentException.class, () -> {
-                mqttConnectionImpl.unsubscribe(timeoutSeconds, filters);
+                mqttConnectionImpl.unsubscribe(timeoutSeconds, null, filters);
         }, "Iot device SDK MQTT v3.1.1 client does not support to unsubscribe from multiple filters at once");
     }
 }

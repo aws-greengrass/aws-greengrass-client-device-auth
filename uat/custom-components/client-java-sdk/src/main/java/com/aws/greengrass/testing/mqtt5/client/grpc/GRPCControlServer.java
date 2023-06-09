@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 import com.aws.greengrass.testing.mqtt.client.Empty;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttClientControlGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttCloseRequest;
@@ -37,7 +38,9 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -220,6 +223,10 @@ class GRPCControlServer {
                 connectionParamsBuilder.ca(ca).cert(cert).key(key);
             }
 
+            if (request.hasProperties()) {
+                connectionParamsBuilder.userProperties(request.getProperties().getUserPropertiesMap());
+            }
+
             logger.atInfo().log("createMqttConnection: clientId {} broker {}:{}", clientId, host, port);
             MqttConnectReply.Builder builder = MqttConnectReply.newBuilder();
 
@@ -276,6 +283,11 @@ class GRPCControlServer {
                 return;
             }
 
+            Map<String, String> userProperties = new HashMap<>();
+            if (request.hasProperties()) {
+                userProperties = request.getProperties().getUserPropertiesMap();
+            }
+
             int connectionId = request.getConnectionId().getConnectionId();
             MqttConnection connection = mqttLib.unregisterConnection(connectionId);
             if (connection == null) {
@@ -288,7 +300,7 @@ class GRPCControlServer {
 
             logger.atInfo().log("closeMqttConnection: connectionId {} reason {}", connectionId, reason);
             try {
-                connection.disconnect(timeout, reason);
+                connection.disconnect(timeout, reason, userProperties);
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during disconnect");
                 responseObserver.onError(ex);
@@ -352,11 +364,17 @@ class GRPCControlServer {
             logger.atInfo().log("Publish: connectionId {} topic {} QoS {} retain {}",
                                     connectionId, topic, qos, isRetain);
 
+            Map<String, String> userProperties = new HashMap<>();
+            if (message.hasProperties()) {
+                userProperties = message.getProperties().getUserPropertiesMap();
+            }
+
             MqttConnection.Message internalMessage = MqttConnection.Message.builder()
                                 .qos(qos)
                                 .retain(isRetain)
                                 .topic(topic)
                                 .payload(message.getPayload().toByteArray())
+                                .userProperties(userProperties)
                                 .build();
             MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
             try {
@@ -474,8 +492,8 @@ class GRPCControlServer {
                                     connectionId, subscriptionId, outSubscriptions.size());
             MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
             try {
-                // TODO: pass also user's properties
-                MqttConnection.SubAckInfo subAckInfo = connection.subscribe(timeout, subscriptionId, outSubscriptions);
+                MqttConnection.SubAckInfo subAckInfo = connection.subscribe(timeout,
+                        subscriptionId, request.getUserPropertiesMap(), outSubscriptions);
                 convertSubAckInfo(subAckInfo, builder);
 
                 if (subAckInfo != null) {
@@ -534,8 +552,8 @@ class GRPCControlServer {
                                     connectionId, filters);
             MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
             try {
-                // TODO: pass also user's properties
-                MqttConnection.UnsubAckInfo unsubAckInfo = connection.unsubscribe(timeout, filters);
+                MqttConnection.UnsubAckInfo unsubAckInfo = connection.unsubscribe(timeout,
+                        request.getUserPropertiesMap(), filters);
                 convertSubAckInfo(unsubAckInfo, builder);
                 if (unsubAckInfo != null) {
                     logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string {}",
@@ -706,6 +724,11 @@ class GRPCControlServer {
             builder.setServerReference(serverReference);
         }
 
+        Map<String, String> userProperties = conAckInfo.getUserProperties();
+        if (userProperties != null && !userProperties.isEmpty()) {
+            builder.putAllUserProperties(userProperties);
+        }
+
         return builder.build();
     }
 
@@ -722,6 +745,11 @@ class GRPCControlServer {
         String reasonString = subAckInfo.getReasonString();
         if (reasonString != null) {
             builder.setReasonString(reasonString);
+        }
+
+        Map<String, String> userProperties = subAckInfo.getUserProperties();
+        if (userProperties != null) {
+            builder.setProperties(Mqtt5Properties.newBuilder().putAllUserProperties(userProperties).build());
         }
     }
 
@@ -740,6 +768,10 @@ class GRPCControlServer {
         if (reasonString != null) {
             builder.setReasonString(reasonString);
         }
-        // TODO: pass also user's properties
+
+        Map<String, String> userProperties = pubAckInfo.getUserProperties();
+        if (userProperties != null) {
+            builder.setProperties(Mqtt5Properties.newBuilder().putAllUserProperties(userProperties).build());
+        }
     }
 }

@@ -22,6 +22,7 @@ import software.amazon.awssdk.iot.AwsIotMqttConnectionBuilder;
 import java.io.UnsupportedEncodingException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -135,7 +136,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public void disconnect(long timeout, int reasonCode) throws MqttException {
+    public void disconnect(long timeout, int reasonCode, Map<String, String> userProperties) throws MqttException {
 
         if (!isClosing.getAndSet(true)) {
             CompletableFuture<Void> disconnnectFuture = connection.disconnect();
@@ -183,7 +184,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             Integer packetId = publishFuture.get(timeout, TimeUnit.SECONDS);
             logger.atInfo().log("Publish on connection {} to topic {} QoS {} packet Id {}",
                                     connectionId, topic, qos, packetId);
-            return new PubAckInfo(REASON_CODE_SUCCESS, null);
+            return new PubAckInfo(REASON_CODE_SUCCESS, null, null);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_PUBLISHING);
@@ -195,7 +196,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public SubAckInfo subscribe(long timeout, Integer subscriptionId, final @NonNull List<Subscription> subscriptions)
+    public SubAckInfo subscribe(long timeout, Integer subscriptionId, Map<String, String> userProperties,
+                                final @NonNull List<Subscription> subscriptions)
             throws MqttException {
 
         stateCheck();
@@ -218,7 +220,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             Integer packetId = subscribeFuture.get(timeout, TimeUnit.SECONDS);
             logger.atInfo().log("Subscribed on connection {} for topics filter {} QoS {} packet Id {}",
                                     connectionId, filter, qos, packetId);
-            return new SubAckInfo(Collections.singletonList(REASON_CODE_SUCCESS), null);
+            return new SubAckInfo(Collections.singletonList(REASON_CODE_SUCCESS), null, null);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_SUBSCRIBING);
@@ -230,7 +232,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public UnsubAckInfo unsubscribe(long timeout, final @NonNull List<String> filters)
+    public UnsubAckInfo unsubscribe(long timeout, Map<String, String> userProperties,
+                                    final @NonNull List<String> filters)
             throws MqttException {
 
         stateCheck();
@@ -246,7 +249,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             Integer packetId = unsubscribeFuture.get(timeout, TimeUnit.SECONDS);
             logger.atInfo().log("Unsubscribed on connection {} from topics filter {} packet Id {}", connectionId,
                                     filter, packetId);
-            return new UnsubAckInfo(Collections.singletonList(REASON_CODE_SUCCESS), null);
+            return new UnsubAckInfo(Collections.singletonList(REASON_CODE_SUCCESS), null, null);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_UNSUBSCRIBING);
