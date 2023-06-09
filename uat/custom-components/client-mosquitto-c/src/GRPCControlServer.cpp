@@ -370,6 +370,7 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext *, const MqttSubscribeRequ
     try {
         std::vector<int> reason_codes = connection->subscribe(timeout, subscription_id_ptr, filters, common_qos, common_retain_handling, common_no_local, common_retain_as_published);
         for (int reason_code : reason_codes) {
+            logd("subscribe reason code %d\n", reason_code);
             reply->add_reasoncodes(reason_code);
         }
 

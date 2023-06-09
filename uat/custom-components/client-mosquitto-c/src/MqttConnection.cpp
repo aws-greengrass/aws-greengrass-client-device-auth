@@ -52,6 +52,7 @@ public:
         : rc(MOSQ_ERR_SUCCESS), flags(0), props(0), mid(mid_), granted_qos(granted_qos_, granted_qos_ + qos_count_) {
         mosquitto_property_copy_all(&props, props_);
     }
+
     AsyncResult(const AsyncResult &) = delete;
     AsyncResult & operator=(const AsyncResult &) = delete;
 

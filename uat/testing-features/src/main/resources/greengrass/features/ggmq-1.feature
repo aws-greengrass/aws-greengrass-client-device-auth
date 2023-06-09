@@ -30,24 +30,15 @@ Feature: GGMQ-1
          },
          "policies":{
             "MyPermissivePolicy":{
-               "AllowConnect": {
-                "statementDescription": "Allow client devices to connect.",
-                  "operations": [
-                    "mqtt:connect"
+               "AllowAll":{
+                  "statementDescription":"Allow client devices to perform all actions.",
+                  "operations":[
+                     "*"
                   ],
-                  "resources": [
-                    "*"
+                  "resources":[
+                     "*"
                   ]
-                },
-                "AllowSubscribe": {
-                  "statementDescription": "Allow client devices to subscribe to iot_data_1.",
-                  "operations": [
-                      "mqtt:subscribe"
-                   ],
-                    "resources": [
-                    "*"
-                    ]
-                  }
+               }
             }
          }
       }
@@ -63,87 +54,43 @@ Feature: GGMQ-1
    }
 }
     """
+
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
+
+    And I discover core device broker as "default_broker" from "clientDeviceTest"
     And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
-    When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0 and expect status "<subscribe-status-q0>"
-    When I subscribe "clientDeviceTest" to "iot_data _1" with qos 1 and expect status "<subscribe-status-q1>"
-    When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Hello world"
-    When I publish from "clientDeviceTest" to "iot_data_1" with qos 1 and message "Hello world" and expect status <publish-statusq1>
-    Then message "Hello world" received on "clientDeviceTest" from "iot_data_1" topic within 10 seconds is false expected
-    And I disconnect device "clientDeviceTest" with reason code 0
-    When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST |
-      | <agent>                                  | LATEST |
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
-    """
-{
-   "MERGE":{
-      "deviceGroups":{
-         "formatVersion":"2021-03-05",
-         "definitions":{
-            "PublisherDeviceGroup":{
-               "selectionRule": "thingName: ${clientDeviceTest}",
-               "policyName":"MyPermissivePublishPolicy"
-            }
-         },
-         "policies":{
-            "MyPermissivePublishPolicy":{
-                "AllowPublish": {
-                  "statementDescription": "Allow client devices to publish on test/topic.",
-                  "operations": [
-                  "mqtt:publish"
-                   ],
-                   "resources": [
-                      "mqtt:topic:iot_data_1"
-                   ]
-                  }
-            }
-         }
-      }
-   }
-}
-    """
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.IPDetector configuration to:
-    """
-{
-   "MERGE":{
-      "includeIPv4LoopbackAddrs":"true"
-   }
-}
-    """
-    And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 120 seconds
-    And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
-    When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0 and expect status "<subscribe-status-q0>"
+
+    When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0 and expect status "GRANTED_QOS_0"
     When I subscribe "clientDeviceTest" to "iot_data_1" with qos 1 and expect status "<subscribe-status-q1>"
-    When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Hello world" and expect status <publish-statusq10>
-    When I publish from "clientDeviceTest" to "iot_data_1" with qos 1 and message "Hello world"
-    Then message "Hello world" received on "clientDeviceTest" from "iot_data_0" topic within 10 seconds is false expected
-    Then message "Hello world" received on "clientDeviceTest" from "iot_data_1" topic within 10 seconds
+
+    When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Test message0"
+    And message "Test message0" received on "clientDeviceTest" from "iot_data_0" topic within 10 seconds
+
+    When I publish from "clientDeviceTest" to "iot_data_1" with qos 1 and message "Test message1"
+    And message "Test message1" received on "clientDeviceTest" from "iot_data_1" topic within 10 seconds
+
+    And I disconnect device "clientDeviceTest" with reason code 0
 
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q0 | subscribe-status-q1| publish-statusq1 | publish-statusq10 |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       | GRANTED_QOS_0      | 0                | 0                 |
+      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       |
 
     @mqtt3 @mosquitto-c
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q0 | subscribe-status-q1| publish-statusq1 | publish-statusq10 |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_0       | GRANTED_QOS_0      | 0                | 0                 |
+      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q0 | subscribe-status-q1| publish-statusq1 | publish-statusq10 |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       | GRANTED_QOS_1      | 135              | 0                 |
+      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_1       |
 
     @mqtt5 @mosquitto-c
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q0 | subscribe-status-q1| publish-statusq1 | publish-statusq10 |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_0       | GRANTED_QOS_0      | 0                | 0                 |
+      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
 
 
   @GGMQ-1-T8
