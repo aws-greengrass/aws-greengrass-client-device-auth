@@ -45,7 +45,7 @@ public class LocalIpcPublisher implements Consumer<String[]> {
         topics.forEach(topic -> executor.execute(() -> publish(topic, messageText)));
     }
 
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.DoNotTerminateVM"})
     private void publish(String topic, String message) {
         try (GreengrassCoreIPCClientV2 ipcClient = GreengrassCoreIPCClientV2.builder().build()) {
             publishBinaryMessageToTopic(ipcClient, topic, message);
@@ -56,6 +56,7 @@ public class LocalIpcPublisher implements Consumer<String[]> {
             } else {
                 log.error("Exception occurred when using IPC.");
             }
+            System.exit(2);
         }
     }
 

@@ -4,9 +4,9 @@
 #
 
 ---
-RecipeFormatVersion: 2020-01-25
+RecipeFormatVersion: '2020-01-25'
 ComponentName: aws.greengrass.client.MqttMosquittoClient
-ComponentVersion: 1.0.0
+ComponentVersion: '1.0.0'
 ComponentDescription: MQTT 5.0/3.1.1 client based on Mosquitto C library
 ComponentPublisher: Amazon
 ComponentConfiguration:
@@ -18,7 +18,7 @@ ComponentConfiguration:
     requiresPrivilege: false
 Manifests:
   - Artifacts:
-      - URI: classpath:/greengrass/artifacts/mosquitto-test-client.amd64.tar.gz
+      - URI: classpath:/local-store/artifacts/mosquitto-test-client.amd64.tar.gz
         Permission:
           Read: ALL
           Execute: NONE

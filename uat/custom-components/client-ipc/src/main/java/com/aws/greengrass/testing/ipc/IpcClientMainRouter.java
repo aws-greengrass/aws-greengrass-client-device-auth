@@ -34,6 +34,7 @@ public class IpcClientMainRouter {
                                .accept(args);
         } else {
             log.error("Unsupported ipc operation");
+            System.exit(1);
         }
     }
 }
