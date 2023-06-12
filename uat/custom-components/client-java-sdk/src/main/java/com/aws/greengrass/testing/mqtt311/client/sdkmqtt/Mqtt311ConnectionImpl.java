@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt311.client.sdkmqtt;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
@@ -22,7 +23,6 @@ import software.amazon.awssdk.iot.AwsIotMqttConnectionBuilder;
 import java.io.UnsupportedEncodingException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -136,7 +136,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public void disconnect(long timeout, int reasonCode, Map<String, String> userProperties) throws MqttException {
+    public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
 
         if (!isClosing.getAndSet(true)) {
             CompletableFuture<Void> disconnnectFuture = connection.disconnect();
@@ -196,7 +196,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public SubAckInfo subscribe(long timeout, Integer subscriptionId, Map<String, String> userProperties,
+    public SubAckInfo subscribe(long timeout, Integer subscriptionId, List<Mqtt5Properties> userProperties,
                                 final @NonNull List<Subscription> subscriptions)
             throws MqttException {
 
@@ -232,7 +232,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public UnsubAckInfo unsubscribe(long timeout, Map<String, String> userProperties,
+    public UnsubAckInfo unsubscribe(long timeout, List<Mqtt5Properties> userProperties,
                                     final @NonNull List<String> filters)
             throws MqttException {
 
