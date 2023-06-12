@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 import com.aws.greengrass.testing.mqtt.client.Empty;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttClientControlGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttCloseRequest;
@@ -173,6 +174,10 @@ class GRPCControlServer {
                     .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V_50)
                     .connectionTimeout(timeout);
 
+            if (request.getPropertiesList() != null && !request.getPropertiesList().isEmpty()) {
+                connectionParamsBuilder.userProperties(request.getPropertiesList());
+            }
+
             // check TLS optional settings
             if (request.hasTls()) {
                 TLSSettings tls = request.getTls();
@@ -274,13 +279,16 @@ class GRPCControlServer {
             logger.atInfo().log("Publish: connectionId {} topic {} QoS {} retain {}",
                     connectionId, topic, qos, isRetain);
 
-            MqttConnection.Message internalMessage = MqttConnection.Message.builder()
+            MqttConnection.Message.MessageBuilder internalMessage = MqttConnection.Message.builder()
                     .qos(qos)
                     .retain(isRetain)
                     .topic(topic)
-                    .payload(message.getPayload().toByteArray())
-                    .build();
-            MqttPublishReply publishReply = connection.publish(timeout, internalMessage);
+                    .payload(message.getPayload().toByteArray());
+            if (message.getPropertiesList() != null && !message.getPropertiesList().isEmpty()) {
+                internalMessage.userProperties(message.getPropertiesList());
+            }
+
+            MqttPublishReply publishReply = connection.publish(timeout, internalMessage.build());
                 if (publishReply != null) {
                     logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",
                             connectionId, publishReply.getReasonCode(), publishReply.getReasonString());
@@ -416,9 +424,8 @@ class GRPCControlServer {
             }
             logger.atInfo().log("Subscribe: connectionId {} for {} filters",
                     connectionId, outSubscriptions.size());
-
-            // TODO: pass also user's properties
-            MqttSubscribeReply subscribeReply = connection.subscribe(timeout, outSubscriptions);
+            List<Mqtt5Properties> userProperties = request.getPropertiesList();
+            MqttSubscribeReply subscribeReply = connection.subscribe(timeout, outSubscriptions, userProperties);
             if (subscribeReply != null) {
                 logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string {}",
                         connectionId, subscribeReply.getReasonCodesList(), subscribeReply.getReasonString());
@@ -581,6 +588,11 @@ class GRPCControlServer {
         String serverReference = conAckInfo.getServerReference();
         if (serverReference != null) {
             builder.setServerReference(serverReference);
+        }
+
+        List<Mqtt5Properties> userProperties = conAckInfo.getUserProperties();
+        if (userProperties != null) {
+            builder.addAllProperties(userProperties);
         }
 
         return builder.build();

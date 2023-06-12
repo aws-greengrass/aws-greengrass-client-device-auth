@@ -7,6 +7,7 @@ package com.aws.greengrass.testing.mqtt.client.control;
 
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5RetainHandling;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
@@ -31,6 +32,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Class with hardcoded scenario to do manual tests of client and control.
@@ -178,6 +181,7 @@ class AgentTestScenario implements Runnable {
                     .setKeepalive(KEEP_ALIVE)
                     .setCleanSession(CLEAN_SESSION)
                     .setTimeout(CONNECT_TIMEOUT)
+                    .addAllProperties(createMqtt5Properties())
                     .setProtocolVersion(mqtt50  ? MqttProtoVersion.MQTT_PROTOCOL_V_50
                                                 : MqttProtoVersion.MQTT_PROTOCOL_V_311);
 
@@ -194,7 +198,8 @@ class AgentTestScenario implements Runnable {
         Mqtt5Subscription subscription = createSubscription(SUBSCRIBE_FILTER, SUBSCRIBE_QOS, SUBSCRIBE_NO_LOCAL,
                                                             SUBSCRIBE_RETAIN_AS_PUBLISHED, SUBSCRIBE_RETAIN_HANDLING);
 
-        MqttSubscribeReply reply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, subscription);
+        MqttSubscribeReply reply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, createMqtt5Properties(),
+                subscription);
         logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string '{}'",
                                 connectionControl.getConnectionId(),
                                 reply.getReasonCodesList(),
@@ -226,7 +231,15 @@ class AgentTestScenario implements Runnable {
                             .setPayload(ByteString.copyFrom(data))
                             .setQos(qos)
                             .setRetain(retain)
+                            .addAllProperties(createMqtt5Properties())
                             .build();
+    }
+
+    private List<Mqtt5Properties> createMqtt5Properties() {
+        List<Mqtt5Properties> properties = new ArrayList<>();
+        properties.add(Mqtt5Properties.newBuilder().setKey("region").setValue("US").build());
+        properties.add(Mqtt5Properties.newBuilder().setKey("type").setValue("JSON").build());
+        return properties;
     }
 
     private void testUnsubscribe(ConnectionControl connectionControl) {

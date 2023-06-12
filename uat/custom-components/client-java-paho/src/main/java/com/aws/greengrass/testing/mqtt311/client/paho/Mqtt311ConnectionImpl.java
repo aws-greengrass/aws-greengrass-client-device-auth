@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt311.client.paho;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
@@ -79,7 +80,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions) {
+    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
+                                        List<Mqtt5Properties> userProperties) {
         String[] filters = new String[subscriptions.size()];
         int[] qos = new int[subscriptions.size()];
         MqttMessageListener[] messageListeners = new MqttMessageListener[subscriptions.size()];
@@ -171,7 +173,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload());
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(), null);
             executorService.submit(() -> {
                 grpcClient.onReceiveMqttMessage(connectionId, message);
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",

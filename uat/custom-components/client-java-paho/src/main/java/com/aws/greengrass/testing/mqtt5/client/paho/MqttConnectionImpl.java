@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client.paho;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
@@ -23,9 +24,11 @@ import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
+import org.eclipse.paho.mqttv5.common.packet.UserProperty;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -81,7 +84,8 @@ public class MqttConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions) {
+    public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
+                                        List<Mqtt5Properties>  userProperties) {
         MqttSubscription[] mqttSubscriptions = new MqttSubscription[subscriptions.size()];
         MqttMessageListener[] listeners = new MqttMessageListener[subscriptions.size()];
         for (int i = 0; i < subscriptions.size(); i++) {
@@ -92,15 +96,24 @@ public class MqttConnectionImpl implements MqttConnection {
             mqttSubscriptions[i] = subscription;
             listeners[i] = new MqttMessageListener();
         }
+        MqttProperties properties = new MqttProperties();
+        if (userProperties != null && !userProperties.isEmpty()) {
+            properties.setUserProperties(convertToUserProperties(userProperties));
+        }
         MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
         try {
-            IMqttToken response = client.subscribe(mqttSubscriptions, null, null, listeners, new MqttProperties());
+            IMqttToken response = client.subscribe(mqttSubscriptions, null, null, listeners, properties);
             response.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
             List<Integer> reasonCodes = Arrays.stream(response.getReasonCodes()).boxed().collect(Collectors.toList());
             builder.addAllReasonCodes(reasonCodes);
             MqttProperties responseProps = response.getResponseProperties();
-            if (responseProps != null && responseProps.getReasonString() != null) {
-                builder.setReasonString(responseProps.getReasonString());
+            if (responseProps != null) {
+                if (responseProps.getReasonString() != null) {
+                    builder.setReasonString(responseProps.getReasonString());
+                }
+                if (responseProps.getUserProperties() != null) {
+                    builder.addAllProperties(convertToMqtt5Properties(responseProps.getUserProperties()));
+                }
             }
         } catch (org.eclipse.paho.mqttv5.common.MqttException e) {
             builder.addReasonCodes(e.getReasonCode());
@@ -127,10 +140,24 @@ public class MqttConnectionImpl implements MqttConnection {
         mqttMessage.setQos(message.getQos());
         mqttMessage.setPayload(message.getPayload());
         mqttMessage.setRetained(message.isRetain());
+        if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
+            MqttProperties properties = new MqttProperties();
+            properties.setUserProperties(convertToUserProperties(message.getUserProperties()));
+            mqttMessage.setProperties(properties);
+        }
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
         try {
-            client.publish(message.getTopic(), mqttMessage);
+            IMqttToken response = client.publish(message.getTopic(), mqttMessage);
             builder.setReasonCode(0);
+            MqttProperties responseProps = response.getResponseProperties();
+            if (responseProps != null) {
+                if (responseProps.getReasonString() != null) {
+                    builder.setReasonString(responseProps.getReasonString());
+                }
+                if (responseProps.getUserProperties() != null) {
+                    builder.addAllProperties(convertToMqtt5Properties(responseProps.getUserProperties()));
+                }
+            }
         } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
             logger.atError().withThrowable(ex)
                     .log("Failed during publishing message with reasonCode {} and reasonString {}",
@@ -167,6 +194,9 @@ public class MqttConnectionImpl implements MqttConnection {
         connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
         SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
         connectionOptions.setSocketFactory(sslSocketFactory);
+        if (connectionParams.getUserProperties() != null && !connectionParams.getUserProperties().isEmpty()) {
+            connectionOptions.setUserProperties(convertToUserProperties(connectionParams.getUserProperties()));
+        }
 
         return connectionOptions;
     }
@@ -194,6 +224,10 @@ public class MqttConnectionImpl implements MqttConnection {
         }
         int[] reasonCodes = token.getReasonCodes();
         Integer reasonCode = reasonCodes == null ? null : reasonCodes[0];
+        List<Mqtt5Properties> userProperties = null;
+        if (token.getResponseProperties() != null && token.getResponseProperties().getUserProperties() != null) {
+            userProperties = convertToMqtt5Properties(token.getResponseProperties().getUserProperties());
+        }
         return new ConnAckInfo(token.getSessionPresent(),
                 reasonCode,
                 sessionExpiryInterval,
@@ -208,7 +242,8 @@ public class MqttConnectionImpl implements MqttConnection {
                 sharedSubscriptionAvailable,
                 token.getResponseProperties().getServerKeepAlive(),
                 token.getResponseProperties().getResponseInfo(),
-                token.getResponseProperties().getServerReference()
+                token.getResponseProperties().getServerReference(),
+                userProperties
         );
     }
 
@@ -222,13 +257,37 @@ public class MqttConnectionImpl implements MqttConnection {
     private class MqttMessageListener implements IMqttMessageListener {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) {
+            List<Mqtt5Properties> userProps = convertToMqtt5Properties(mqttMessage.getProperties());
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload());
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(), userProps);
             executorService.submit(() -> {
                 grpcClient.onReceiveMqttMessage(connectionId, message);
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
                         connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
             });
+            userProps.forEach(p -> logger.atInfo()
+                    .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
         }
+    }
+
+    private List<UserProperty> convertToUserProperties(List<Mqtt5Properties> properties) {
+        List<UserProperty> userProperties = new ArrayList<>();
+        properties.forEach(p ->  userProperties.add(new UserProperty(p.getKey(), p.getValue())));
+        return userProperties;
+    }
+
+    private static List<Mqtt5Properties> convertToMqtt5Properties(MqttProperties properties) {
+        List<Mqtt5Properties> userProps = null;
+        if (properties == null || properties.getUserProperties() == null) {
+            return userProps;
+        }
+        return convertToMqtt5Properties(properties.getUserProperties());
+    }
+
+    private static List<Mqtt5Properties> convertToMqtt5Properties(List<UserProperty> properties) {
+        List<Mqtt5Properties> userProperties = new ArrayList<>();
+        properties.forEach(p ->  userProperties.add(Mqtt5Properties.newBuilder()
+                .setKey(p.getKey()).setValue(p.getValue()).build()));
+        return userProperties;
     }
 }

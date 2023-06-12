@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt.client.control.implementation;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttCloseRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectReply;
@@ -22,6 +23,7 @@ import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import lombok.NonNull;
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Implementation of ConnectionControl.
@@ -99,7 +101,8 @@ public class ConnectionControlImpl implements ConnectionControl {
     }
 
     @Override
-    public MqttSubscribeReply subscribeMqtt(Integer subscriptionId, @NonNull Mqtt5Subscription... subscriptions) {
+    public MqttSubscribeReply subscribeMqtt(Integer subscriptionId, List<Mqtt5Properties> mqtt5Properties,
+                                            @NonNull Mqtt5Subscription... subscriptions) {
         MqttSubscribeRequest.Builder builder = MqttSubscribeRequest.newBuilder()
                 .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
                 .setTimeout(timeout)
@@ -107,6 +110,9 @@ public class ConnectionControlImpl implements ConnectionControl {
 
         if (subscriptionId != null) {
             builder.setSubscriptionId(subscriptionId);
+        }
+        if (mqtt5Properties != null) {
+            builder.addAllProperties(mqtt5Properties);
         }
 
         return agentControl.subscribeMqtt(builder.build());

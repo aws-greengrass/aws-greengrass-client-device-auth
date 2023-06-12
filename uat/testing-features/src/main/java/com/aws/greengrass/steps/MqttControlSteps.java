@@ -448,7 +448,7 @@ public class MqttControlSteps {
                 subscribeRetainAsPublished,
                 subscribeRetainHandling);
         MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(DEFAULT_SUBSCRIPTION_ID,
-                                                                                mqtt5Subscription);
+                                                                                null, mqtt5Subscription);
         if (mqttSubscribeReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT subscribe request");
         }

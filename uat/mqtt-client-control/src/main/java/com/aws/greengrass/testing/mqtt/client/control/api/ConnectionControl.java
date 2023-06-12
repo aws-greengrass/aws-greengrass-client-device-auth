@@ -7,10 +7,13 @@ package com.aws.greengrass.testing.mqtt.client.control.api;
 
 import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import lombok.NonNull;
+
+import java.util.List;
 
 /**
  * Control of single MQTT connection.
@@ -70,10 +73,12 @@ public interface ConnectionControl {
      *
      * @param subscriptionId optional subscription id
      * @param subscriptions MQTT v5.0 subscriptions
+     * @param mqtt5Properties MQTT v5.0 properties
      * @return reply to subscribe
      * @throws StatusRuntimeException on errors
      */
-    MqttSubscribeReply subscribeMqtt(Integer subscriptionId, @NonNull Mqtt5Subscription... subscriptions);
+    MqttSubscribeReply subscribeMqtt(Integer subscriptionId, List<Mqtt5Properties> mqtt5Properties,
+                                     @NonNull Mqtt5Subscription... subscriptions);
 
     /**
      * Publish MQTT message.
