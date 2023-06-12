@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt311.client.paho;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
@@ -25,7 +26,6 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -39,9 +39,6 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(Mqtt311ConnectionImpl.class);
     private static final String EXCEPTION_WHEN_CONNECTING = "Exception occurred during connect";
     private static final String EXCEPTION_WHEN_CONFIGURE_SSL_CA = "Exception occurred during SSL configuration";
-
-    // MQTT 3.1.1 doesn't support user properties
-    private static final Map<String, String> USER_PROPERTIES = null;
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final IMqttClient mqttClient;
@@ -84,7 +81,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     @Override
     public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
-                                        Map<String, String> userProperties) {
+                                        List<Mqtt5Properties> userProperties) {
         String[] filters = new String[subscriptions.size()];
         int[] qos = new int[subscriptions.size()];
         MqttMessageListener[] messageListeners = new MqttMessageListener[subscriptions.size()];
@@ -176,7 +173,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(), USER_PROPERTIES);
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(), null);
             executorService.submit(() -> {
                 grpcClient.onReceiveMqttMessage(connectionId, message);
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",

@@ -32,6 +32,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Class with hardcoded scenario to do manual tests of client and control.
@@ -179,7 +181,7 @@ class AgentTestScenario implements Runnable {
                     .setKeepalive(KEEP_ALIVE)
                     .setCleanSession(CLEAN_SESSION)
                     .setTimeout(CONNECT_TIMEOUT)
-                    .setProperties(createMqtt5Properties())
+                    .addAllProperties(createMqtt5Properties())
                     .setProtocolVersion(mqtt50  ? MqttProtoVersion.MQTT_PROTOCOL_V_50
                                                 : MqttProtoVersion.MQTT_PROTOCOL_V_311);
 
@@ -229,15 +231,15 @@ class AgentTestScenario implements Runnable {
                             .setPayload(ByteString.copyFrom(data))
                             .setQos(qos)
                             .setRetain(retain)
-                            .setProperties(createMqtt5Properties())
+                            .addAllProperties(createMqtt5Properties())
                             .build();
     }
 
-    private Mqtt5Properties createMqtt5Properties() {
-        return Mqtt5Properties.newBuilder()
-                .putUserProperties("region", "US")
-                .putUserProperties("type", "JSON")
-                .build();
+    private List<Mqtt5Properties> createMqtt5Properties() {
+        List<Mqtt5Properties> properties = new ArrayList<>();
+        properties.add(Mqtt5Properties.newBuilder().setKey("region").setValue("US").build());
+        properties.add(Mqtt5Properties.newBuilder().setKey("type").setValue("JSON").build());
+        return properties;
     }
 
     private void testUnsubscribe(ConnectionControl connectionControl) {

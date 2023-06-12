@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -14,7 +15,6 @@ import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Interface of MQTT5 connection.
@@ -46,7 +46,7 @@ public interface MqttConnection {
         private Integer serverKeepAlive;
         private String responseInformation;
         private String serverReference;
-        private Map<String, String> userProperties;
+        private List<Mqtt5Properties>  userProperties;
 
         // TODO: int topicAliasMaximum;          // miss for AWS IoT device SDK MQTT5 client ?
         // TODO: Authentication Method
@@ -104,7 +104,9 @@ public interface MqttConnection {
         private List<Integer> reasonCodes;
 
         private String reasonString;
-        // TODO: add user's properties
+
+        /** User properties. */
+        private List<Mqtt5Properties>  userProperties;
     }
 
     /**
@@ -126,7 +128,7 @@ public interface MqttConnection {
         private byte[] payload;
 
         /** User properties. */
-        private Map<String, String> userProperties;
+        private List<Mqtt5Properties>  userProperties;
 
         // TODO: add user's properties and so one
     }
@@ -136,8 +138,8 @@ public interface MqttConnection {
      * Actually is the same as SubAckInfo.
      */
     class UnsubAckInfo extends SubAckInfo {
-        public UnsubAckInfo(List<Integer> reasonCodes, String reasonString) {
-            super(reasonCodes, reasonString);
+        public UnsubAckInfo(List<Integer> reasonCodes, String reasonString, List<Mqtt5Properties>  userProperties) {
+            super(reasonCodes, reasonString, userProperties);
         }
     }
 
@@ -161,7 +163,7 @@ public interface MqttConnection {
      * @return useful information from SUBACK packet
      */
     MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
-                                 Map<String, String> userProperties);
+                                 List<Mqtt5Properties> userProperties);
 
     /**
      * Closes MQTT connection.

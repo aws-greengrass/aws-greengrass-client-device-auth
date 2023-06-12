@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 import com.aws.greengrass.testing.mqtt.client.Empty;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttClientControlGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttCloseRequest;
@@ -37,7 +38,6 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -174,8 +174,8 @@ class GRPCControlServer {
                     .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V_50)
                     .connectionTimeout(timeout);
 
-            if (request.hasProperties()) {
-                connectionParamsBuilder.userProperties(request.getProperties().getUserPropertiesMap());
+            if (!request.getPropertiesList().isEmpty()) {
+                connectionParamsBuilder.userProperties(request.getPropertiesList());
             }
 
             // check TLS optional settings
@@ -284,8 +284,8 @@ class GRPCControlServer {
                     .retain(isRetain)
                     .topic(topic)
                     .payload(message.getPayload().toByteArray());
-            if (message.hasProperties()) {
-                internalMessage.userProperties(message.getProperties().getUserPropertiesMap());
+            if (!message.getPropertiesList().isEmpty()) {
+                internalMessage.userProperties(message.getPropertiesList());
             }
 
             MqttPublishReply publishReply = connection.publish(timeout, internalMessage.build());
@@ -424,7 +424,7 @@ class GRPCControlServer {
             }
             logger.atInfo().log("Subscribe: connectionId {} for {} filters",
                     connectionId, outSubscriptions.size());
-            Map<String, String> userProperties = request.getUserPropertiesMap();
+            List<Mqtt5Properties> userProperties = request.getPropertiesList();
             MqttSubscribeReply subscribeReply = connection.subscribe(timeout, outSubscriptions, userProperties);
             if (subscribeReply != null) {
                 logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string {}",
@@ -590,9 +590,9 @@ class GRPCControlServer {
             builder.setServerReference(serverReference);
         }
 
-        Map<String, String> userProperties = conAckInfo.getUserProperties();
+        List<Mqtt5Properties> userProperties = conAckInfo.getUserProperties();
         if (userProperties != null) {
-            builder.putAllUserProperties(userProperties);
+            builder.addAllProperties(userProperties);
         }
 
         return builder.build();

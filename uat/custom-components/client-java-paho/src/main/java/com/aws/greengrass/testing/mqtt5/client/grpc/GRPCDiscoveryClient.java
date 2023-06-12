@@ -8,7 +8,6 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 import com.aws.greengrass.testing.mqtt.client.DiscoveryRequest;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
-import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.MqttAgentDiscoveryGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttQoS;
@@ -123,8 +122,7 @@ class GRPCDiscoveryClient implements GRPCClient {
                                         .setQos(MqttQoS.forNumber(message.getQos()))
                                         .setRetain(message.isRetain());
         if (message.getUserProperties() != null) {
-            msgBuilder.setProperties(Mqtt5Properties.newBuilder()
-                    .putAllUserProperties(message.getUserProperties()).build());
+            msgBuilder.addAllProperties(message.getUserProperties());
         }
 
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()

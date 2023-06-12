@@ -5,10 +5,11 @@
 
 package com.aws.greengrass.testing.mqtt5.client;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.util.Map;
+import java.util.List;
 
 /**
  * Interface to gRPC client.
@@ -33,7 +34,7 @@ public interface GRPCClient {
         private byte[] payload;
 
         /** User properties. */
-        private Map<String, String> userProperties;
+        private List<Mqtt5Properties> userProperties;
     }
 
 
@@ -55,7 +56,8 @@ public interface GRPCClient {
         /** Server reference. */
         String serverReference;
 
-        // TODO: add user's properties
+        /** User properties. */
+        private List<Mqtt5Properties> userProperties;
     }
 
     /**
