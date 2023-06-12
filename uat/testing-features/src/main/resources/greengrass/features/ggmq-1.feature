@@ -19,39 +19,39 @@ Feature: GGMQ-1
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
-   "MERGE":{
-      "deviceGroups":{
-         "formatVersion":"2021-03-05",
-         "definitions":{
-            "MyPermissiveDeviceGroup":{
-               "selectionRule": "thingName: ${clientDeviceTest}",
-               "policyName":"MyPermissivePolicy"
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${clientDeviceTest}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
             }
-         },
-         "policies":{
-            "MyPermissivePolicy":{
-               "AllowAll":{
-                  "statementDescription":"Allow client devices to perform all actions.",
-                  "operations":[
-                     "*"
-                  ],
-                  "resources":[
-                     "*"
-                  ]
-               }
-            }
-         }
-      }
-   }
+        }
+    }
 }
     """
     And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
     """
 {
-   "MERGE":{
-      "controlAddresses":"${mqttControlAddresses}",
-      "controlPort":"${mqttControlPort}"
-   }
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
 }
     """
 
@@ -134,69 +134,76 @@ Feature: GGMQ-1
         }
     }
 }
-"""
+    """
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
-   "MERGE":{
-      "deviceGroups":{
-         "formatVersion":"2021-03-05",
-         "definitions":{
-            "MyPermissiveDeviceGroup":{
-               "selectionRule": "thingName: ${publisher}",
-               "policyName":"MyPermissivePolicy"
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${publisher}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
             }
-         },
-         "policies":{
-            "MyPermissivePolicy":{
-               "AllowAll":{
-                  "statementDescription":"Allow client devices to perform all actions.",
-                  "operations":[
-                     "*"
-                  ],
-                  "resources":[
-                     "*"
-                  ]
-               }
-            }
-         }
-      }
-   }
+        }
+    }
 }
     """
     And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
     """
 {
-   "MERGE":{
-      "controlAddresses":"${mqttControlAddresses}",
-      "controlPort":"${mqttControlPort}"
-   }
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
 }
     """
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.client.IpcClient configuration to:
     """
 {
-   "MERGE": {
-       "accessControl": {
-           "aws.greengrass.ipc.pubsub": {
-               "aws.greengrass.client.IpcClient:pubsub:1": {
-                   "policyDescription":"access to pubsub topics",
-                   "operations": [ "aws.greengrass#SubscribeToTopic" ],
-                   "resources": [ "topic/to/pubsub", "topic/device1/humidity", "topic/device2/temperature", "prefix/topic/with/prefix" ]
-               }
-           }
-       },
-       "topicsToSubscribe": "topic/to/pubsub,topic/device1/humidity,topic/device2/temperature,prefix/topic/with/prefix",
-       "assertionServerUrl": "${assertionServerUrl}"
-   }
+    "MERGE":{
+        "accessControl":{
+            "aws.greengrass.ipc.pubsub":{
+                "aws.greengrass.client.IpcClient:pubsub:1":{
+                    "policyDescription":"access to pubsub topics",
+                    "operations":[
+                        "aws.greengrass#SubscribeToTopic"
+                    ],
+                    "resources":[
+                        "topic/to/pubsub",
+                        "topic/device1/humidity",
+                        "topic/device2/temperature",
+                        "prefix/topic/with/prefix"
+                    ]
+                }
+            }
+        },
+        "topicsToSubscribe":"topic/to/pubsub,topic/device1/humidity,topic/device2/temperature,prefix/topic/with/prefix",
+        "assertionServerUrl":"${assertionServerUrl}"
+    }
 }
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
-    Then I discover core device broker as "default_broker" from "publisher" in OTF
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 60 seconds
 
+    Then I discover core device broker as "default_broker" from "publisher" in OTF
     And I connect device "publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
-    And I wait 5 seconds
 
     When I publish from "publisher" to "topic/to/pubsub" with qos 1 and message "Hello world"
     Then I wait 5 seconds
@@ -248,64 +255,72 @@ Feature: GGMQ-1
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
-   "MERGE":{
-      "deviceGroups":{
-         "formatVersion":"2021-03-05",
-         "definitions":{
-            "MyPermissiveDeviceGroup":{
-               "selectionRule": "thingName: ${publisher} OR thingName: ${subscriber}",
-               "policyName":"MyPermissivePolicy"
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${publisher} OR thingName: ${subscriber}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowConnect":{
+                        "statementDescription":"Allow client devices to connect.",
+                        "operations":[
+                            "mqtt:connect"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    },
+                    "AllowPublish":{
+                        "statementDescription":"Allow client devices to publish on test/topic.",
+                        "operations":[
+                            "mqtt:publish"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
             }
-         },
-         "policies":{
-            "MyPermissivePolicy":{
-               "AllowConnect": {
-                "statementDescription": "Allow client devices to connect.",
-                  "operations": [
-                    "mqtt:connect"
-                  ],
-                  "resources": [
-                    "*"
-                  ]
-                },
-                "AllowPublish": {
-                  "statementDescription": "Allow client devices to publish on test/topic.",
-                    "operations": [
-                      "mqtt:publish"
-                    ],
-                     "resources": [
-                      "*"
-                     ]
-                  }
-            }
-         }
-      }
-   }
+        }
+    }
 }
     """
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.client.Mqtt5JavaSdkClient configuration to:
     """
 {
-   "MERGE":{
-      "controlAddresses":"${mqttControlAddresses}",
-      "controlPort":"${mqttControlPort}"
-   }
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
 }
     """
     When I associate "publisher" with ggc
     When I associate "subscriber" with ggc
+
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
+
     And I discover core device broker as "default_broker" from "publisher" in OTF
     And I connect device "publisher" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
+
     When I subscribe "subscriber" to "iot_data_0" with qos 0 and expect status "<subscribe-status>"
     When I subscribe "subscriber" to "iot_data_1" with qos 1 and expect status "<subscribe-status>"
-    When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world"
-    When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world" and expect status <publish-status>
-    Then message "Hello world" received on "subscriber" from "iot_data_1" topic within 10 seconds is false expected
+
+    When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world0"
+    Then message "Hello world0" received on "subscriber" from "iot_data_0" topic within 10 seconds
+
+    When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world1" and expect status <publish-status>
+    Then message "Hello world1" received on "subscriber" from "iot_data_1" topic within 10 seconds is false expected
+
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
+
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST |
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
@@ -314,42 +329,46 @@ Feature: GGMQ-1
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
-   "MERGE":{
-      "deviceGroups":{
-         "formatVersion":"2021-03-05",
-         "definitions":{
-            "SubscriberDeviceGroup":{
-               "selectionRule": "thingName: ${subscriber}",
-               "policyName":"MyPermissiveSubscribePolicy"
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "SubscriberDeviceGroup":{
+                    "selectionRule":"thingName: ${subscriber}",
+                    "policyName":"MyPermissiveSubscribePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissiveSubscribePolicy":{
+                    "AllowSubscribe":{
+                        "statementDescription":"Allow client devices to subscribe to iot_data_1.",
+                        "operations":[
+                            "mqtt:subscribe"
+                        ],
+                        "resources":[
+                            "mqtt:topicfilter:iot_data_1"
+                        ]
+                    }
+                }
             }
-         },
-         "policies":{
-            "MyPermissiveSubscribePolicy":{
-                "AllowSubscribe": {
-                  "statementDescription": "Allow client devices to subscribe to iot_data_1.",
-                  "operations": [
-                  "mqtt:subscribe"
-                   ],
-                   "resources": [
-                      "mqtt:topicfilter:iot_data_1"
-                   ]
-                  }
-            }
-         }
-      }
-   }
+        }
+    }
 }
     """
     And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 120 seconds
+    Then the Greengrass deployment is COMPLETED on the device after 299 seconds
+
     And I discover core device broker as "default_broker" from "subscriber" in OTF
     And I connect device "publisher" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on aws.greengrass.client.Mqtt5JavaSdkClient to "default_broker" using mqtt "<mqtt-v>"
+
     When I subscribe "subscriber" to "iot_data_0" with qos 0 and expect status "<subscribe-status>"
     When I subscribe "subscriber" to "iot_data_1" with qos 1 and expect status "<subscribe-status-auth>"
+
     When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world"
-    When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world"
     Then message "Hello world" received on "subscriber" from "iot_data_0" topic within 10 seconds is false expected
+
+    When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world"
     Then message "Hello world" received on "subscriber" from "iot_data_1" topic within 10 seconds
 
     @mqtt3 @sdk-java
@@ -377,77 +396,80 @@ Feature: GGMQ-1
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
-   "MERGE":{
-      "deviceGroups":{
-         "formatVersion":"2021-03-05",
-         "definitions":{
-            "MyPermissiveDeviceGroup":{
-               "selectionRule": "thingName: ${localMqttSubscriber}",
-               "policyName":"MyPermissivePolicy"
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${localMqttSubscriber}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
             }
-         },
-         "policies":{
-            "MyPermissivePolicy":{
-               "AllowAll":{
-                  "statementDescription":"Allow client devices to perform all actions.",
-                  "operations":[
-                     "*"
-                  ],
-                  "resources":[
-                     "*"
-                  ]
-               }
-            }
-         }
-      }
-   }
+        }
+    }
 }
     """
     And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
     """
 {
-   "MERGE":{
-      "controlAddresses":"${mqttControlAddresses}",
-      "controlPort":"${mqttControlPort}"
-   }
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
 }
     """
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.Bridge configuration to:
     """
 {
-  "MERGE": {
-      "mqttTopicMapping": {
-          "mapping1:": {
-              "topic": "${localMqttSubscriber}topic/to/localmqtt",
-              "source": "IotCore",
-              "target": "LocalMqtt"
-          },
-          "mapping2:": {
-              "topic": "${localMqttSubscriber}topic/+/humidity",
-              "source": "IotCore",
-              "target": "LocalMqtt"
-          },
-          "mapping3:": {
-              "topic": "${localMqttSubscriber}topic/device2/#",
-              "source": "IotCore",
-              "target": "LocalMqtt"
-          },
-          "mapping4:": {
-              "topic": "${localMqttSubscriber}topic/with/prefix",
-              "source": "IotCore",
-              "target": "LocalMqtt",
-              "targetTopicPrefix": "prefix/"
-          }
-      }
-  }
+    "MERGE":{
+        "mqttTopicMapping":{
+            "mapping1:":{
+                "topic":"${localMqttSubscriber}topic/to/localmqtt",
+                "source":"IotCore",
+                "target":"LocalMqtt"
+            },
+            "mapping2:":{
+                "topic":"${localMqttSubscriber}topic/+/humidity",
+                "source":"IotCore",
+                "target":"LocalMqtt"
+            },
+            "mapping3:":{
+                "topic":"${localMqttSubscriber}topic/device2/#",
+                "source":"IotCore",
+                "target":"LocalMqtt"
+            },
+            "mapping4:":{
+                "topic":"${localMqttSubscriber}topic/with/prefix",
+                "source":"IotCore",
+                "target":"LocalMqtt",
+                "targetTopicPrefix":"prefix/"
+            }
+        }
+    }
 }
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 60 seconds
+
     When I discover core device broker as "localBroker" from "localMqttSubscriber" in OTF
     And I label IoT Core broker as "iotCoreBroker"
     And I connect device "localMqttSubscriber" on <agent> to "localBroker" using mqtt "<mqtt-v>"
     And I connect device "iotCorePublisher" on <agent> to "iotCoreBroker" using mqtt "<mqtt-v>"
+
     And I subscribe "localMqttSubscriber" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1
     And I subscribe "localMqttSubscriber" to "${localMqttSubscriber}topic/device2/#" with qos 1
     And I subscribe "localMqttSubscriber" to "${localMqttSubscriber}topic/+/humidity" with qos 1
@@ -500,43 +522,44 @@ Feature: GGMQ-1
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
-   "MERGE":{
-      "deviceGroups":{
-         "formatVersion":"2021-03-05",
-         "definitions":{
-            "MyPermissiveDeviceGroup":{
-               "selectionRule": "thingName: ${publisher} OR thingName: ${subscriber}",
-               "policyName":"MyPermissivePolicy"
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${publisher} OR thingName: ${subscriber}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
             }
-         },
-         "policies":{
-            "MyPermissivePolicy":{
-               "AllowAll":{
-                  "statementDescription":"Allow client devices to perform all actions.",
-                  "operations":[
-                     "*"
-                  ],
-                  "resources":[
-                     "*"
-                  ]
-               }
-            }
-         }
-      }
-   }
+        }
+    }
 }
     """
     And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
     """
 {
-   "MERGE":{
-      "controlAddresses":"${mqttControlAddresses}",
-      "controlPort":"${mqttControlPort}"
-   }
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
 }
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 300 seconds
+
     Then I discover core device broker as "localMqttBroker1" from "publisher" in OTF
     Then I discover core device broker as "localMqttBroker2" from "subscriber" in OTF
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
@@ -558,6 +581,7 @@ Feature: GGMQ-1
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_2" with qos 0
     And message "Hello world2" received on "subscriber" from "iot_data_2" topic within 5 seconds is <retainHandling-2> expected
+
 
     And I set MQTT publish retain flag to false
 

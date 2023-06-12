@@ -24,8 +24,8 @@ message MqttConnectionId {
 
 // MQTT 5.0 user's properties used in most of packets
 message Mqtt5Properties {
-    // TODO:
-    int32 stub = 1;
+    string key = 1;
+    string value = 2;
 };
 
 // The MQTT v5.0 message
@@ -34,7 +34,7 @@ message Mqtt5Message {
     bytes payload = 2;
     MqttQoS qos = 3;
     bool retain = 4;
-    Mqtt5Properties properties = 5;
+    repeated Mqtt5Properties properties = 5;
 };
 
 // End of common part
@@ -105,7 +105,7 @@ message Mqtt5Disconnect {
     optional int32 sessionExpiryInterval = 2;
     optional string reasonString = 3;
     optional string serverReference = 4;
-    optional Mqtt5Properties properties = 5;
+    repeated Mqtt5Properties properties = 5;
 }
 
 // End of discovery part
@@ -175,10 +175,10 @@ message Mqtt5ConnAck {
     optional string responseInformation = 14;
     optional string serverReference = 15;
     optional int32 topicAliasMaximum = 16;
+    repeated Mqtt5Properties properties = 17;
 
     // TODO: Authentication Method
     // TODO: Authentication Data
-    // TODO: user's Properties
 };
 
 
@@ -213,7 +213,7 @@ message MqttConnectRequest {
     bool cleanSession = 5;                              // clean sesions (clean start) flag
     MqttProtoVersion protocolVersion = 6;               // version of MQTT protocol to use, currently only 5 is supported
     int32 timeout = 7;                                  // connect timeout in seconds
-    optional Mqtt5Properties properties = 8;            // CONNECT packet MQTT 5 properties
+    repeated Mqtt5Properties properties = 8;            // CONNECT packet MQTT 5 properties
     optional TLSSettings tls = 9;                       // TLS settings for secured connection
     optional Mqtt5Message willMessage = 10;             // will message to set
 }
@@ -224,7 +224,6 @@ message MqttConnectReply {
     MqttConnectionId connectionId = 2;                  // id of establisted connection
     optional Mqtt5ConnAck connAck = 3;                  // information from CONNACK packet
     optional string error = 4;                          // error string if available, has sense on connected = false
-    // TODO: add user properties
 }
 
 // Request to close MQTT connection
@@ -232,7 +231,7 @@ message MqttCloseRequest {
     MqttConnectionId connectionId = 1;                  // id of connection to disconnect
     int32 timeout = 2;                                  // disconnect timeout in seconds
     int32 reason = 3;                                   // MQTT disconnect reason
-    optional Mqtt5Properties properties = 4;            // DISCONNECT packet MQTT v5.0 properties
+    repeated Mqtt5Properties properties = 4;            // DISCONNECT packet MQTT v5.0 properties
 }
 
 // Request to subscribe to MQTT topic(s)
@@ -241,14 +240,14 @@ message MqttSubscribeRequest {
     int32 timeout = 2;                                  // subscribe timeout in seconds
     optional int32 subscriptionId = 3;                  // optional subscription id
     repeated Mqtt5Subscription subscriptions = 4;       // list of filter with options
-    // TODO: add user properties
+    repeated Mqtt5Properties properties = 5;             // MQTT v5.0 user's properties
 }
 
 // Response to subscribe request
 message MqttSubscribeReply {
     repeated int32 reasonCodes = 1;                     // MQTT v5.0 SUBACK reason codes
     optional string reasonString = 2;                   // MQTT v5.0 SUBACK  reason string
-    optional Mqtt5Properties properties = 3;            // MQTT v5.0 SUBACK user's properties
+    repeated Mqtt5Properties properties = 3;            // MQTT v5.0 SUBACK user's properties
 }
 
 // Request to unsubscribe from MQTT topic(s)
@@ -256,7 +255,7 @@ message MqttUnsubscribeRequest {
     MqttConnectionId connectionId = 1;                  // id of connection to unsubscribe
     int32 timeout = 2;                                  // unsubscribe timeout in seconds
     repeated string filters = 3;                        // list of filter to unsubscribe
-    // TODO: add user properties
+    repeated Mqtt5Properties properties = 4;            // MQTT v5.0 PUBACK user's properties
 }
 
 // Request to publish MQTT message
@@ -270,7 +269,7 @@ message MqttPublishRequest {
 message MqttPublishReply {
     optional int32 reasonCode = 1;                      // MQTT v5.0 PUBACK reason code
     optional string reasonString = 2;                   // MQTT v5.0 PUBACK reason string
-    optional Mqtt5Properties properties = 3;            // MQTT v5.0 PUBACK user's properties
+    repeated Mqtt5Properties properties = 3;            // MQTT v5.0 PUBACK user's properties
 }
 
 // end of MQTT client contol part

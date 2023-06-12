@@ -439,7 +439,7 @@ public class MqttControlSteps {
 
         // do subscription
         log.info("Create MQTT subscription for Thing {} to topics filter {} with QoS {} no local {} "
-                    + "retain handling {} ", clientDeviceThingName, filter, qos, subscribeNoLocal,
+                    + "retain handling {}", clientDeviceThingName, filter, qos, subscribeNoLocal,
                     subscribeRetainHandling);
 
         Mqtt5Subscription mqtt5Subscription = buildMqtt5Subscription(filter,
@@ -448,7 +448,7 @@ public class MqttControlSteps {
                 subscribeRetainAsPublished,
                 subscribeRetainHandling);
         MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(DEFAULT_SUBSCRIPTION_ID,
-                                                                                mqtt5Subscription);
+                                                                                null, mqtt5Subscription);
         if (mqttSubscribeReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT subscribe request");
         }
@@ -513,7 +513,7 @@ public class MqttControlSteps {
         final String topic = scenarioContext.applyInline(topicString);
 
         // do publishing
-        log.info("Publishing MQTT message {} as Thing {} to topics filter {} with QoS {} and retain {}", message,
+        log.info("Publishing MQTT message '{}' as Thing {} to topic {} with QoS {} and retain {}", message,
                     clientDeviceThingName, topic, qos, publishRetain);
         Mqtt5Message mqtt5Message = buildMqtt5Message(qos, publishRetain, topic, message);
         MqttPublishReply mqttPublishReply = connectionControl.publishMqtt(mqtt5Message);

@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
@@ -45,11 +46,11 @@ public interface MqttConnection {
         private Integer serverKeepAlive;
         private String responseInformation;
         private String serverReference;
+        private List<Mqtt5Properties>  userProperties;
 
         // TODO: int topicAliasMaximum;          // miss for AWS IoT device SDK MQTT5 client ?
         // TODO: Authentication Method
         // TODO: Authentication Data
-        // TODO: user's Properties
 
         /**
          * Creates ConnAckInfo for result of MQTT 3.1.1 connect.
@@ -103,7 +104,9 @@ public interface MqttConnection {
         private List<Integer> reasonCodes;
 
         private String reasonString;
-        // TODO: add user's properties
+
+        /** User properties. */
+        private List<Mqtt5Properties>  userProperties;
     }
 
     /**
@@ -124,6 +127,9 @@ public interface MqttConnection {
         /** Payload of message. */
         private byte[] payload;
 
+        /** User properties. */
+        private List<Mqtt5Properties>  userProperties;
+
         // TODO: add user's properties and so one
     }
 
@@ -132,8 +138,8 @@ public interface MqttConnection {
      * Actually is the same as SubAckInfo.
      */
     class UnsubAckInfo extends SubAckInfo {
-        public UnsubAckInfo(List<Integer> reasonCodes, String reasonString) {
-            super(reasonCodes, reasonString);
+        public UnsubAckInfo(List<Integer> reasonCodes, String reasonString, List<Mqtt5Properties>  userProperties) {
+            super(reasonCodes, reasonString, userProperties);
         }
     }
 
@@ -153,9 +159,11 @@ public interface MqttConnection {
      *
      * @param timeout subscribe operation timeout in seconds
      * @param subscriptions list of subscriptions
+     * @param userProperties  Map of user's properties MQTT v5.0
      * @return useful information from SUBACK packet
      */
-    MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions);
+    MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
+                                 List<Mqtt5Properties> userProperties);
 
     /**
      * Closes MQTT connection.

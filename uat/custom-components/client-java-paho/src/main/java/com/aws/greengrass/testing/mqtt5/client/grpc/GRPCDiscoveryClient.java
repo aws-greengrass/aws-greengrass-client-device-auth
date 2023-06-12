@@ -17,7 +17,6 @@ import com.aws.greengrass.testing.mqtt.client.RegisterReply;
 import com.aws.greengrass.testing.mqtt.client.RegisterRequest;
 import com.aws.greengrass.testing.mqtt.client.UnregisterRequest;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
-import com.aws.greengrass.testing.mqtt5.client.GRPCClient.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
 import com.google.protobuf.ByteString;
 import io.grpc.Grpc;
@@ -117,17 +116,19 @@ class GRPCDiscoveryClient implements GRPCClient {
 
     @Override
     public void onReceiveMqttMessage(int connectionId, MqttReceivedMessage message) {
-        Mqtt5Message msg = Mqtt5Message.newBuilder()
+        Mqtt5Message.Builder msgBuilder = Mqtt5Message.newBuilder()
                                         .setTopic(message.getTopic())
                                         .setPayload(ByteString.copyFrom(message.getPayload()))
                                         .setQos(MqttQoS.forNumber(message.getQos()))
-                                        .setRetain(message.isRetain())
-                                        .build();
+                                        .setRetain(message.isRetain());
+        if (message.getUserProperties() != null) {
+            msgBuilder.addAllProperties(message.getUserProperties());
+        }
 
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
                         .setAgentId(agentId)
                         .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
-                        .setMsg(msg)
+                        .setMsg(msgBuilder.build())
                         .build();
         try {
             blockingStub.onReceiveMessage(request);
