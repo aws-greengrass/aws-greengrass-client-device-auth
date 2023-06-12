@@ -2,6 +2,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+
 ---
 RecipeFormatVersion: 2020-01-25
 ComponentName: aws.greengrass.client.MqttMosquittoClient

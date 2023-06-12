@@ -148,6 +148,4 @@ public class LocalIpcSubscriber implements Consumer<String[]> {
     private void onStreamClosed() {
         log.info("Subscribe to topic stream closed.");
     }
-
-
 }
