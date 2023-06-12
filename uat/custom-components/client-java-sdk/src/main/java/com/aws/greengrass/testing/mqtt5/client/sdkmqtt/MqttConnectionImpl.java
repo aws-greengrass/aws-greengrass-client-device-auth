@@ -151,13 +151,23 @@ public class MqttConnectionImpl implements MqttConnection {
                 String topic = packet.getTopic();
                 boolean isRetain = packet.getRetain();
 
-                MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload());
+                List<Mqtt5Properties> userProperties = null;
+                if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
+                    userProperties = convertToMqtt5Properties(packet.getUserProperties());
+                }
+
+                MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload(),
+                        userProperties);
                 executorService.submit(() -> {
                     grpcClient.onReceiveMqttMessage(connectionId, message);
                 });
 
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
                                         connectionId, topic, qos, isRetain);
+                if (userProperties != null) {
+                    userProperties.forEach(p -> logger.atInfo()
+                            .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
+                }
             }
         }
     }
@@ -521,14 +531,18 @@ public class MqttConnectionImpl implements MqttConnection {
         if (packet == null) {
             return null;
         }
+        List<Mqtt5Properties> userProperties = null;
+        if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
+            userProperties = convertToMqtt5Properties(packet.getUserProperties());
+        }
 
         DisconnectPacket.DisconnectReasonCode reasonCode = packet.getReasonCode();
 
-        // TODO: handler also user's properties of DISCONNECT
         return new DisconnectInfo(reasonCode == null ? null : reasonCode.getValue(),
                                     convertLongToInteger(packet.getSessionExpiryIntervalSeconds()),
                                     packet.getReasonString(),
-                                    packet.getServerReference()
+                                    packet.getServerReference(),
+                                    userProperties
                                     );
     }
 

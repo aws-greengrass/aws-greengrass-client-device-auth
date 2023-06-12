@@ -76,7 +76,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 final String topic = message.getTopic();
                 final boolean isRetain = message.getRetain();
 
-                MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload());
+                MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload(),
+                        null);
                 executorService.submit(() -> {
                     grpcClient.onReceiveMqttMessage(connectionId, msg);
                 });
