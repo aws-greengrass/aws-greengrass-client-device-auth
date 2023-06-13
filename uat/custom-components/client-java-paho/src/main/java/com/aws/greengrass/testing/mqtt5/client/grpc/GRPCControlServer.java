@@ -284,6 +284,7 @@ class GRPCControlServer {
                     .retain(isRetain)
                     .topic(topic)
                     .payload(message.getPayload().toByteArray());
+
             if (message.getPropertiesList() != null && !message.getPropertiesList().isEmpty()) {
                 internalMessage.userProperties(message.getPropertiesList());
             }

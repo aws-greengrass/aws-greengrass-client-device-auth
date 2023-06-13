@@ -255,7 +255,7 @@ class MqttConnectionImplTest {
         mqttConnectionImpl.lifecycleEvents.onStopped(client, onStoppedReturn);
 
         // WHEN
-        mqttConnectionImpl.disconnect(timeoutSeconds, reasonCode);
+        mqttConnectionImpl.disconnect(timeoutSeconds, reasonCode, null);
 
         // THEN
         ArgumentCaptor<DisconnectPacket> argument = ArgumentCaptor.forClass(DisconnectPacket.class);
@@ -275,7 +275,7 @@ class MqttConnectionImplTest {
 
         // WHEN
         assertThrows(MqttException.class, () -> {
-            mqttConnectionImpl.disconnect(timeoutSeconds, reasonCode);
+            mqttConnectionImpl.disconnect(timeoutSeconds, reasonCode, null);
         }, "Could not disconnect");
 
         // THEN
@@ -433,7 +433,7 @@ class MqttConnectionImplTest {
         subscribeFuture.complete(subAckPacket);
 
         // WHEN
-        SubAckInfo subAckInfo = mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, subscriptions);
+        SubAckInfo subAckInfo = mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, null, subscriptions);
 
         // THEN
         // check result in subAckInfo
@@ -482,7 +482,7 @@ class MqttConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
-            mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, subscriptions);
+            mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, null, subscriptions);
         }, "MQTT client is not in connected state");
     }
 
@@ -511,7 +511,7 @@ class MqttConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
-                mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, subscriptions);
+                mqttConnectionImpl.subscribe(timeoutSeconds, subscriptionId, null, subscriptions);
         }, "Could not subscribe");
 
     }
@@ -540,7 +540,7 @@ class MqttConnectionImplTest {
         unsubscribeFuture.complete(unsubAckPacket);
 
         // WHEN
-        UnsubAckInfo unsubAckInfo = mqttConnectionImpl.unsubscribe(timeoutSeconds, filters);
+        UnsubAckInfo unsubAckInfo = mqttConnectionImpl.unsubscribe(timeoutSeconds, null, filters);
 
         // THEN
         // check result in unsubAckInfo
@@ -565,7 +565,7 @@ class MqttConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
-            mqttConnectionImpl.unsubscribe(timeoutSeconds, filters);
+            mqttConnectionImpl.unsubscribe(timeoutSeconds, null, filters);
         }, "MQTT client is not in connected state");
     }
 
@@ -583,7 +583,7 @@ class MqttConnectionImplTest {
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {
-            mqttConnectionImpl.unsubscribe(timeoutSeconds, filters);
+            mqttConnectionImpl.unsubscribe(timeoutSeconds, null, filters);
         }, "Could not unsubscribe");
     }
 }

@@ -5,10 +5,13 @@
 
 package com.aws.greengrass.testing.mqtt5.client;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NonNull;
+
+import java.util.List;
 
 /**
  * Interface of MQTT5 library.
@@ -47,6 +50,9 @@ public interface MqttLib extends AutoCloseable {
 
         /** The true MQTT v5.0 connection is requested. */
         private boolean mqtt50;
+
+        /** User properties. */
+        private List<Mqtt5Properties> userProperties;
     }
 
     /**
