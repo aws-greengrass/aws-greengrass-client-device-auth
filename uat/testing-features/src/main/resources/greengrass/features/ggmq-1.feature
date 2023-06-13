@@ -10,10 +10,10 @@ Feature: GGMQ-1
   @GGMQ-1-T1
   Scenario Outline: GGMQ-1-T1-<mqtt-v>-<name>: As a customer, I can connect, subscribe/publish at QoS 0 and 1 and receive using client application to MQTT topic
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                            |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                            |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                            |
-      | <agent>                                  | classpath:/greengrass/components/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
     And I create client device "clientDeviceTest"
     When I associate "clientDeviceTest" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
@@ -97,12 +97,12 @@ Feature: GGMQ-1
   Scenario Outline: GGMQ-1-T8-<mqtt-v>-<name>: As a customer, I can configure local MQTT messages to be forwarded to a PubSub topic
     When I start an assertion server
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                                   |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                   |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                                   |
-      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                                   |
-      | <agent>                                  | classpath:/greengrass/components/recipes/<recipe>        |
-      | aws.greengrass.client.IpcClient          | classpath:/greengrass/components/recipes/client_ipc.yaml |
+      | aws.greengrass.clientdevices.Auth        | LATEST                                                 |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                 |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                                 |
+      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                                 |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe>                |
+      | aws.greengrass.client.LocalIpcSubscriber | classpath:/local-store/recipes/LocalIpcSubscriber.yaml |
     And I create client device "publisher"
     When I associate "publisher" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.Bridge configuration to:
@@ -173,7 +173,7 @@ Feature: GGMQ-1
     }
 }
     """
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.client.IpcClient configuration to:
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.client.LocalIpcSubscriber configuration to:
     """
 {
     "MERGE":{
@@ -245,10 +245,10 @@ Feature: GGMQ-1
   @GGMQ-1-T13
   Scenario Outline: GGMQ-1-T13-<mqtt-v>: As a customer, I can connect two GGADs and send message from one GGAD to the other based on CDA configuration
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                                        |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                                        |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                                        |
-      | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/greengrass/components/recipes/client_java_sdk.yaml |
+      | aws.greengrass.clientdevices.Auth        | LATEST                                              |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                              |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                              |
+      | aws.greengrass.client.Mqtt5JavaSdkClient | classpath:/local-store/recipes/client_java_sdk.yaml |
 
     And I create client device "publisher"
     And I create client device "subscriber"
@@ -385,11 +385,11 @@ Feature: GGMQ-1
   @GGMQ-1-T14
   Scenario Outline: GGMQ-1-T14-<mqtt-v>-<name>: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                            |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                            |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                            |
-      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                            |
-      | <agent>                                  | classpath:/greengrass/components/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
     And I create client device "localMqttSubscriber"
     And I create client device "iotCorePublisher"
     When I associate "localMqttSubscriber" with ggc
@@ -508,13 +508,141 @@ Feature: GGMQ-1
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
 
+  @GGMQ-1-T15
+  Scenario Outline: GGMQ-1-T15-<mqtt-v>-<name>: As a customer, I can configure Pubsub messages to be forwarded to local MQTT topic
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                  |
+      | aws.greengrass.Cli                       | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+    And I create client device "subscriber"
+    When I associate "subscriber" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.Bridge configuration to:
+    """
+{
+    "MERGE":{
+        "mqttTopicMapping":{
+            "mapping1:":{
+                "topic":"pubsub/topic/to/publish/on",
+                "source":"Pubsub",
+                "target":"LocalMqtt"
+            },
+            "mapping2:":{
+                "topic":"pubsub/topic/to/publish/on",
+                "source":"Pubsub",
+                "target":"LocalMqtt",
+                "targetTopicPrefix":"prefix/"
+            }
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+   "MERGE":{
+      "deviceGroups":{
+         "formatVersion":"2021-03-05",
+         "definitions":{
+            "MyPermissiveDeviceGroup":{
+               "selectionRule": "thingName: ${subscriber}",
+               "policyName":"MyPermissivePolicy"
+            }
+         },
+         "policies":{
+            "MyPermissivePolicy":{
+               "AllowAll":{
+                  "statementDescription":"Allow client devices to perform all actions.",
+                  "operations":[
+                     "*"
+                  ],
+                  "resources":[
+                     "*"
+                  ]
+               }
+            }
+         }
+      }
+   }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 300 seconds
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 60 seconds
+
+    Then I discover core device broker as "default_broker" from "subscriber" in OTF
+    And I connect device "subscriber" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    When I subscribe "subscriber" to "pubsub/topic/to/publish/on" with qos 1
+    When I subscribe "subscriber" to "prefix/pubsub/topic/to/publish/on" with qos 1
+
+    When I install the component LocalIpcPublisher from local store with configuration
+    """
+{
+    "MERGE":{
+        "accessControl":{
+            "aws.greengrass.ipc.pubsub":{
+                "aws.greengrass.client.IpcClient:pubsub:1":{
+                    "policyDescription":"access to pubsub topics",
+                    "operations":[
+                        "aws.greengrass#PublishToTopic"
+                    ],
+                    "resources":[
+                        "pubsub/topic/to/publish/on"
+                    ]
+                }
+            }
+        },
+        "topicsToPublish":"pubsub/topic/to/publish/on",
+        "message":"Hello world"
+    }
+}
+    """
+    Then the local Greengrass deployment is SUCCEEDED on the device after 120 seconds
+
+    Then I wait 5 seconds
+    Then message "Hello world" received on "subscriber" from "pubsub/topic/to/publish/on" topic within 10 seconds
+    Then message "Hello world" received on "subscriber" from "prefix/pubsub/topic/to/publish/on" topic within 10 seconds
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+
+    @mqtt3 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+
+    @mqtt5 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+
   @GGMQ-1-T101
   Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can use publish retain flag and subscribe retain handling as expected
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth       | LATEST                                            |
-      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                            |
-      | aws.greengrass.clientdevices.IPDetector | LATEST                                            |
-      | <agent>                                 | classpath:/greengrass/components/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
     And I create client device "publisher"
     And I create client device "subscriber"
     When I associate "subscriber" with ggc
