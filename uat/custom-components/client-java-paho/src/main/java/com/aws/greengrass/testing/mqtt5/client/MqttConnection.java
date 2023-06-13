@@ -182,4 +182,16 @@ public interface MqttConnection {
      * @return useful information from PUBACK packet or null of no PUBACK has been received (as for QoS 0)
      */
     MqttPublishReply publish(long timeout, @NonNull Message message);
+
+    /**
+     * Unsubscribes from topics.
+     *
+     * @param timeout subscribe operation timeout in seconds
+     * @param filters list of topic filter to unsubscribe
+     * @param userProperties list of user's properties MQTT v5.0
+     * @return useful information from UNSUBACK packet
+     */
+    MqttSubscribeReply unsubscribe(long timeout, @NonNull List<String> filters,
+                                   List<Mqtt5Properties> userProperties);
+
 }

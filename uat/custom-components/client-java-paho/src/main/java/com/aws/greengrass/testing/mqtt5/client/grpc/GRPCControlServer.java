@@ -20,6 +20,7 @@ import com.aws.greengrass.testing.mqtt.client.MqttPublishReply;
 import com.aws.greengrass.testing.mqtt.client.MqttPublishRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeReply;
 import com.aws.greengrass.testing.mqtt.client.MqttSubscribeRequest;
+import com.aws.greengrass.testing.mqtt.client.MqttUnsubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.ShutdownRequest;
 import com.aws.greengrass.testing.mqtt.client.TLSSettings;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
@@ -352,11 +353,7 @@ class GRPCControlServer {
         public void subscribeMqtt(MqttSubscribeRequest request, StreamObserver<MqttSubscribeReply> responseObserver) {
 
             int timeout = request.getTimeout();
-            if (timeout < TIMEOUT_MIN) {
-                logger.atWarn().log("invalid subscribe timeout {}, must be >= {}", timeout, TIMEOUT_MIN);
-                responseObserver.onError(Status.INVALID_ARGUMENT
-                        .withDescription("invalid subscribe timeout, must be >= 1")
-                        .asRuntimeException());
+            if (!isValidTimeout(timeout, "subscribe", responseObserver)) {
                 return;
             }
 
@@ -416,13 +413,10 @@ class GRPCControlServer {
 
             int connectionId = request.getConnectionId().getConnectionId();
             MqttConnection connection = mqttLib.getConnection(connectionId);
-            if (connection == null) {
-                logger.atWarn().log(CONNECTION_WITH_DOES_NOT_FOUND, connectionId);
-                responseObserver.onError(Status.NOT_FOUND
-                        .withDescription(CONNECTION_DOES_NOT_FOUND)
-                        .asRuntimeException());
+            if (!isValidConnection(connection, connectionId, responseObserver)) {
                 return;
             }
+
             logger.atInfo().log("Subscribe: connectionId {} for {} filters",
                     connectionId, outSubscriptions.size());
             List<Mqtt5Properties> userProperties = request.getPropertiesList();
@@ -432,6 +426,49 @@ class GRPCControlServer {
                         connectionId, subscribeReply.getReasonCodesList(), subscribeReply.getReasonString());
             }
             responseObserver.onNext(subscribeReply);
+            responseObserver.onCompleted();
+        }
+
+        /**
+         * Handler of UnsubscribeMqtt gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
+        @Override
+        public void unsubscribeMqtt(MqttUnsubscribeRequest request,
+                                    StreamObserver<MqttSubscribeReply> responseObserver) {
+
+            int timeout = request.getTimeout();
+            if (!isValidTimeout(timeout, "unsubscribe", responseObserver)) {
+                return;
+            }
+
+            List<String> filters = request.getFiltersList();
+            if (filters.isEmpty()) {
+                logger.atWarn().log("empty filters list");
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                        .withDescription("empty filters list")
+                        .asRuntimeException());
+                return;
+            }
+
+            int connectionId = request.getConnectionId().getConnectionId();
+            MqttConnection connection = mqttLib.getConnection(connectionId);
+            if (!isValidConnection(connection, connectionId, responseObserver)) {
+                return;
+            }
+
+            logger.atInfo().log("Unsubscribe: connectionId {} for {} filters",
+                    connectionId, filters);
+            List<Mqtt5Properties> userProperties = request.getPropertiesList();
+            MqttSubscribeReply unsubscribeReply = connection.unsubscribe(timeout, filters, userProperties);
+
+            if (unsubscribeReply != null) {
+                logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string {}",
+                        connectionId, unsubscribeReply.getReasonCodesList(), unsubscribeReply.getReasonString());
+            }
+            responseObserver.onNext(unsubscribeReply);
             responseObserver.onCompleted();
         }
 
