@@ -51,7 +51,7 @@ public interface MqttLib extends AutoCloseable {
         /** The true MQTT v5.0 connection is requested. */
         private boolean mqtt50;
 
-        /** The true MQTT v5.0 connection is requested in seconds. */
+        /** Connection timeout in seconds. */
         private int connectionTimeout;
 
         /** User properties. */
