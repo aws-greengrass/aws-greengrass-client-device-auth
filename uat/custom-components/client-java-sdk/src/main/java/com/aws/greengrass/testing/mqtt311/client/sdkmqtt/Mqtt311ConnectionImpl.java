@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt311.client.sdkmqtt;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
@@ -75,7 +76,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 final String topic = message.getTopic();
                 final boolean isRetain = message.getRetain();
 
-                MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload());
+                MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload(),
+                        null);
                 executorService.submit(() -> {
                     grpcClient.onReceiveMqttMessage(connectionId, msg);
                 });
@@ -135,7 +137,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public void disconnect(long timeout, int reasonCode) throws MqttException {
+    public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
 
         if (!isClosing.getAndSet(true)) {
             CompletableFuture<Void> disconnnectFuture = connection.disconnect();
@@ -183,7 +185,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             Integer packetId = publishFuture.get(timeout, TimeUnit.SECONDS);
             logger.atInfo().log("Publish on connection {} to topic {} QoS {} packet Id {}",
                                     connectionId, topic, qos, packetId);
-            return new PubAckInfo(REASON_CODE_SUCCESS, null);
+            return new PubAckInfo(REASON_CODE_SUCCESS, null, null);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_PUBLISHING);
@@ -195,7 +197,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public SubAckInfo subscribe(long timeout, Integer subscriptionId, final @NonNull List<Subscription> subscriptions)
+    public SubAckInfo subscribe(long timeout, Integer subscriptionId, List<Mqtt5Properties> userProperties,
+                                final @NonNull List<Subscription> subscriptions)
             throws MqttException {
 
         stateCheck();
@@ -218,7 +221,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             Integer packetId = subscribeFuture.get(timeout, TimeUnit.SECONDS);
             logger.atInfo().log("Subscribed on connection {} for topics filter {} QoS {} packet Id {}",
                                     connectionId, filter, qos, packetId);
-            return new SubAckInfo(Collections.singletonList(REASON_CODE_SUCCESS), null);
+            return new SubAckInfo(Collections.singletonList(REASON_CODE_SUCCESS), null, null);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_SUBSCRIBING);
@@ -230,7 +233,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public UnsubAckInfo unsubscribe(long timeout, final @NonNull List<String> filters)
+    public UnsubAckInfo unsubscribe(long timeout, List<Mqtt5Properties> userProperties,
+                                    final @NonNull List<String> filters)
             throws MqttException {
 
         stateCheck();
@@ -246,7 +250,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             Integer packetId = unsubscribeFuture.get(timeout, TimeUnit.SECONDS);
             logger.atInfo().log("Unsubscribed on connection {} from topics filter {} packet Id {}", connectionId,
                                     filter, packetId);
-            return new UnsubAckInfo(Collections.singletonList(REASON_CODE_SUCCESS), null);
+            return new UnsubAckInfo(Collections.singletonList(REASON_CODE_SUCCESS), null, null);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_UNSUBSCRIBING);

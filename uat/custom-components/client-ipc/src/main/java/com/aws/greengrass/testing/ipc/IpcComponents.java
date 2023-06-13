@@ -14,4 +14,6 @@ import javax.inject.Singleton;
 public interface IpcComponents {
 
     LocalIpcSubscriber getSubscriber();
+
+    LocalIpcPublisher getPublisher();
 }

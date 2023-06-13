@@ -13,6 +13,7 @@ import lombok.extern.log4j.Log4j2;
 public class IpcClientMainRouter {
 
     public static final String LOCAL_IPC_SUBSCRIBER = "LocalIpcSubscriber";
+    public static final String LOCAL_IPC_PUBLISHER = "LocalIpcPublisher";
     public static final String COMPONENT_NAME_SYS_PROP = "componentName";
 
     /**
@@ -27,8 +28,13 @@ public class IpcClientMainRouter {
             DaggerIpcComponents.create()
                                .getSubscriber()
                                .accept(args);
+        } else if (LOCAL_IPC_PUBLISHER.equals(operationName)) {
+            DaggerIpcComponents.create()
+                               .getPublisher()
+                               .accept(args);
         } else {
             log.error("Unsupported ipc operation");
+            System.exit(1);
         }
     }
 }

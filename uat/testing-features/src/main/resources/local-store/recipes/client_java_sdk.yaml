@@ -5,22 +5,22 @@
 
 ---
 RecipeFormatVersion: '2020-01-25'
-ComponentName: aws.greengrass.client.Mqtt5JavaPahoClient
+ComponentName: aws.greengrass.client.Mqtt5JavaSdkClient
 ComponentVersion: '1.0.0'
-ComponentDescription: MQTT 5.0/3.1.1 Java Client powered by Eclipse Paho
+ComponentDescription: MQTT 5.0/3.1.1 Java Client powered by AWS Java SDK
 ComponentPublisher: Amazon
 ComponentConfiguration:
   DefaultConfiguration:
     # agentId should be the same as ComponentName
-    agentId: aws.greengrass.client.Mqtt5JavaPahoClient
+    agentId: aws.greengrass.client.Mqtt5JavaSdkClient
     controlAddresses: 127.0.0.1
     controlPort: 47619
 Manifests:
   - Artifacts:
-      - URI: classpath:/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaPahoClient.jar
+      - URI: classpath:/local-store/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar
         Permission:
           Read: ALL
           Execute: NONE
     Lifecycle:
       Run: |
-        java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaPahoClient.jar "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}
+        java -jar {artifacts:path}/aws.greengrass.client.Mqtt5JavaSdkClient.jar "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}

@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -43,11 +44,11 @@ public interface MqttConnection {
         private Integer serverKeepAlive;
         private String responseInformation;
         private String serverReference;
+        private List<Mqtt5Properties> userProperties;
 
         // TODO: int topicAliasMaximum;          // miss for AWS IoT device SDK MQTT5 client ?
         // TODO: Authentication Method
         // TODO: Authentication Data
-        // TODO: user's Properties
 
         /**
          * Creates ConnAckInfo for result of MQTT 3.1.1 connect.
@@ -101,7 +102,9 @@ public interface MqttConnection {
         private List<Integer> reasonCodes;
 
         private String reasonString;
-        // TODO: add user's properties
+
+        /** User properties. */
+        private List<Mqtt5Properties> userProperties;
     }
 
     /**
@@ -122,7 +125,8 @@ public interface MqttConnection {
         /** Payload of message. */
         private byte[] payload;
 
-        // TODO: add user's properties and so one
+        /** User properties. */
+        private List<Mqtt5Properties> userProperties;
     }
 
     /**
@@ -136,7 +140,9 @@ public interface MqttConnection {
 
         /** MQTT v5.0 Reason string of PUBACK packet. */
         private String reasonString;
-        // TODO: add user's properties
+
+        /** MQTT v5.0 User properties of PUBACK packet. */
+        private List<Mqtt5Properties> userProperties;
     }
 
     /**
@@ -144,8 +150,8 @@ public interface MqttConnection {
      * Actually is the same as SubAckInfo.
      */
     class UnsubAckInfo extends SubAckInfo {
-        public UnsubAckInfo(List<Integer> reasonCodes, String reasonString) {
-            super(reasonCodes, reasonString);
+        public UnsubAckInfo(List<Integer> reasonCodes, String reasonString, List<Mqtt5Properties> userProperties) {
+            super(reasonCodes, reasonString, userProperties);
         }
     }
 
@@ -165,11 +171,13 @@ public interface MqttConnection {
      *
      * @param timeout subscribe operation timeout in seconds
      * @param subscriptionId optional subscription identificator
+     * @param userProperties  list of user's properties MQTT v5.0
      * @param subscriptions list of subscriptions
      * @return useful information from SUBACK packet
      * @throws MqttException on errors
      */
-    SubAckInfo subscribe(long timeout, Integer subscriptionId, @NonNull List<Subscription> subscriptions)
+    SubAckInfo subscribe(long timeout, Integer subscriptionId, List<Mqtt5Properties> userProperties,
+                         @NonNull List<Subscription> subscriptions)
             throws MqttException;
 
 
@@ -187,18 +195,21 @@ public interface MqttConnection {
      * Unsubscribes from topics.
      *
      * @param timeout subscribe operation timeout in seconds
+     * @param userProperties  list of user's properties MQTT v5.0
      * @param filters list of topic filter to unsubscribe
      * @return useful information from UNSUBACK packet
      * @throws MqttException on errors
      */
-    UnsubAckInfo unsubscribe(long timeout, @NonNull List<String> filters) throws MqttException;
+    UnsubAckInfo unsubscribe(long timeout, List<Mqtt5Properties> userProperties,
+                             @NonNull List<String> filters) throws MqttException;
 
     /**
      * Closes MQTT connection.
      *
      * @param timeout disconnect operation timeout in seconds
      * @param reasonCode reason why connection is closed
+     * @param userProperties  List of user's properties MQTT v5.0
      * @throws MqttException on errors
      */
-    void disconnect(long timeout, int reasonCode) throws MqttException;
+    void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException;
 }

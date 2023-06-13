@@ -117,17 +117,19 @@ class GRPCDiscoveryClient implements GRPCClient {
 
     @Override
     public void onReceiveMqttMessage(int connectionId, MqttReceivedMessage message) {
-        Mqtt5Message msg = Mqtt5Message.newBuilder()
+        Mqtt5Message.Builder msg = Mqtt5Message.newBuilder()
                                         .setTopic(message.getTopic())
                                         .setPayload(ByteString.copyFrom(message.getPayload()))
                                         .setQos(MqttQoS.forNumber(message.getQos()))
-                                        .setRetain(message.isRetain())
-                                        .build();
+                                        .setRetain(message.isRetain());
+        if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
+            msg.addAllProperties(message.getUserProperties());
+        }
 
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
                         .setAgentId(agentId)
                         .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
-                        .setMsg(msg)
+                        .setMsg(msg.build())
                         .build();
         try {
             blockingStub.onReceiveMessage(request);
@@ -143,9 +145,15 @@ class GRPCDiscoveryClient implements GRPCClient {
                         .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId)
                         .build());
         if (disconnectInfo != null) {
-            // TODO: fill
-            Mqtt5Disconnect disconnect = Mqtt5Disconnect.newBuilder().build();
-            builder.setDisconnect(disconnect);
+            Mqtt5Disconnect.Builder disconnect = Mqtt5Disconnect.newBuilder();
+            if (disconnectInfo.getUserProperties() != null && !disconnectInfo.getUserProperties().isEmpty()) {
+                disconnect.addAllProperties(disconnectInfo.getUserProperties());
+            }
+            disconnect.setReasonString(disconnectInfo.getReasonString());
+            disconnect.setReasonCode(disconnectInfo.getReasonCode());
+            disconnect.setServerReference(disconnectInfo.getServerReference());
+            disconnect.setSessionExpiryInterval(disconnectInfo.getSessionExpiryInterval());
+            builder.setDisconnect(disconnect.build());
         }
         if (error != null) {
             builder.setError(error);

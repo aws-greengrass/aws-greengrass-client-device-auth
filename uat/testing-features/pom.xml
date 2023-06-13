@@ -203,6 +203,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>${antrun.plugin.version}</version>
+                <!-- TODO: can use maven-resources-plugin instead -->
                 <executions>
                     <execution>
                         <id>copy-artifact-to-classpath</id>
@@ -211,19 +212,19 @@
                             <goal>run</goal>
                         </goals>
                         <configuration>
-                            <target name="copy SDK-client component under test artifact">
+                            <target name="copy components under test artifact">
                                 <copy
                                         file="${project.basedir}/../custom-components/client-java-sdk/target/client-devices-auth-uat-client-java-sdk.jar"
-                                      tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar"/>
+                                      tofile="${project.basedir}/target/classes/local-store/artifacts/aws.greengrass.client.Mqtt5JavaSdkClient.jar"/>
                                 <copy
                                         file="${project.basedir}/../custom-components/client-java-paho/target/client-devices-auth-uat-client-java-paho.jar"
-                                        tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.Mqtt5JavaPahoClient.jar"/>
+                                        tofile="${project.basedir}/target/classes/local-store/artifacts/aws.greengrass.client.Mqtt5JavaPahoClient.jar"/>
                                 <copy
                                         file="${project.basedir}/../custom-components/client-ipc/target/client-devices-auth-uat-client-ipc.jar"
-                                        tofile="${project.basedir}/target/classes/greengrass/artifacts/aws.greengrass.client.IpcClient.jar"/>
+                                        tofile="${project.basedir}/target/classes/local-store/artifacts/aws.greengrass.client.IpcClient.jar"/>
                                 <copy
                                         file="${project.basedir}/../custom-components/client-mosquitto-c/${mosquitto.agent.artifact}"
-                                        tofile="${project.basedir}/target/classes/greengrass/artifacts/${mosquitto.agent.artifact}"/>
+                                        tofile="${project.basedir}/target/classes/local-store/artifacts/${mosquitto.agent.artifact}"/>
                             </target>
                         </configuration>
                     </execution>
