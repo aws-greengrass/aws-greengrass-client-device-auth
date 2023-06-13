@@ -16,10 +16,11 @@ import com.aws.greengrass.testing.util.SslUtil;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.eclipse.paho.client.mqttv3.IMqttClient;
+import org.eclipse.paho.client.mqttv3.IMqttAsyncClient;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
-import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
@@ -39,9 +40,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(Mqtt311ConnectionImpl.class);
     private static final String EXCEPTION_WHEN_CONNECTING = "Exception occurred during connect";
     private static final String EXCEPTION_WHEN_CONFIGURE_SSL_CA = "Exception occurred during SSL configuration";
-
+    private static final String EXCEPTION_WHEN_UNSUBSCRIBING = "Exception occurred during unsubscribe";
     private final AtomicBoolean isClosing = new AtomicBoolean();
-    private final IMqttClient mqttClient;
+    private final IMqttAsyncClient mqttClient;
     private final GRPCClient grpcClient;
     private int connectionId = 0;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -57,7 +58,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     public Mqtt311ConnectionImpl(@NonNull MqttLib.ConnectionParams connectionParams, GRPCClient grpcClient)
             throws org.eclipse.paho.client.mqttv3.MqttException {
         super();
-        this.mqttClient = createClient(connectionParams);
+        this.mqttClient = createAsyncClient(connectionParams);
         this.grpcClient = grpcClient;
     }
 
@@ -66,8 +67,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         this.connectionId = connectionId;
         try {
             MqttConnectOptions connectOptions = convertParams(connectionParams);
-            IMqttToken token = mqttClient.connectWithResult(connectOptions);
-            token.waitForCompletion(connectionParams.getConnectionTimeout());
+            IMqttToken token = mqttClient.connect(connectOptions);
+            token.waitForCompletion(TimeUnit.SECONDS.toMillis(connectionParams.getConnectionTimeout()));
             logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
             return buildConnectResult(true, token.isComplete());
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
@@ -92,7 +93,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         }
         MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
         try {
-            IMqttToken token = mqttClient.subscribeWithResponse(filters, qos, messageListeners);
+            IMqttToken token = mqttClient.subscribe(filters, qos, messageListeners);
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
             builder.addReasonCodes(0);
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
@@ -121,7 +122,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         mqttMessage.setRetained(message.isRetain());
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
         try {
-            mqttClient.publish(message.getTopic(), mqttMessage);
+            IMqttDeliveryToken token = mqttClient.publish(message.getTopic(), mqttMessage);
+            token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
             builder.setReasonCode(0);
         } catch (org.eclipse.paho.client.mqttv3.MqttException ex) {
             logger.atError().withThrowable(ex)
@@ -133,6 +135,26 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         return builder.build();
     }
 
+    @Override
+    public MqttSubscribeReply unsubscribe(long timeout, @NonNull List<String> filters,
+                                          List<Mqtt5Properties> userProperties) {
+        String[] filterArray = new String[filters.size()];
+        for (int i = 0; i < filters.size(); i++) {
+            filterArray[i] = filters.get(i);
+        }
+        MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
+        try {
+            IMqttToken token = mqttClient.unsubscribe(filterArray);
+            token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
+            builder.addReasonCodes(0);
+        } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
+            logger.atError().withThrowable(e).log(EXCEPTION_WHEN_UNSUBSCRIBING);
+            builder.addReasonCodes(e.getReasonCode());
+            builder.setReasonString(e.getMessage());
+        }
+        return builder.build();
+    }
+
     /**
      * Creates a MQTT 311 connection.
      *
@@ -140,9 +162,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
      * @return MQTT 3.1.1 connection
      * @throws org.eclipse.paho.client.mqttv3.MqttException on errors
      */
-    private IMqttClient createClient(MqttLib.ConnectionParams connectionParams)
+    private IMqttAsyncClient createAsyncClient(MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.client.mqttv3.MqttException {
-        return new MqttClient(connectionParams.getHost(), connectionParams.getClientId());
+        return new MqttAsyncClient(connectionParams.getHost(), connectionParams.getClientId());
     }
 
     private MqttConnectOptions convertParams(MqttLib.ConnectionParams connectionParams)

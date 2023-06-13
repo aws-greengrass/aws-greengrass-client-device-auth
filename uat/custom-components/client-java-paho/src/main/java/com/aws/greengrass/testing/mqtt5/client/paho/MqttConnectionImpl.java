@@ -148,6 +148,7 @@ public class MqttConnectionImpl implements MqttConnection {
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
         try {
             IMqttToken response = client.publish(message.getTopic(), mqttMessage);
+            response.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
             builder.setReasonCode(0);
             MqttProperties responseProps = response.getResponseProperties();
             if (responseProps != null) {
@@ -164,6 +165,46 @@ public class MqttConnectionImpl implements MqttConnection {
                             ex.getReasonCode(), ex.getMessage());
             builder.setReasonCode(ex.getReasonCode());
             builder.setReasonString(ex.getMessage());
+        }
+        return builder.build();
+    }
+
+    @Override
+    public MqttSubscribeReply unsubscribe(long timeout, @NonNull List<String> filters,
+                                          List<Mqtt5Properties> userProperties) {
+        String[] filterArray = new String[filters.size()];
+        for (int i = 0; i < filters.size(); i++) {
+            filterArray[i] = filters.get(i);
+        }
+        MqttProperties properties = new MqttProperties();
+        if (userProperties != null && !userProperties.isEmpty()) {
+            properties.setUserProperties(convertToUserProperties(userProperties));
+        }
+        MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
+        try {
+            IMqttToken token = client.unsubscribe(filterArray, null, null, properties);
+            token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
+            int[] reasonCodes = token.getReasonCodes();
+            if (reasonCodes.length > 0) {
+                List<Integer> reasonCodeList = new ArrayList<>();
+                for (int reasonCode : reasonCodes) {
+                    reasonCodeList.add(reasonCode);
+                }
+                builder.addAllReasonCodes(reasonCodeList);
+            }
+            if (token.getResponseProperties() != null) {
+                if (token.getResponseProperties().getReasonString() != null) {
+                    builder.setReasonString(token.getResponseProperties().getReasonString());
+                }
+                if (token.getResponseProperties().getUserProperties() != null) {
+                    builder.addAllProperties(convertToMqtt5Properties(
+                            token.getResponseProperties().getUserProperties()));
+                }
+            }
+        } catch (org.eclipse.paho.mqttv5.common.MqttException e) {
+            logger.atError().withThrowable(e).log("Failed during unsubscribe");
+            builder.addReasonCodes(e.getReasonCode());
+            builder.setReasonString(e.getMessage());
         }
         return builder.build();
     }
