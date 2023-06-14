@@ -35,27 +35,15 @@ public:
     int mid;                                    // subscribe / publish / unsubscribe
     std::vector<int> granted_qos;               // subscribe
 
-    // connect / disconnect
-    AsyncResult(int rc_, int flags_, const mosquitto_property * props_)
-        : rc(rc_), flags(flags_), props(NULL), mid(0) {
-        mosquitto_property_copy_all(&props, props_);
-    }
-
-    // unsubscribe
-    AsyncResult(int mid_, const mosquitto_property * props_)
-        : rc(MOSQ_ERR_SUCCESS), flags(0), props(NULL), mid(mid_), granted_qos() {
-        mosquitto_property_copy_all(&props, props_);
-    }
-
-    // publish
-    AsyncResult(int rc, const mosquitto_property * props_, int mid_)
-        : rc(rc), flags(0), props(NULL), mid(mid_) {
-        mosquitto_property_copy_all(&props, props_);
-    }
-
     // subscribe
     AsyncResult(int mid_, int qos_count, const int * granted_qos_arr, const mosquitto_property * props_)
         : rc(MOSQ_ERR_SUCCESS), flags(0), props(NULL), mid(mid_), granted_qos(granted_qos_arr, granted_qos_arr + qos_count) {
+        mosquitto_property_copy_all(&props, props_);
+    }
+
+    // connect / disconnect / unsubscribe / publish
+    AsyncResult(int rc_, const mosquitto_property * props_, int flags_ = 0, int mid_ = 0)
+        :  rc(rc_), flags(flags_), props(NULL), mid(mid_), granted_qos() {
         mosquitto_property_copy_all(&props, props_);
     }
 
@@ -240,7 +228,7 @@ void MqttConnection::onConnect(int rc, int flags, const mosquitto_property * pro
 
     PendingRequest * request = getValidPendingRequestLocked(CONNECT_REQUEST_ID);
     if (request) {
-        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, flags, props));
+        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, props, flags));
         request->submitResult(result);
     }
 }
@@ -296,7 +284,7 @@ void MqttConnection::onDisconnect(int rc, const mosquitto_property * props) {
 
     PendingRequest * request = getValidPendingRequestLocked(DISCONNECT_REQUEST_ID);
     if (request) {
-        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, 0, props));
+        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, props));
         request->submitResult(result);
     }
 }
@@ -460,8 +448,7 @@ void MqttConnection::onUnsubscribe(int mid, const mosquitto_property * props) {
 
     PendingRequest * request = getValidPendingRequestLocked(mid);
     if (request) {
-
-        std::shared_ptr<AsyncResult> result(new AsyncResult(mid, props));
+        std::shared_ptr<AsyncResult> result(new AsyncResult(MOSQ_ERR_SUCCESS, props, 0, mid));
         request->submitResult(result);
     }
 }
@@ -510,7 +497,7 @@ void MqttConnection::onPublish(int mid, int rc, const mosquitto_property * props
 
     PendingRequest * request = getValidPendingRequestLocked(mid);
     if (request) {
-        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, props, mid));
+        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, props, 0, mid));
         request->submitResult(result);
     }
 }
