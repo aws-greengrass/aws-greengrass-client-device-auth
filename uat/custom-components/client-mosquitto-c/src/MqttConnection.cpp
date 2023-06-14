@@ -437,7 +437,7 @@ std::vector<int> MqttConnection::unsubscribe(unsigned timeout, const std::vector
 
     {
         std::ostringstream imploded;
-        std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, " "));
+        std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, ","));
         logd("Unsubscribed from filters '%s' with message id %d\n", imploded.str().c_str(), message_id);
     }
 
@@ -717,6 +717,7 @@ ClientControl::Mqtt5ConnAck * MqttConnection::convertToConnack(int reason_code, 
                 new_user_property = conn_ack->add_properties();
                 new_user_property->set_key(name_str);
                 new_user_property->set_value(value_str);
+                logd("Copied RX user property %s:%s\n", name_str, value_str);
                 break;
             default:
                 logw("Unhandled CONNACK property with id %d\n", id);
@@ -747,6 +748,7 @@ ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reas
                 new_user_property = reply->add_properties();
                 new_user_property->set_key(name_str);
                 new_user_property->set_value(value_str);
+                logd("Copied RX user property %s:%s\n", name_str, value_str);
                 break;
             default:
                 logw("Unhandled PUBACK property with id %d\n", id);
@@ -759,7 +761,9 @@ ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reas
 
 ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct mosquitto_message * message, const mosquitto_property * props) {
 
-    (void)props;
+    char * name_str;
+    char * value_str;
+    ClientControl::Mqtt5Properties * new_user_property;
 
     ClientControl::Mqtt5Message * msg = new ClientControl::Mqtt5Message();
 
@@ -779,7 +783,21 @@ ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct
         msg->set_retain(message->retain);
     }
 
-    // TODO: handle also props to find and copy user properties
+    for (const mosquitto_property * prop = props; prop != NULL; prop = mosquitto_property_next(prop)) {
+        int id = mosquitto_property_identifier(prop);
+        switch (id) {
+            case MQTT_PROP_USER_PROPERTY:
+                mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
+                new_user_property = msg->add_properties();
+                new_user_property->set_key(name_str);
+                new_user_property->set_value(value_str);
+                logd("Copied RX user property %s:%s\n", name_str, value_str);
+                break;
+            default:
+                logw("Unhandled PUBLISH property with id %d\n", id);
+                break;
+        }
+    }
 
     return msg;
 }
@@ -814,6 +832,7 @@ ClientControl::Mqtt5Disconnect * MqttConnection::convertToDisconnect(int reason_
                 new_user_property = disconnect->add_properties();
                 new_user_property->set_key(name_str);
                 new_user_property->set_value(value_str);
+                logd("Copied RX user property %s:%s\n", name_str, value_str);
                 break;
             default:
                 logw("Unhandled DISCONNECT property with id %d\n", id);
@@ -837,7 +856,7 @@ void MqttConnection::convertUserProperties(const RepeatedPtrField<ClientControl:
 
             // TODO: check is that reverse the list?
             mosquitto_property_add_string_pair(conn_properties, MQTT_PROP_USER_PROPERTY, key.c_str(), value.c_str());
-            logd("Copied user property %s:%s\n", key.c_str(), value.c_str());
+            logd("Copied TX user property %s:%s\n", key.c_str(), value.c_str());
         }
     } else if (!user_properties->empty()) {
         logw("User properties are ignored for MQTT v3.1.1 connection\n");
