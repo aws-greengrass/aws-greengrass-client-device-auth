@@ -364,7 +364,6 @@ void MqttConnection::subscribe(unsigned timeout, const int * subscription_id,
     int rc = result->rc;
     if (rc != MOSQ_ERR_SUCCESS) {
         loge("subscribe callback failed with code %d: %s\n", rc, mosquitto_strerror(rc));
-        destroyUnlocked();
         mosquitto_property_free_all(&properties);
         throw MqttException("couldn't subscribe", rc);
     }
@@ -433,7 +432,6 @@ void MqttConnection::unsubscribe(unsigned timeout, const std::vector<std::string
     if (rc != MOSQ_ERR_SUCCESS) {
         loge("unsubscribe callback failed with code %d: %s\n", rc, mosquitto_strerror(rc));
         mosquitto_property_free_all(&properties);
-        destroyUnlocked();
         throw MqttException("couldn't unsubscribe", rc);
     }
 
@@ -894,6 +892,3 @@ void MqttConnection::updateMqttSubscribeReply(const std::vector<int> & granted_q
         }
     }
 }
-
-
-// destroy ?
