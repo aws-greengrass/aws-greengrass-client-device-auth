@@ -1,11 +1,9 @@
 ## Client Devices Auth User Acceptance Tests
-User Acceptance Tests for Client Devices Auth run using `aws-greengrass-testing-standalone` as a library. They 
-execute E2E
-tests which will spin up an instance of Greengrass on your device and execute different sets of tests, by installing
-the `aws.greengrass.clientdevices.Auth` component.
+User Acceptance Tests for Client Devices Auth run using `aws-greengrass-testing-standalone` as a library.
+They execute E2E tests which will spin up an instance of Greengrass on your device and execute different sets of tests, 
+by installing the `aws.greengrass.clientdevices.Auth` component.
 
 ## Install requirements
-TODO
 ```bash
 sudo apt-get install -y maven python3-venv docker.io
 ```
@@ -54,11 +52,10 @@ $Env:AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY>
     - add ggc_user to docker group
 
 ### Build the test Jar
-For UATs to run you will need to package your entire application along with `aws-greengrass-testing-standalone` into
-an uber jar. To do run (from the root of the project)
+For UATs to run you will need to package your entire uat project into an uber jar. To do run (from the uat directory of the project)
 
 ```
-mvn -U -ntp clean verify -f uat/pom.xml
+mvn -U -ntp clean verify
 ```
 
 Note: Everytime you make changes to the codebase you will have to rebuild the uber jar for those changes to be present on the final artifact.
@@ -71,17 +68,20 @@ curl -s https://d2s8p88vqu9w66.cloudfront.net/releases/greengrass-nucleus-latest
 ```
 
 ### Run scenarios
-Execute the UATs by running the following commands from the root of the project.
+Execute the UATs by running the following commands from the uat directory of the project.
 
 ```bash
 java -Dggc.archive=<path-to-nucleus-zip> -Dtest.log.path=<path-to-test-results-folder> -Dtags=GGMQ -jar <path-to-test-jar>
-java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags=GGMQ -jar uat/testing-features/target/client-devices-auth-testing-features.jar
+```
+An example to run from uat directory:
+```bash
+java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="GGMQ" -jar testing-features/target/client-devices-auth-testing-features.jar
 ```
 
 On Windows
 Due to mosquitto-based client is not yet build on Windows use a little modified command.
 ```cmd
-java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags="@GGMQ and not @mosquitto-c" -jar uat/testing-features/target/client-devices-auth-testing-features.jar
+java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ and not @mosquitto-c" -jar testing-features/target/client-devices-auth-testing-features.jar
 ```
 
 Command arguments:
@@ -90,5 +90,5 @@ Dggc.archive - path to the nucleus zip that was downloaded<br />
 Dtest.log.path - path where you would like the test results to be stored<br />
 Dtags can be extended, if you would like to test exact scenario, you can do as follows:<br />
 ```bash
-java -Dggc.archive=./greengrass-nucleus-latest.zip -Dtest.log.path=./logs -Dtags="@GGMQ and @GGMQ-1-T1 and @sdk-java and @mqtt3" -jar uat/testing-features/target/client-devices-auth-testing-features.jar
+java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ-1-T1 and @sdk-java and @mqtt3" -jar testing-features/target/client-devices-auth-testing-features.jar
 ```
