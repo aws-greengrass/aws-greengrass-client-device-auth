@@ -12,15 +12,25 @@ Note: required version 2.0 or above of mosquitto
 ```bash
 sudo apt-get install -y docker.io
 ```
-## Build
+## Native build
 ```bash
 CXXFLAGS="-Wall -Wextra -g -O0" cmake -Bbuild -H.
-cmake --build build -j 4 --target all
+cmake --build build -j `nproc` --target all
 ```
 
-## Run
+## Docker buid
+```bash
+scripts/produce_docker_container.sh
+```
+
+## Native Run
 ```bash
 build/src/mosquitto-test-client agent-mosquitto 47619 127.0.0.1
+```
+
+## Docker run
+```bash
+docker run --rm --name=client-mosquitto-c client-mosquitto-c:runner-amd64 agent-mosquitto 47619 172.17.0.1 127.0.0.1
 ```
 
 ## Description

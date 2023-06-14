@@ -9,12 +9,16 @@
 #include <vector>
 #include <unordered_map>
 #include <mutex>
+#include <google/protobuf/repeated_field.h>
+
+using google::protobuf::RepeatedPtrField;
 
 namespace ClientControl {
     class Mqtt5ConnAck;
     class Mqtt5Disconnect;
     class Mqtt5Message;
     class MqttPublishReply;
+    class Mqtt5Properties;
 }
 class PendingRequest;
 class GRPCDiscoveryClient;
@@ -43,9 +47,12 @@ public:
      * @param cert pointer to client's certificate content, can be NULL
      * @param key pointer to client's key content, can be NULL
      * @param v5 use MQTT v5.0
+     * @param user_properties the user properties of the connect request
      * @throw MqttException on errors
      */
-    MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5);
+    MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host,
+                    unsigned short port, unsigned short keepalive, bool clean_session, const char * ca,
+                    const char * cert, const char * key, bool v5, const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
     ~MqttConnection();
 
 
@@ -162,6 +169,8 @@ private:
     std::string m_ca;
     std::string m_cert;
     std::string m_key;
+
+    mosquitto_property * m_conn_properties;
 
     struct mosquitto * m_mosq;
 

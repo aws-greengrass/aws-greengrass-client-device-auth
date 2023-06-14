@@ -24,8 +24,8 @@
 #define DEFAULT_DISCONNECT_REASON       MQTT_RC_NORMAL_DISCONNECTION
 #define DEFAULT_DISCONNECT_TIMEOUT      10
 
-#define CONNECT_REQUEST_ID               (1024*64 + 1)
-#define DISCONNECT_REQUEST_ID            (1024*64 + 2)
+#define CONNECT_REQUEST_ID              (1024*64 + 1)
+#define DISCONNECT_REQUEST_ID           (1024*64 + 2)
 
 class AsyncResult {
 public:
@@ -107,10 +107,15 @@ private:
 };
 
 
-MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5)
-    : m_mutex(), m_grpc_client(grpc_client), m_client_id(client_id), m_host(host), m_port(port), m_keepalive(keepalive), m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_mosq(0), m_requests() {
+MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host,
+                                unsigned short port, unsigned short keepalive, bool clean_session, const char * ca,
+                                const char * cert, const char * key, bool v5,
+                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties)
+    : m_mutex(), m_grpc_client(grpc_client), m_client_id(client_id), m_host(host), m_port(port), m_keepalive(keepalive),
+        m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_conn_properties(0), m_mosq(0),
+        m_requests() {
 
-    logd("Creating Mosquitto MQTT connection for %s:%hu\n", m_host.c_str(), m_port);
+    logd("Creating Mosquitto MQTT v%d connection for %s:%hu\n", m_v5 ? 5 : 3, m_host.c_str(), m_port);
 
     if (ca) {
         m_ca = ca;
@@ -123,13 +128,26 @@ MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::str
     if (key) {
         m_key = key;
     }
+
+    if (m_v5) {
+        for (const ClientControl::Mqtt5Properties & user_property : user_properties) {
+            const std::string & key = user_property.key();
+            const std::string & value = user_property.value();
+
+            // TODO: check is that reverse the list?
+            mosquitto_property_add_string_pair(&m_conn_properties, MQTT_PROP_USER_PROPERTY, key.c_str(), value.c_str());
+            logd("Copied connect user property %s:%s\n", key.c_str(), value.c_str());
+        }
+    } else if (!user_properties.empty()) {
+        logw("Connect user properties are ignored for MQTT v3.1.1 connection\n");
+    }
 }
 
 ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
     int rc;
     PendingRequest * request = 0;
 
-    logd("Establishing Mosquitto MQTT connection to %s:%hu in %d seconds\n", m_host.c_str(), m_port, timeout);
+    logd("Establishing Mosquitto MQTT v%d connection to %s:%hu in %d seconds\n", m_v5 ? 5 : 3, m_host.c_str(), m_port, timeout);
 
     {
         std::lock_guard<std::mutex> lk(m_mutex);
@@ -161,12 +179,16 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
 
         // TODO: mosquitto_reconnect_delay_set(m_mosq, ...)
 
-
         if (!m_ca.empty() && !m_cert.empty() && !m_key.empty()) {
             logd("Use provided TLS credentials\n");
             m_ca_file = saveToTempFile(m_ca);
+            m_ca.clear();
+
             m_cert_file = saveToTempFile(m_cert);
+            m_cert.clear();
+
             m_key_file = saveToTempFile(m_key);
+            m_key.clear();
 
             rc = mosquitto_tls_set(m_mosq, m_ca_file.c_str(), NULL, m_cert_file.c_str(), m_key_file.c_str(), NULL);
             if (rc != MOSQ_ERR_SUCCESS) {
@@ -191,11 +213,9 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
             throw MqttException("couldn't start interval library thread", rc);
         }
 
-
-        // TODO: pass CONNECT properties
         // FIXME: there is no async v5 connect() !!!
-        // rc = mosquitto_connect_bind_v5(m_mosq, m_host.c_str(), m_port, m_keepalive, NULL, NULL);
-        rc = mosquitto_connect_bind_async(m_mosq, m_host.c_str(), m_port, m_keepalive, NULL);
+        rc = mosquitto_connect_bind_v5(m_mosq, m_host.c_str(), m_port, m_keepalive, NULL, m_conn_properties);
+        // rc = mosquitto_connect_bind_async(m_mosq, m_host.c_str(), m_port, m_keepalive, NULL);
         if (rc != MOSQ_ERR_SUCCESS) {
             loge("mosquitto_connect_bind_async failed with code %d: %s\n", rc, mosquitto_strerror(rc));
             destroyLocked();
@@ -353,7 +373,7 @@ std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscri
 
     {
         std::ostringstream imploded;
-        std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, " "));
+        std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, ","));
         logd("Subscribed on filters '%s' QoS %d no local %d retain as published %d retain handing %d with message id %d\n", imploded.str().c_str(), qos, no_local, retain_as_published, retain_handling, message_id);
     }
 
@@ -524,6 +544,7 @@ void MqttConnection::destroyLocked() {
     if (!m_key_file.empty()) {
         removeFile(m_key_file);
     }
+    mosquitto_property_free_all(&m_conn_properties);
 }
 
 void MqttConnection::destroyUnlocked() {
@@ -610,6 +631,8 @@ ClientControl::Mqtt5ConnAck * MqttConnection::convertToConnack(int reason_code, 
     uint16_t value16;
     uint8_t value8;
     char * value_str;
+    char * name_str;
+    ClientControl::Mqtt5Properties * new_user_property;
 
     ClientControl::Mqtt5ConnAck * conn_ack = new ClientControl::Mqtt5ConnAck();
     conn_ack->set_reasoncode(reason_code);
@@ -675,6 +698,12 @@ ClientControl::Mqtt5ConnAck * MqttConnection::convertToConnack(int reason_code, 
             case MQTT_PROP_TOPIC_ALIAS_MAXIMUM:
                 mosquitto_property_read_int16(prop, id, &value16, false);
                 conn_ack->set_topicaliasmaximum(value16);
+                break;
+            case MQTT_PROP_USER_PROPERTY:
+                mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
+                new_user_property = conn_ack->add_properties();
+                new_user_property->set_key(name_str);
+                new_user_property->set_value(value_str);
                 break;
             default:
                 logw("Unhandled CONNACK property with id %d\n", id);

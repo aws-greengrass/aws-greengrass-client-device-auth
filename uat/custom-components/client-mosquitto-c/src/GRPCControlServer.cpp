@@ -125,7 +125,7 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext *, const MqttConnec
     int keepalive = request->keepalive();
     if (keepalive != KEEPALIVE_OFF && (keepalive < KEEPALIVE_MIN || keepalive > KEEPALIVE_MAX)) {
         loge("CreateMqttConnection: invalid keepalive, must be in range [%u, %u]\n", KEEPALIVE_MIN, KEEPALIVE_MAX);
-        return Status(StatusCode::INVALID_ARGUMENT, "invalid keepalive, must be in range [1, 65535]");
+        return Status(StatusCode::INVALID_ARGUMENT, "invalid keepalive, must be in range [5, 65535]");
     }
 
     int timeout = request->timeout();
@@ -165,7 +165,7 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext *, const MqttConnec
     }
 
     try {
-        MqttConnection * connection = m_mqtt->createConnection(m_client, client_id, host, port, keepalive, request->cleansession(), ca_char, cert_char, key_char, v5);
+        MqttConnection * connection = m_mqtt->createConnection(m_client, client_id, host, port, keepalive, request->cleansession(), ca_char, cert_char, key_char, v5, request->properties());
         ClientControl::Mqtt5ConnAck * conn_ack = connection->start(timeout);
         int connection_id = m_mqtt->registerConnection(connection);
 
