@@ -206,7 +206,7 @@ Status GRPCControlServer::CloseMqttConnection(ServerContext *, const MqttCloseRe
     }
 
     try {
-        connection->disconnect(timeout, reason);
+        connection->disconnect(timeout, reason, &request->properties());
         delete connection;
         return Status::OK;
     } catch (MqttException & ex) {

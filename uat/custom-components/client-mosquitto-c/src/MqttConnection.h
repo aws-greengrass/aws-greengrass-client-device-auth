@@ -47,7 +47,7 @@ public:
      * @param cert pointer to client's certificate content, can be NULL
      * @param key pointer to client's key content, can be NULL
      * @param v5 use MQTT v5.0
-     * @param user_properties the user properties of the connect request
+     * @param user_properties the user properties of the CONNECT request
      * @throw MqttException on errors
      */
     MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host,
@@ -111,10 +111,12 @@ public:
     /**
      * Disconnect from the broker.
      *
+     * @param timeout the timeout in seconds to disconnect
      * @param reason_code the MQTT disconnect reason code
+     * @param user_properties the optional user properties of the DISCONNECT request
      * @throw MqttException on errors
      */
-    void disconnect(unsigned timeout, unsigned char reason_code);
+    void disconnect(unsigned timeout, unsigned char reason_code, const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties);
 
 
 private:
@@ -150,6 +152,8 @@ private:
 
     static void removeFile(std::string & file);
     static std::string saveToTempFile(const std::string & content);
+
+    void convertUserProperties(const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties, mosquitto_property ** conn_properties);
 
     void destroyLocked();
     void destroyUnlocked();

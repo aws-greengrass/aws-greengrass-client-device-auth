@@ -129,18 +129,12 @@ MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::str
         m_key = key;
     }
 
-    if (m_v5) {
-        for (const ClientControl::Mqtt5Properties & user_property : user_properties) {
-            const std::string & key = user_property.key();
-            const std::string & value = user_property.value();
+    convertUserProperties(&user_properties, &m_conn_properties);
+}
 
-            // TODO: check is that reverse the list?
-            mosquitto_property_add_string_pair(&m_conn_properties, MQTT_PROP_USER_PROPERTY, key.c_str(), value.c_str());
-            logd("Copied connect user property %s:%s\n", key.c_str(), value.c_str());
-        }
-    } else if (!user_properties.empty()) {
-        logw("Connect user properties are ignored for MQTT v3.1.1 connection\n");
-    }
+MqttConnection::~MqttConnection() {
+    logd("Destroy Mosquitto MQTT connection\n");
+    disconnect(DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_DISCONNECT_REASON, NULL);
 }
 
 ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
@@ -251,14 +245,9 @@ void MqttConnection::onConnect(int rc, int flags, const mosquitto_property * pro
     }
 }
 
-MqttConnection::~MqttConnection() {
-    logd("Destroy Mosquitto MQTT connection\n");
-    disconnect(DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_DISCONNECT_REASON);
-}
+void MqttConnection::disconnect(unsigned timeout, unsigned char reason_code, const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties) {
 
-
-void MqttConnection::disconnect(unsigned timeout, unsigned char reason_code) {
-
+    mosquitto_property * properties = NULL;
     PendingRequest * request = 0;
     {
         std::lock_guard<std::mutex> lk(m_mutex);
@@ -266,9 +255,10 @@ void MqttConnection::disconnect(unsigned timeout, unsigned char reason_code) {
         if (m_mosq) {
             logd("Disconnect Mosquitto MQTT connection with reason code %d\n", (int)reason_code);
 
-            // TODO: pass DISCONNECT properties
+            convertUserProperties(user_properties, &properties);
+
             // FIXME: there isn't async disconnect()
-            int rc = mosquitto_disconnect_v5(m_mosq, reason_code, NULL);
+            int rc = mosquitto_disconnect_v5(m_mosq, reason_code, properties);
             if (rc != MOSQ_ERR_SUCCESS) {
                 throw MqttException("couldn't disconnect from MQTT broker", rc);
             }
@@ -287,6 +277,7 @@ void MqttConnection::disconnect(unsigned timeout, unsigned char reason_code) {
             throw MqttException("couldn't disconnect from MQTT broker", rc);
         }
     }
+    mosquitto_property_free_all(&properties);
 }
 
 void MqttConnection::on_disconnect(struct mosquitto *, void * obj, int rc, const mosquitto_property * props) {
@@ -630,8 +621,8 @@ ClientControl::Mqtt5ConnAck * MqttConnection::convertToConnack(int reason_code, 
     uint32_t value32;
     uint16_t value16;
     uint8_t value8;
-    char * value_str;
     char * name_str;
+    char * value_str;
     ClientControl::Mqtt5Properties * new_user_property;
 
     ClientControl::Mqtt5ConnAck * conn_ack = new ClientControl::Mqtt5ConnAck();
@@ -765,7 +756,9 @@ ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct
 
 ClientControl::Mqtt5Disconnect * MqttConnection::convertToDisconnect(int reason_code, const mosquitto_property * props) {
     uint32_t value32;
+    char * name_str;
     char * value_str;
+    ClientControl::Mqtt5Properties * new_user_property;
 
     ClientControl::Mqtt5Disconnect * disconnect = new ClientControl::Mqtt5Disconnect();
 
@@ -786,7 +779,12 @@ ClientControl::Mqtt5Disconnect * MqttConnection::convertToDisconnect(int reason_
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 disconnect->set_serverreference(value_str);
                 break;
-            // TODO: handle also user properties
+            case MQTT_PROP_USER_PROPERTY:
+                mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
+                new_user_property = disconnect->add_properties();
+                new_user_property->set_key(name_str);
+                new_user_property->set_value(value_str);
+                break;
             default:
                 logw("Unhandled DISCONNECT property with id %d\n", id);
                 break;
@@ -794,4 +792,24 @@ ClientControl::Mqtt5Disconnect * MqttConnection::convertToDisconnect(int reason_
     }
 
     return disconnect;
+}
+
+void MqttConnection::convertUserProperties(const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties, mosquitto_property ** conn_properties) {
+
+    if (!user_properties) {
+        return;
+    }
+
+    if (m_v5) {
+        for (const ClientControl::Mqtt5Properties & user_property : *user_properties) {
+            const std::string & key = user_property.key();
+            const std::string & value = user_property.value();
+
+            // TODO: check is that reverse the list?
+            mosquitto_property_add_string_pair(conn_properties, MQTT_PROP_USER_PROPERTY, key.c_str(), value.c_str());
+            logd("Copyed user property %s:%s\n", key.c_str(), value.c_str());
+        }
+    } else if (!user_properties->empty()) {
+        logw("User properties are ignored for MQTT v3.1.1 connection\n");
+    }
 }
