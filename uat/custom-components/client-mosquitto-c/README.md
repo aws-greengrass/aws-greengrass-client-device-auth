@@ -2,12 +2,16 @@
 
 MQTT 3.1.1/5.0 client for tests based on C mosquitto library
 
-## Install requirements
+## Install requirements for native build
 ```bash
 sudo apt-get install -y build-essential gcc cmake git autoconf libtool pkg-config libmosquitto-dev
 ```
 Note: required version 2.0 or above of mosquitto
 
+## Install requirements for docker build
+```bash
+sudo apt-get install -y docker.io
+```
 ## Build
 ```bash
 CXXFLAGS="-Wall -Wextra -g -O0" cmake -Bbuild -H.
@@ -46,9 +50,8 @@ Not all calls are asynchronous.
 2. Subscription on multiple filters.
 Mosquitto API mosquitto_subscribe_multiple() have a common QoS and other properties like retain handling, no local and retain as published for all topic filters.
 It violates MQTT v5.0 where topic filters have separate QoS and other properties.
-At same time usage mosquitto_subscribe_v5() in a loop can can break logic of subscription id.
+At the same time usage mosquitto_subscribe_v5() in a loop can break logic of subscription id which is common for all filters of one subscribe request.
 In result we check all values of QoS and properties in gRPC SubscribeMqtt request and if are not the same report an error in that client.
 
-
 3. Unsubscription
-In Mosquitto API call mosquitto_unsubscribe_v5_callback_set() callback does not provides result codes, instead repeated zero code will be returned on success.
+In Mosquitto API mosquitto_unsubscribe_v5_callback_set() callback does not provides result code, instead zero code will be returned on success.

@@ -4,6 +4,17 @@ execute E2E
 tests which will spin up an instance of Greengrass on your device and execute different sets of tests, by installing
 the `aws.greengrass.clientdevices.Auth` component.
 
+## Install requirements
+TODO
+```bash
+sudo apt-get install -y maven python3-venv docker.io
+```
+
+## Build the project
+```bash
+mvn -ntp -U clean verify
+```
+
 ## Running UATs locally
 
 ### Requirements
