@@ -79,10 +79,13 @@ public:
      * @param retain_handling the common retain handling value for all filters
      * @param no_local the common no local value for all filters
      * @param retain_as_published the common retain as published vlaue for all filters
+     * @param user_properties the user properties of the SUBCRIBE request
      * @return the vector of reason codes for each filter
      * @throw MqttException on errors
      */
-    std::vector<int> subscribe(unsigned timeout, const int * subscription_id, const std::vector<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published);
+    std::vector<int> subscribe(unsigned timeout, const int * subscription_id, const std::vector<std::string> & filters,
+                                int qos, int retain_handling, bool no_local, bool retain_as_published,
+                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
 
 
     /**
@@ -90,10 +93,12 @@ public:
      *
      * @param timeout the timeout in seconds to subscribe
      * @param filters the filters of topics subscribe to
+     * @param user_properties the user properties of the SUBCRIBE request
      * @return the vector of reason codes for each filter
      * @throw MqttException on errors
      */
-    std::vector<int> unsubscribe(unsigned timeout, const std::vector<std::string> & filters);
+    std::vector<int> unsubscribe(unsigned timeout, const std::vector<std::string> & filters,
+                                    const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
 
     /**
      * Publishes MQTT message.
@@ -103,10 +108,13 @@ public:
      * @param is_retain the retain flag
      * @param topic the topic to publish
      * @param payload the payload of the message
+     * @param user_properties the user properties of the SUBCRIBE request
      * @return pointer to allocated gRPC MqttPublishReply
      * @throw MqttException on errors
      */
-    ClientControl::MqttPublishReply * publish(unsigned timeout, int qos, bool is_retain, const std::string & topic, const std::string & payload);
+    ClientControl::MqttPublishReply * publish(unsigned timeout, int qos, bool is_retain, const std::string & topic,
+                                                const std::string & payload,
+                                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
 
     /**
      * Disconnect from the broker.
@@ -116,7 +124,8 @@ public:
      * @param user_properties the optional user properties of the DISCONNECT request
      * @throw MqttException on errors
      */
-    void disconnect(unsigned timeout, unsigned char reason_code, const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties);
+    void disconnect(unsigned timeout, unsigned char reason_code,
+                    const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties);
 
 
 private:
