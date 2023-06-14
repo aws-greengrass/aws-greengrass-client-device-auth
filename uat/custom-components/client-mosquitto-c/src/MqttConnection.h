@@ -19,6 +19,7 @@ namespace ClientControl {
     class Mqtt5Message;
     class MqttPublishReply;
     class Mqtt5Properties;
+    class MqttSubscribeReply;
 }
 class PendingRequest;
 class GRPCDiscoveryClient;
@@ -80,12 +81,13 @@ public:
      * @param no_local the common no local value for all filters
      * @param retain_as_published the common retain as published vlaue for all filters
      * @param user_properties the user properties of the SUBCRIBE request
-     * @return the vector of reason codes for each filter
+     * @param reply the subscribe reply to update
      * @throw MqttException on errors
      */
-    std::vector<int> subscribe(unsigned timeout, const int * subscription_id, const std::vector<std::string> & filters,
-                                int qos, int retain_handling, bool no_local, bool retain_as_published,
-                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
+    void subscribe(unsigned timeout, const int * subscription_id, const std::vector<std::string> & filters,
+                    int qos, int retain_handling, bool no_local, bool retain_as_published,
+                    const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                    ClientControl::MqttSubscribeReply * reply);
 
 
     /**
@@ -94,11 +96,12 @@ public:
      * @param timeout the timeout in seconds to subscribe
      * @param filters the filters of topics subscribe to
      * @param user_properties the user properties of the SUBCRIBE request
-     * @return the vector of reason codes for each filter
+     * @param reply the subscribe reply to update
      * @throw MqttException on errors
      */
-    std::vector<int> unsubscribe(unsigned timeout, const std::vector<std::string> & filters,
-                                    const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
+    void unsubscribe(unsigned timeout, const std::vector<std::string> & filters,
+                        const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                        ClientControl::MqttSubscribeReply * reply);
 
     /**
      * Publishes MQTT message.
@@ -163,6 +166,7 @@ private:
     static std::string saveToTempFile(const std::string & content);
 
     void convertUserProperties(const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties, mosquitto_property ** conn_properties);
+    void updateMqttSubscribeReply(const std::vector<int> & granted_qos, const mosquitto_property * props,  ClientControl::MqttSubscribeReply * reply);
 
     void destroyLocked();
     void destroyUnlocked();

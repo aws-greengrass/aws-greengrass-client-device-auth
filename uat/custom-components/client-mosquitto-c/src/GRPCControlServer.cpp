@@ -368,12 +368,10 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext *, const MqttSubscribeRequ
     }
 
     try {
-        std::vector<int> reason_codes = connection->subscribe(timeout, subscription_id_ptr, filters, common_qos, common_retain_handling, common_no_local, common_retain_as_published, request->properties());
-        for (int reason_code : reason_codes) {
-            logd("subscribe reason code %d\n", reason_code);
-            reply->add_reasoncodes(reason_code);
-        }
-
+        connection->subscribe(timeout, subscription_id_ptr, filters, common_qos,
+                                common_retain_handling, common_no_local,
+                                common_retain_as_published, request->properties(),
+                                reply);
         return Status::OK;
     } catch (MqttException & ex) {
         loge("SubscribeMqtt: exception during subscribing\n");
@@ -412,10 +410,7 @@ Status GRPCControlServer::UnsubscribeMqtt(ServerContext *, const MqttUnsubscribe
 
     std::vector<std::string> filters(request->filters().begin(), request->filters().end());
     try {
-        std::vector<int> reason_codes = connection->unsubscribe(timeout, filters, request->properties());
-        for (int reason_code : reason_codes) {
-            reply->add_reasoncodes(reason_code);
-        }
+        connection->unsubscribe(timeout, filters, request->properties(), reply);
         return Status::OK;
     } catch (MqttException & ex) {
         loge("UnsubscribeMqtt: exception during unsubscribing\n");
