@@ -41,9 +41,15 @@ public:
         mosquitto_property_copy_all(&props, props_);
     }
 
-    // publish / unsubscribe
+    // unsubscribe
     AsyncResult(int mid_, const mosquitto_property * props_)
         : rc(MOSQ_ERR_SUCCESS), flags(0), props(0), mid(mid_) {
+        mosquitto_property_copy_all(&props, props_);
+    }
+
+    // publish
+    AsyncResult(int rc, const mosquitto_property * props_, int mid_)
+        : rc(rc), flags(0), props(0), mid(mid_) {
         mosquitto_property_copy_all(&props, props_);
     }
 
@@ -213,14 +219,14 @@ void MqttConnection::on_connect(struct mosquitto *, void * obj, int reason_code,
     ((MqttConnection*)obj)->onConnect(reason_code, flags, props);
 }
 
-void MqttConnection::onConnect(int reason_code, int flags, const mosquitto_property * props) {
-    logd("onConnect rc %d flags %d props %p\n", reason_code, flags, props);
+void MqttConnection::onConnect(int rc, int flags, const mosquitto_property * props) {
+    logd("onConnect rc %d flags %d props %p\n", rc, flags, props);
 
     std::lock_guard<std::mutex> lk(m_mutex);
 
     PendingRequest * request = getValidPendingRequestLocked(CONNECT_REQUEST_ID);
     if (request) {
-        std::shared_ptr<AsyncResult> result(new AsyncResult(reason_code, flags, props));
+        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, flags, props));
         request->submitResult(result);
     }
 }
@@ -454,7 +460,7 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
     std::shared_ptr<AsyncResult> result = request->waitForResult(timeout);
     removePendingRequestUnlocked(message_id);
 
-    logd("Published on topic '%s' QoS %d retain %d with message id %d\n", topic.c_str(), qos, is_retain, message_id);
+    logd("Published on topic '%s' QoS %d retain %d with rc %d message id %d\n", topic.c_str(), qos, is_retain, result->rc, message_id);
     return convertToPublishReply(result->rc, result->props);
 }
 
@@ -469,7 +475,7 @@ void MqttConnection::onPublish(int mid, int rc, const mosquitto_property * props
 
     PendingRequest * request = getValidPendingRequestLocked(mid);
     if (request) {
-        std::shared_ptr<AsyncResult> result(new AsyncResult(mid, props));
+        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, props, mid));
         request->submitResult(result);
     }
 }
