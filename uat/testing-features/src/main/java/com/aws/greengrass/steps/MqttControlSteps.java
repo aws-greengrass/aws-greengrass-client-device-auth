@@ -601,6 +601,16 @@ public class MqttControlSteps {
     }
 
     /**
+     * Clear message storage.
+     *
+     */
+    @And("I clear message storage")
+    public void clearStorage() {
+        eventStorage.clear();
+        log.info("Storage was cleared");
+    }
+
+    /**
      * Discover IoT core device broker directly in OTF.
      *
      * @param brokerId       broker name in tests
