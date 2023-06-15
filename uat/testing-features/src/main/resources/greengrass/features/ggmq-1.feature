@@ -314,10 +314,10 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "iot_data_1" with qos 1 and expect status "<subscribe-status-na>"
 
     When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world 0"
-    Then message "Hello world 0" received on "subscriber" from "iot_data_0" topic within 10 seconds is false expected
+    Then message "Hello world 0" is not received on "subscriber" from "iot_data_0" topic within 10 seconds
 
     When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world 1" and expect status <publish-status-nms>
-    Then message "Hello world 1" received on "subscriber" from "iot_data_1" topic within 10 seconds is false expected
+    Then message "Hello world 1" is not received on "subscriber" from "iot_data_1" topic within 10 seconds
 
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
@@ -386,7 +386,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "iot_data_1" with qos 1 and expect status "<subscribe-status-good>"
 
     When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world 2"
-    Then message "Hello world 2" received on "subscriber" from "iot_data_0" topic within 10 seconds is false expected
+    Then message "Hello world 2" is not received on "subscriber" from "iot_data_0" topic within 10 seconds
 
     When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world 3"
     Then message "Hello world 3" received on "subscriber" from "iot_data_1" topic within 10 seconds
@@ -736,7 +736,7 @@ Feature: GGMQ-1
 
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world1"
     When I subscribe "subscriber" to "iot_data_1" with qos 0
-    And message "Hello world1" received on "subscriber" from "iot_data_1" topic within 5 seconds is false expected
+    And message "Hello world1" is not received on "subscriber" from "iot_data_1" topic within 5 seconds
 
     @mqtt3 @sdk-java
     Examples:
@@ -816,7 +816,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_001" with qos 0 and message "New retained message"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_SEND_AT_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_001" with qos 0
-    And message "Old retained message" received on "subscriber" from "iot_data_001" topic within 5 seconds is false expected
+    And message "Old retained message" is not received on "subscriber" from "iot_data_001" topic within 5 seconds
     And message "New retained message" received on "subscriber" from "iot_data_001" topic within 5 seconds
 
     And I set MQTT publish retain flag to true
@@ -824,7 +824,7 @@ Feature: GGMQ-1
     And I set MQTT publish retain flag to false
     When I publish from "publisher" to "iot_data_002" with qos 0 and message "New retained message 002"
     When I subscribe "subscriber" to "iot_data_002" with qos 0
-    And message "New retained message 002" received on "subscriber" from "iot_data_002" topic within 5 seconds is false expected
+    And message "New retained message 002" is not received on "subscriber" from "iot_data_002" topic within 5 seconds
     And message "Old retained message 002" received on "subscriber" from "iot_data_002" topic within 5 seconds
 
     And I set MQTT publish retain flag to true
@@ -843,29 +843,29 @@ Feature: GGMQ-1
     And message "Hello world1" received on "subscriber" from "retained/iot_data_1" topic within 5 seconds
     And I clear message storage
     When I subscribe "subscriber" to "retained/iot_data_1" with qos 0
-    And message "Hello world1" received on "subscriber" from "retained/iot_data_1" topic within 5 seconds is false expected
+    And message "Hello world1" is not received on "subscriber" from "retained/iot_data_1" topic within 5 seconds
 
     When I publish from "publisher" to "iot_data_2" with qos 0 and message "Hello world2"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_2" with qos 0
-    And message "Hello world2" received on "subscriber" from "iot_data_2" topic within 5 seconds is false expected
+    And message "Hello world2" is not received on "subscriber" from "iot_data_2" topic within 5 seconds
 
     And I set MQTT publish retain flag to false
 
     When I publish from "publisher" to "iot_data_3" with qos 0 and message "Hello world3"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_SEND_AT_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_3" with qos 0
-    And message "Hello world3" received on "subscriber" from "iot_data_3" topic within 5 seconds is false expected
+    And message "Hello world3" is not received on "subscriber" from "iot_data_3" topic within 5 seconds
 
     When I publish from "publisher" to "iot_data_4" with qos 0 and message "Hello world4"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_SEND_AT_NEW_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_4" with qos 0
-    And message "Hello world4" received on "subscriber" from "iot_data_4" topic within 5 seconds is false expected
+    And message "Hello world4" is not received on "subscriber" from "iot_data_4" topic within 5 seconds
 
     When I publish from "publisher" to "iot_data_5" with qos 0 and message "Hello world5"
     And I set MQTT subscribe retain handling property to "MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION"
     When I subscribe "subscriber" to "iot_data_5" with qos 0
-    And message "Hello world5" received on "subscriber" from "iot_data_5" topic within 5 seconds is false expected
+    And message "Hello world5" is not received on "subscriber" from "iot_data_5" topic within 5 seconds
 
     @mqtt5 @sdk-java
     Examples:
