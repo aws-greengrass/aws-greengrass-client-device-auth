@@ -19,9 +19,7 @@ class GRPCLib:  # pylint: disable=too-few-public-methods
         self.__logger = GRPCLib.logger
         self.__logger.info("Initialize gRPC library")
 
-    async def make_link(
-        self, agent_id: str, hosts: List[str], port: int
-    ) -> GRPCLink:
+    async def make_link(self, agent_id: str, hosts: List[str], port: int) -> GRPCLink:
         """
         Creates and returns GRPCLink object.
         Parameters
