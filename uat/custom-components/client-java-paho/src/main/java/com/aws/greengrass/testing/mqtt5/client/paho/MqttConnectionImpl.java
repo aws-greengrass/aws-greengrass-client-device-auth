@@ -49,6 +49,7 @@ public class MqttConnectionImpl implements MqttConnection {
     private final IMqttAsyncClient client;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private int connectionId = 0;
+    private static final long QUIESCE_TIMEOUT = 30_000L;
 
     /**
      * Creates a MQTT5 connection.
@@ -123,10 +124,10 @@ public class MqttConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public void disconnect(long timeout, int reasonCode) throws MqttException {
+    public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
         if (!isClosing.getAndSet(true)) {
             try {
-                disconnectAndClose(timeout);
+                disconnectAndClose(timeout, reasonCode, userProperties);
             } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnecting from MQTT broker");
                 throw new MqttException("Could not disconnect", ex);
@@ -220,9 +221,14 @@ public class MqttConnectionImpl implements MqttConnection {
                 connectionParams.getClientId());
     }
 
-    private void disconnectAndClose(long timeout) throws org.eclipse.paho.mqttv5.common.MqttException {
+    private void disconnectAndClose(long timeout, int reasonCode, List<Mqtt5Properties> userProperties)
+            throws org.eclipse.paho.mqttv5.common.MqttException {
+        MqttProperties properties = new MqttProperties();
+        if (userProperties != null && !userProperties.isEmpty()) {
+            properties.setUserProperties(convertToUserProperties(userProperties));
+        }
         try {
-            client.disconnectForcibly(timeout);
+            client.disconnectForcibly(QUIESCE_TIMEOUT, timeout, reasonCode, properties);
         } finally {
             client.close();
         }
@@ -306,8 +312,10 @@ public class MqttConnectionImpl implements MqttConnection {
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
                         connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
             });
-            userProps.forEach(p -> logger.atInfo()
-                    .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
+            if (userProps != null) {
+                userProps.forEach(p -> logger.atInfo()
+                        .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
+            }
         }
     }
 
