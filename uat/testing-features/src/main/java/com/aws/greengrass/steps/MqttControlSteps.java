@@ -535,6 +535,24 @@ public class MqttControlSteps {
         log.info("MQTT message {} has been succesfully published", message);
     }
 
+    /**
+     * Verify is MQTT message is received in limited duration of time.
+     *
+     * @param message content of message to receive
+     * @param clientDeviceId the user defined client device id
+     * @param topicString the topic (not a filter) which message has been sent
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @throws TimeoutException when matched message was not received in specified duration of time
+     * @throws RuntimeException on internal errors
+     * @throws InterruptedException then thread has been interrupted
+     */
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
+    @And("message {string} is not received on {string} from {string} topic within {int} {word}")
+    public void notReceivedMessage(String message, String clientDeviceId, String topicString, int value, String unit)
+            throws TimeoutException, InterruptedException {
+        receive(message, clientDeviceId, topicString, value, unit, false);
+    }
 
     /**
      * Verify is MQTT message is received in limited duration of time.
@@ -569,7 +587,6 @@ public class MqttControlSteps {
      * @throws InterruptedException then thread has been interrupted
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
-    @And("message {string} received on {string} from {string} topic within {int} {word} is {booleanValue} expected")
     public void receive(String message, String clientDeviceId, String topicString, int value,
                         String unit, Boolean isExpectedMessage)
                             throws TimeoutException, InterruptedException {
@@ -604,6 +621,16 @@ public class MqttControlSteps {
         if (!isExpectedMessage && !events.isEmpty()) {
             throw new RuntimeException("MQTT unexpected messages have been received");
         }
+    }
+
+    /**
+     * Clear message storage.
+     *
+     */
+    @And("I clear message storage")
+    public void clearStorage() {
+        eventStorage.clear();
+        log.info("Storage was cleared");
     }
 
     /**
