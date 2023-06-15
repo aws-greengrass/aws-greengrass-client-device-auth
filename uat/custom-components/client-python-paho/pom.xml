@@ -103,9 +103,9 @@
                         </licenseSet>
                     </licenseSets>
                     <mapping>
-                        <py>SHELL</py>
-                        <bat>BATCH</bat>
-                        <sh>SHELL</sh>
+                        <py>SHELL_STYLE</py>
+                        <bat>BATCH_STYLE</bat>
+                        <sh>SHELL_STYLE</sh>
                     </mapping>
                 </configuration>
                 <executions>

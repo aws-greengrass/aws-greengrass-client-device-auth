@@ -91,51 +91,59 @@ public class ConnectionControlImpl implements ConnectionControl {
     }
 
     @Override
-    public void closeMqttConnection(int reason) {
-        MqttCloseRequest closeRequest = MqttCloseRequest.newBuilder()
+    public void closeMqttConnection(int reason, List<Mqtt5Properties> userProperties) {
+        MqttCloseRequest.Builder builder = MqttCloseRequest.newBuilder()
                     .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
                     .setTimeout(timeout)
-                    .setReason(reason)
-                    .build();
-        agentControl.closeMqttConnection(closeRequest);
+                    .setReason(reason);
+
+        if (userProperties != null) {
+            builder.addAllProperties(userProperties);
+        }
+
+        agentControl.closeMqttConnection(builder.build());
     }
 
     @Override
-    public MqttSubscribeReply subscribeMqtt(Integer subscriptionId, List<Mqtt5Properties> mqtt5Properties,
+    public MqttSubscribeReply subscribeMqtt(Integer subscriptionId, List<Mqtt5Properties> userProperties,
                                             @NonNull Mqtt5Subscription... subscriptions) {
         MqttSubscribeRequest.Builder builder = MqttSubscribeRequest.newBuilder()
-                .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
-                .setTimeout(timeout)
-                .addAllSubscriptions(Arrays.asList(subscriptions));
+                    .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
+                    .setTimeout(timeout)
+                    .addAllSubscriptions(Arrays.asList(subscriptions));
 
         if (subscriptionId != null) {
             builder.setSubscriptionId(subscriptionId);
         }
-        if (mqtt5Properties != null) {
-            builder.addAllProperties(mqtt5Properties);
+
+        if (userProperties != null) {
+            builder.addAllProperties(userProperties);
         }
 
         return agentControl.subscribeMqtt(builder.build());
     }
 
     @Override
-    public MqttSubscribeReply unsubscribeMqtt(@NonNull String... filters) {
-        MqttUnsubscribeRequest unsubscribeRequest =  MqttUnsubscribeRequest.newBuilder()
+    public MqttSubscribeReply unsubscribeMqtt(List<Mqtt5Properties> userProperties, @NonNull String... filters) {
+        MqttUnsubscribeRequest.Builder builder = MqttUnsubscribeRequest.newBuilder()
                     .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
                     .setTimeout(timeout)
-                    .addAllFilters(Arrays.asList(filters))
-                    .build();
+                    .addAllFilters(Arrays.asList(filters));
 
-        return agentControl.unsubscribeMqtt(unsubscribeRequest);
+        if (userProperties != null) {
+            builder.addAllProperties(userProperties);
+        }
+
+        return agentControl.unsubscribeMqtt(builder.build());
     }
 
     @Override
     public MqttPublishReply publishMqtt(@NonNull Mqtt5Message message) {
         MqttPublishRequest publishRequest = MqttPublishRequest.newBuilder()
-            .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
-            .setTimeout(timeout)
-            .setMsg(message)
-            .build();
+                .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
+                .setTimeout(timeout)
+                .setMsg(message)
+                .build();
         return agentControl.publishMqtt(publishRequest);
     }
 

@@ -64,6 +64,7 @@ public class ExampleControl {
         this.useTLS = useTLS;
         this.mqtt50 = mqtt50;
         this.port = port;
+        logger.atInfo().log("Control: port {}, {} TLS, MQTT v{}", port, useTLS ? "with" : "without", mqtt50 ? 5 : 3);
         this.engineControl = new EngineControlImpl();
         this.eventStorage = new EventStorageImpl();
     }

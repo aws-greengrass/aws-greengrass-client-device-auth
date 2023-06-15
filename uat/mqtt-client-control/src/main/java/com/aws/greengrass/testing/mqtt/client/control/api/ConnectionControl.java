@@ -72,12 +72,25 @@ public interface ConnectionControl {
      * Do MQTT subscription(s).
      *
      * @param subscriptionId optional subscription id
-     * @param subscriptions MQTT v5.0 subscriptions
-     * @param mqtt5Properties MQTT v5.0 properties
+     * @param subscriptions MQTT subscriptions
      * @return reply to subscribe
      * @throws StatusRuntimeException on errors
      */
-    MqttSubscribeReply subscribeMqtt(Integer subscriptionId, List<Mqtt5Properties> mqtt5Properties,
+    default MqttSubscribeReply subscribeMqtt(Integer subscriptionId, @NonNull Mqtt5Subscription... subscriptions) {
+        final List<Mqtt5Properties> userProperties = null;
+        return subscribeMqtt(subscriptionId, userProperties, subscriptions);
+    }
+
+    /**
+     * Do MQTT subscription(s).
+     *
+     * @param subscriptionId optional subscription id
+     * @param userProperties optional MQTT v5.0 user properties
+     * @param subscriptions MQTT subscriptions
+     * @return reply to subscribe
+     * @throws StatusRuntimeException on errors
+     */
+    MqttSubscribeReply subscribeMqtt(Integer subscriptionId, List<Mqtt5Properties> userProperties,
                                      @NonNull Mqtt5Subscription... subscriptions);
 
     /**
@@ -97,7 +110,20 @@ public interface ConnectionControl {
      * @return reply to unsubscribe
      * @throws StatusRuntimeException on errors
      */
-    MqttSubscribeReply unsubscribeMqtt(@NonNull String... filters);
+    default MqttSubscribeReply unsubscribeMqtt(@NonNull String... filters) {
+        final List<Mqtt5Properties> userProperties = null;
+        return unsubscribeMqtt(userProperties, filters);
+    }
+
+    /**
+     * Remove MQTT subscription(s).
+     *
+     * @param userProperties optional MQTT v5.0 user properties
+     * @param filters topic filters to unsubscribe
+     * @return reply to unsubscribe
+     * @throws StatusRuntimeException on errors
+     */
+    MqttSubscribeReply unsubscribeMqtt(List<Mqtt5Properties> userProperties, @NonNull String... filters);
 
     /**
      * Close MQTT connection to the broker.
@@ -105,5 +131,16 @@ public interface ConnectionControl {
      * @param reason reason code of disconnection as specified by MQTT v5.0 in DISCONNECT packet
      * @throws StatusRuntimeException on errors
      */
-    void closeMqttConnection(int reason);
+    default void closeMqttConnection(int reason) {
+        closeMqttConnection(reason, null);
+    }
+
+    /**
+     * Close MQTT connection to the broker.
+     *
+     * @param reason reason code of disconnection as specified by MQTT v5.0 in DISCONNECT packet
+     * @param userProperties optional MQTT v5.0 user properties
+     * @throws StatusRuntimeException on errors
+     */
+    void closeMqttConnection(int reason, List<Mqtt5Properties> userProperties);
 }

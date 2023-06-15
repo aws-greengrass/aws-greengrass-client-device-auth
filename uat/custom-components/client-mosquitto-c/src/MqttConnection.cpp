@@ -24,8 +24,8 @@
 #define DEFAULT_DISCONNECT_REASON       MQTT_RC_NORMAL_DISCONNECTION
 #define DEFAULT_DISCONNECT_TIMEOUT      10
 
-#define CONNECT_REQUEST_ID               (1024*64 + 1)
-#define DISCONNECT_REQUEST_ID            (1024*64 + 2)
+#define CONNECT_REQUEST_ID              (1024*64 + 1)
+#define DISCONNECT_REQUEST_ID           (1024*64 + 2)
 
 class AsyncResult {
 public:
@@ -35,27 +35,15 @@ public:
     int mid;                                    // subscribe / publish / unsubscribe
     std::vector<int> granted_qos;               // subscribe
 
-    // connect / disconnect
-    AsyncResult(int rc_, int flags_, const mosquitto_property * props_)
-        : rc(rc_), flags(flags_), props(NULL), mid(0) {
-        mosquitto_property_copy_all(&props, props_);
-    }
-
-    // unsubscribe
-    AsyncResult(int mid_, const mosquitto_property * props_)
-        : rc(MOSQ_ERR_SUCCESS), flags(0), props(0), mid(mid_) {
-        mosquitto_property_copy_all(&props, props_);
-    }
-
-    // publish
-    AsyncResult(int rc, const mosquitto_property * props_, int mid_)
-        : rc(rc), flags(0), props(0), mid(mid_) {
-        mosquitto_property_copy_all(&props, props_);
-    }
-
     // subscribe
-    AsyncResult(int mid_, int qos_count_, const int * granted_qos_, const mosquitto_property * props_)
-        : rc(MOSQ_ERR_SUCCESS), flags(0), props(0), mid(mid_), granted_qos(granted_qos_, granted_qos_ + qos_count_) {
+    AsyncResult(int mid_, int qos_count, const int * granted_qos_arr, const mosquitto_property * props_)
+        : rc(MOSQ_ERR_SUCCESS), flags(0), props(NULL), mid(mid_), granted_qos(granted_qos_arr, granted_qos_arr + qos_count) {
+        mosquitto_property_copy_all(&props, props_);
+    }
+
+    // connect / disconnect / unsubscribe / publish
+    AsyncResult(int rc_, const mosquitto_property * props_, int flags_ = 0, int mid_ = 0)
+        :  rc(rc_), flags(flags_), props(NULL), mid(mid_), granted_qos() {
         mosquitto_property_copy_all(&props, props_);
     }
 
@@ -107,10 +95,15 @@ private:
 };
 
 
-MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5)
-    : m_mutex(), m_grpc_client(grpc_client), m_client_id(client_id), m_host(host), m_port(port), m_keepalive(keepalive), m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_mosq(0), m_requests() {
+MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host,
+                                unsigned short port, unsigned short keepalive, bool clean_session, const char * ca,
+                                const char * cert, const char * key, bool v5,
+                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties)
+    : m_mutex(), m_grpc_client(grpc_client), m_client_id(client_id), m_host(host), m_port(port), m_keepalive(keepalive),
+        m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_conn_properties(0), m_mosq(0),
+        m_requests() {
 
-    logd("Creating Mosquitto MQTT connection for %s:%hu\n", m_host.c_str(), m_port);
+    logd("Creating Mosquitto MQTT v%d connection for %s:%hu\n", m_v5 ? 5 : 3, m_host.c_str(), m_port);
 
     if (ca) {
         m_ca = ca;
@@ -123,13 +116,20 @@ MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::str
     if (key) {
         m_key = key;
     }
+
+    convertUserProperties(&user_properties, &m_conn_properties);
+}
+
+MqttConnection::~MqttConnection() {
+    logd("Destroy Mosquitto MQTT connection\n");
+    disconnect(DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_DISCONNECT_REASON, NULL);
 }
 
 ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
     int rc;
     PendingRequest * request = 0;
 
-    logd("Establishing Mosquitto MQTT connection to %s:%hu in %d seconds\n", m_host.c_str(), m_port, timeout);
+    logd("Establishing Mosquitto MQTT v%d connection to %s:%hu in %d seconds\n", m_v5 ? 5 : 3, m_host.c_str(), m_port, timeout);
 
     {
         std::lock_guard<std::mutex> lk(m_mutex);
@@ -161,12 +161,16 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
 
         // TODO: mosquitto_reconnect_delay_set(m_mosq, ...)
 
-
         if (!m_ca.empty() && !m_cert.empty() && !m_key.empty()) {
             logd("Use provided TLS credentials\n");
             m_ca_file = saveToTempFile(m_ca);
+            m_ca.clear();
+
             m_cert_file = saveToTempFile(m_cert);
+            m_cert.clear();
+
             m_key_file = saveToTempFile(m_key);
+            m_key.clear();
 
             rc = mosquitto_tls_set(m_mosq, m_ca_file.c_str(), NULL, m_cert_file.c_str(), m_key_file.c_str(), NULL);
             if (rc != MOSQ_ERR_SUCCESS) {
@@ -191,11 +195,9 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
             throw MqttException("couldn't start interval library thread", rc);
         }
 
-
-        // TODO: pass CONNECT properties
         // FIXME: there is no async v5 connect() !!!
-        // rc = mosquitto_connect_bind_v5(m_mosq, m_host.c_str(), m_port, m_keepalive, NULL, NULL);
-        rc = mosquitto_connect_bind_async(m_mosq, m_host.c_str(), m_port, m_keepalive, NULL);
+        rc = mosquitto_connect_bind_v5(m_mosq, m_host.c_str(), m_port, m_keepalive, NULL, m_conn_properties);
+        // rc = mosquitto_connect_bind_async(m_mosq, m_host.c_str(), m_port, m_keepalive, NULL);
         if (rc != MOSQ_ERR_SUCCESS) {
             loge("mosquitto_connect_bind_async failed with code %d: %s\n", rc, mosquitto_strerror(rc));
             destroyLocked();
@@ -226,30 +228,27 @@ void MqttConnection::onConnect(int rc, int flags, const mosquitto_property * pro
 
     PendingRequest * request = getValidPendingRequestLocked(CONNECT_REQUEST_ID);
     if (request) {
-        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, flags, props));
+        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, props, flags));
         request->submitResult(result);
     }
 }
 
-MqttConnection::~MqttConnection() {
-    logd("Destroy Mosquitto MQTT connection\n");
-    disconnect(DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_DISCONNECT_REASON);
-}
-
-
-void MqttConnection::disconnect(unsigned timeout, unsigned char reason_code) {
+void MqttConnection::disconnect(unsigned timeout, unsigned char reason_code, const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties) {
 
     PendingRequest * request = 0;
+    mosquitto_property * properties = NULL;
     {
         std::lock_guard<std::mutex> lk(m_mutex);
 
         if (m_mosq) {
             logd("Disconnect Mosquitto MQTT connection with reason code %d\n", (int)reason_code);
 
-            // TODO: pass DISCONNECT properties
+            convertUserProperties(user_properties, &properties);
+
             // FIXME: there isn't async disconnect()
-            int rc = mosquitto_disconnect_v5(m_mosq, reason_code, NULL);
+            int rc = mosquitto_disconnect_v5(m_mosq, reason_code, properties);
             if (rc != MOSQ_ERR_SUCCESS) {
+                mosquitto_property_free_all(&properties);
                 throw MqttException("couldn't disconnect from MQTT broker", rc);
             }
             request = createPendingRequestLocked(DISCONNECT_REQUEST_ID);
@@ -264,9 +263,11 @@ void MqttConnection::disconnect(unsigned timeout, unsigned char reason_code) {
 
         int rc = result->rc;
         if (rc != MOSQ_ERR_SUCCESS) {
+            mosquitto_property_free_all(&properties);
             throw MqttException("couldn't disconnect from MQTT broker", rc);
         }
     }
+    mosquitto_property_free_all(&properties);
 }
 
 void MqttConnection::on_disconnect(struct mosquitto *, void * obj, int rc, const mosquitto_property * props) {
@@ -283,12 +284,16 @@ void MqttConnection::onDisconnect(int rc, const mosquitto_property * props) {
 
     PendingRequest * request = getValidPendingRequestLocked(DISCONNECT_REQUEST_ID);
     if (request) {
-        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, 0, props));
+        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, props));
         request->submitResult(result);
     }
 }
 
-std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscription_id, const std::vector<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published) {
+void MqttConnection::subscribe(unsigned timeout, const int * subscription_id,
+                                const std::vector<std::string> & filters, int qos, int retain_handling,
+                                bool no_local, bool retain_as_published,
+                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                                ClientControl::MqttSubscribeReply * reply) {
 
     PendingRequest * request = 0;
     mosquitto_property * properties = NULL;
@@ -329,7 +334,8 @@ std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscri
             }
         }
 
-        // TODO: pass also user properties
+        convertUserProperties(&user_properties, &properties);
+
         rc = mosquitto_subscribe_multiple(m_mosq, &message_id, pointers.size(), const_cast<char* const*>(pointers.data()), qos, options, properties);
         if (rc != MOSQ_ERR_SUCCESS) {
             loge("mosquitto_subscribe_multiple failed with code %d: %s\n", rc, mosquitto_strerror(rc));
@@ -346,20 +352,19 @@ std::vector<int> MqttConnection::subscribe(unsigned timeout, const int * subscri
     int rc = result->rc;
     if (rc != MOSQ_ERR_SUCCESS) {
         loge("subscribe callback failed with code %d: %s\n", rc, mosquitto_strerror(rc));
-        destroyUnlocked();
         mosquitto_property_free_all(&properties);
         throw MqttException("couldn't subscribe", rc);
     }
 
     {
         std::ostringstream imploded;
-        std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, " "));
+        std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, ","));
         logd("Subscribed on filters '%s' QoS %d no local %d retain as published %d retain handing %d with message id %d\n", imploded.str().c_str(), qos, no_local, retain_as_published, retain_handling, message_id);
     }
 
     mosquitto_property_free_all(&properties);
 
-    return result->granted_qos;
+    updateMqttSubscribeReply(result->granted_qos, result->props, reply);
 }
 
 void MqttConnection::on_subscribe(struct mosquitto *, void * obj, int mid, int qos_count, const int * granted_qos, const mosquitto_property * props) {
@@ -379,9 +384,12 @@ void MqttConnection::onSubscribe(int mid, int qos_count, const int * granted_qos
 }
 
 
-std::vector<int> MqttConnection::unsubscribe(unsigned timeout, const std::vector<std::string> & filters) {
+void MqttConnection::unsubscribe(unsigned timeout, const std::vector<std::string> & filters,
+                                    const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                                    ClientControl::MqttSubscribeReply * reply) {
     PendingRequest * request = 0;
     int message_id = 0;
+    mosquitto_property * properties = NULL;
 
     std::vector<const char*> pointers;
     for (const std::string & filter : filters) {
@@ -392,11 +400,13 @@ std::vector<int> MqttConnection::unsubscribe(unsigned timeout, const std::vector
         std::lock_guard<std::mutex> lk(m_mutex);
         stateCheck();
 
+        convertUserProperties(&user_properties, &properties);
 
         // TODO: pass also user properties
-        int rc = mosquitto_unsubscribe_multiple(m_mosq, &message_id, pointers.size(), const_cast<char* const*>(pointers.data()), NULL);
+        int rc = mosquitto_unsubscribe_multiple(m_mosq, &message_id, pointers.size(), const_cast<char* const*>(pointers.data()), properties);
         if (rc != MOSQ_ERR_SUCCESS) {
             loge("mosquitto_unsubscribe_multiple failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+            mosquitto_property_free_all(&properties);
             throw MqttException("couldn't unsubscribe", rc);
         }
 
@@ -409,18 +419,22 @@ std::vector<int> MqttConnection::unsubscribe(unsigned timeout, const std::vector
     int rc = result->rc;
     if (rc != MOSQ_ERR_SUCCESS) {
         loge("unsubscribe callback failed with code %d: %s\n", rc, mosquitto_strerror(rc));
-        destroyUnlocked();
+        mosquitto_property_free_all(&properties);
         throw MqttException("couldn't unsubscribe", rc);
     }
 
     {
         std::ostringstream imploded;
-        std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, " "));
+        std::copy(filters.begin(), filters.end(), std::ostream_iterator<std::string>(imploded, ","));
         logd("Unsubscribed from filters '%s' with message id %d\n", imploded.str().c_str(), message_id);
     }
 
-    // NOTE: mosquitto does not provides result code(s) from unsubscribe; produce vector of successes
-    return std::vector<int> (filters.size(), 0);
+
+    mosquitto_property_free_all(&properties);
+
+    // NOTE: mosquitto does not provide result code(s) from unsubscribe; produce vector of successes
+    std::vector<int> success(filters.size(), 0);
+    updateMqttSubscribeReply(success, result->props, reply);
 }
 
 void MqttConnection::on_unsubscribe(struct mosquitto *, void * obj, int mid, const mosquitto_property * props) {
@@ -434,23 +448,30 @@ void MqttConnection::onUnsubscribe(int mid, const mosquitto_property * props) {
 
     PendingRequest * request = getValidPendingRequestLocked(mid);
     if (request) {
-        std::shared_ptr<AsyncResult> result(new AsyncResult(mid, props));
+        std::shared_ptr<AsyncResult> result(new AsyncResult(MOSQ_ERR_SUCCESS, props, 0, mid));
         request->submitResult(result);
     }
 }
 
 
-ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int qos, bool is_retain, const std::string & topic, const std::string & payload) {
+ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int qos, bool is_retain,
+                                            const std::string & topic,
+                                            const std::string & payload,
+                                            const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties) {
     PendingRequest * request = 0;
     int message_id = 0;
+    mosquitto_property * properties = NULL;
+
     {
         std::lock_guard<std::mutex> lk(m_mutex);
         stateCheck();
 
-        // TODO: pass also user properties
-        int rc = mosquitto_publish_v5(m_mosq, &message_id, topic.c_str(), payload.length(), payload.data(), qos, is_retain, NULL);
+        convertUserProperties(&user_properties, &properties);
+
+        int rc = mosquitto_publish_v5(m_mosq, &message_id, topic.c_str(), payload.length(), payload.data(), qos, is_retain, properties);
         if (rc != MOSQ_ERR_SUCCESS) {
             loge("mosquitto_publish_v5 failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+            mosquitto_property_free_all(&properties);
             throw MqttException("couldn't publish", rc);
         }
 
@@ -461,6 +482,7 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
     removePendingRequestUnlocked(message_id);
 
     logd("Published on topic '%s' QoS %d retain %d with rc %d message id %d\n", topic.c_str(), qos, is_retain, result->rc, message_id);
+    mosquitto_property_free_all(&properties);
     return convertToPublishReply(result->rc, result->props);
 }
 
@@ -475,7 +497,7 @@ void MqttConnection::onPublish(int mid, int rc, const mosquitto_property * props
 
     PendingRequest * request = getValidPendingRequestLocked(mid);
     if (request) {
-        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, props, mid));
+        std::shared_ptr<AsyncResult> result(new AsyncResult(rc, props, 0, mid));
         request->submitResult(result);
     }
 }
@@ -524,6 +546,7 @@ void MqttConnection::destroyLocked() {
     if (!m_key_file.empty()) {
         removeFile(m_key_file);
     }
+    mosquitto_property_free_all(&m_conn_properties);
 }
 
 void MqttConnection::destroyUnlocked() {
@@ -609,7 +632,9 @@ ClientControl::Mqtt5ConnAck * MqttConnection::convertToConnack(int reason_code, 
     uint32_t value32;
     uint16_t value16;
     uint8_t value8;
+    char * name_str;
     char * value_str;
+    ClientControl::Mqtt5Properties * new_user_property;
 
     ClientControl::Mqtt5ConnAck * conn_ack = new ClientControl::Mqtt5ConnAck();
     conn_ack->set_reasoncode(reason_code);
@@ -676,6 +701,13 @@ ClientControl::Mqtt5ConnAck * MqttConnection::convertToConnack(int reason_code, 
                 mosquitto_property_read_int16(prop, id, &value16, false);
                 conn_ack->set_topicaliasmaximum(value16);
                 break;
+            case MQTT_PROP_USER_PROPERTY:
+                mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
+                new_user_property = conn_ack->add_properties();
+                new_user_property->set_key(name_str);
+                new_user_property->set_value(value_str);
+                logd("Copied RX user property %s:%s\n", name_str, value_str);
+                break;
             default:
                 logw("Unhandled CONNACK property with id %d\n", id);
                 break;
@@ -686,7 +718,9 @@ ClientControl::Mqtt5ConnAck * MqttConnection::convertToConnack(int reason_code, 
 }
 
 ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reason_code, const mosquitto_property * props) {
+    char * name_str;
     char * value_str;
+    ClientControl::Mqtt5Properties * new_user_property;
 
     ClientControl::MqttPublishReply * reply = new ClientControl::MqttPublishReply();
     reply->set_reasoncode(reason_code);
@@ -697,6 +731,13 @@ ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reas
             case MQTT_PROP_REASON_STRING:
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 reply->set_reasonstring(value_str);
+                break;
+            case MQTT_PROP_USER_PROPERTY:
+                mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
+                new_user_property = reply->add_properties();
+                new_user_property->set_key(name_str);
+                new_user_property->set_value(value_str);
+                logd("Copied RX user property %s:%s\n", name_str, value_str);
                 break;
             default:
                 logw("Unhandled PUBACK property with id %d\n", id);
@@ -709,7 +750,9 @@ ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reas
 
 ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct mosquitto_message * message, const mosquitto_property * props) {
 
-    (void)props;
+    char * name_str;
+    char * value_str;
+    ClientControl::Mqtt5Properties * new_user_property;
 
     ClientControl::Mqtt5Message * msg = new ClientControl::Mqtt5Message();
 
@@ -729,14 +772,30 @@ ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct
         msg->set_retain(message->retain);
     }
 
-    // TODO: handle also props to find and copy user properties
+    for (const mosquitto_property * prop = props; prop != NULL; prop = mosquitto_property_next(prop)) {
+        int id = mosquitto_property_identifier(prop);
+        switch (id) {
+            case MQTT_PROP_USER_PROPERTY:
+                mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
+                new_user_property = msg->add_properties();
+                new_user_property->set_key(name_str);
+                new_user_property->set_value(value_str);
+                logd("Copied RX user property %s:%s\n", name_str, value_str);
+                break;
+            default:
+                logw("Unhandled PUBLISH property with id %d\n", id);
+                break;
+        }
+    }
 
     return msg;
 }
 
 ClientControl::Mqtt5Disconnect * MqttConnection::convertToDisconnect(int reason_code, const mosquitto_property * props) {
     uint32_t value32;
+    char * name_str;
     char * value_str;
+    ClientControl::Mqtt5Properties * new_user_property;
 
     ClientControl::Mqtt5Disconnect * disconnect = new ClientControl::Mqtt5Disconnect();
 
@@ -757,7 +816,13 @@ ClientControl::Mqtt5Disconnect * MqttConnection::convertToDisconnect(int reason_
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 disconnect->set_serverreference(value_str);
                 break;
-            // TODO: handle also user properties
+            case MQTT_PROP_USER_PROPERTY:
+                mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
+                new_user_property = disconnect->add_properties();
+                new_user_property->set_key(name_str);
+                new_user_property->set_value(value_str);
+                logd("Copied RX user property %s:%s\n", name_str, value_str);
+                break;
             default:
                 logw("Unhandled DISCONNECT property with id %d\n", id);
                 break;
@@ -765,4 +830,52 @@ ClientControl::Mqtt5Disconnect * MqttConnection::convertToDisconnect(int reason_
     }
 
     return disconnect;
+}
+
+void MqttConnection::convertUserProperties(const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties, mosquitto_property ** conn_properties) {
+
+    if (!user_properties) {
+        return;
+    }
+
+    if (m_v5) {
+        for (const ClientControl::Mqtt5Properties & user_property : *user_properties) {
+            const std::string & key = user_property.key();
+            const std::string & value = user_property.value();
+
+            // TODO: check is that reverse the list?
+            mosquitto_property_add_string_pair(conn_properties, MQTT_PROP_USER_PROPERTY, key.c_str(), value.c_str());
+            logd("Copied TX user property %s:%s\n", key.c_str(), value.c_str());
+        }
+    } else if (!user_properties->empty()) {
+        logw("User properties are ignored for MQTT v3.1.1 connection\n");
+    }
+}
+
+void MqttConnection::updateMqttSubscribeReply(const std::vector<int> & granted_qos, const mosquitto_property * props, ClientControl::MqttSubscribeReply * reply) {
+    // copy reason codes
+    for (int reason_code : granted_qos) {
+        logd("Copied RX reason code %d\n", reason_code);
+        reply->add_reasoncodes(reason_code);
+    }
+
+    char * name_str;
+    char * value_str;
+    ClientControl::Mqtt5Properties * new_user_property;
+    // copy user properties
+    for (const mosquitto_property * prop = props; prop != NULL; prop = mosquitto_property_next(prop)) {
+        int id = mosquitto_property_identifier(prop);
+        switch (id) {
+            case MQTT_PROP_USER_PROPERTY:
+                mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
+                new_user_property = reply->add_properties();
+                new_user_property->set_key(name_str);
+                new_user_property->set_value(value_str);
+                logd("Copied RX user property %s:%s\n", name_str, value_str);
+                break;
+            default:
+                logw("Unhandled SUBACK/UNSUBACK property with id %d\n", id);
+                break;
+        }
+    }
 }

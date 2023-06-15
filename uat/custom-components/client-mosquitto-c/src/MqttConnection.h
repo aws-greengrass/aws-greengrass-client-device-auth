@@ -9,12 +9,17 @@
 #include <vector>
 #include <unordered_map>
 #include <mutex>
+#include <google/protobuf/repeated_field.h>
+
+using google::protobuf::RepeatedPtrField;
 
 namespace ClientControl {
     class Mqtt5ConnAck;
     class Mqtt5Disconnect;
     class Mqtt5Message;
     class MqttPublishReply;
+    class Mqtt5Properties;
+    class MqttSubscribeReply;
 }
 class PendingRequest;
 class GRPCDiscoveryClient;
@@ -43,9 +48,12 @@ public:
      * @param cert pointer to client's certificate content, can be NULL
      * @param key pointer to client's key content, can be NULL
      * @param v5 use MQTT v5.0
+     * @param user_properties the user properties of the CONNECT request
      * @throw MqttException on errors
      */
-    MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host, unsigned short port, unsigned short keepalive, bool clean_session, const char * ca, const char * cert, const char * key, bool v5);
+    MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host,
+                    unsigned short port, unsigned short keepalive, bool clean_session, const char * ca,
+                    const char * cert, const char * key, bool v5, const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
     ~MqttConnection();
 
 
@@ -72,10 +80,14 @@ public:
      * @param retain_handling the common retain handling value for all filters
      * @param no_local the common no local value for all filters
      * @param retain_as_published the common retain as published vlaue for all filters
-     * @return the vector of reason codes for each filter
+     * @param user_properties the user properties of the SUBCRIBE request
+     * @param reply the subscribe reply to update
      * @throw MqttException on errors
      */
-    std::vector<int> subscribe(unsigned timeout, const int * subscription_id, const std::vector<std::string> & filters, int qos, int retain_handling, bool no_local, bool retain_as_published);
+    void subscribe(unsigned timeout, const int * subscription_id, const std::vector<std::string> & filters,
+                    int qos, int retain_handling, bool no_local, bool retain_as_published,
+                    const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                    ClientControl::MqttSubscribeReply * reply);
 
 
     /**
@@ -83,10 +95,13 @@ public:
      *
      * @param timeout the timeout in seconds to subscribe
      * @param filters the filters of topics subscribe to
-     * @return the vector of reason codes for each filter
+     * @param user_properties the user properties of the SUBCRIBE request
+     * @param reply the subscribe reply to update
      * @throw MqttException on errors
      */
-    std::vector<int> unsubscribe(unsigned timeout, const std::vector<std::string> & filters);
+    void unsubscribe(unsigned timeout, const std::vector<std::string> & filters,
+                        const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                        ClientControl::MqttSubscribeReply * reply);
 
     /**
      * Publishes MQTT message.
@@ -96,18 +111,24 @@ public:
      * @param is_retain the retain flag
      * @param topic the topic to publish
      * @param payload the payload of the message
+     * @param user_properties the user properties of the SUBCRIBE request
      * @return pointer to allocated gRPC MqttPublishReply
      * @throw MqttException on errors
      */
-    ClientControl::MqttPublishReply * publish(unsigned timeout, int qos, bool is_retain, const std::string & topic, const std::string & payload);
+    ClientControl::MqttPublishReply * publish(unsigned timeout, int qos, bool is_retain, const std::string & topic,
+                                                const std::string & payload,
+                                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
 
     /**
      * Disconnect from the broker.
      *
+     * @param timeout the timeout in seconds to disconnect
      * @param reason_code the MQTT disconnect reason code
+     * @param user_properties the optional user properties of the DISCONNECT request
      * @throw MqttException on errors
      */
-    void disconnect(unsigned timeout, unsigned char reason_code);
+    void disconnect(unsigned timeout, unsigned char reason_code,
+                    const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties);
 
 
 private:
@@ -144,6 +165,9 @@ private:
     static void removeFile(std::string & file);
     static std::string saveToTempFile(const std::string & content);
 
+    void convertUserProperties(const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties, mosquitto_property ** conn_properties);
+    void updateMqttSubscribeReply(const std::vector<int> & granted_qos, const mosquitto_property * props,  ClientControl::MqttSubscribeReply * reply);
+
     void destroyLocked();
     void destroyUnlocked();
     void stateCheck();
@@ -162,6 +186,8 @@ private:
     std::string m_ca;
     std::string m_cert;
     std::string m_key;
+
+    mosquitto_property * m_conn_properties;
 
     struct mosquitto * m_mosq;
 
