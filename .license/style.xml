@@ -16,7 +16,7 @@
         <isMultiline>true</isMultiline>
         <padLines>false</padLines>
     </java_style>
-    <batch>
+    <batch_style>
         <firstLine>@REM -------------------------------</firstLine>
         <beforeEachLine>@REM </beforeEachLine>
         <endLine>@REM -------------------------------</endLine>
@@ -25,8 +25,8 @@
         <allowBlankLines>false</allowBlankLines>
         <isMultiline>true</isMultiline>
         <padLines>false</padLines>
-    </batch>
-    <shell>
+    </batch_style>
+    <shell_style>
         <firstLine>#</firstLine>
         <beforeEachLine># </beforeEachLine>
         <endLine>#</endLine>
@@ -35,5 +35,5 @@
         <allowBlankLines>false</allowBlankLines>
         <isMultiline>true</isMultiline>
         <padLines>false</padLines>
-    </shell>
+    </shell_style>
 </additionalHeaders>

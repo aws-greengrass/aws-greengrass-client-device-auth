@@ -125,7 +125,7 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext *, const MqttConnec
     int keepalive = request->keepalive();
     if (keepalive != KEEPALIVE_OFF && (keepalive < KEEPALIVE_MIN || keepalive > KEEPALIVE_MAX)) {
         loge("CreateMqttConnection: invalid keepalive, must be in range [%u, %u]\n", KEEPALIVE_MIN, KEEPALIVE_MAX);
-        return Status(StatusCode::INVALID_ARGUMENT, "invalid keepalive, must be in range [1, 65535]");
+        return Status(StatusCode::INVALID_ARGUMENT, "invalid keepalive, must be in range [5, 65535]");
     }
 
     int timeout = request->timeout();
@@ -165,7 +165,7 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext *, const MqttConnec
     }
 
     try {
-        MqttConnection * connection = m_mqtt->createConnection(m_client, client_id, host, port, keepalive, request->cleansession(), ca_char, cert_char, key_char, v5);
+        MqttConnection * connection = m_mqtt->createConnection(m_client, client_id, host, port, keepalive, request->cleansession(), ca_char, cert_char, key_char, v5, request->properties());
         ClientControl::Mqtt5ConnAck * conn_ack = connection->start(timeout);
         int connection_id = m_mqtt->registerConnection(connection);
 
@@ -206,7 +206,7 @@ Status GRPCControlServer::CloseMqttConnection(ServerContext *, const MqttCloseRe
     }
 
     try {
-        connection->disconnect(timeout, reason);
+        connection->disconnect(timeout, reason, &request->properties());
         delete connection;
         return Status::OK;
     } catch (MqttException & ex) {
@@ -259,7 +259,7 @@ Status GRPCControlServer::PublishMqtt(ServerContext *, const MqttPublishRequest 
     }
 
     try {
-        ClientControl::MqttPublishReply * result = connection->publish(timeout, qos, is_retain, topic, message.payload());
+        ClientControl::MqttPublishReply * result = connection->publish(timeout, qos, is_retain, topic, message.payload(), message.properties());
         if (result) {
             if (result->has_reasoncode()) {
                 reply->set_reasoncode(result->reasoncode());
@@ -368,12 +368,10 @@ Status GRPCControlServer::SubscribeMqtt(ServerContext *, const MqttSubscribeRequ
     }
 
     try {
-        std::vector<int> reason_codes = connection->subscribe(timeout, subscription_id_ptr, filters, common_qos, common_retain_handling, common_no_local, common_retain_as_published);
-        for (int reason_code : reason_codes) {
-            logd("subscribe reason code %d\n", reason_code);
-            reply->add_reasoncodes(reason_code);
-        }
-
+        connection->subscribe(timeout, subscription_id_ptr, filters, common_qos,
+                                common_retain_handling, common_no_local,
+                                common_retain_as_published, request->properties(),
+                                reply);
         return Status::OK;
     } catch (MqttException & ex) {
         loge("SubscribeMqtt: exception during subscribing\n");
@@ -412,10 +410,7 @@ Status GRPCControlServer::UnsubscribeMqtt(ServerContext *, const MqttUnsubscribe
 
     std::vector<std::string> filters(request->filters().begin(), request->filters().end());
     try {
-        std::vector<int> reason_codes = connection->unsubscribe(timeout, filters);
-        for (int reason_code : reason_codes) {
-            reply->add_reasoncodes(reason_code);
-        }
+        connection->unsubscribe(timeout, filters, request->properties(), reply);
         return Status::OK;
     } catch (MqttException & ex) {
         loge("UnsubscribeMqtt: exception during unsubscribing\n");

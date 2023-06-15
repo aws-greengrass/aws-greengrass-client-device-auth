@@ -80,9 +80,9 @@
                     <mapping>
                         <cpp>JAVA_STYLE</cpp>
                         <h>JAVA_STYLE</h>
-                        <bat>BATCH</bat>
+                        <bat>BATCH_STYLE</bat>
                         <proto>JAVA_STYLE</proto>
-                        <txt>SHELL</txt>
+                        <txt>SHELL_STYLE</txt>
                     </mapping>
                 </configuration>
                 <executions>

@@ -12,6 +12,7 @@ import com.aws.greengrass.testing.model.TestContext;
 import com.aws.greengrass.testing.modules.model.AWSResourcesContext;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5RetainHandling;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Subscription;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
@@ -136,6 +137,10 @@ public class MqttControlSteps {
     /** Actual value of publish retain option. */
     private boolean publishRetain = DEFAULT_PUBLISH_RETAIN;
 
+
+    /** Actual list of user properties to transmit. */
+    private static final List<Mqtt5Properties> txUserProperties = null;
+
     private final Map<String, List<MqttBrokerConnectionInfo>> brokers = new HashMap<>();
     private final Map<String, MqttProtoVersion> mqttVersions = new HashMap<>();
 
@@ -160,6 +165,7 @@ public class MqttControlSteps {
 
         @Override
         public void onMqttDisconnect(ConnectionControl connectionControl, Mqtt5Disconnect disconnect, String error) {
+            // TODO: also add to eventStore
             log.info("MQTT client disconnected. Error: {}", error);
         }
     };
@@ -322,7 +328,7 @@ public class MqttControlSteps {
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
 
         // do disconnect
-        connectionControl.closeMqttConnection(reasonCode);
+        connectionControl.closeMqttConnection(reasonCode, txUserProperties);
         log.info("Thing {} was disconnected with reason code {}", clientDeviceId, reasonCode);
     }
 
@@ -448,7 +454,7 @@ public class MqttControlSteps {
                 subscribeRetainAsPublished,
                 subscribeRetainHandling);
         MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(DEFAULT_SUBSCRIPTION_ID,
-                                                                                null, mqtt5Subscription);
+                                                                                txUserProperties, mqtt5Subscription);
         if (mqttSubscribeReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT subscribe request");
         }
@@ -529,6 +535,24 @@ public class MqttControlSteps {
         log.info("MQTT message {} has been succesfully published", message);
     }
 
+    /**
+     * Verify is MQTT message is received in limited duration of time.
+     *
+     * @param message content of message to receive
+     * @param clientDeviceId the user defined client device id
+     * @param topicString the topic (not a filter) which message has been sent
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @throws TimeoutException when matched message was not received in specified duration of time
+     * @throws RuntimeException on internal errors
+     * @throws InterruptedException then thread has been interrupted
+     */
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
+    @And("message {string} is not received on {string} from {string} topic within {int} {word}")
+    public void notReceivedMessage(String message, String clientDeviceId, String topicString, int value, String unit)
+            throws TimeoutException, InterruptedException {
+        receive(message, clientDeviceId, topicString, value, unit, false);
+    }
 
     /**
      * Verify is MQTT message is received in limited duration of time.
@@ -563,7 +587,6 @@ public class MqttControlSteps {
      * @throws InterruptedException then thread has been interrupted
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
-    @And("message {string} received on {string} from {string} topic within {int} {word} is {booleanValue} expected")
     public void receive(String message, String clientDeviceId, String topicString, int value,
                         String unit, Boolean isExpectedMessage)
                             throws TimeoutException, InterruptedException {
@@ -598,6 +621,16 @@ public class MqttControlSteps {
         if (!isExpectedMessage && !events.isEmpty()) {
             throw new RuntimeException("MQTT unexpected messages have been received");
         }
+    }
+
+    /**
+     * Clear message storage.
+     *
+     */
+    @And("I clear message storage")
+    public void clearStorage() {
+        eventStorage.clear();
+        log.info("Storage was cleared");
     }
 
     /**
@@ -664,7 +697,7 @@ public class MqttControlSteps {
         // do unsubscribe
         log.info("Create MQTT unsubscription for Thing {} to topics filter {}", clientDeviceThingName, filter);
 
-        MqttSubscribeReply mqttUnsubscribeReply = connectionControl.unsubscribeMqtt(filter);
+        MqttSubscribeReply mqttUnsubscribeReply = connectionControl.unsubscribeMqtt(txUserProperties, filter);
 
         List<Integer> reasons = mqttUnsubscribeReply.getReasonCodesList();
         if (reasons == null) {
@@ -709,15 +742,20 @@ public class MqttControlSteps {
         final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceThingName);
 
         // TODO: use values from scenario instead of defaults for keepAlive, cleanSession
-        return MqttConnectRequest.newBuilder()
+        MqttConnectRequest.Builder builder = MqttConnectRequest.newBuilder()
                                  .setClientId(clientDeviceThingName)
                                  .setHost(host)
                                  .setPort(port)
                                  .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
                                  .setCleanSession(DEFAULT_CONNECT_CLEAR_SESSION)
                                  .setTls(buildTlsSettings(thingSpec, caList))
-                                 .setProtocolVersion(version)
-                                 .build();
+                                 .setProtocolVersion(version);
+
+        if (txUserProperties != null) {
+             builder.addAllProperties(txUserProperties);
+        }
+
+        return builder.build();
     }
 
     private IotThingSpec getClientDeviceThingSpec(String clientDeviceThingName) {
@@ -858,12 +896,17 @@ public class MqttControlSteps {
 
     private Mqtt5Message buildMqtt5Message(int qos, boolean retain, @NonNull String topic, @NonNull String content) {
         MqttQoS mqttQoS = getMqttQoS(qos);
-        return Mqtt5Message.newBuilder()
+        Mqtt5Message.Builder builder = Mqtt5Message.newBuilder()
                             .setTopic(topic)
                             .setPayload(ByteString.copyFromUtf8(content))
                             .setQos(mqttQoS)
-                            .setRetain(retain)
-                            .build();
+                            .setRetain(retain);
+
+        if (txUserProperties != null) {
+             builder.addAllProperties(txUserProperties);
+        }
+
+        return builder.build();
     }
 
     private void initMqttVersions() {

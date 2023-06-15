@@ -165,7 +165,11 @@ class AgentTestScenario implements Runnable {
         } finally {
             if (connectionControl != null) {
                 // close MQTT connection
-                connectionControl.closeMqttConnection(DISCONNECT_REASON);
+                List<Mqtt5Properties> userProperties = null;
+                if (mqtt50) {
+                    userProperties = createMqtt5Properties();
+                }
+                connectionControl.closeMqttConnection(DISCONNECT_REASON, userProperties);
             }
             agentControl.shutdownAgent("That's it.");
         }
@@ -181,9 +185,12 @@ class AgentTestScenario implements Runnable {
                     .setKeepalive(KEEP_ALIVE)
                     .setCleanSession(CLEAN_SESSION)
                     .setTimeout(CONNECT_TIMEOUT)
-                    .addAllProperties(createMqtt5Properties())
                     .setProtocolVersion(mqtt50  ? MqttProtoVersion.MQTT_PROTOCOL_V_50
                                                 : MqttProtoVersion.MQTT_PROTOCOL_V_311);
+
+        if (mqtt50) {
+            builder.addAllProperties(createMqtt5Properties());
+        }
 
         if (useTLS) {
             TLSSettings tlsSettings = TLSSettings.newBuilder().addCaList(ca).setCert(cert).setKey(key).build();
@@ -198,8 +205,12 @@ class AgentTestScenario implements Runnable {
         Mqtt5Subscription subscription = createSubscription(SUBSCRIBE_FILTER, SUBSCRIBE_QOS, SUBSCRIBE_NO_LOCAL,
                                                             SUBSCRIBE_RETAIN_AS_PUBLISHED, SUBSCRIBE_RETAIN_HANDLING);
 
-        MqttSubscribeReply reply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, createMqtt5Properties(),
-                subscription);
+        List<Mqtt5Properties> userProperties = null;
+        if (mqtt50) {
+            userProperties = createMqtt5Properties();
+        }
+
+        MqttSubscribeReply reply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, userProperties, subscription);
         logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string '{}'",
                                 connectionControl.getConnectionId(),
                                 reply.getReasonCodesList(),
@@ -226,13 +237,15 @@ class AgentTestScenario implements Runnable {
     }
 
     private Mqtt5Message createPublishMessage(MqttQoS qos, boolean retain, String topic, byte[] data) {
-        return Mqtt5Message.newBuilder()
+        Mqtt5Message.Builder builder = Mqtt5Message.newBuilder()
                             .setTopic(topic)
                             .setPayload(ByteString.copyFrom(data))
                             .setQos(qos)
-                            .setRetain(retain)
-                            .addAllProperties(createMqtt5Properties())
-                            .build();
+                            .setRetain(retain);
+        if (mqtt50) {
+            builder.addAllProperties(createMqtt5Properties());
+        }
+        return builder.build();
     }
 
     private List<Mqtt5Properties> createMqtt5Properties() {
@@ -243,7 +256,11 @@ class AgentTestScenario implements Runnable {
     }
 
     private void testUnsubscribe(ConnectionControl connectionControl) {
-        MqttSubscribeReply reply = connectionControl.unsubscribeMqtt(SUBSCRIBE_FILTER);
+        List<Mqtt5Properties> userProperties = null;
+        if (mqtt50) {
+            userProperties = createMqtt5Properties();
+        }
+        MqttSubscribeReply reply = connectionControl.unsubscribeMqtt(userProperties, SUBSCRIBE_FILTER);
         logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string '{}'",
                             connectionControl.getConnectionId(), reply.getReasonCodesList(), reply.getReasonString());
     }

@@ -123,7 +123,7 @@ class ConnectionControlImplTest {
         when(agent.subscribeMqtt(any(MqttSubscribeRequest.class))).thenReturn(reply);
 
         // WHEN
-        final MqttSubscribeReply actual = connectionControl.subscribeMqtt(subscriptionId, null, subscription);
+        final MqttSubscribeReply actual = connectionControl.subscribeMqtt(subscriptionId, subscription);
 
         // THEN
         assertSame(reply, actual);
