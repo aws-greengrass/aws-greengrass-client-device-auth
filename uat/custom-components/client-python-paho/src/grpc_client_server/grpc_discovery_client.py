@@ -34,9 +34,7 @@ class GRPCDiscoveryClient:
         self.__channel = grpc.insecure_channel(address)
 
         try:
-            self.__stub = mqtt_client_control_pb2_grpc.MqttAgentDiscoveryStub(
-                self.__channel
-            )
+            self.__stub = mqtt_client_control_pb2_grpc.MqttAgentDiscoveryStub(self.__channel)
         except Exception as error:
             self.close()
             raise error
@@ -49,9 +47,7 @@ class GRPCDiscoveryClient:
         address - host of local gRPC service
         port of local gRPC service
         """
-        request = mqtt_client_control_pb2.DiscoveryRequest(
-            agentId=self.__agent_id, address=address, port=port
-        )
+        request = mqtt_client_control_pb2.DiscoveryRequest(agentId=self.__agent_id, address=address, port=port)
 
         try:
             self.__stub.DiscoveryAgent(request)
@@ -66,9 +62,7 @@ class GRPCDiscoveryClient:
         ----------
         Returns IP address of client as visible by server
         """
-        request = mqtt_client_control_pb2.RegisterRequest(
-            agentId=self.__agent_id
-        )
+        request = mqtt_client_control_pb2.RegisterRequest(agentId=self.__agent_id)
         reply = None
 
         try:
@@ -86,9 +80,7 @@ class GRPCDiscoveryClient:
         ----------
         reason - reason of unregistering
         """
-        request = mqtt_client_control_pb2.UnregisterRequest(
-            agentId=self.__agent_id, reason=reason
-        )
+        request = mqtt_client_control_pb2.UnregisterRequest(agentId=self.__agent_id, reason=reason)
         try:
             self.__stub.UnregisterAgent(request)
         except grpc.RpcError as error:

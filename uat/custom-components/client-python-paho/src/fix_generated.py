@@ -7,8 +7,6 @@
 import os
 import fileinput
 
-print(os.listdir(os.path.join(os.path.dirname(os.path.realpath(__file__)))))
-
 with fileinput.FileInput(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)),
@@ -20,8 +18,7 @@ with fileinput.FileInput(
         print(
             line.replace(
                 "import mqtt_client_control_pb2",
-                "import grpc_client_server."
-                "grpc_generated.mqtt_client_control_pb2",
+                "import grpc_client_server.grpc_generated.mqtt_client_control_pb2",
             ),
             end="",
         )

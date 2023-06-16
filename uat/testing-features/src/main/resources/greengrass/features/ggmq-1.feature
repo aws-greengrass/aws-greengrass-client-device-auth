@@ -243,6 +243,132 @@ Feature: GGMQ-1
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
 
+  @GGMQ-1-T9
+  Scenario Outline: GGMQ-1-T9-<mqtt-v>-<name>: As a customer,I can configure local MQTT messages to be forwarded to an IoT Core MQTT topic
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+    And I create client device "localMqttPublisher"
+    And I create client device "iotCoreSubscriber"
+    When I associate "localMqttPublisher" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${localMqttPublisher}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.Bridge configuration to:
+    """
+{
+    "MERGE":{
+        "mqttTopicMapping":{
+            "mapping1:":{
+                "topic":"${iotCoreSubscriber}topic/to/iotcore",
+                "source":"LocalMqtt",
+                "target":"IotCore"
+            },
+            "mapping2:":{
+                "topic":"${iotCoreSubscriber}topic/+/humidity",
+                "source":"LocalMqtt",
+                "target":"IotCore"
+            },
+            "mapping3:":{
+                "topic":"${iotCoreSubscriber}topic/device2/#",
+                "source":"LocalMqtt",
+                "target":"IotCore"
+            },
+            "mapping4:":{
+                "topic":"${iotCoreSubscriber}topic/with/prefix",
+                "source":"LocalMqtt",
+                "target":"IotCore",
+                "targetTopicPrefix":"prefix/"
+            }
+        }
+    }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 1 minutes
+
+    When I discover core device broker as "localBroker" from "localMqttPublisher" in OTF
+    And I label IoT Core broker as "iotCoreBroker"
+    And I connect device "localMqttPublisher" on <agent> to "localBroker" using mqtt "<mqtt-v>"
+    And I connect device "iotCoreSubscriber" on <agent> to "iotCoreBroker" using mqtt "<mqtt-v>"
+
+    And I subscribe "iotCoreSubscriber" to "${iotCoreSubscriber}topic/to/iotcore" with qos 1
+    And I subscribe "iotCoreSubscriber" to "${iotCoreSubscriber}topic/device2/#" with qos 1
+    And I subscribe "iotCoreSubscriber" to "${iotCoreSubscriber}topic/+/humidity" with qos 1
+    And I subscribe "iotCoreSubscriber" to "prefix/${iotCoreSubscriber}topic/with/prefix" with qos 1
+
+    When I publish from "localMqttPublisher" to "${iotCoreSubscriber}topic/to/iotcore" with qos 1 and message "Hello world1"
+    Then message "Hello world1" received on "iotCoreSubscriber" from "${iotCoreSubscriber}topic/to/iotcore" topic within 10 seconds
+
+    When I publish from "localMqttPublisher" to "${iotCoreSubscriber}topic/device1/humidity" with qos 1 and message "H=10%"
+    Then message "H=10%" received on "iotCoreSubscriber" from "${iotCoreSubscriber}topic/device1/humidity" topic within 10 seconds
+
+    When I publish from "localMqttPublisher" to "${iotCoreSubscriber}topic/device2/temperature" with qos 1 and message "T=100C"
+    Then message "T=100C" received on "iotCoreSubscriber" from "${iotCoreSubscriber}topic/device2/temperature" topic within 10 seconds
+
+    When I publish from "localMqttPublisher" to "${iotCoreSubscriber}topic/with/prefix" with qos 1 and message "Hello world2"
+    Then message "Hello world2" received on "iotCoreSubscriber" from "prefix/${iotCoreSubscriber}topic/with/prefix" topic within 10 seconds
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+
+    @mqtt3 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+
+    @mqtt5 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+
   @GGMQ-1-T13
   Scenario Outline: GGMQ-1-T13-<mqtt-v>-<name>: As a customer, I can connect two GGADs and send message from one GGAD to the other based on CDA configuration
     When I create a Greengrass deployment with components
