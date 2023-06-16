@@ -199,7 +199,7 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
         rc = mosquitto_connect_bind_v5(m_mosq, m_host.c_str(), m_port, m_keepalive, NULL, m_conn_properties);
         // rc = mosquitto_connect_bind_async(m_mosq, m_host.c_str(), m_port, m_keepalive, NULL);
         if (rc != MOSQ_ERR_SUCCESS) {
-            loge("mosquitto_connect_bind_async failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+            loge("mosquitto_connect_bind_v5 failed with code %d: %s\n", rc, mosquitto_strerror(rc));
             destroyLocked();
             throw MqttException("couldn't establish MQTT connection", rc);
         }
