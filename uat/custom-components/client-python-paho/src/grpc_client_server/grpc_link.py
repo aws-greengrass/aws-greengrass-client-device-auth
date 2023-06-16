@@ -9,6 +9,7 @@ from typing import List
 
 from grpc_client_server.grpc_control_server import GRPCControlServer
 from grpc_client_server.grpc_discovery_client import GRPCDiscoveryClient
+from mqtt_lib.mqtt_lib import MQTTLib
 from exceptions.grpc_exception import GRPCException
 
 AUTOSELECT_PORT = 0
@@ -18,7 +19,13 @@ class ClientConnectResult:  # pylint: disable=too-few-public-methods
     """Class container for connect results"""
 
     def __init__(self, client: GRPCDiscoveryClient, local_ip: str):
-        """Construct ClientConnectResult"""
+        """
+        Construct ClientConnectResult
+        Parameters
+        ----------
+        client - Discovery client object
+        local_ip - local client IP address
+        """
         self.client = client
         self.local_ip = local_ip
 
@@ -42,9 +49,7 @@ class GRPCLink:
         result = self.__make_clients_connection(agent_id, hosts, port)
         client = result.client
 
-        local_address = GRPCLink.build_address(
-            result.local_ip, AUTOSELECT_PORT
-        )
+        local_address = GRPCLink.build_address(result.local_ip, AUTOSELECT_PORT)
 
         self.__server = GRPCControlServer(client, local_address)
         self.__local_ip = result.local_ip
@@ -58,21 +63,16 @@ class GRPCLink:
         service_port = self.__server.get_port()
         self.__client.discovery_agent(self.__local_ip, service_port)
 
-    async def handle_requests(self) -> str:
+    async def handle_requests(self, mqtt_lib: MQTTLib) -> str:
         """
         Handle gRPC requests.
         Parameters
         ----------
-        TODO
         Returns shutdown reason
         """
         self.__logger.info("Handle gRPC requests")
-        await self.__server.wait()
-        return (
-            "Agent shutdown by OTF request '"
-            + self.__server.get_shutdown_reason()
-            + "'"
-        )
+        await self.__server.wait(mqtt_lib)
+        return "Agent shutdown by OTF request '" + self.__server.get_shutdown_reason() + "'"
 
     def shutdown(self, reason: str):
         """
@@ -97,9 +97,7 @@ class GRPCLink:
         """
         return host + ":" + str(port)
 
-    def __make_clients_connection(
-        self, agent_id: str, hosts: List[str], port: int
-    ):
+    def __make_clients_connection(self, agent_id: str, hosts: List[str], port: int):
         """
         Search for the available host.
         Parameters
@@ -122,8 +120,7 @@ class GRPCLink:
                 client = GRPCDiscoveryClient(agent_id, otf_address)
                 local_ip = client.register_agent()
                 self.__logger.info(
-                    "Client connection with Control is"
-                    " established, local address is %s",
+                    "Client connection with Control is established, local address is %s",
                     local_ip,
                 )
                 return ClientConnectResult(client, local_ip)

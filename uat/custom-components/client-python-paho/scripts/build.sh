@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+set -e
+
 STARTDIR=$(realpath "$(dirname "$0")")
 cd $STARTDIR/../src
 pip3 install virtualenv

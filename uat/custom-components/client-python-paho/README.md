@@ -2,9 +2,23 @@
 
 The controlled `test MQTT v5.0/v3.1.1 client` is based on Paho Python is used to test Greengrass v2 MQTT v5.0 compatibility.
 
+## Install Requirements
+
+Python 3.8+ has to be used.
+
+### Windows
+
+Install python https://www.python.org/downloads/
+
+### Linux
+
+```sh
+sudo apt-get install -y python3 python3-venv python3-pip
+```
+
 ## Setup
 
-Install requirements
+Install python requirements
 
 ```cmd
 pip install -r src/requirements.txt
@@ -78,4 +92,29 @@ Linux
 
 ```sh
 ./scripts/black_run.sh
+```
+
+## Build with maven
+
+For both Windows and Linux
+
+```sh
+mvn clean license:check package
+```
+The executable will apear in the client-python-paho directory
+
+Windows - "client-python-paho.exe"
+
+Run
+
+```cmd
+client-python-paho.exe paho-python-agent 47619 127.0.0.1
+```
+
+Linux - "client-python-paho"
+
+Run
+
+```sh
+./client-python-paho paho-python-agent 47619 127.0.0.1
 ```

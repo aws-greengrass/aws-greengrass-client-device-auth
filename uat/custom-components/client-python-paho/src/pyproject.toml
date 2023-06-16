@@ -1,0 +1,3 @@
+[tool.black]
+line-length = 120
+exclude="dev-env|grpc_client_server/grpc_generated"

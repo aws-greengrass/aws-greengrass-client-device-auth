@@ -13,6 +13,8 @@ from typing import List
 from logger_setup import logger_setup
 
 from grpc_client_server.grpc_lib import GRPCLib
+from mqtt_lib.mqtt_lib import MQTTLib
+from mqtt_lib.temp_files_manager import TempFilesManager
 from exceptions.client_exception import ClientException
 
 
@@ -58,23 +60,20 @@ class Main:
         parser = argparse.ArgumentParser()
         parser.add_argument(
             "agent_id",
-            help="<Required> identification string"
-            " for that agent for the control",
+            help="<Required> identification string" " for that agent for the control",
             type=str,
         )
         parser.add_argument(
             "port",
             nargs="?",
-            help="TCP port of gRPC service of the control."
-            f" Default value is {DEFAULT_GRPC_SERVER_PORT}",
+            help="TCP port of gRPC service of the control." f" Default value is {DEFAULT_GRPC_SERVER_PORT}",
             default=DEFAULT_GRPC_SERVER_PORT,
             type=int,
         )
         parser.add_argument(
             "ip",
             nargs="*",
-            help="IP address of gRPC service of the control."
-            f" Default value is {DEFAULT_GRPC_SERVER_IP}",
+            help="IP address of gRPC service of the control." f" Default value is {DEFAULT_GRPC_SERVER_IP}",
             default=DEFAULT_GRPC_SERVER_IP,
             type=str,
         )
@@ -85,15 +84,16 @@ class Main:
             raise TypeError("Invalid arguments") from error
 
         if (args.port < PORT_MIN) or (args.port > PORT_MAX):
-            raise TypeError(
-                "Invalid port value " + args.port + " , expected [1..65535]"
-            )
+            raise TypeError("Invalid port value " + args.port + " , expected [1..65535]")
 
         return Arguments(args.agent_id, args.ip, args.port)
 
-    async def do_all(self):
+    async def do_all(self, temp_files_manager: TempFilesManager):
         """
         Run program.
+        Parameters
+        ----------
+        temp_files_manager - Temp files manager
         """
         arguments = self.parse_args()
         grpc_lib = GRPCLib()
@@ -103,7 +103,8 @@ class Main:
             hosts=arguments.hosts,
         )
 
-        reason = await link.handle_requests()
+        mqtt_lib = MQTTLib(temp_files_manager)
+        reason = await link.handle_requests(mqtt_lib)
         link.shutdown(reason)
 
     async def main(self) -> int:
@@ -113,9 +114,10 @@ class Main:
         """
 
         exit_code = 0
+        temp_files_manager = TempFilesManager()
 
         try:
-            await self.do_all()
+            await self.do_all(temp_files_manager)
             self.__logger.info("Execution done successfully")
         except TypeError:
             self.__logger.exception("Invalid arguments")
@@ -127,6 +129,8 @@ class Main:
         except Exception:  # pylint: disable=broad-exception-caught
             self.__logger.exception("Exception")
             exit_code = 3
+        finally:
+            temp_files_manager.destroy_all_files()
 
         return exit_code
 
