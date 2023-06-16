@@ -24,11 +24,12 @@ class TempFilesManager:
         Returns new temp file path in system
         """
         new_file = tempfile.NamedTemporaryFile(mode="wt", delete=False)  # pylint: disable=consider-using-with
+
         try:
             new_file.write(data)
-        except Exception as error:  # pylint: disable=broad-exception-caught
+        finally:
             new_file.close()
-            raise error
+
         self.__temp_files.append(new_file.name)
 
         return new_file.name

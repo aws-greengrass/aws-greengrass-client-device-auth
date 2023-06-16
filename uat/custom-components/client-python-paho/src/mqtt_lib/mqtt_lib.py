@@ -67,7 +67,7 @@ class MQTTLib:
         connection_id - id of connection
         Returns MqttConnection on success or None when connection does not found
         """
-        return self.__connections.get(connection_id, None)
+        return self.__connections.get(connection_id)
 
     def unregister_connection(self, connection_id: int) -> MqttConnection:
         """
