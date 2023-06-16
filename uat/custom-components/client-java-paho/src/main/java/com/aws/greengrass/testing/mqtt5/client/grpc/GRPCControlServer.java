@@ -330,7 +330,7 @@ class GRPCControlServer {
 
             logger.atInfo().log("closeMqttConnection: connectionId {} reason {}", connectionId, reason);
             try {
-                connection.disconnect(timeout, reason);
+                connection.disconnect(timeout, reason, request.getPropertiesList());
             } catch (MqttException ex) {
                 logger.atError().withThrowable(ex).log("exception during disconnect");
                 responseObserver.onError(ex);
