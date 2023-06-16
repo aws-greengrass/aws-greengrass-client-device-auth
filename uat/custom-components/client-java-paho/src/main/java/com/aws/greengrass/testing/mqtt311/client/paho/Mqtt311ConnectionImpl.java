@@ -64,6 +64,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     @Override
     public ConnectResult start(MqttLib.ConnectionParams connectionParams, int connectionId) throws MqttException {
+        checkUserProperties(connectionParams.getUserProperties());
         this.connectionId = connectionId;
         try {
             MqttConnectOptions connectOptions = convertParams(connectionParams);
@@ -83,6 +84,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     @Override
     public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
                                         List<Mqtt5Properties> userProperties) {
+        checkUserProperties(userProperties);
         String[] filters = new String[subscriptions.size()];
         int[] qos = new int[subscriptions.size()];
         MqttMessageListener[] messageListeners = new MqttMessageListener[subscriptions.size()];
@@ -104,7 +106,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public void disconnect(long timeout, int reasonCode) throws MqttException {
+    public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
+        checkUserProperties(userProperties);
         if (!isClosing.getAndSet(true)) {
             try {
                 disconnectAndClose(timeout);
@@ -116,6 +119,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     @Override
     public MqttPublishReply publish(long timeout, @NonNull Message message) {
+        checkUserProperties(message.getUserProperties());
+
         MqttMessage mqttMessage = new MqttMessage();
         mqttMessage.setQos(message.getQos());
         mqttMessage.setPayload(message.getPayload());
@@ -138,6 +143,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     @Override
     public MqttSubscribeReply unsubscribe(long timeout, @NonNull List<String> filters,
                                           List<Mqtt5Properties> userProperties) {
+        checkUserProperties(userProperties);
         String[] filterArray = new String[filters.size()];
         for (int i = 0; i < filters.size(); i++) {
             filterArray[i] = filters.get(i);
@@ -201,6 +207,12 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
                         connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
             });
+        }
+    }
+
+    private void checkUserProperties(List<Mqtt5Properties> userProperties) {
+        if (userProperties != null && !userProperties.isEmpty()) {
+            logger.warn("MQTT V3 doesn't support user properties");
         }
     }
 }

@@ -95,21 +95,6 @@ public interface MqttConnection {
     }
 
     /**
-     * Useful information from SUBACK packet.
-     */
-    @Getter
-    @AllArgsConstructor
-    class SubAckInfo {
-        /** Reason codes. */
-        private List<Integer> reasonCodes;
-
-        private String reasonString;
-
-        /** User properties. */
-        private List<Mqtt5Properties>  userProperties;
-    }
-
-    /**
      * Contains information about publishing MQTT v5.0 message.
      */
     @Getter
@@ -134,17 +119,6 @@ public interface MqttConnection {
     }
 
     /**
-     * Useful information from UNSUBACK packet.
-     * Actually is the same as SubAckInfo.
-     */
-    class UnsubAckInfo extends SubAckInfo {
-        public UnsubAckInfo(List<Integer> reasonCodes, String reasonString, List<Mqtt5Properties>  userProperties) {
-            super(reasonCodes, reasonString, userProperties);
-        }
-    }
-
-
-    /**
      * Starts MQTT connection.
      *
      * @param connectionParams connect parameters
@@ -159,7 +133,7 @@ public interface MqttConnection {
      *
      * @param timeout subscribe operation timeout in seconds
      * @param subscriptions list of subscriptions
-     * @param userProperties  Map of user's properties MQTT v5.0
+     * @param userProperties  list of user's properties MQTT v5.0
      * @return useful information from SUBACK packet
      */
     MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
@@ -170,9 +144,10 @@ public interface MqttConnection {
      *
      * @param timeout disconnect operation timeout in seconds
      * @param reasonCode reason why connection is closed
+     * @param userProperties  list of user's properties MQTT v5.0
      * @exception MqttException on errors
      */
-    void disconnect(long timeout, int reasonCode) throws MqttException;
+    void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException;
 
     /**
      * Publishes MQTT message.

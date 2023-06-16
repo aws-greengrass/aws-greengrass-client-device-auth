@@ -57,6 +57,7 @@ Feature: GGMQ-1
 
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
     And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
     And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
@@ -200,7 +201,7 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
-    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 60 seconds
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 1 minutes
 
     Then I discover core device broker as "default_broker" from "publisher" in OTF
     And I connect device "publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
@@ -305,6 +306,7 @@ Feature: GGMQ-1
 
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
     And I discover core device broker as "default_broker" from "publisher" in OTF
     And I connect device "publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
@@ -496,7 +498,7 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
-    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 60 seconds
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 1 minutes
 
     When I discover core device broker as "localBroker" from "localMqttSubscriber" in OTF
     And I label IoT Core broker as "iotCoreBroker"
@@ -612,7 +614,7 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
-    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 60 seconds
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 1 minutes
 
     Then I discover core device broker as "default_broker" from "subscriber" in OTF
     And I connect device "subscriber" on <agent> to "default_broker" using mqtt "<mqtt-v>"
@@ -720,6 +722,7 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
     Then I discover core device broker as "localMqttBroker1" from "publisher" in OTF
     Then I discover core device broker as "localMqttBroker2" from "subscriber" in OTF
@@ -804,7 +807,8 @@ Feature: GGMQ-1
 }
     """
     And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 300 seconds
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
     Then I discover core device broker as "localMqttBroker1" from "publisher" in OTF
     Then I discover core device broker as "localMqttBroker2" from "subscriber" in OTF

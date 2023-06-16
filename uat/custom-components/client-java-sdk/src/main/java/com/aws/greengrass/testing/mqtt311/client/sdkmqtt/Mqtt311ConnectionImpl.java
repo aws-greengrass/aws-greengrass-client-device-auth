@@ -139,6 +139,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     @Override
     public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
 
+        checkUserProperties(userProperties);
         if (!isClosing.getAndSet(true)) {
             CompletableFuture<Void> disconnnectFuture = connection.disconnect();
             try {
@@ -175,6 +176,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                     throws MqttException {
 
         stateCheck();
+        checkUserProperties(message.getUserProperties());
 
         final QualityOfService qos = QualityOfService.getEnumValueFromInteger(message.getQos());
         final String topic = message.getTopic();
@@ -202,6 +204,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             throws MqttException {
 
         stateCheck();
+        checkUserProperties(userProperties);
 
         if (subscriptionId != null) {
             throw new IllegalArgumentException("MQTT v3.1.1 doesn't support subscription id");
@@ -238,6 +241,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             throws MqttException {
 
         stateCheck();
+        checkUserProperties(userProperties);
 
         if (filters.size() != 1) {
             throw new IllegalArgumentException("Iot device SDK MQTT v3.1.1 client does not support to unsubscribe from "
@@ -270,6 +274,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
      * @throws MqttException on errors
      */
     private MqttClientConnection createConnection(MqttLib.ConnectionParams connectionParams) throws MqttException {
+        checkUserProperties(connectionParams.getUserProperties());
 
         try (AwsIotMqttConnectionBuilder builder = getConnectionBuilder(connectionParams)) {
             builder.withEndpoint(connectionParams.getHost())
@@ -339,5 +344,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static ConnectResult buildConnectResult(boolean success, Boolean sessionPresent) {
         ConnAckInfo connAckInfo = new ConnAckInfo(sessionPresent);
         return new ConnectResult(success, connAckInfo, null);
+    }
+
+    private void checkUserProperties(List<Mqtt5Properties> userProperties) {
+        if (userProperties != null && !userProperties.isEmpty()) {
+            logger.warn("MQTT V3 doesn't support user properties");
+        }
     }
 }

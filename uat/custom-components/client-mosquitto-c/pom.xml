@@ -74,6 +74,7 @@
                             <useDefaultExcludes>true</useDefaultExcludes>
                             <excludes>
                                 <exclude>*</exclude>
+                                <exclude>build/**</exclude>
                             </excludes>
                         </licenseSet>
                     </licenseSets>
