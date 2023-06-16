@@ -119,7 +119,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         self.unblock_wait()
         return Empty()
 
-    async def CreateMqttConnection(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+    async def CreateMqttConnection(
         self, request: MqttConnectRequest, context: grpc.aio.ServicerContext
     ) -> MqttConnectReply:
         """
@@ -131,54 +131,12 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         context - request context
         Returns MqttConnectReply object
         """
-        client_id = request.clientId
-        if (client_id is None) or (len(client_id) == 0):
-            self.__logger.warning("CreateMqttConnection: clientId can't be empty")
-            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "clientId can't be empty")
-
-        host = request.host
-        if (host is None) or (len(host) == 0):
-            self.__logger.warning("CreateMqttConnection: host can't be empty")
-            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "host can't be empty")
-
-        port = request.port
-        if (port < PORT_MIN) or (port > PORT_MAX):
-            self.__logger.warning(
-                "CreateMqttConnection: invalid port %i, must be in range [%i, %i]", port, PORT_MIN, PORT_MAX
-            )
-            await context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, f"invalid port, must be in range [{PORT_MIN}, {PORT_MAX}]"
-            )
+        await self.__check_connect_request(request, context)
 
         mqtt_v5 = False
-        version = request.protocolVersion
 
-        if version == MqttProtoVersion.MQTT_PROTOCOL_V_50:
+        if request.protocolVersion == MqttProtoVersion.MQTT_PROTOCOL_V_50:
             mqtt_v5 = True
-        elif version != MqttProtoVersion.MQTT_PROTOCOL_V_311:
-            self.__logger.warning(
-                "CreateMqttConnection: MQTT_PROTOCOL_V_311 or MQTT_PROTOCOL_V_50 are only supported but %i requested",
-                version,
-            )
-            await context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT,
-                "invalid protocolVersion, only MQTT_PROTOCOL_V_311 and MQTT_PROTOCOL_V_50 are supported",
-            )
-
-        keep_alive = request.keepalive
-        if (keep_alive != KEEPALIVE_OFF) and ((keep_alive < KEEPALIVE_MIN) or (keep_alive > KEEPALIVE_MAX)):
-            self.__logger.warning(
-                "CreateMqttConnection: invalid keepalive, must be in range [%i, %i]", KEEPALIVE_MIN, KEEPALIVE_MAX
-            )
-            await context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT,
-                f"invalid keepalive, must be in range [{KEEPALIVE_MIN}, {KEEPALIVE_MAX}]",
-            )
-
-        timeout = request.timeout
-        if timeout < TIMEOUT_MIN:
-            self.__logger.warning("CreateMqttConnection: invalid timeout, must be at least %i second\n", TIMEOUT_MIN)
-            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, f"invalid timeout, must be at least {TIMEOUT_MIN}")
 
         ca_cert = None
         cert = None
@@ -189,25 +147,27 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             cert = tls_settings.cert
             key = tls_settings.key
 
-            if len(ca_cert) == 0:
+            if not ca_cert:
                 self.__logger.warning("CreateMqttConnection: ca is empty")
                 await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "CA list is empty")
 
-            if len(cert) == 0:
+            if not cert:
                 self.__logger.warning("CreateMqttConnection: cert is empty")
                 await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "cert is empty")
 
-            if len(key) == 0:
+            if not key:
                 self.__logger.warning("CreateMqttConnection: key is empty")
                 await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "key is empty")
 
-        self.__logger.info("createMqttConnection: clientId %s broker %s:%i", client_id, host, port)
+        self.__logger.info(
+            "createMqttConnection: clientId %s broker %s:%i", request.clientId, request.host, request.port
+        )
 
         connection_params = ConnectionParams(
-            client_id=client_id,
-            host=host,
-            port=port,
-            keep_alive=keep_alive,
+            client_id=request.clientId,
+            host=request.host,
+            port=request.port,
+            keep_alive=request.keepalive,
             clean_session=request.cleanSession,
             mqtt50=mqtt_v5,
             ca_cert=ca_cert,
@@ -219,14 +179,13 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             connection = self.__mqtt_lib.create_connection(
                 connection_params=connection_params, grpc_client=self.__client
             )
-            connection_id = self.__mqtt_lib.register_connection(connection)
-            connect_result = await connection.start(timeout)
+            mqtt_connection_id = MqttConnectionId(connectionId=self.__mqtt_lib.register_connection(connection))
+            connect_result = await connection.start(request.timeout)
 
             mqtt_conn_ack = None
             if connect_result.conn_ack_info is not None:
                 mqtt_conn_ack = GRPCControlServer.convert_conn_ack(conn_ack_info=connect_result.conn_ack_info)
 
-            mqtt_connection_id = MqttConnectionId(connectionId=connection_id)
             connect_reply = MqttConnectReply(
                 connected=connect_result.connected, connectionId=mqtt_connection_id, connAck=mqtt_conn_ack
             )
@@ -304,8 +263,58 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         self.__logger.info("UnsubscribeRequest Placeholder TODO")
         return MqttSubscribeReply()
 
+    async def __check_connect_request(self, request: MqttConnectRequest, context: grpc.aio.ServicerContext):
+        """
+        Check that mqtt connect request is correct.
+        Parameters
+        ----------
+        request - incoming request
+        context - request context
+        Returns MqttConnectReply object
+        """
+        if (request.clientId is None) or not request.clientId:
+            self.__logger.warning("CreateMqttConnection: clientId can't be empty")
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "clientId can't be empty")
+
+        if (request.host is None) or not request.host:
+            self.__logger.warning("CreateMqttConnection: host can't be empty")
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "host can't be empty")
+
+        if (request.port < PORT_MIN) or (request.port > PORT_MAX):
+            self.__logger.warning(
+                "CreateMqttConnection: invalid port %i, must be in range [%i, %i]", request.port, PORT_MIN, PORT_MAX
+            )
+            await context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, f"invalid port, must be in range [{PORT_MIN}, {PORT_MAX}]"
+            )
+
+        if request.protocolVersion not in (MqttProtoVersion.MQTT_PROTOCOL_V_311, MqttProtoVersion.MQTT_PROTOCOL_V_50):
+            self.__logger.warning(
+                "CreateMqttConnection: MQTT_PROTOCOL_V_311 or MQTT_PROTOCOL_V_50 are only supported but %i requested",
+                request.protocolVersion,
+            )
+            await context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                "invalid protocolVersion, only MQTT_PROTOCOL_V_311 and MQTT_PROTOCOL_V_50 are supported",
+            )
+
+        if (request.keepalive != KEEPALIVE_OFF) and (
+            (request.keepalive < KEEPALIVE_MIN) or (request.keepalive > KEEPALIVE_MAX)
+        ):
+            self.__logger.warning(
+                "CreateMqttConnection: invalid keepalive, must be in range [%i, %i]", KEEPALIVE_MIN, KEEPALIVE_MAX
+            )
+            await context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"invalid keepalive, must be in range [{KEEPALIVE_MIN}, {KEEPALIVE_MAX}]",
+            )
+
+        if request.timeout < TIMEOUT_MIN:
+            self.__logger.warning("CreateMqttConnection: invalid timeout, must be at least %i second\n", TIMEOUT_MIN)
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, f"invalid timeout, must be at least {TIMEOUT_MIN}")
+
     @staticmethod
-    def convert_conn_ack(conn_ack_info: ConnAckInfo) -> Mqtt5ConnAck:  # pylint: disable=too-many-branches
+    def convert_conn_ack(conn_ack_info: ConnAckInfo) -> Mqtt5ConnAck:
         """
         Convert ConnAck info to Mqtt5ConnAck
         Parameters
@@ -313,51 +322,22 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         conn_ack_info - ConnAckInfo object
         Returns Mqtt5ConnAck object
         """
-        conn_ack = Mqtt5ConnAck()
-
-        if conn_ack_info.session_present is not None:
-            conn_ack.sessionPresent = conn_ack_info.session_present
-
-        if conn_ack_info.reason_code is not None:
-            conn_ack.reasonCode = conn_ack_info.reason_code
-
-        if conn_ack_info.session_expiry_interval is not None:
-            conn_ack.sessionExpiryInterval = conn_ack_info.session_expiry_interval
-
-        if conn_ack_info.maximum_qos is not None:
-            conn_ack.maximumQoS = conn_ack_info.maximum_qos
-
-        if conn_ack_info.retain_available is not None:
-            conn_ack.retainAvailable = conn_ack_info.retain_available
-
-        if conn_ack_info.maximum_packet_size is not None:
-            conn_ack.maximumPacketSize = conn_ack_info.maximum_packet_size
-
-        if conn_ack_info.assigned_client_id is not None:
-            conn_ack.assignedClientId = conn_ack_info.assigned_client_id
-
-        if conn_ack_info.reason_string is not None:
-            conn_ack.reasonString = conn_ack_info.reason_string
-
-        if conn_ack_info.wildcard_subscriptions_available is not None:
-            conn_ack.wildcardSubscriptionsAvailable = conn_ack_info.wildcard_subscriptions_available
-
-        if conn_ack_info.subscription_identifiers_available is not None:
-            conn_ack.subscriptionIdentifiersAvailable = conn_ack_info.subscription_identifiers_available
-
-        if conn_ack_info.shared_subscriptions_available is not None:
-            conn_ack.sharedSubscriptionsAvailable = conn_ack_info.shared_subscriptions_available
-
-        if conn_ack_info.server_keep_alive is not None:
-            conn_ack.serverKeepAlive = conn_ack_info.server_keep_alive
-
-        if conn_ack_info.response_information is not None:
-            conn_ack.responseInformation = conn_ack_info.response_information
-
-        if conn_ack_info.server_reference is not None:
-            conn_ack.serverReference = conn_ack_info.server_reference
-
-        if conn_ack_info.topic_alias_maximum is not None:
-            conn_ack.topicAliasMaximum = conn_ack_info.topic_alias_maximum
+        conn_ack = Mqtt5ConnAck(
+            sessionPresent=conn_ack_info.session_present,
+            reasonCode=conn_ack_info.reason_code,
+            sessionExpiryInterval=conn_ack_info.session_expiry_interval,
+            maximumQoS=conn_ack_info.maximum_qos,
+            retainAvailable=conn_ack_info.retain_available,
+            maximumPacketSize=conn_ack_info.maximum_packet_size,
+            assignedClientId=conn_ack_info.assigned_client_id,
+            reasonString=conn_ack_info.reason_string,
+            wildcardSubscriptionsAvailable=conn_ack_info.wildcard_subscriptions_available,
+            subscriptionIdentifiersAvailable=conn_ack_info.subscription_identifiers_available,
+            sharedSubscriptionsAvailable=conn_ack_info.shared_subscriptions_available,
+            serverKeepAlive=conn_ack_info.server_keep_alive,
+            responseInformation=conn_ack_info.response_information,
+            serverReference=conn_ack_info.server_reference,
+            topicAliasMaximum=conn_ack_info.topic_alias_maximum,
+        )
 
         return conn_ack
