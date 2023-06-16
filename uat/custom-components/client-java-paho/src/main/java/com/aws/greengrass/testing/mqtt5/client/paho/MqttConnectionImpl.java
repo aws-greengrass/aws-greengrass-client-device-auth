@@ -141,16 +141,25 @@ public class MqttConnectionImpl implements MqttConnection {
         mqttMessage.setQos(message.getQos());
         mqttMessage.setPayload(message.getPayload());
         mqttMessage.setRetained(message.isRetain());
+
         if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
             MqttProperties properties = new MqttProperties();
             properties.setUserProperties(convertToUserProperties(message.getUserProperties()));
             mqttMessage.setProperties(properties);
         }
+
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
         try {
             IMqttToken response = client.publish(message.getTopic(), mqttMessage);
             response.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
-            builder.setReasonCode(0);
+
+            if (response.getReasonCodes().length > 0) {
+                builder.setReasonCode(response.getReasonCodes()[0]);
+            } else {
+                logger.error("Publish response doesn't have reason code");
+                throw new RuntimeException("Publish response doesn't have reason code");
+            }
+
             MqttProperties responseProps = response.getResponseProperties();
             if (responseProps != null) {
                 if (responseProps.getReasonString() != null) {
@@ -177,14 +186,17 @@ public class MqttConnectionImpl implements MqttConnection {
         for (int i = 0; i < filters.size(); i++) {
             filterArray[i] = filters.get(i);
         }
+
         MqttProperties properties = new MqttProperties();
         if (userProperties != null && !userProperties.isEmpty()) {
             properties.setUserProperties(convertToUserProperties(userProperties));
         }
+
         MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
         try {
             IMqttToken token = client.unsubscribe(filterArray, null, null, properties);
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
+
             int[] reasonCodes = token.getReasonCodes();
             if (reasonCodes.length > 0) {
                 List<Integer> reasonCodeList = new ArrayList<>();
@@ -193,6 +205,7 @@ public class MqttConnectionImpl implements MqttConnection {
                 }
                 builder.addAllReasonCodes(reasonCodeList);
             }
+
             if (token.getResponseProperties() != null) {
                 if (token.getResponseProperties().getReasonString() != null) {
                     builder.setReasonString(token.getResponseProperties().getReasonString());
