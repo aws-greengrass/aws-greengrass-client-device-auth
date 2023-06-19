@@ -153,11 +153,10 @@ public class MqttConnectionImpl implements MqttConnection {
             IMqttToken response = client.publish(message.getTopic(), mqttMessage);
             response.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
 
-            if (response.getReasonCodes().length > 0) {
+            if (response.getReasonCodes() != null && response.getReasonCodes().length > 0) {
                 builder.setReasonCode(response.getReasonCodes()[0]);
             } else {
-                logger.error("Publish response doesn't have reason code");
-                throw new RuntimeException("Publish response doesn't have reason code");
+                builder.setReasonCode(0);
             }
 
             MqttProperties responseProps = response.getResponseProperties();
