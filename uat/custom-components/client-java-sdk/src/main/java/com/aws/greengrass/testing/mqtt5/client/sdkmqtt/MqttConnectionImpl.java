@@ -233,9 +233,13 @@ public class MqttConnectionImpl implements MqttConnection {
                     = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
             DisconnectPacket.DisconnectPacketBuilder disconnectBuilder = new DisconnectPacket.DisconnectPacketBuilder()
                     .withReasonCode(disconnectReason);
+
             if (userProperties != null && !userProperties.isEmpty()) {
                 disconnectBuilder.withUserProperties(convertToUserProperties(userProperties));
+                userProperties.forEach(p -> logger.atInfo()
+                        .log("Disconnect MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
             }
+
             client.stop(disconnectBuilder.build());
 
             try {
@@ -283,9 +287,14 @@ public class MqttConnectionImpl implements MqttConnection {
                                             .withQOS(qosEnum)
                                             .withRetain(message.isRetain())
                                             .withPayload(message.getPayload());
+
         if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
+            List<UserProperty> userProperties = convertToUserProperties(message.getUserProperties());
             publishPacket.withUserProperties(convertToUserProperties(message.getUserProperties()));
+            userProperties.forEach(p -> logger.atInfo()
+                    .log("Publish MQTT userProperties: {}, {}", p.key, p.value));
         }
+
         CompletableFuture<PublishResult> publishFuture = client.publish(publishPacket.build());
         try {
             PublishResult publishResult = publishFuture.get(timeout, TimeUnit.SECONDS);
@@ -319,6 +328,8 @@ public class MqttConnectionImpl implements MqttConnection {
                                     handling);
             if (userProperties != null && !userProperties.isEmpty()) {
                 builder.withUserProperties(convertToUserProperties(userProperties));
+                userProperties.forEach(p -> logger.atInfo()
+                        .log("Subscribe MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
             }
         }
 
@@ -344,6 +355,8 @@ public class MqttConnectionImpl implements MqttConnection {
         UnsubscribePacket.UnsubscribePacketBuilder builder = new UnsubscribePacket.UnsubscribePacketBuilder();
         if (userProperties != null && !userProperties.isEmpty()) {
             builder.withUserProperties(convertToUserProperties(userProperties));
+            userProperties.forEach(p -> logger.atInfo()
+                    .log("Unsubscribe MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
         }
         filters.forEach(builder::withSubscription);
 
@@ -368,8 +381,11 @@ public class MqttConnectionImpl implements MqttConnection {
             ConnectPacket.ConnectPacketBuilder connectProperties = new ConnectPacket.ConnectPacketBuilder()
                 .withClientId(connectionParams.getClientId())
                 .withKeepAliveIntervalSeconds(Long.valueOf(connectionParams.getKeepalive()));
+
             if (connectionParams.getUserProperties() != null && !connectionParams.getUserProperties().isEmpty()) {
-                connectProperties.withUserProperties(convertToUserProperties(connectionParams.getUserProperties()));
+                List<UserProperty> userProperties = convertToUserProperties(connectionParams.getUserProperties());
+                userProperties.forEach(p -> logger.atInfo()
+                        .log("Connect MQTT userProperties: {}, {}", p.key, p.value));
             }
 
             ClientSessionBehavior clientSessionBehavior = connectionParams.isCleanSession()
@@ -445,10 +461,14 @@ public class MqttConnectionImpl implements MqttConnection {
         }
 
         ConnAckPacket.ConnectReasonCode reasonCode = packet.getReasonCode();
+
         List<Mqtt5Properties> userProperties = null;
         if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
             userProperties = convertToMqtt5Properties(packet.getUserProperties());
+            userProperties.forEach(p -> logger.atInfo()
+                    .log("ConnAck MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
         }
+
         QOS maximumQOS = packet.getMaximumQOS();
         return new ConnAckInfo(packet.getSessionPresent(),
                                 reasonCode == null ? null : reasonCode.getValue(),
@@ -486,10 +506,14 @@ public class MqttConnectionImpl implements MqttConnection {
         if (codes != null) {
             resultCodes = codes.stream().map(c -> c == null ? null : c.getValue()).collect(Collectors.toList());
         }
+
         List<Mqtt5Properties> userProperties = null;
         if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
             userProperties = convertToMqtt5Properties(packet.getUserProperties());
+            userProperties.forEach(p -> logger.atInfo()
+                    .log("SubAck MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
         }
+
         return new SubAckInfo(resultCodes, packet.getReasonString(), userProperties);
     }
 
@@ -503,10 +527,14 @@ public class MqttConnectionImpl implements MqttConnection {
         if (codes != null) {
             resultCodes = codes.stream().map(c -> c == null ? null : c.getValue()).collect(Collectors.toList());
         }
+
         List<Mqtt5Properties> userProperties = null;
         if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
             userProperties = convertToMqtt5Properties(packet.getUserProperties());
+            userProperties.forEach(p -> logger.atInfo()
+                    .log("UnsubAck MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
         }
+
         return new UnsubAckInfo(resultCodes, packet.getReasonString(), userProperties);
     }
 
@@ -519,10 +547,14 @@ public class MqttConnectionImpl implements MqttConnection {
             return null;
         }
         PubAckPacket.PubAckReasonCode reasonCode = pubAckPacket.getReasonCode();
+
         List<Mqtt5Properties> userProperties = null;
         if (pubAckPacket.getUserProperties() != null && !pubAckPacket.getUserProperties().isEmpty()) {
             userProperties = convertToMqtt5Properties(pubAckPacket.getUserProperties());
+            userProperties.forEach(p -> logger.atInfo()
+                    .log("PUBACK MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
         }
+
         return new PubAckInfo(reasonCode == null ? null : reasonCode.getValue(), pubAckPacket.getReasonString(),
                 userProperties);
     }
@@ -534,6 +566,8 @@ public class MqttConnectionImpl implements MqttConnection {
         List<Mqtt5Properties> userProperties = null;
         if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
             userProperties = convertToMqtt5Properties(packet.getUserProperties());
+            userProperties.forEach(p -> logger.atInfo()
+                    .log("Disconnect MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
         }
 
         DisconnectPacket.DisconnectReasonCode reasonCode = packet.getReasonCode();
