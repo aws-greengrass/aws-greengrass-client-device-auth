@@ -263,7 +263,6 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_UNSUBSCRIBING);
             throw new MqttException(EXCEPTION_WHEN_UNSUBSCRIBING, ex);
         }
-
     }
 
     /**
