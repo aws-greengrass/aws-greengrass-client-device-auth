@@ -167,7 +167,7 @@ class AgentTestScenario implements Runnable {
                 // close MQTT connection
                 List<Mqtt5Properties> userProperties = null;
                 if (mqtt50) {
-                    userProperties = createMqtt5Properties();
+                    userProperties = createMqtt5Properties("Disconnect");
                 }
                 connectionControl.closeMqttConnection(DISCONNECT_REASON, userProperties);
             }
@@ -189,7 +189,7 @@ class AgentTestScenario implements Runnable {
                                                 : MqttProtoVersion.MQTT_PROTOCOL_V_311);
 
         if (mqtt50) {
-            builder.addAllProperties(createMqtt5Properties());
+            builder.addAllProperties(createMqtt5Properties("Connect"));
         }
 
         if (useTLS) {
@@ -207,7 +207,7 @@ class AgentTestScenario implements Runnable {
 
         List<Mqtt5Properties> userProperties = null;
         if (mqtt50) {
-            userProperties = createMqtt5Properties();
+            userProperties = createMqtt5Properties("Subscribe");
         }
 
         MqttSubscribeReply reply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, userProperties, subscription);
@@ -243,22 +243,24 @@ class AgentTestScenario implements Runnable {
                             .setQos(qos)
                             .setRetain(retain);
         if (mqtt50) {
-            builder.addAllProperties(createMqtt5Properties());
+            builder.addAllProperties(createMqtt5Properties("Publish"));
         }
         return builder.build();
     }
 
-    private List<Mqtt5Properties> createMqtt5Properties() {
+    private List<Mqtt5Properties> createMqtt5Properties(String commandName) {
         List<Mqtt5Properties> properties = new ArrayList<>();
         properties.add(Mqtt5Properties.newBuilder().setKey("region").setValue("US").build());
         properties.add(Mqtt5Properties.newBuilder().setKey("type").setValue("JSON").build());
+        properties.forEach(p -> logger.atInfo()
+                .log("{} MQTT userProperties: {}, {}", commandName, p.getKey(), p.getValue()));
         return properties;
     }
 
     private void testUnsubscribe(ConnectionControl connectionControl) {
         List<Mqtt5Properties> userProperties = null;
         if (mqtt50) {
-            userProperties = createMqtt5Properties();
+            userProperties = createMqtt5Properties("Unsubscribe");
         }
         MqttSubscribeReply reply = connectionControl.unsubscribeMqtt(userProperties, SUBSCRIBE_FILTER);
         logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string '{}'",
