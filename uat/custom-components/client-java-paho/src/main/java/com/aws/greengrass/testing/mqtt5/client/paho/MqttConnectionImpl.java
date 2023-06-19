@@ -49,6 +49,7 @@ public class MqttConnectionImpl implements MqttConnection {
     private final IMqttAsyncClient client;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private int connectionId = 0;
+    static final int REASON_CODE_SUCCESS = 0;
     private static final long QUIESCE_TIMEOUT = 30_000L;
 
     /**
@@ -153,11 +154,10 @@ public class MqttConnectionImpl implements MqttConnection {
             IMqttToken response = client.publish(message.getTopic(), mqttMessage);
             response.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
 
-            if (response.getReasonCodes().length > 0) {
+            if (response.getReasonCodes() != null && response.getReasonCodes().length > 0) {
                 builder.setReasonCode(response.getReasonCodes()[0]);
             } else {
-                logger.error("Publish response doesn't have reason code");
-                throw new RuntimeException("Publish response doesn't have reason code");
+                builder.setReasonCode(REASON_CODE_SUCCESS);
             }
 
             MqttProperties responseProps = response.getResponseProperties();
