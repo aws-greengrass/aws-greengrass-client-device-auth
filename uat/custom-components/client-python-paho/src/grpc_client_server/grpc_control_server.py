@@ -39,6 +39,9 @@ KEEPALIVE_MAX = 65_535
 
 TIMEOUT_MIN = 1
 
+REASON_MIN = 0
+REASON_MAX = 255
+
 
 class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
     """Implementation of gRPC server handles requests of OTF."""
@@ -225,8 +228,33 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         context - request context
         Returns Empty object
         """
-        # TODO
-        self.__logger.info("CloseMqttConnection Placeholder TODO")
+        timeout = request.timeout
+        if timeout < TIMEOUT_MIN:
+            self.__logger.warning("CloseMqttConnection: invalid timeout, must be at least %i second", TIMEOUT_MIN)
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, f"invalid timeout, must be at least {TIMEOUT_MIN}")
+
+        reason = request.reason
+        if (reason < REASON_MIN) or (reason > REASON_MAX):
+            self.__logger.warning("CloseMqttConnection: invalid disconnect reason %i", reason)
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "invalid disconnect reason")
+
+        connection_id = request.connectionId.connectionId
+        self.__logger.info("CloseMqttConnection connection_id %i reason %i", connection_id, reason)
+
+        # TODO add properties handling
+
+        connection = self.__mqtt_lib.unregister_connection(connection_id)
+        if connection is None:
+            self.__logger.warning("CloseMqttConnection: connection with id %i doesn't found", connection_id)
+            await context.abort(grpc.StatusCode.NOT_FOUND, "invalid disconnect reason")
+
+        try:
+            await connection.disconnect(timeout=timeout, reason=reason)
+            return Empty()
+        except MQTTException as error:
+            self.__logger.warning("CloseMqttConnection: exception during disconnecting")
+            await context.abort(grpc.StatusCode.INTERNAL, str(error))
+
         return Empty()
 
     async def SubscribeMqtt(
@@ -310,7 +338,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             )
 
         if request.timeout < TIMEOUT_MIN:
-            self.__logger.warning("CreateMqttConnection: invalid timeout, must be at least %i second\n", TIMEOUT_MIN)
+            self.__logger.warning("CreateMqttConnection: invalid timeout, must be at least %i second", TIMEOUT_MIN)
             await context.abort(grpc.StatusCode.INVALID_ARGUMENT, f"invalid timeout, must be at least {TIMEOUT_MIN}")
 
     @staticmethod

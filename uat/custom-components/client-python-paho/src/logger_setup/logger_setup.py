@@ -9,4 +9,8 @@ import logging
 
 def setup_log():
     """Function sets logger formating."""
-    logging.basicConfig(format="%(name)s: [%(levelname)s] %(message)s", level=logging.DEBUG)
+    logging.basicConfig(
+        format="[%(levelname)-5s] %(asctime)s.%(msecs)03d %(name)s - %(message)s",
+        level=logging.INFO,
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
