@@ -23,11 +23,10 @@ from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import (
     MqttPublishRequest,
     MqttPublishReply,
     MqttProtoVersion,
-    Mqtt5ConnAck,
     MqttConnectionId,
 )
 from mqtt_lib.mqtt_lib import MQTTLib
-from mqtt_lib.mqtt_connection import ConnAckInfo, ConnectionParams
+from mqtt_lib.mqtt_connection import ConnectionParams
 from exceptions.mqtt_exception import MQTTException
 
 PORT_MIN = 1
@@ -185,12 +184,10 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             mqtt_connection_id = MqttConnectionId(connectionId=self.__mqtt_lib.register_connection(connection))
             connect_result = await connection.start(request.timeout)
 
-            mqtt_conn_ack = None
-            if connect_result.conn_ack_info is not None:
-                mqtt_conn_ack = GRPCControlServer.convert_conn_ack(conn_ack_info=connect_result.conn_ack_info)
-
             connect_reply = MqttConnectReply(
-                connected=connect_result.connected, connectionId=mqtt_connection_id, connAck=mqtt_conn_ack
+                connected=connect_result.connected,
+                connectionId=mqtt_connection_id,
+                connAck=connect_result.conn_ack_info,
             )
 
             if connect_result.error is not None:
@@ -340,32 +337,3 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         if request.timeout < TIMEOUT_MIN:
             self.__logger.warning("CreateMqttConnection: invalid timeout, must be at least %i second", TIMEOUT_MIN)
             await context.abort(grpc.StatusCode.INVALID_ARGUMENT, f"invalid timeout, must be at least {TIMEOUT_MIN}")
-
-    @staticmethod
-    def convert_conn_ack(conn_ack_info: ConnAckInfo) -> Mqtt5ConnAck:
-        """
-        Convert ConnAck info to Mqtt5ConnAck
-        Parameters
-        ----------
-        conn_ack_info - ConnAckInfo object
-        Returns Mqtt5ConnAck object
-        """
-        conn_ack = Mqtt5ConnAck(
-            sessionPresent=conn_ack_info.session_present,
-            reasonCode=conn_ack_info.reason_code,
-            sessionExpiryInterval=conn_ack_info.session_expiry_interval,
-            maximumQoS=conn_ack_info.maximum_qos,
-            retainAvailable=conn_ack_info.retain_available,
-            maximumPacketSize=conn_ack_info.maximum_packet_size,
-            assignedClientId=conn_ack_info.assigned_client_id,
-            reasonString=conn_ack_info.reason_string,
-            wildcardSubscriptionsAvailable=conn_ack_info.wildcard_subscriptions_available,
-            subscriptionIdentifiersAvailable=conn_ack_info.subscription_identifiers_available,
-            sharedSubscriptionsAvailable=conn_ack_info.shared_subscriptions_available,
-            serverKeepAlive=conn_ack_info.server_keep_alive,
-            responseInformation=conn_ack_info.response_information,
-            serverReference=conn_ack_info.server_reference,
-            topicAliasMaximum=conn_ack_info.topic_alias_maximum,
-        )
-
-        return conn_ack

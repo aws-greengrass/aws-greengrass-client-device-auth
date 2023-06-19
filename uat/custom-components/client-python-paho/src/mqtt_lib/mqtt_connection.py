@@ -4,7 +4,7 @@
 #
 
 """MQTT5 Connection."""
-
+# pylint: disable=no-name-in-module
 import asyncio
 import logging
 import socket
@@ -19,9 +19,10 @@ from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCodes
 from paho.mqtt.packettypes import PacketTypes
 
-from grpc_client_server.grpc_discovery_client import GRPCDiscoveryClient
 from mqtt_lib.temp_files_manager import TempFilesManager
 from exceptions.mqtt_exception import MQTTException
+from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import Mqtt5ConnAck, Mqtt5Disconnect
+from grpc_client_server.grpc_discovery_client import GRPCDiscoveryClient
 
 
 @dataclass
@@ -60,36 +61,12 @@ class ConnectionParams:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass
-class ConnAckInfo:  # pylint: disable=too-many-instance-attributes
-    """Class container for connect ConnAck information"""
-
-    session_present: bool = None
-    reason_code: int = None
-    session_expiry_interval: int = None
-    receive_maximum: int = None
-    maximum_qos: int = None
-    retain_available: bool = None
-    maximum_packet_size: int = None
-    assigned_client_id: str = None
-    reason_string: str = None
-    wildcard_subscriptions_available: bool = None
-    subscription_identifiers_available: bool = None
-    shared_subscriptions_available: bool = None
-    server_keep_alive: int = None
-    response_information: str = None
-    server_reference: str = None
-    topic_alias_maximum: int = None
-
-    # TODO add fields
-
-
-@dataclass
 class ConnectResult:  # pylint: disable=too-many-instance-attributes
     """Class container for connect results"""
 
     # Useful information from CONNACK packet. Can be missed
     connected: bool
-    conn_ack_info: ConnAckInfo
+    conn_ack_info: Mqtt5ConnAck
     error: str
 
 
@@ -245,7 +222,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             conn_ack_info = MqttConnection.convert_to_conn_ack(result)
 
             connected = True
-            if conn_ack_info.reason_code == mqtt.MQTT_ERR_SUCCESS:
+            if result.reason_code == mqtt.MQTT_ERR_SUCCESS:
                 self.__logger.info(
                     "MQTT connection ID %s connected, client id %s",
                     self.__connection_id,
@@ -313,7 +290,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
                 self.__client.disconnect()
 
             result = await asyncio.wait_for(self.__on_disconnect_future, timeout)
-        except TimeoutError as error:
+        except asyncio.TimeoutError as error:
             raise MQTTException("Couldn't disconnect from MQTT broker") from error
 
         self.__on_disconnect_future = None
@@ -330,7 +307,11 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         if hasattr(reason_code, "value"):
             mqtt_reason_code = reason_code.value
 
-        mqtt_result = MqttResult(reason_code=mqtt_reason_code)
+        mqtt_result = MqttResult(reason_code=mqtt_reason_code, properties=properties)
+
+        disconnect_info = MqttConnection.convert_to_disconnect(mqtt_result=mqtt_result)
+        self.__grpc_client.on_mqtt_disconnect(self.__connection_id, disconnect_info, None)
+
         try:
             if self.__on_disconnect_future is not None:
                 self.__on_disconnect_future.set_result(mqtt_result)
@@ -338,60 +319,55 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             pass
 
     @staticmethod
-    def convert_to_conn_ack(mqtt_result: MqttResult) -> ConnAckInfo:  # pylint: disable=too-many-branches
+    def convert_to_conn_ack(mqtt_result: MqttResult) -> Mqtt5ConnAck:  # pylint: disable=too-many-branches
         """
-        Convert MqttResult info to ConnAckInfo
+        Convert MqttResult info to Mqtt5ConnAck
         Parameters
         ----------
         mqtt_result - MqttResult object
-        Returns ConnAckInfo object
+        Returns Mqtt5ConnAck object
         """
-        conn_ack_info = ConnAckInfo()
-        conn_ack_info.reason_code = mqtt_result.reason_code
-        conn_ack_info.session_present = mqtt_result.flags["session present"]
         props = mqtt_result.properties
+        conn_ack = Mqtt5ConnAck(
+            sessionPresent=mqtt_result.flags["session present"],
+            reasonCode=mqtt_result.reason_code,
+            sessionExpiryInterval=getattr(props, "SessionExpiryInterval", None),
+            receiveMaximum=getattr(props, "ReceiveMaximum", None),
+            maximumQoS=getattr(props, "MaximumQoS", None),
+            retainAvailable=getattr(props, "RetainAvailable", None),
+            maximumPacketSize=getattr(props, "MaximumPacketSize", None),
+            assignedClientId=getattr(props, "AssignedClientIdentifier", None),
+            reasonString=getattr(props, "ReasonString", None),
+            wildcardSubscriptionsAvailable=getattr(props, "WildcardSubscriptionAvailable", None),
+            subscriptionIdentifiersAvailable=getattr(props, "SubscriptionIdentifierAvailable", None),
+            sharedSubscriptionsAvailable=getattr(props, "SharedSubscriptionAvailable", None),
+            serverKeepAlive=getattr(props, "ServerKeepAlive", None),
+            responseInformation=getattr(props, "ResponseInformation", None),
+            serverReference=getattr(props, "ServerReference", None),
+            topicAliasMaximum=getattr(props, "TopicAliasMaximum", None),
+        )
+        # TODO add user properties
 
-        if props is not None:
-            if hasattr(props, "SessionExpiryInterval"):
-                conn_ack_info.session_expiry_interval = props.SessionExpiryInterval
+        return conn_ack
 
-            if hasattr(props, "ReceiveMaximum"):
-                conn_ack_info.receive_maximum = props.ReceiveMaximum
-
-            if hasattr(props, "MaximumQoS"):
-                conn_ack_info.maximum_qos = props.MaximumQoS
-
-            if hasattr(props, "RetainAvailable"):
-                conn_ack_info.retain_available = props.RetainAvailable
-
-            if hasattr(props, "MaximumPacketSize"):
-                conn_ack_info.maximum_packet_size = props.MaximumPacketSize
-
-            if hasattr(props, "AssignedClientIdentifier"):
-                conn_ack_info.assigned_client_id = props.AssignedClientIdentifier
-
-            if hasattr(props, "ReasonString"):
-                conn_ack_info.reason_string = props.ReasonString
-
-            if hasattr(props, "WildcardSubscriptionAvailable"):
-                conn_ack_info.wildcard_subscriptions_available = props.WildcardSubscriptionAvailable
-
-            if hasattr(props, "SubscriptionIdentifierAvailable"):
-                conn_ack_info.subscription_identifiers_available = props.SubscriptionIdentifierAvailable
-
-            if hasattr(props, "SharedSubscriptionAvailable"):
-                conn_ack_info.shared_subscriptions_available = props.SharedSubscriptionAvailable
-
-            if hasattr(props, "ServerKeepAlive"):
-                conn_ack_info.server_keep_alive = props.ServerKeepAlive
-
-            if hasattr(props, "ResponseInformation"):
-                conn_ack_info.response_information = props.ResponseInformation
-
-            if hasattr(props, "ServerReference"):
-                conn_ack_info.server_reference = props.ServerReference
-
-        return conn_ack_info
+    @staticmethod
+    def convert_to_disconnect(mqtt_result: MqttResult) -> Mqtt5ConnAck:  # pylint: disable=too-many-branches
+        """
+        Convert MqttResult info to Mqtt5Disconnect
+        Parameters
+        ----------
+        mqtt_result - MqttResult object
+        Returns Mqtt5Disconnect object
+        """
+        props = mqtt_result.properties
+        disconnect_info = Mqtt5Disconnect(
+            reasonCode=mqtt_result.reason_code,
+            sessionExpiryInterval=getattr(props, "SessionExpiryInterval", None),
+            reasonString=getattr(props, "ReasonString", None),
+            serverReference=getattr(props, "ServerReference", None),
+        )
+        # TODO add user properties
+        return disconnect_info
 
     def __create_client(self, connection_params: ConnectionParams) -> mqtt.Client:
         """
