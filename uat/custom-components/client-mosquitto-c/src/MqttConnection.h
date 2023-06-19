@@ -95,7 +95,7 @@ public:
      *
      * @param timeout the timeout in seconds to subscribe
      * @param filters the filters of topics subscribe to
-     * @param user_properties the user properties of the SUBCRIBE request
+     * @param user_properties the user properties of the UNSUBCRIBE request
      * @param reply the subscribe reply to update
      * @throw MqttException on errors
      */
@@ -111,13 +111,15 @@ public:
      * @param is_retain the retain flag
      * @param topic the topic to publish
      * @param payload the payload of the message
-     * @param user_properties the user properties of the SUBCRIBE request
+     * @param user_properties the user properties of the PUBLISH request
+     * @param content_type the optional content type
      * @return pointer to allocated gRPC MqttPublishReply
      * @throw MqttException on errors
      */
     ClientControl::MqttPublishReply * publish(unsigned timeout, int qos, bool is_retain, const std::string & topic,
                                                 const std::string & payload,
-                                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
+                                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                                                const std::string * content_type);
 
     /**
      * Disconnect from the broker.

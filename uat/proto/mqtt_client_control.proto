@@ -35,6 +35,7 @@ message Mqtt5Message {
     MqttQoS qos = 3;
     bool retain = 4;
     repeated Mqtt5Properties properties = 5;
+    optional string contentType = 6;
 };
 
 // End of common part
