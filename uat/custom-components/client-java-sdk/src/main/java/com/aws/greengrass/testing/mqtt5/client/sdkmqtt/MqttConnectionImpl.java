@@ -462,12 +462,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
         ConnAckPacket.ConnectReasonCode reasonCode = packet.getReasonCode();
 
-        List<Mqtt5Properties> userProperties = null;
-        if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
-            userProperties = convertToMqtt5Properties(packet.getUserProperties());
-            userProperties.forEach(p -> logger.atInfo()
-                    .log("ConnAck MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
-        }
+        List<Mqtt5Properties> userProperties = getAckUserProperties(packet.getUserProperties(), "ConAck");
 
         QOS maximumQOS = packet.getMaximumQOS();
         return new ConnAckInfo(packet.getSessionPresent(),
@@ -507,12 +502,7 @@ public class MqttConnectionImpl implements MqttConnection {
             resultCodes = codes.stream().map(c -> c == null ? null : c.getValue()).collect(Collectors.toList());
         }
 
-        List<Mqtt5Properties> userProperties = null;
-        if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
-            userProperties = convertToMqtt5Properties(packet.getUserProperties());
-            userProperties.forEach(p -> logger.atInfo()
-                    .log("SubAck MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
-        }
+        List<Mqtt5Properties> userProperties = getAckUserProperties(packet.getUserProperties(), "SubAck");
 
         return new SubAckInfo(resultCodes, packet.getReasonString(), userProperties);
     }
@@ -528,12 +518,7 @@ public class MqttConnectionImpl implements MqttConnection {
             resultCodes = codes.stream().map(c -> c == null ? null : c.getValue()).collect(Collectors.toList());
         }
 
-        List<Mqtt5Properties> userProperties = null;
-        if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
-            userProperties = convertToMqtt5Properties(packet.getUserProperties());
-            userProperties.forEach(p -> logger.atInfo()
-                    .log("UnsubAck MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
-        }
+        List<Mqtt5Properties> userProperties = getAckUserProperties(packet.getUserProperties(), "UnsubAck");
 
         return new UnsubAckInfo(resultCodes, packet.getReasonString(), userProperties);
     }
@@ -548,12 +533,7 @@ public class MqttConnectionImpl implements MqttConnection {
         }
         PubAckPacket.PubAckReasonCode reasonCode = pubAckPacket.getReasonCode();
 
-        List<Mqtt5Properties> userProperties = null;
-        if (pubAckPacket.getUserProperties() != null && !pubAckPacket.getUserProperties().isEmpty()) {
-            userProperties = convertToMqtt5Properties(pubAckPacket.getUserProperties());
-            userProperties.forEach(p -> logger.atInfo()
-                    .log("PUBACK MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
-        }
+        List<Mqtt5Properties> userProperties = getAckUserProperties(pubAckPacket.getUserProperties(), "PubAck");
 
         return new PubAckInfo(reasonCode == null ? null : reasonCode.getValue(), pubAckPacket.getReasonString(),
                 userProperties);
@@ -590,6 +570,16 @@ public class MqttConnectionImpl implements MqttConnection {
         List<Mqtt5Properties> userProperties = new ArrayList<>();
         properties.forEach(p ->  userProperties.add(Mqtt5Properties.newBuilder()
                 .setKey(p.key).setValue(p.value).build()));
+        return userProperties;
+    }
+
+    private static List<Mqtt5Properties> getAckUserProperties(List<UserProperty> userPropertyList, String commandName) {
+        List<Mqtt5Properties> userProperties = null;
+        if (userPropertyList != null && !userPropertyList.isEmpty()) {
+            userProperties = convertToMqtt5Properties(userPropertyList);
+            userProperties.forEach(p -> logger.atInfo()
+                    .log("{} MQTT userProperties: {}, {}", commandName, p.getKey(), p.getValue()));
+        }
         return userProperties;
     }
 }
