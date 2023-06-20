@@ -100,6 +100,7 @@ public class MqttControlSteps {
     private static final boolean DEFAULT_CONNECT_CLEAR_SESSION = true;
 
     private static final boolean DEFAULT_PUBLISH_RETAIN = false;
+    private static final Boolean DEFAULT_RECEIVED_RETAIN = null;
 
     private static final Integer DEFAULT_SUBSCRIPTION_ID = null;        // NOTE: do not set for IoT Core broker !!!
     private static final boolean DEFAULT_SUBSCRIBE_NO_LOCAL = false;
@@ -136,6 +137,9 @@ public class MqttControlSteps {
 
     /** Actual value of publish retain option. */
     private boolean publishRetain = DEFAULT_PUBLISH_RETAIN;
+
+    /** Actual expected value of retain flag in received messages. */
+    private Boolean receivedRetain = DEFAULT_RECEIVED_RETAIN;
 
 
     /** Actual list of user properties to transmit. */
@@ -332,9 +336,29 @@ public class MqttControlSteps {
         log.info("Thing {} was disconnected with reason code {}", clientDeviceId, reasonCode);
     }
 
+    /**
+     * Convert boolean string to value.
+     *
+     * @param value the string value of boolean
+     */
     @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
     @ParameterType(value = "true|True|TRUE|false|False|FALSE")
     public Boolean booleanValue(String value) {
+        return Boolean.valueOf(value);
+    }
+
+    /**
+     * Convert boolean or null string to nullable value.
+     *
+     * @param value the string value of boolean or null
+     */
+    @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
+    @ParameterType(value = "true|True|TRUE|false|False|FALSE|null|NULL")
+    public Boolean booleanOrNullValue(String value) {
+        if ("null".equals(value) || "NULL".equals(value)) {
+            return null;
+        }
+
         return Boolean.valueOf(value);
     }
 
@@ -346,6 +370,7 @@ public class MqttControlSteps {
     @And("I set MQTT timeout to {int} second(s)")
     public void setMqttTimeoutSec(int mqttTimeoutSec) {
         this.mqttTimeoutSec = mqttTimeoutSec;
+        log.info("MQTT timeout set to {} second(s)", mqttTimeoutSec);
     }
 
     /**
@@ -353,9 +378,10 @@ public class MqttControlSteps {
      *
      * @param subscribeNoLocal the new values of 'no local' flag.
      */
-    @And("I set MQTT subscribe no local flag to {booleanValue}")
+    @And("I set MQTT subscribe 'no local' flag to {booleanValue}")
     public void setSubscribeNoLocal(Boolean subscribeNoLocal) {
         this.subscribeNoLocal = subscribeNoLocal;
+        log.info("Subscribe 'no local' flag set to {}", subscribeNoLocal);
     }
 
     /**
@@ -363,9 +389,10 @@ public class MqttControlSteps {
      *
      * @param subscribeRetainAsPublished the new values of 'retain as published' flag.
      */
-    @And("I set MQTT subscribe retain as published flag to {booleanValue}")
+    @And("I set MQTT subscribe 'retain as published' flag to {booleanValue}")
     public void setSubscribeRetainAsPublished(Boolean subscribeRetainAsPublished) {
         this.subscribeRetainAsPublished = subscribeRetainAsPublished;
+        log.info("Subscribe 'retain as published' flag set to {}", subscribeRetainAsPublished);
     }
 
 
@@ -374,9 +401,10 @@ public class MqttControlSteps {
      *
      * @param subscribeRetainHandling the new values of 'retain handling' property.
      */
-    @And("I set MQTT subscribe retain handling property to {string}")
+    @And("I set MQTT subscribe 'retain handling' property to {string}")
     public void setSubscribeRetainHandling(String subscribeRetainHandling) {
         this.subscribeRetainHandling = Mqtt5RetainHandling.valueOf(subscribeRetainHandling);
+        log.info("Subscribe 'retain handling' property set to {}", subscribeRetainHandling);
     }
 
     /**
@@ -384,9 +412,21 @@ public class MqttControlSteps {
      *
      * @param retain the new values of publish 'retain' flag.
      */
-    @And("I set MQTT publish retain flag to {booleanValue}")
+    @And("I set MQTT publish 'retain' flag to {booleanValue}")
     public void setPublishRetain(Boolean retain) {
         this.publishRetain = retain;
+        log.info("Publish 'retain' flag set to {}", retain);
+    }
+
+    /**
+     * Sets MQTT receive 'retain' flag.
+     *
+     * @param retain the new values of receive 'retain' flag.
+     */
+    @And("I set the 'retain' flag in expected received messages to {booleanOrNullValue}")
+    public void setReceivedRetain(Boolean retain) {
+        this.receivedRetain = retain;
+        log.info("Expected 'retain' flag in received messages set to {}", retain);
     }
 
     /**
@@ -568,7 +608,7 @@ public class MqttControlSteps {
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
     @And("message {string} received on {string} from {string} topic within {int} {word}")
-    public void receive(String message, String clientDeviceId, String topicString, int value, String unit)
+    public void receivedMessage(String message, String clientDeviceId, String topicString, int value, String unit)
                             throws TimeoutException, InterruptedException {
         receive(message, clientDeviceId, topicString, value, unit, true);
     }
@@ -588,7 +628,7 @@ public class MqttControlSteps {
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
     public void receive(String message, String clientDeviceId, String topicString, int value,
-                        String unit, Boolean isExpectedMessage)
+                        String unit, boolean isExpectedMessage)
                             throws TimeoutException, InterruptedException {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
@@ -602,13 +642,14 @@ public class MqttControlSteps {
                                         .withConnectionControl(connectionControl)
                                         .withTopic(topic)
                                         .withContent(message)
+                                        .withRetain(receivedRetain)
                                         .build();
         // convert time units
         TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
 
         // awaiting for message
-        log.info("Awaiting for MQTT message {} on topic {} on Thing {} for {} {}", message, topic,
-                    clientDeviceThingName, value, unit);
+        log.info("Awaiting for MQTT message '{}' with retain {} on topic '{}' on Thing '{}' for {} {}", message,
+                    receivedRetain, topic, clientDeviceThingName, value, unit);
         List<Event> events = new ArrayList<>();
         try {
             events = eventStorage.awaitEvents(eventFilter, value, timeUnit);

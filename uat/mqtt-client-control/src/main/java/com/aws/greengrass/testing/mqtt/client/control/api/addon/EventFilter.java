@@ -192,7 +192,7 @@ public final class EventFilter {
          *
          * @param retain the retain flag of the message
          */
-        public Builder withRetain(boolean retain) {
+        public Builder withRetain(Boolean retain) {
             this.retain = retain;
             return this;
         }
