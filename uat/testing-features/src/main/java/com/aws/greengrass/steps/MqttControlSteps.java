@@ -412,7 +412,7 @@ public class MqttControlSteps {
      *
      * @param retain the new values of publish 'retain' flag.
      */
-    @And("I set MQTT publish retain flag to {booleanValue}")
+    @And("I set MQTT publish 'retain' flag to {booleanValue}")
     public void setPublishRetain(Boolean retain) {
         this.publishRetain = retain;
         log.info("Publish 'retain' flag set to {}", retain);

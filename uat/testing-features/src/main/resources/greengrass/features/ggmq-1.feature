@@ -1140,13 +1140,13 @@ Feature: GGMQ-1
     And I set MQTT subscribe 'retain as published' flag to false
     When I subscribe "subscriber" to "iot_data_0" with qos 0
 
-    And I set MQTT publish retain flag to false
+    And I set MQTT publish 'retain' flag to false
     And I set the 'retain' flag in expected received messages to false
 
     When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world1"
     And message "Hello world1" received on "subscriber" from "iot_data_0" topic within 5 seconds
 
-    And I set MQTT publish retain flag to true
+    And I set MQTT publish 'retain' flag to true
     When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world2"
     And message "Hello world2" received on "subscriber" from "iot_data_0" topic within 5 seconds
 
@@ -1157,13 +1157,13 @@ Feature: GGMQ-1
     And I set MQTT subscribe 'retain as published' flag to true
     When I subscribe "subscriber" to "iot_data_1" with qos 0
 
-    And I set MQTT publish retain flag to false
+    And I set MQTT publish 'retain' flag to false
     And I set the 'retain' flag in expected received messages to false
 
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world3"
     And message "Hello world3" received on "subscriber" from "iot_data_1" topic within 5 seconds
 
-    And I set MQTT publish retain flag to true
+    And I set MQTT publish 'retain' flag to true
     And I set the 'retain' flag in expected received messages to true
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world4"
     And message "Hello world4" received on "subscriber" from "iot_data_1" topic within 5 seconds
