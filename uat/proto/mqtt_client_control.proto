@@ -36,6 +36,7 @@ message Mqtt5Message {
     bool retain = 4;
     repeated Mqtt5Properties properties = 5;
     optional string contentType = 6;
+    optional bool payloadFormatIndicator = 7;
 };
 
 // End of common part

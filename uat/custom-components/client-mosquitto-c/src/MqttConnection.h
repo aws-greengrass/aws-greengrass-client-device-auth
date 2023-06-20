@@ -113,13 +113,14 @@ public:
      * @param payload the payload of the message
      * @param user_properties the user properties of the PUBLISH request
      * @param content_type the optional content type
+     * @param payload_format_indicator the pointer to optional value of 'payload format indicator' of the message
      * @return pointer to allocated gRPC MqttPublishReply
      * @throw MqttException on errors
      */
     ClientControl::MqttPublishReply * publish(unsigned timeout, int qos, bool is_retain, const std::string & topic,
                                                 const std::string & payload,
                                                 const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
-                                                const std::string * content_type);
+                                                const std::string * content_type, bool * payload_format_indicator);
 
     /**
      * Disconnect from the broker.

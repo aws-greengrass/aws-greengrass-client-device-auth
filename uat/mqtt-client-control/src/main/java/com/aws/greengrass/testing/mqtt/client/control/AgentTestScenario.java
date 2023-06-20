@@ -76,6 +76,7 @@ class AgentTestScenario implements Runnable {
     private static final MqttQoS PUBLISH_QOS = MqttQoS.MQTT_QOS_1;
     private static final boolean PUBLISH_RETAIN = false;
     private static final String PUBLISH_CONTENT_TYPE = "text/plain; charset=utf-8";
+    private static final Boolean PUBLISH_PAYLOAD_FORMAT_INDICATOR = true;
 
     private static final Integer SUBSCRIPTION_ID = null;                        // NOTE: do not set for IoT Core !!!
     private static final String SUBSCRIBE_FILTER = "test/topic";
@@ -111,7 +112,11 @@ class AgentTestScenario implements Runnable {
             }
 
             if (message.hasContentType()) {
-                logger.atInfo().log("Message has content type {}", message.getContentType());
+                logger.atInfo().log("Message has content type '{}'", message.getContentType());
+            }
+
+            if (message.hasPayloadFormatIndicator()) {
+                logger.atInfo().log("Message has payload format indicator {}", message.getPayloadFormatIndicator());
             }
 
             eventStorage.addEvent(new MqttMessageEvent(connectionControl, message));
@@ -240,14 +245,14 @@ class AgentTestScenario implements Runnable {
 
     private void testPublish(ConnectionControl connectionControl) {
         Mqtt5Message msg = createPublishMessage(PUBLISH_QOS, PUBLISH_RETAIN, PUBLISH_TOPIC, PUBLISH_TEXT.getBytes(),
-                                                PUBLISH_CONTENT_TYPE);
+                                                PUBLISH_CONTENT_TYPE, PUBLISH_PAYLOAD_FORMAT_INDICATOR);
         MqttPublishReply reply = connectionControl.publishMqtt(msg);
         logger.atInfo().log("Published connectionId {} reason code {} reason string '{}'",
                                 connectionControl.getConnectionId(), reply.getReasonCode(), reply.getReasonString());
     }
 
     private Mqtt5Message createPublishMessage(MqttQoS qos, boolean retain, String topic, byte[] data,
-                                                String contentType) {
+                                                String contentType, Boolean payloadFormatIndicator) {
         Mqtt5Message.Builder builder = Mqtt5Message.newBuilder()
                             .setTopic(topic)
                             .setPayload(ByteString.copyFrom(data))
@@ -259,6 +264,9 @@ class AgentTestScenario implements Runnable {
 
             if (contentType != null) {
                 builder.setContentType(contentType);
+            }
+            if (payloadFormatIndicator != null) {
+                builder.setPayloadFormatIndicator(payloadFormatIndicator);
             }
         }
 
