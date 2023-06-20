@@ -231,6 +231,8 @@ Feature: GGMQ-1
     Then I wait 5 seconds
     And I get 1 assertions with context "ReceivedPubsubMessage" and message "topicPrefix message"
 
+    And I disconnect device "publisher" with reason code 0
+
     @mqtt3 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
@@ -365,6 +367,9 @@ Feature: GGMQ-1
 
     When I publish from "localMqttPublisher" to "${iotCoreSubscriber}topic/with/prefix" with qos 1 and message "Hello world2"
     Then message "Hello world2" received on "iotCoreSubscriber" from "prefix/${iotCoreSubscriber}topic/with/prefix" topic within 10 seconds
+
+    And I disconnect device "iotCoreSubscriber" with reason code 0
+    And I disconnect device "localMqttPublisher" with reason code 0
 
     @mqtt3 @sdk-java
     Examples:
@@ -547,6 +552,9 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_1" with qos 1 and message "Hello world 3"
     Then message "Hello world 3" received on "subscriber" from "iot_data_1" topic within 10 seconds
 
+    And I disconnect device "subscriber" with reason code 0
+    And I disconnect device "publisher" with reason code 0
+
     # WARNING: AWS IoT device SDK Java v2 MQTT v3 client in software.amazon.awssdk.crt.mqtt.MqttClientConnection
     #  missing API to getting actual reason code of SUBACK/PUBACK/UNSUBACK, client always return reason code 0 on publish and subscribe.
     #  It makes sdk-java client useless for T13
@@ -689,6 +697,9 @@ Feature: GGMQ-1
     When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/with/prefix" with qos 1 and message "Hello world2"
     Then message "Hello world2" received on "localMqttSubscriber" from "prefix/${localMqttSubscriber}topic/with/prefix" topic within 10 seconds
 
+    And I disconnect device "iotCorePublisher" with reason code 0
+    And I disconnect device "localMqttSubscriber" with reason code 0
+
     @mqtt3 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
@@ -827,6 +838,8 @@ Feature: GGMQ-1
     Then message "Hello world" received on "subscriber" from "pubsub/topic/to/publish/on" topic within 10 seconds
     Then message "Hello world" received on "subscriber" from "prefix/pubsub/topic/to/publish/on" topic within 10 seconds
 
+    And I disconnect device "subscriber" with reason code 0
+
     @mqtt3 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
@@ -927,6 +940,9 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world1"
     When I subscribe "subscriber" to "iot_data_1" with qos 0
     And message "Hello world1" is not received on "subscriber" from "iot_data_1" topic within 5 seconds
+
+    And I disconnect device "subscriber" with reason code 0
+    And I disconnect device "publisher" with reason code 0
 
     @mqtt3 @sdk-java
     Examples:
@@ -1059,6 +1075,9 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "iot_data_5" with qos 0
     And message "Hello world5" is not received on "subscriber" from "iot_data_5" topic within 5 seconds
 
+    And I disconnect device "subscriber" with reason code 0
+    And I disconnect device "publisher" with reason code 0
+
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
@@ -1168,20 +1187,20 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world4"
     And message "Hello world4" received on "subscriber" from "iot_data_1" topic within 5 seconds
 
-    And I disconnect device "publisher" with reason code 0
     And I disconnect device "subscriber" with reason code 0
+    And I disconnect device "publisher" with reason code 0
 
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
-
     @mqtt5 @mosquitto-c
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
