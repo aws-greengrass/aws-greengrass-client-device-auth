@@ -83,6 +83,11 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
 
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | GRANTED_QOS_0       |
+
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
@@ -93,6 +98,10 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
 
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | GRANTED_QOS_1       |
 
   @GGMQ-1-T8
   Scenario Outline: GGMQ-1-T8-<mqtt-v>-<name>: As a customer, I can configure local MQTT messages to be forwarded to a PubSub topic
@@ -232,6 +241,11 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
@@ -242,6 +256,10 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
 
   @GGMQ-1-T9
   Scenario Outline: GGMQ-1-T9-<mqtt-v>-<name>: As a customer,I can configure local MQTT messages to be forwarded to an IoT Core MQTT topic
@@ -358,6 +376,11 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
@@ -367,6 +390,11 @@ Feature: GGMQ-1
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
 
 
   @GGMQ-1-T13
@@ -520,7 +548,7 @@ Feature: GGMQ-1
     Then message "Hello world 3" received on "subscriber" from "iot_data_1" topic within 10 seconds
 
     # WARNING: AWS IoT device SDK Java v2 MQTT v3 client in software.amazon.awssdk.crt.mqtt.MqttClientConnection
-    #  missing API to getting actual reason code, client always return reason code 0 on publish and subscribe.
+    #  missing API to getting actual reason code of SUBACK/PUBACK/UNSUBACK, client always return reason code 0 on publish and subscribe.
     #  It makes sdk-java client useless for T13
     @mqtt3 @sdk-java
     Examples:
@@ -532,6 +560,14 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | UNSPECIFIED_ERROR   | GRANTED_QOS_1         | 0                  |
 
+    # WARNING: Paho Java MQTT v3 client in org.eclipse.paho.client.mqttv3.IMqttAsyncClient
+    #  missing API to getting actual reason code of SUBACK/PUBACK/UNSUBACK, client always return reason code 0 on publish and subscribe.
+    #  It makes sdk-java client useless for T13
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | GRANTED_QOS_0       | GRANTED_QOS_0         | 0                  |
+
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
@@ -541,6 +577,11 @@ Feature: GGMQ-1
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | NOT_AUTHORIZED      | GRANTED_QOS_1         | 16                 |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | NOT_AUTHORIZED      | GRANTED_QOS_1         | 16                 |
 
 
   @GGMQ-1-T14
@@ -658,6 +699,11 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
@@ -667,6 +713,11 @@ Feature: GGMQ-1
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
 
 
   @GGMQ-1-T15
@@ -786,6 +837,11 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
 
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
@@ -795,6 +851,11 @@ Feature: GGMQ-1
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
 
 
   @GGMQ-1-T101
@@ -872,15 +933,15 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt3 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
-
     @mqtt3 @mosquitto-c
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
 
 
   @GGMQ-1-T102
@@ -1002,12 +1063,12 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
-
     @mqtt5 @mosquitto-c
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |

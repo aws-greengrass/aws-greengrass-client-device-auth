@@ -360,6 +360,7 @@ class GRPCControlServer {
             if (request.hasSubscriptionId()) {
                 logger.warn("paho-agent doesn't support getSubscriptionId {}", request.getSubscriptionId());
             }
+
             List<Mqtt5Subscription> subscriptions = request.getSubscriptionsList();
             if (subscriptions.isEmpty()) {
                 logger.atWarn().log("empty subscriptions list");

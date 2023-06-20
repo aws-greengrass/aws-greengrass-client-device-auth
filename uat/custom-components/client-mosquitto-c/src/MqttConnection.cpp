@@ -457,7 +457,8 @@ void MqttConnection::onUnsubscribe(int mid, const mosquitto_property * props) {
 ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int qos, bool is_retain,
                                             const std::string & topic,
                                             const std::string & payload,
-                                            const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties) {
+                                            const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                                            const std::string * content_type) {
     PendingRequest * request = 0;
     int message_id = 0;
     mosquitto_property * properties = NULL;
@@ -466,9 +467,25 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
         std::lock_guard<std::mutex> lk(m_mutex);
         stateCheck();
 
+        int rc;
+
+        if (content_type) {
+            if (m_v5) {
+                rc = mosquitto_property_add_string(&properties, MQTT_PROP_CONTENT_TYPE, content_type->c_str());
+                if (rc == MOSQ_ERR_SUCCESS) {
+                    logd("Copied TX content type \"%s\"\n", content_type->c_str());
+                } else {
+                    loge("mosquitto_property_add_string failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+                    throw MqttException("couldn't set content type", rc);
+                }
+            } else {
+                logw("Content type is ignored for MQTT v3.1.1 connection\n");
+            }
+        }
+
         convertUserProperties(&user_properties, &properties);
 
-        int rc = mosquitto_publish_v5(m_mosq, &message_id, topic.c_str(), payload.length(), payload.data(), qos, is_retain, properties);
+        rc = mosquitto_publish_v5(m_mosq, &message_id, topic.c_str(), payload.length(), payload.data(), qos, is_retain, properties);
         if (rc != MOSQ_ERR_SUCCESS) {
             loge("mosquitto_publish_v5 failed with code %d: %s\n", rc, mosquitto_strerror(rc));
             mosquitto_property_free_all(&properties);
@@ -775,6 +792,11 @@ ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct
     for (const mosquitto_property * prop = props; prop != NULL; prop = mosquitto_property_next(prop)) {
         int id = mosquitto_property_identifier(prop);
         switch (id) {
+            case MQTT_PROP_CONTENT_TYPE:
+                mosquitto_property_read_string(prop, id, &value_str, false);
+                msg->set_contenttype(value_str);
+                logd("Copied RX content type \"%s\"\n", value_str);
+                break;
             case MQTT_PROP_USER_PROPERTY:
                 mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
                 new_user_property = msg->add_properties();

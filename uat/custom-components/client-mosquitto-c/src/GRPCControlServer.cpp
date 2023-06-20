@@ -246,6 +246,13 @@ Status GRPCControlServer::PublishMqtt(ServerContext *, const MqttPublishRequest 
         return Status(StatusCode::INVALID_ARGUMENT, "missing connectionId");
     }
 
+    std::string content_type;
+    std::string * p_content_type = NULL;
+    if (message.has_contenttype()) {
+        content_type = message.contenttype();
+        p_content_type = &content_type;
+    }
+
     const MqttConnectionId & connection_id_obj = request->connectionid();
     int connection_id = connection_id_obj.connectionid();
 
@@ -259,7 +266,9 @@ Status GRPCControlServer::PublishMqtt(ServerContext *, const MqttPublishRequest 
     }
 
     try {
-        ClientControl::MqttPublishReply * result = connection->publish(timeout, qos, is_retain, topic, message.payload(), message.properties());
+        ClientControl::MqttPublishReply * result = connection->publish(timeout, qos, is_retain, topic,
+                                                                        message.payload(), message.properties(),
+                                                                        p_content_type);
         if (result) {
             if (result->has_reasoncode()) {
                 reply->set_reasoncode(result->reasoncode());

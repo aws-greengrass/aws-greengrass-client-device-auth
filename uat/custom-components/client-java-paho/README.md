@@ -40,17 +40,22 @@ java -jar target/client-devices-auth-uat-client-java-paho.jar agent1 127.0.0.1 4
 ```
 
 # Limitations
-That client support both MQTT v5.0 and MQTT v3.1.1 protocols. 
-But version v3.1.1 doesn't support **"reason string"** in subscribe on success. 
 
 ## MQTT v5.0 client
 Currenly information from packets related to QoS2 like PUBREC PUBREL PUBCOMP is missing.
 
-Topic alias maximum is not provided by [ConnAckPacket](https://awslabs.github.io/aws-crt-java/software/amazon/awssdk/crt/mqtt5/packets/ConnAckPacket.html).
+On success Reason string is not available for SUBACK and UNSUBACK responses.
+
+Subscription Id does not supported for SUBSCRIBE.
 
 ## MQTT v3.1.1 client
 String result code is not available in MQTT 3.1.1, corresponding fields of gRPC messages will not be set.
 
+MQTT v3.1.1 protocol doesn't support Retain handling in SUBSCRIBE.
+
 Real SUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
 
+Real UNSUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
+
 Real PUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
+
