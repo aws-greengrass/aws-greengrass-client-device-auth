@@ -458,7 +458,7 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
                                             const std::string & topic,
                                             const std::string & payload,
                                             const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
-                                            const std::string * content_type) {
+                                            const std::string * content_type, bool * payload_format_indicator) {
     PendingRequest * request = 0;
     int message_id = 0;
     mosquitto_property * properties = NULL;
@@ -480,6 +480,20 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
                 }
             } else {
                 logw("Content type is ignored for MQTT v3.1.1 connection\n");
+            }
+        }
+
+        if (payload_format_indicator) {
+            if (m_v5) {
+                rc = mosquitto_property_add_byte(&properties, MQTT_PROP_PAYLOAD_FORMAT_INDICATOR, *payload_format_indicator ? 1 : 0);
+                if (rc == MOSQ_ERR_SUCCESS) {
+                    logd("Copied TX payload format indicator %d\n", *payload_format_indicator);
+                } else {
+                    loge("mosquitto_property_add_byte failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+                    throw MqttException("couldn't payload format indicator", rc);
+                }
+            } else {
+                logw("Payload format indicator is ignored for MQTT v3.1.1 connection\n");
             }
         }
 
@@ -767,6 +781,7 @@ ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reas
 
 ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct mosquitto_message * message, const mosquitto_property * props) {
 
+    uint8_t value8;
     char * name_str;
     char * value_str;
     ClientControl::Mqtt5Properties * new_user_property;
@@ -792,6 +807,11 @@ ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct
     for (const mosquitto_property * prop = props; prop != NULL; prop = mosquitto_property_next(prop)) {
         int id = mosquitto_property_identifier(prop);
         switch (id) {
+            case MQTT_PROP_PAYLOAD_FORMAT_INDICATOR:
+                mosquitto_property_read_byte(prop, id, &value8, false);
+                msg->set_payloadformatindicator(value8);
+                logd("Copied RX payload format indicator %d\n", value8);
+                break;
             case MQTT_PROP_CONTENT_TYPE:
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 msg->set_contenttype(value_str);

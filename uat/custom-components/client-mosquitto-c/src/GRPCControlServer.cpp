@@ -253,6 +253,13 @@ Status GRPCControlServer::PublishMqtt(ServerContext *, const MqttPublishRequest 
         p_content_type = &content_type;
     }
 
+    bool payload_format_indicator;
+    bool * p_payload_format_indicator = NULL;
+    if (message.has_payloadformatindicator()) {
+        payload_format_indicator = message.payloadformatindicator();
+        p_payload_format_indicator = &payload_format_indicator;
+    }
+
     const MqttConnectionId & connection_id_obj = request->connectionid();
     int connection_id = connection_id_obj.connectionid();
 
@@ -268,7 +275,7 @@ Status GRPCControlServer::PublishMqtt(ServerContext *, const MqttPublishRequest 
     try {
         ClientControl::MqttPublishReply * result = connection->publish(timeout, qos, is_retain, topic,
                                                                         message.payload(), message.properties(),
-                                                                        p_content_type);
+                                                                        p_content_type, p_payload_format_indicator);
         if (result) {
             if (result->has_reasoncode()) {
                 reply->set_reasoncode(result->reasoncode());
