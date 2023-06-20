@@ -26,6 +26,7 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,7 +41,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(Mqtt311ConnectionImpl.class);
     private static final String EXCEPTION_WHEN_CONNECTING = "Exception occurred during connect";
     private static final String EXCEPTION_WHEN_CONFIGURE_SSL_CA = "Exception occurred during SSL configuration";
-    private static final String EXCEPTION_WHEN_UNSUBSCRIBING = "Exception occurred during unsubscribe";
+    private static final int REASON_CODE_SUCCESS = 0;
+
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final IMqttAsyncClient mqttClient;
     private final GRPCClient grpcClient;
@@ -87,6 +89,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         checkUserProperties(userProperties);
         String[] filters = new String[subscriptions.size()];
         int[] qos = new int[subscriptions.size()];
+
         MqttMessageListener[] messageListeners = new MqttMessageListener[subscriptions.size()];
         for (int i = 0; i < subscriptions.size(); i++) {
             filters[i] = subscriptions.get(i).getFilter();
@@ -97,10 +100,12 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         try {
             IMqttToken token = mqttClient.subscribe(filters, qos, messageListeners);
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
-            builder.addReasonCodes(0);
+            builder.addAllReasonCodes(Collections.nCopies(subscriptions.size(), REASON_CODE_SUCCESS));
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
-            builder.addReasonCodes(e.getReasonCode());
-            builder.setReasonString(e.getMessage());
+            logger.atError().withThrowable(e).log("Exception occurred during subscribe, reason code {}",
+                                                    e.getReasonCode());
+
+            builder.addAllReasonCodes(Collections.nCopies(subscriptions.size(), (int)e.getReasonCode()));
         }
         return builder.build();
     }
@@ -129,13 +134,12 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         try {
             IMqttDeliveryToken token = mqttClient.publish(message.getTopic(), mqttMessage);
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
-            builder.setReasonCode(0);
+            builder.setReasonCode(REASON_CODE_SUCCESS);
         } catch (org.eclipse.paho.client.mqttv3.MqttException ex) {
             logger.atError().withThrowable(ex)
                     .log("Failed during publishing message with reasonCode {} and reasonString {}",
                             ex.getReasonCode(), ex.getMessage());
             builder.setReasonCode(ex.getReasonCode());
-            builder.setReasonString(ex.getMessage());
         }
         return builder.build();
     }
@@ -144,19 +148,16 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     public MqttSubscribeReply unsubscribe(long timeout, @NonNull List<String> filters,
                                           List<Mqtt5Properties> userProperties) {
         checkUserProperties(userProperties);
-        String[] filterArray = new String[filters.size()];
-        for (int i = 0; i < filters.size(); i++) {
-            filterArray[i] = filters.get(i);
-        }
+
         MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
         try {
-            IMqttToken token = mqttClient.unsubscribe(filterArray);
+            IMqttToken token = mqttClient.unsubscribe(filters.toArray(new String[0]));
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(timeout));
-            builder.addReasonCodes(0);
+            builder.addAllReasonCodes(Collections.nCopies(filters.size(), REASON_CODE_SUCCESS));
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
-            logger.atError().withThrowable(e).log(EXCEPTION_WHEN_UNSUBSCRIBING);
-            builder.addReasonCodes(e.getReasonCode());
-            builder.setReasonString(e.getMessage());
+            logger.atError().withThrowable(e).log("Exception occurred during unsubscribe, reason code {}",
+                                                    e.getReasonCode());
+            builder.addAllReasonCodes(Collections.nCopies(filters.size(), (int)e.getReasonCode()));
         }
         return builder.build();
     }
