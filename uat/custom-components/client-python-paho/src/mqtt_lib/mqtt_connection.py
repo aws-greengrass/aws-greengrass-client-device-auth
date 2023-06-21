@@ -21,7 +21,7 @@ from paho.mqtt.packettypes import PacketTypes
 
 from mqtt_lib.temp_files_manager import TempFilesManager
 from exceptions.mqtt_exception import MQTTException
-from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import Mqtt5ConnAck, Mqtt5Disconnect
+from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import Mqtt5ConnAck, Mqtt5Disconnect, MqttPublishReply
 from grpc_client_server.grpc_discovery_client import GRPCDiscoveryClient
 
 
@@ -29,7 +29,7 @@ from grpc_client_server.grpc_discovery_client import GRPCDiscoveryClient
 class MqttResult:
     """Class MqttResult"""
 
-    reason_code: int
+    reason_code: int = mqtt.MQTT_ERR_UNKNOWN
     flags: dict = None
     properties: Properties = None
     error_string: str = ""
@@ -59,6 +59,8 @@ class ConnectionParams:  # pylint: disable=too-many-instance-attributes
     # Content of MQTT client's private key, can be None.
     key: str = None
 
+    # TODO Add user properties
+
 
 @dataclass
 class ConnectResult:  # pylint: disable=too-many-instance-attributes
@@ -68,6 +70,18 @@ class ConnectResult:  # pylint: disable=too-many-instance-attributes
     connected: bool
     conn_ack_info: Mqtt5ConnAck
     error: str
+
+
+@dataclass
+class MqttMessage:
+    """Publish message information and payload"""
+
+    qos: int
+    retain: bool
+    topic: str
+    payload: bytes
+
+    # TODO add user properties and other fields
 
 
 class AsyncioHelper:
@@ -156,11 +170,11 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
 
         self.__protocol = protocol
         self.__client = self.__create_client(self.__connection_params)
-        # TODO delete 2 suppress warnings
-        self.__grpc_client = grpc_client  # pylint: disable=unused-private-member
+        self.__grpc_client = grpc_client
         self.__connection_id = 0
         self.__on_connect_future = None
         self.__on_disconnect_future = None
+        self.__on_publish_future = None
         self.__asyncio_helper = None  # pylint: disable=unused-private-member
         self.__loop = asyncio.get_running_loop()
 
@@ -190,8 +204,6 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         timeout - connect operation timeout in seconds
         Returns connection result
         """
-        self.__client.on_connect = self.__on_connect
-        self.__client.on_disconnect = self.__on_disconnect
         self.__asyncio_helper = AsyncioHelper(self.__loop, self.__client)  # pylint: disable=unused-private-member
 
         clean_start = self.__connection_params.clean_session
@@ -276,7 +288,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         Closes MQTT connection.
         Parameters
         ----------
-        timeout - connect operation timeout in seconds
+        timeout - disconnect operation timeout in seconds
         reason - disconnect reason code
         """
         self.__logger.info("Disconnect MQTT connection with reason code %i", reason)
@@ -292,8 +304,8 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             result = await asyncio.wait_for(self.__on_disconnect_future, timeout)
         except asyncio.TimeoutError as error:
             raise MQTTException("Couldn't disconnect from MQTT broker") from error
-
-        self.__on_disconnect_future = None
+        finally:
+            self.__on_disconnect_future = None
 
         if result.reason_code != mqtt.MQTT_ERR_SUCCESS:
             raise MQTTException(f"Couldn't disconnect from MQTT broker - rc {result.reason_code}")
@@ -318,56 +330,58 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         except asyncio.InvalidStateError:
             pass
 
-    @staticmethod
-    def convert_to_conn_ack(mqtt_result: MqttResult) -> Mqtt5ConnAck:  # pylint: disable=too-many-branches
+    async def publish(self, timeout: int, message: MqttMessage) -> MqttPublishReply:
         """
-        Convert MqttResult info to Mqtt5ConnAck
+        Publish MQTT message.
         Parameters
         ----------
-        mqtt_result - MqttResult object
-        Returns Mqtt5ConnAck object
+        timeout - publish operation timeout in seconds
+        message - Mqtt message info and payload
+        Returns MqttPublishReply object
         """
-        props = mqtt_result.properties
-        conn_ack = Mqtt5ConnAck(
-            sessionPresent=mqtt_result.flags["session present"],
-            reasonCode=mqtt_result.reason_code,
-            sessionExpiryInterval=getattr(props, "SessionExpiryInterval", None),
-            receiveMaximum=getattr(props, "ReceiveMaximum", None),
-            maximumQoS=getattr(props, "MaximumQoS", None),
-            retainAvailable=getattr(props, "RetainAvailable", None),
-            maximumPacketSize=getattr(props, "MaximumPacketSize", None),
-            assignedClientId=getattr(props, "AssignedClientIdentifier", None),
-            reasonString=getattr(props, "ReasonString", None),
-            wildcardSubscriptionsAvailable=getattr(props, "WildcardSubscriptionAvailable", None),
-            subscriptionIdentifiersAvailable=getattr(props, "SubscriptionIdentifierAvailable", None),
-            sharedSubscriptionsAvailable=getattr(props, "SharedSubscriptionAvailable", None),
-            serverKeepAlive=getattr(props, "ServerKeepAlive", None),
-            responseInformation=getattr(props, "ResponseInformation", None),
-            serverReference=getattr(props, "ServerReference", None),
-            topicAliasMaximum=getattr(props, "TopicAliasMaximum", None),
-        )
-        # TODO add user properties
+        # TODO add set property
+        self.state_check()
+        self.__on_publish_future = self.__loop.create_future()
 
-        return conn_ack
+        try:
+            publish_info = self.__client.publish(
+                topic=message.topic, payload=message.payload, qos=message.qos, retain=message.retain
+            )
 
-    @staticmethod
-    def convert_to_disconnect(mqtt_result: MqttResult) -> Mqtt5ConnAck:  # pylint: disable=too-many-branches
+            result = await asyncio.wait_for(self.__on_publish_future, timeout)
+
+            if publish_info.rc != mqtt.MQTT_ERR_SUCCESS:
+                self.__logger.error(
+                    "MQTT Publish failed with code %i: %s", publish_info.rc, mqtt.error_string(publish_info.rc)
+                )
+                raise MQTTException(f"Couldn't publish {publish_info.rc}")
+
+            self.__logger.debug(
+                "Published on topic '%s' QoS %i retain %i with rc %i message id %i",
+                message.topic,
+                message.qos,
+                message.retain,
+                publish_info.rc,
+                result.mid,
+            )
+
+            return MqttConnection.convert_to_pub_reply(publish_info)
+        except asyncio.TimeoutError as error:
+            raise MQTTException("Couldn't publish") from error
+        finally:
+            self.__on_publish_future = None
+
+    def __on_publish(self, client, userdata, mid):  # pylint: disable=unused-argument
         """
-        Convert MqttResult info to Mqtt5Disconnect
-        Parameters
-        ----------
-        mqtt_result - MqttResult object
-        Returns Mqtt5Disconnect object
+        Paho MQTT publish callback
         """
-        props = mqtt_result.properties
-        disconnect_info = Mqtt5Disconnect(
-            reasonCode=mqtt_result.reason_code,
-            sessionExpiryInterval=getattr(props, "SessionExpiryInterval", None),
-            reasonString=getattr(props, "ReasonString", None),
-            serverReference=getattr(props, "ServerReference", None),
-        )
-        # TODO add user properties
-        return disconnect_info
+        mqtt_result = MqttResult(mid=mid)
+
+        try:
+            if self.__on_publish_future is not None:
+                self.__on_publish_future.set_result(mqtt_result)
+        except asyncio.InvalidStateError:
+            pass
 
     def __create_client(self, connection_params: ConnectionParams) -> mqtt.Client:
         """
@@ -403,6 +417,78 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             key_path = self.__temp_files_manager.create_new_temp_file(connection_params.key)
             client.tls_set(ca_certs=ca_path, certfile=cert_path, keyfile=key_path)
 
+        client.on_connect = self.__on_connect
+        client.on_disconnect = self.__on_disconnect
+        client.on_publish = self.__on_publish
+
         self.__logger.info("Creating MQTT %s client %s", protocol_version_for_log, tls_for_log)
 
         return client
+
+    def state_check(self):
+        """Check if MQTT is connected"""
+        if (self.__client is None) or not self.__client.is_connected():
+            raise MQTTException("MQTT client is not in connected state")
+
+    @staticmethod
+    def convert_to_conn_ack(mqtt_result: MqttResult) -> Mqtt5ConnAck:
+        """
+        Convert MqttResult info to Mqtt5ConnAck
+        Parameters
+        ----------
+        mqtt_result - MqttResult object
+        Returns Mqtt5ConnAck object
+        """
+        props = mqtt_result.properties
+        conn_ack = Mqtt5ConnAck(
+            sessionPresent=mqtt_result.flags["session present"],
+            reasonCode=mqtt_result.reason_code,
+            sessionExpiryInterval=getattr(props, "SessionExpiryInterval", None),
+            receiveMaximum=getattr(props, "ReceiveMaximum", None),
+            maximumQoS=getattr(props, "MaximumQoS", None),
+            retainAvailable=getattr(props, "RetainAvailable", None),
+            maximumPacketSize=getattr(props, "MaximumPacketSize", None),
+            assignedClientId=getattr(props, "AssignedClientIdentifier", None),
+            reasonString=getattr(props, "ReasonString", None),
+            wildcardSubscriptionsAvailable=getattr(props, "WildcardSubscriptionAvailable", None),
+            subscriptionIdentifiersAvailable=getattr(props, "SubscriptionIdentifierAvailable", None),
+            sharedSubscriptionsAvailable=getattr(props, "SharedSubscriptionAvailable", None),
+            serverKeepAlive=getattr(props, "ServerKeepAlive", None),
+            responseInformation=getattr(props, "ResponseInformation", None),
+            serverReference=getattr(props, "ServerReference", None),
+            topicAliasMaximum=getattr(props, "TopicAliasMaximum", None),
+        )
+        # TODO add user properties
+
+        return conn_ack
+
+    @staticmethod
+    def convert_to_disconnect(mqtt_result: MqttResult) -> Mqtt5ConnAck:
+        """
+        Convert MqttResult info to Mqtt5Disconnect
+        Parameters
+        ----------
+        mqtt_result - MqttResult object
+        Returns Mqtt5Disconnect object
+        """
+        props = mqtt_result.properties
+        disconnect_info = Mqtt5Disconnect(
+            reasonCode=mqtt_result.reason_code,
+            sessionExpiryInterval=getattr(props, "SessionExpiryInterval", None),
+            reasonString=getattr(props, "ReasonString", None),
+            serverReference=getattr(props, "ServerReference", None),
+        )
+        # TODO add user properties
+        return disconnect_info
+
+    @staticmethod
+    def convert_to_pub_reply(pub_info: mqtt.MQTTMessageInfo) -> MqttPublishReply:
+        """
+        Build MQTT publish reply
+        Parameters
+        ----------
+        pub_info - published message info
+        Returns MqttPublishReply object
+        """
+        # Python Paho MQTT does not support recieving any properties for the pusblished messages
+        return MqttPublishReply(reasonCode=pub_info.rc)

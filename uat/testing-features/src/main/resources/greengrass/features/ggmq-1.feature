@@ -103,6 +103,162 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
       | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | GRANTED_QOS_1       |
 
+  @GGMQ-1-T2
+  Scenario Outline: GGMQ-1-T2-<mqtt-v>-<name>: GGAD can publish to an MQTT topic at QoS 0 and QoS 1 based on CDA configuration
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
+    And I create client device "clientDeviceTest"
+    When I associate "clientDeviceTest" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "SubscriberDeviceGroup":{
+                    "selectionRule":"thingName: ${clientDeviceTest}",
+                    "policyName":"Policy1"
+                }
+            },
+            "policies":{
+                "Policy1":{
+                    "AllowConnect":{
+                        "statementDescription":"Allow client devices to connect.",
+                        "operations":[
+                            "mqtt:connect"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    },
+                    "AllowOneSubscribe":{
+                        "statementDescription":"Allow client devices to subscribe to all topics.",
+                        "operations":[
+                            "mqtt:subscribe"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+
+    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
+    And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0 and expect status "GRANTED_QOS_0"
+    When I subscribe "clientDeviceTest" to "iot_data_1" with qos 1 and expect status "<subscribe-status-q1>"
+
+    When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Test message0"
+    And message "Test message0" is not received on "clientDeviceTest" from "iot_data_0" topic within 10 seconds
+
+    When I publish from "clientDeviceTest" to "iot_data_1" with qos 1 and message "Test message1" and expect status <iot_data_1-publish>
+    And message "Test message1" is not received on "clientDeviceTest" from "iot_data_1" topic within 10 seconds
+
+    And I disconnect device "clientDeviceTest" with reason code 0
+
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth       | LATEST |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST |
+      | aws.greengrass.clientdevices.IPDetector | LATEST |
+      | <agent>                                 | LATEST |
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+   "MERGE":{
+      "deviceGroups":{
+         "formatVersion":"2021-03-05",
+         "definitions":{
+            "PublisherDeviceGroup":{
+               "selectionRule": "thingName: ${clientDeviceTest}",
+               "policyName":"Policy2"
+            }
+         },
+         "policies":{
+            "Policy2":{
+                "AllowPublish": {
+                  "statementDescription": "Allow client devices to publish on test/topic.",
+                  "operations": [
+                  "mqtt:publish"
+                   ],
+                   "resources": [
+                      "mqtt:topic:iot_data_4"
+                   ]
+                  }
+            }
+         }
+      }
+   }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 120 seconds
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+
+    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
+    And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    When I subscribe "clientDeviceTest" to "iot_data_3" with qos 0 and expect status "GRANTED_QOS_0"
+    When I subscribe "clientDeviceTest" to "iot_data_4" with qos 1 and expect status "<subscribe-status-q1>"
+
+    When I publish from "clientDeviceTest" to "iot_data_3" with qos 0 and message "Test message3"
+    And message "Test message3" is not received on "clientDeviceTest" from "iot_data_3" topic within 10 seconds
+
+    When I publish from "clientDeviceTest" to "iot_data_4" with qos 1 and message "Test message4"
+    And message "Test message4" received on "clientDeviceTest" from "iot_data_4" topic within 10 seconds
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name     | agent                                        | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml    | 0                  | GRANTED_QOS_0       |
+
+    @mqtt3 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | 0                | GRANTED_QOS_1       |
+
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name      | agent                                       | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v3     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 0                  | GRANTED_QOS_0       |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name     | agent                                        | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml    | 135                | GRANTED_QOS_1       |
+
+    @mqtt5 @mosquitto-c
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | 135                | GRANTED_QOS_1       |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name      | agent                                       | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v5     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 135                | GRANTED_QOS_1       |
+
+
   @GGMQ-1-T8
   Scenario Outline: GGMQ-1-T8-<mqtt-v>-<name>: As a customer, I can configure local MQTT messages to be forwarded to a PubSub topic
     When I start an assertion server
