@@ -30,6 +30,7 @@ public final class EventFilter {
     private final byte[] content;
     private final Boolean retain;
     private final List<Mqtt5Properties> userProperties;
+    private final Boolean payloadFormatIndicator;
 
     EventFilter(Builder builder) {
         super();
@@ -45,6 +46,7 @@ public final class EventFilter {
         this.content = builder.content;
         this.retain = builder.retain;
         this.userProperties = builder.userProperties;
+        this.payloadFormatIndicator = builder.payloadFormatIndicator;
     }
 
     /**
@@ -63,6 +65,7 @@ public final class EventFilter {
         private byte[] content;
         private Boolean retain;
         private List<Mqtt5Properties> userProperties;
+        private Boolean payloadFormatIndicator;
 
         /**
          * Sets type of event.
@@ -195,7 +198,7 @@ public final class EventFilter {
          * Sets retain flag.
          * Applicable only for MQTT message events
          *
-         * @param retain the retain flag of the message
+         * @param retain the retain flag of the message or null
          */
         public Builder withRetain(Boolean retain) {
             this.retain = retain;
@@ -210,6 +213,17 @@ public final class EventFilter {
          */
         public Builder withUserProperties(List<Mqtt5Properties> userProperties) {
             this.userProperties = userProperties;
+            return this;
+        }
+
+        /**
+         * Sets payload format indicator flag.
+         * Applicable only for MQTT message events
+         *
+         * @param payloadFormatIndicator the payload format indicator flag of the message or null
+         */
+        public Builder withPayloadFormatIndicator(Boolean payloadFormatIndicator) {
+            this.payloadFormatIndicator = payloadFormatIndicator;
             return this;
         }
 

@@ -16,7 +16,7 @@ public interface Event {
         /** MQTT message is received. */
         EVENT_TYPE_MQTT_MESSAGE,
 
-        // TODOL implement other events
+        // TODO: implement other events
         // /** MQTT Connecttion established. */
         // EVENT_TYPE_MQTT_CONNECTED,
 

@@ -82,6 +82,11 @@ public class MqttMessageEvent extends EventImpl {
             return false;
         }
 
+        matched = isPayloadFormatIndicatorMatched(filter.getPayloadFormatIndicator());
+        if (!matched) {
+            return false;
+        }
+
         // TODO: check QoS ?
 
         // check content
@@ -127,6 +132,10 @@ public class MqttMessageEvent extends EventImpl {
 
     private boolean isUserPropertiesMatched(List<Mqtt5Properties> userProperties) {
         return userProperties == null || userProperties.equals(message.getPropertiesList());
+    }
+
+    private boolean isPayloadFormatIndicatorMatched(Boolean payloadFormatIndicator) {
+        return payloadFormatIndicator == null || payloadFormatIndicator == message.getPayloadFormatIndicator();
     }
 
     private static boolean isTopicMatched(@NonNull String topic, @NonNull String topicFilter) {
