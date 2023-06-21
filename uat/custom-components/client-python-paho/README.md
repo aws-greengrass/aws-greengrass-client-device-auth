@@ -118,3 +118,10 @@ Run
 ```sh
 ./client-python-paho paho-python-agent 47619 127.0.0.1
 ```
+
+## Limitations
+
+Python Paho MQTT library is limited in
+
+1. Publishing
+Receiving properties for the published message - publish() method and on_publish() callback do not provide it.
