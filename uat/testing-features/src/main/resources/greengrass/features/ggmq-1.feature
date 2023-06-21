@@ -97,10 +97,10 @@ Feature: GGMQ-1
   @GGMQ-1-T2
   Scenario Outline: GGMQ-1-T2-<mqtt-v>-<name>: GGAD can publish to an MQTT topic at QoS 0 and QoS 1 based on CDA configuration
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
-      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
     And I create client device "clientDeviceTest"
     When I associate "clientDeviceTest" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
@@ -116,7 +116,7 @@ Feature: GGMQ-1
                 }
             },
             "policies":{
-                "Policy2":{
+                "Policy1":{
                     "AllowConnect":{
                         "statementDescription":"Allow client devices to connect.",
                         "operations":[
@@ -164,16 +164,16 @@ Feature: GGMQ-1
     When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Test message0"
     And message "Test message0" is not received on "clientDeviceTest" from "iot_data_0" topic within 10 seconds
 
-    When I publish from "clientDeviceTest" to "iot_data_1" with qos 1 and message "Test message1" and expect status 135
+    When I publish from "clientDeviceTest" to "iot_data_1" with qos 1 and message "Test message1" and expect status <iot_data_1-publish>
     And message "Test message1" is not received on "clientDeviceTest" from "iot_data_1" topic within 10 seconds
 
     And I disconnect device "clientDeviceTest" with reason code 0
 
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST |
-      | <agent>                                  | LATEST |
+      | aws.greengrass.clientdevices.Auth       | LATEST |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST |
+      | aws.greengrass.clientdevices.IPDetector | LATEST |
+      | <agent>                                 | LATEST |
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
@@ -183,18 +183,18 @@ Feature: GGMQ-1
          "definitions":{
             "PublisherDeviceGroup":{
                "selectionRule": "thingName: ${clientDeviceTest}",
-               "policyName":"MyPermissivePublishPolicy"
+               "policyName":"Policy2"
             }
          },
          "policies":{
-            "MyPermissivePublishPolicy":{
+            "Policy2":{
                 "AllowPublish": {
                   "statementDescription": "Allow client devices to publish on test/topic.",
                   "operations": [
                   "mqtt:publish"
                    ],
                    "resources": [
-                      "mqtt:topic:iot_data_1"
+                      "mqtt:topic:iot_data_4"
                    ]
                   }
             }
@@ -221,23 +221,33 @@ Feature: GGMQ-1
 
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       |
+      | mqtt-v | name     | agent                                        | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml    | 0                  | GRANTED_QOS_0       |
+
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name      | agent                                       | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v3     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 0                  | GRANTED_QOS_0       |
 
     @mqtt3 @mosquitto-c
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
+      | mqtt-v | name        | agent                                     | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | 0                | GRANTED_QOS_1       |
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_1       |
+      | mqtt-v | name     | agent                                        | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml    | 135                | GRANTED_QOS_1       |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name      | agent                                       | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v5     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 135                | GRANTED_QOS_1       |
 
     @mqtt5 @mosquitto-c
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
+      | mqtt-v | name        | agent                                     | recipe                  | iot_data_1-publish | subscribe-status-q1 |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | 135                | GRANTED_QOS_1       |
 
 
   @GGMQ-1-T8
