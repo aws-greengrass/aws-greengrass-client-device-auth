@@ -267,7 +267,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             self.__logger.warning("PublishMqtt: exception during publishing")
             await context.abort(grpc.StatusCode.INTERNAL, str(error))
 
-        return publish_reply
+        return MqttPublishReply()
 
     async def CloseMqttConnection(self, request: MqttCloseRequest, context: grpc.aio.ServicerContext) -> Empty:
         """
