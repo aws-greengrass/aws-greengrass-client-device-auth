@@ -26,7 +26,7 @@ from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import (
     MqttConnectionId,
 )
 from mqtt_lib.mqtt_lib import MQTTLib
-from mqtt_lib.mqtt_connection import ConnectionParams
+from mqtt_lib.mqtt_connection import ConnectionParams, MqttMessage
 from exceptions.mqtt_exception import MQTTException
 
 PORT_MIN = 1
@@ -40,6 +40,9 @@ TIMEOUT_MIN = 1
 
 REASON_MIN = 0
 REASON_MAX = 255
+
+QOS_MIN = 0
+QOS_MAX = 2
 
 
 class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
@@ -211,9 +214,60 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         context - request context
         Returns MqttPublishReply object
         """
-        # TODO
-        self.__logger.info("PublishMqtt Placeholder TODO")
-        return MqttPublishReply()
+        if not request.HasField("msg"):
+            self.__logger.warning("PublishMqtt: message is missing")
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "message is missing")
+
+        message = request.msg
+
+        if (message.qos < QOS_MIN) or (message.qos > QOS_MAX):
+            self.__logger.warning(
+                "PublishMqtt: invalid QoS %i, must be in range [%i,%i]", message.qos, QOS_MIN, QOS_MAX
+            )
+            await context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, f"invalid QoS, must be in range [{QOS_MIN},{QOS_MAX}]"
+            )
+
+        if not message.topic:
+            self.__logger.warning("PublishMqtt: topic is empty")
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "topic is empty")
+
+        timeout = request.timeout
+        if request.timeout < TIMEOUT_MIN:
+            self.__logger.warning("PublishMqtt: invalid timeout, must be at least %i second", TIMEOUT_MIN)
+            await context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, f"invalid publish timeout, must be at least {TIMEOUT_MIN}"
+            )
+
+        if not request.HasField("connectionId"):
+            self.__logger.warning("PublishMqtt: missing connection id")
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "missing connection id")
+
+        connection_id = request.connectionId.connectionId
+        self.__logger.info(
+            "PublishMqtt connection_id %i topic %s retain %i", connection_id, message.topic, int(message.retain)
+        )
+
+        # TODO add properties handling and other fields
+
+        connection = self.__mqtt_lib.get_connection(connection_id)
+        if connection is None:
+            self.__logger.warning("PublishMqtt: connection with id %i is not found", connection_id)
+            await context.abort(grpc.StatusCode.NOT_FOUND, "connection for that id is not found")
+
+        try:
+            publish_reply = await connection.publish(
+                timeout=timeout,
+                message=MqttMessage(
+                    qos=message.qos, retain=message.retain, topic=message.topic, payload=message.payload
+                ),
+            )
+            return publish_reply
+        except MQTTException as error:
+            self.__logger.warning("PublishMqtt: exception during publishing")
+            await context.abort(grpc.StatusCode.INTERNAL, str(error))
+
+        return publish_reply
 
     async def CloseMqttConnection(self, request: MqttCloseRequest, context: grpc.aio.ServicerContext) -> Empty:
         """
@@ -235,6 +289,10 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             self.__logger.warning("CloseMqttConnection: invalid disconnect reason %i", reason)
             await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "invalid disconnect reason")
 
+        if not request.HasField("connectionId"):
+            self.__logger.warning("CloseMqttConnection: missing connection id")
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "missing connection id")
+
         connection_id = request.connectionId.connectionId
         self.__logger.info("CloseMqttConnection connection_id %i reason %i", connection_id, reason)
 
@@ -242,8 +300,8 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
 
         connection = self.__mqtt_lib.unregister_connection(connection_id)
         if connection is None:
-            self.__logger.warning("CloseMqttConnection: connection with id %i doesn't found", connection_id)
-            await context.abort(grpc.StatusCode.NOT_FOUND, "invalid disconnect reason")
+            self.__logger.warning("CloseMqttConnection: connection with id %i is not found", connection_id)
+            await context.abort(grpc.StatusCode.NOT_FOUND, "connection for that id is not found")
 
         try:
             await connection.disconnect(timeout=timeout, reason=reason)
@@ -297,11 +355,11 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         context - request context
         Returns MqttConnectReply object
         """
-        if (request.clientId is None) or not request.clientId:
+        if not request.clientId:
             self.__logger.warning("CreateMqttConnection: clientId can't be empty")
             await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "clientId can't be empty")
 
-        if (request.host is None) or not request.host:
+        if not request.host:
             self.__logger.warning("CreateMqttConnection: host can't be empty")
             await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "host can't be empty")
 
