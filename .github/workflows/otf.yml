@@ -6,6 +6,9 @@ name: OTF UATS
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - uat-dev
   push:
     branches:
       - uat-dev
