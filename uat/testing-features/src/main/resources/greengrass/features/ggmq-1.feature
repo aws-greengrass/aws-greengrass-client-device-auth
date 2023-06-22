@@ -1095,7 +1095,7 @@ Feature: GGMQ-1
 
 
   @GGMQ-1-T103
-  Scenario Outline: GGMQ-1-T103-<mqtt-v>-<name>: As a customer, I can use retain as published flag
+  Scenario Outline: GGMQ-1-T103-<mqtt-v>-<name>: As a customer, I can use: retain as published flag, user properties for MQTT v5.0
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth       | LATEST                                  |
       | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
@@ -1187,104 +1187,52 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world4"
     And message "Hello world4" received on "subscriber" from "iot_data_1" topic within 5 seconds
 
+    # 3. test case when publish 'user properties' are not empty.
+    #  In that case 'user properties' on receive should be equal to 'user properties' value on publish.
+
+    And I add MQTT 'user property' with key "type" and value "json" to transmit
+    And I add MQTT 'user property' with key "region" and value "Asia" to transmit
+    And I add MQTT 'user property' with key "type" and value "json" to receive
+    And I add MQTT 'user property' with key "region" and value "Asia" to receive
+    When I subscribe "subscriber" to "iot_data_2" with qos 0
+    When I publish from "publisher" to "iot_data_2" with qos 0 and message "Expected userProperties are received"
+    And message "Expected userProperties are received" received on "subscriber" from "iot_data_2" topic within 5 seconds
+
+    # 4. test case when publish 'user properties' are empty.
+    #  In that case 'user properties' on receive should not be equal to 'user properties' value on publish.
+
+    And I clear message storage
+    And I clear MQTT 'user properties' to transmit
+    And I clear MQTT 'user properties' to receive
+    And I add MQTT 'user property' with key "agent-control" and value "control" to receive
+    And I add MQTT 'user property' with key "timezone" and value "GMT6" to receive
+    When I subscribe "subscriber" to "iot_data_2" with qos 0
+    When I publish from "publisher" to "iot_data_2" with qos 0 and message "Expected userProperties are not received"
+    And message "Expected userProperties are not received" is not received on "subscriber" from "iot_data_2" topic within 5 seconds
+
+    # 5. test case when publish 'user properties' are empty.
+    #  In that case 'user properties' on receive should ignore 'user properties' value on publish.
+    And I clear message storage
+    And I clear MQTT 'user properties' to transmit
+    And I clear MQTT 'user properties' to receive
+    And I add MQTT 'user property' with key "agent-control" and value "control" to transmit
+    And I add MQTT 'user property' with key "timezone" and value "GMT6" to transmit
+    When I subscribe "subscriber" to "iot_data_3" with qos 0
+    When I publish from "publisher" to "iot_data_3" with qos 0 and message "Ignore userProperties"
+    And message "Ignore userProperties" received on "subscriber" from "iot_data_3" topic within 5 seconds
+
+    # 6. test case when publish 'user properties' are empty.
+    #  In that case 'user properties' on receive should be equal to 'user properties' value on publish.
+
+    And I clear message storage
+    And I clear MQTT 'user properties' to transmit
+    And I clear MQTT 'user properties' to receive
+    When I subscribe "subscriber" to "iot_data_4" with qos 0
+    When I publish from "publisher" to "iot_data_4" with qos 0 and message "Without userProperties"
+    And message "Without userProperties" received on "subscriber" from "iot_data_4" topic within 5 seconds
+
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
-
-    @mqtt5 @sdk-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
-
-    @mqtt5 @mosquitto-c
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
-
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
-
-
-  @GGMQ-1-T104
-  Scenario Outline: GGMQ-1-T104-<mqtt-v>-<name>: As a customer, I can configure user properties for MQTT 5.0
-    When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
-      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
-    And I create client device "publisher"
-    And I create client device "subscriber"
-    When I associate "subscriber" with ggc
-    When I associate "publisher" with ggc
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
-    """
-{
-    "MERGE":{
-        "deviceGroups":{
-            "formatVersion":"2021-03-05",
-            "definitions":{
-                "MyPermissiveDeviceGroup":{
-                    "selectionRule":"thingName: ${publisher} OR thingName: ${subscriber}",
-                    "policyName":"MyPermissivePolicy"
-                }
-            },
-            "policies":{
-                "MyPermissivePolicy":{
-                    "AllowAll":{
-                        "statementDescription":"Allow client devices to perform all actions.",
-                        "operations":[
-                            "*"
-                        ],
-                        "resources":[
-                            "*"
-                        ]
-                    }
-                }
-            }
-        }
-    }
-}
-    """
-    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
-    """
-{
-    "MERGE":{
-        "controlAddresses":"${mqttControlAddresses}",
-        "controlPort":"${mqttControlPort}"
-    }
-}
-    """
-    And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
-    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
-
-    Then I discover core device broker as "localMqttBroker1" from "publisher" in OTF
-    Then I discover core device broker as "localMqttBroker2" from "subscriber" in OTF
-    And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
-    And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
-
-    And I set MQTT user property with key "type" and value "json" to transmit
-    And I set MQTT user property with key "type" and value "json" to receive
-
-    When I subscribe "subscriber" to "iot_data_1" with qos 0
-    When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world"
-    And message "Hello world" received on "subscriber" from "iot_data_1" topic within 5 seconds
-
-    And I clear message storage
-    And I clear MQTT user properties to transmit
-    And I clear MQTT user properties to receive
-    And I set MQTT user property with key "agent-control" and value "control" to transmit
-    When I subscribe "subscriber" to "iot_data_2" with qos 0
-    When I publish from "publisher" to "iot_data_2" with qos 0 and message "Hello world1"
-    And message "Hello world1" is not received on "subscriber" from "iot_data_2" topic within 5 seconds
-
-    And I clear message storage
-    And I clear MQTT user properties to transmit
-    And I clear MQTT user properties to receive
-    When I subscribe "subscriber" to "iot_data_3" with qos 0
-    When I publish from "publisher" to "iot_data_3" with qos 0 and message "Hello world2"
-    And message "Hello world2" received on "subscriber" from "iot_data_3" topic within 5 seconds
 
     @mqtt5 @sdk-java
     Examples:

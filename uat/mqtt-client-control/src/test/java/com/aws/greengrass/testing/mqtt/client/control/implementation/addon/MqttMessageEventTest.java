@@ -6,15 +6,20 @@
 package com.aws.greengrass.testing.mqtt.client.control.implementation.addon;
 
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.Event;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
+import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -331,5 +336,105 @@ class MqttMessageEventTest {
         // THEN
         assertFalse(result);
         verify(message).getRetain();
+    }
+
+    @Test
+    void GIVEN_user_properties_and_matched_filter_WHEN_is_matched_THEN_is() {
+        final long testRunTimestamp = System.currentTimeMillis();
+        final List<Mqtt5Properties> userProperties = Lists.newArrayList(
+                Mqtt5Properties.newBuilder().setKey("type").setValue("json").build(),
+                Mqtt5Properties.newBuilder().setKey("lang").setValue("ua").build()
+        );
+        lenient().when(message.getPropertiesList()).thenReturn(userProperties);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                .withToTimestamp(testRunTimestamp)
+                .withConnectionControl(connectionControl)
+                .withUserProperties(userProperties)
+                .build();
+
+        //WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        //THEN
+        assertTrue(result);
+        verify(message).getPropertiesList();
+    }
+
+    @Test
+    void GIVEN_user_properties_and_not_matched_filter_WHEN_is_matched_THEN_is_not() {
+        final long testRunTimestamp = System.currentTimeMillis();
+        final List<Mqtt5Properties> expectedUserProperties = Lists.newArrayList(
+                Mqtt5Properties.newBuilder().setKey("type").setValue("json").build(),
+                Mqtt5Properties.newBuilder().setKey("lang").setValue("ua").build()
+        );
+
+        final List<Mqtt5Properties> actualUserProperties = Lists.newArrayList(
+                Mqtt5Properties.newBuilder().setKey("region").setValue("Asia").build(),
+                Mqtt5Properties.newBuilder().setKey("lang").setValue("ua").build()
+        );
+        lenient().when(message.getPropertiesList()).thenReturn(actualUserProperties);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                .withToTimestamp(testRunTimestamp)
+                .withConnectionControl(connectionControl)
+                .withUserProperties(expectedUserProperties)
+                .build();
+
+        //WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        //THEN
+        assertFalse(result);
+        verify(message).getPropertiesList();
+    }
+
+    @Test
+    void GIVEN_user_properties_is_empty_and_matched_filter_WHEN_is_matched_THEN_is() {
+        final long testRunTimestamp = System.currentTimeMillis();
+        final List<Mqtt5Properties> userProperties = Lists.newArrayList(
+                Mqtt5Properties.newBuilder().setKey("type").setValue("json").build(),
+                Mqtt5Properties.newBuilder().setKey("lang").setValue("ua").build()
+        );
+        lenient().when(message.getPropertiesList()).thenReturn(userProperties);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                .withToTimestamp(testRunTimestamp)
+                .withConnectionControl(connectionControl)
+                .build();
+
+        //WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        //THEN
+        assertTrue(result);
+    }
+
+    @Test
+    void GIVEN_user_properties_is_not_empty_and_not_matched_filter_WHEN_is_matched_THEN_is_not() {
+        final long testRunTimestamp = System.currentTimeMillis();
+        final List<Mqtt5Properties> expectedUserProperties = Lists.newArrayList(
+                Mqtt5Properties.newBuilder().setKey("type").setValue("json").build(),
+                Mqtt5Properties.newBuilder().setKey("lang").setValue("ua").build()
+        );
+
+        lenient().when(message.getPropertiesList()).thenReturn(Collections.emptyList());
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                .withToTimestamp(testRunTimestamp)
+                .withConnectionControl(connectionControl)
+                .withUserProperties(expectedUserProperties)
+                .build();
+
+        //WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        //THEN
+        assertFalse(result);
+        verify(message).getPropertiesList();
     }
 }

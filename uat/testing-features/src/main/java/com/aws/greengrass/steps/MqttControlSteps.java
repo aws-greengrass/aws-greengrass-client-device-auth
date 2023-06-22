@@ -684,23 +684,23 @@ public class MqttControlSteps {
      * @param key the key of userProperties property.
      * @param value the value of userProperties property.
      */
-    @And("I set MQTT user property with key {string} and value {string} to transmit")
-    public void setTxUserProperties(String key, String value) {
+    @And("I add MQTT 'user property' with key {string} and value {string} to transmit")
+    public void addTxUserProperty(String key, String value) {
         if (txUserProperties == null) {
             txUserProperties = new ArrayList<>();
         }
-        Mqtt5Properties properties = Mqtt5Properties.newBuilder()
+        Mqtt5Properties userProperty = Mqtt5Properties.newBuilder()
                 .setKey(key)
                 .setValue(value)
                 .build();
-        txUserProperties.add(properties);
+        txUserProperties.add(userProperty);
     }
 
     /**
      * Clear MQTT user properties to transmit.
      *
      */
-    @And("I clear MQTT user properties to transmit")
+    @And("I clear MQTT 'user properties' to transmit")
     @SuppressWarnings("PMD.NullAssignment")
     public void clearTxUserProperties() {
         txUserProperties = null;
@@ -712,23 +712,23 @@ public class MqttControlSteps {
      * @param key the key of userProperties property.
      * @param value the value of userProperties property.
      */
-    @And("I set MQTT user property with key {string} and value {string} to receive")
-    public void setRxUserProperties(String key, String value) {
+    @And("I add MQTT 'user property' with key {string} and value {string} to receive")
+    public void addRxUserProperty(String key, String value) {
         if (rxUserProperties == null) {
             rxUserProperties = new ArrayList<>();
         }
-        Mqtt5Properties properties = Mqtt5Properties.newBuilder()
+        Mqtt5Properties userProperty = Mqtt5Properties.newBuilder()
                 .setKey(key)
                 .setValue(value)
                 .build();
-        rxUserProperties.add(properties);
+        rxUserProperties.add(userProperty);
     }
 
     /**
      * Clear MQTT user properties to receive.
      *
      */
-    @And("I clear MQTT user properties to receive")
+    @And("I clear MQTT 'user properties' to receive")
     @SuppressWarnings("PMD.NullAssignment")
     public void clearRxUserProperties() {
         rxUserProperties = null;

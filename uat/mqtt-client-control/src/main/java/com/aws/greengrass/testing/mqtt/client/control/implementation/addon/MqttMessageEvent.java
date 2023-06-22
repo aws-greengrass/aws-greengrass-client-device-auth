@@ -126,14 +126,7 @@ public class MqttMessageEvent extends EventImpl {
     }
 
     private boolean isUserPropertiesMatched(List<Mqtt5Properties> userProperties) {
-        if (userProperties == null) {
-            if (message.getPropertiesList() == null) {
-                return true;
-            } else {
-                return message.getPropertiesList().isEmpty();
-            }
-        }
-        return userProperties.equals(message.getPropertiesList());
+        return userProperties == null || userProperties.equals(message.getPropertiesList());
     }
 
     private static boolean isTopicMatched(@NonNull String topic, @NonNull String topicFilter) {
