@@ -143,7 +143,10 @@ public class MqttControlSteps {
 
 
     /** Actual list of user properties to transmit. */
-    private static final List<Mqtt5Properties> txUserProperties = null;
+    private static List<Mqtt5Properties> txUserProperties = null;
+
+    /** Actual list of user properties to receive. */
+    private static List<Mqtt5Properties> rxUserProperties = null;
 
     private final Map<String, List<MqttBrokerConnectionInfo>> brokers = new HashMap<>();
     private final Map<String, MqttProtoVersion> mqttVersions = new HashMap<>();
@@ -643,6 +646,7 @@ public class MqttControlSteps {
                                         .withTopic(topic)
                                         .withContent(message)
                                         .withRetain(receivedRetain)
+                                        .withUserProperties(rxUserProperties)
                                         .build();
         // convert time units
         TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
@@ -673,6 +677,63 @@ public class MqttControlSteps {
         eventStorage.clear();
         log.info("Storage was cleared");
     }
+
+    /**
+     * Sets MQTT user Properties to transmit.
+     *
+     * @param key the key of userProperties property.
+     * @param value the value of userProperties property.
+     */
+    @And("I set MQTT user property with key {string} and value {string} to transmit")
+    public void setTxUserProperties(String key, String value) {
+        if (txUserProperties == null) {
+            txUserProperties = new ArrayList<>();
+        }
+        Mqtt5Properties properties = Mqtt5Properties.newBuilder()
+                .setKey(key)
+                .setValue(value)
+                .build();
+        txUserProperties.add(properties);
+    }
+
+    /**
+     * Clear MQTT user properties to transmit.
+     *
+     */
+    @And("I clear MQTT user properties to transmit")
+    @SuppressWarnings("PMD.NullAssignment")
+    public void clearTxUserProperties() {
+        txUserProperties = null;
+    }
+
+    /**
+     * Sets MQTT user Properties to receive.
+     *
+     * @param key the key of userProperties property.
+     * @param value the value of userProperties property.
+     */
+    @And("I set MQTT user property with key {string} and value {string} to receive")
+    public void setRxUserProperties(String key, String value) {
+        if (rxUserProperties == null) {
+            rxUserProperties = new ArrayList<>();
+        }
+        Mqtt5Properties properties = Mqtt5Properties.newBuilder()
+                .setKey(key)
+                .setValue(value)
+                .build();
+        rxUserProperties.add(properties);
+    }
+
+    /**
+     * Clear MQTT user properties to receive.
+     *
+     */
+    @And("I clear MQTT user properties to receive")
+    @SuppressWarnings("PMD.NullAssignment")
+    public void clearRxUserProperties() {
+        rxUserProperties = null;
+    }
+
 
     /**
      * Discover IoT core device broker directly in OTF.

@@ -6,6 +6,7 @@
 package com.aws.greengrass.testing.mqtt.client.control.implementation.addon;
 
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
 import com.google.protobuf.ByteString;
@@ -13,6 +14,7 @@ import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Implements received MQTT message event.
@@ -75,6 +77,11 @@ public class MqttMessageEvent extends EventImpl {
             return false;
         }
 
+        matched = isUserPropertiesMatched(filter.getUserProperties());
+        if (!matched) {
+            return false;
+        }
+
         // TODO: check QoS ?
 
         // check content
@@ -116,6 +123,17 @@ public class MqttMessageEvent extends EventImpl {
 
     private boolean isRetainMatched(Boolean retain) {
         return retain == null || retain == message.getRetain();
+    }
+
+    private boolean isUserPropertiesMatched(List<Mqtt5Properties> userProperties) {
+        if (userProperties == null) {
+            if (message.getPropertiesList() == null) {
+                return true;
+            } else {
+                return message.getPropertiesList().isEmpty();
+            }
+        }
+        return userProperties.equals(message.getPropertiesList());
     }
 
     private static boolean isTopicMatched(@NonNull String topic, @NonNull String topicFilter) {
