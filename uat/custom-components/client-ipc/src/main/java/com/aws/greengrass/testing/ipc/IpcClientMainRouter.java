@@ -20,8 +20,9 @@ public class IpcClientMainRouter {
      * Main entry method.
      *
      * @param args arguments to main
+     * @throws Exception on errors
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         String operationName = System.getProperty(COMPONENT_NAME_SYS_PROP);
 
         if (LOCAL_IPC_SUBSCRIBER.equals(operationName)) {

@@ -16,46 +16,48 @@ import software.amazon.awssdk.aws.greengrass.model.UnauthorizedError;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 import javax.inject.Inject;
 
 @Log4j2
-public class LocalIpcPublisher implements Consumer<String[]> {
+public class LocalIpcPublisher {
     private static final String TOPICS_SEPARATOR = ",";
-    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     @Inject
     public LocalIpcPublisher() {
-
     }
 
     /**
      * Start LocalIpcPublisher execution.
      *
      * @param args command line args
+     * @throws Exception on errors
      */
-    @Override
-    public void accept(String[] args) {
-        log.info("Args: {}", args);
-        List<String> topics = Arrays.asList(args[0].split(TOPICS_SEPARATOR));
-        log.info("Publish to topics: {}", topics);
+    public void accept(String... args) throws Exception {
+        log.info("Args {}", args);
         String messageText = args[1];
-        topics.forEach(topic -> executor.execute(() -> publish(topic, messageText)));
+
+        List<String> topics = Arrays.asList(args[0].split(TOPICS_SEPARATOR));
+        publish(topics, messageText);
     }
 
-    @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.DoNotTerminateVM"})
-    private void publish(String topic, String message) {
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private void publish(List<String> topics, String message) throws Exception {
+        log.info("Publish to topics {}", topics);
+
+        String topic = null;
         try (GreengrassCoreIPCClientV2 ipcClient = GreengrassCoreIPCClientV2.builder().build()) {
-            publishBinaryMessageToTopic(ipcClient, topic, message);
-            log.info("Successfully published to topic: {}", topic);
+            for (String t : topics) {
+                topic = t;
+                publishBinaryMessageToTopic(ipcClient, topic, message);
+                log.info("Successfully published to topic {}", topic);
+            }
         } catch (Exception e) {
             if (e.getCause() instanceof UnauthorizedError) {
-                log.error("Unauthorized error while publishing to topic: {}", topic);
+                log.error("Unauthorized error while publishing to topic " + topic, e);
             } else {
-                log.error("Exception occurred when using IPC while publishing to topic: {}", topic);
+                log.error("Exception occurred when using IPC while publishing to topic " + topic, e);
             }
+            throw e;
         }
     }
 
