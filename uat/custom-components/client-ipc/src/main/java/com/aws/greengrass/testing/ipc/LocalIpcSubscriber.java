@@ -89,19 +89,21 @@ public class LocalIpcSubscriber implements Consumer<String[]> {
             responseHandler.closeStream();
         } catch (Exception e) {
             if (e.getCause() instanceof UnauthorizedError) {
-                log.error("Unauthorized error while publishing to topic: " + topic);
+                log.error("Unauthorized error while publishing to topic: {}", topic);
             } else {
-                log.error("Exception occurred when using IPC.", e);
+                log.error("Exception occurred when using IPC while publishing to topic: {} exception: {}", topic, e);
             }
         }
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void onStreamEvent(SubscriptionResponseMessage subscriptionResponseMessage) {
+        String message = null;
+        String topic = null;
         try {
             BinaryMessage binaryMessage = subscriptionResponseMessage.getBinaryMessage();
-            String message = new String(binaryMessage.getMessage(), StandardCharsets.UTF_8);
-            String topic = binaryMessage.getContext()
+            message = new String(binaryMessage.getMessage(), StandardCharsets.UTF_8);
+            topic = binaryMessage.getContext()
                                         .getTopic();
             log.info("RECEIVED TOPIC={}, MESSAGE: {}", topic, message);
             MessageDto dto = MessageDto.builder()
@@ -111,7 +113,8 @@ public class LocalIpcSubscriber implements Consumer<String[]> {
                                        .build();
             postToAssertionServer(dto);
         } catch (Exception e) {
-            log.error(e);
+            log.error("Exception occurred when forward IPC message {} on topic {} to assertion server exception {}",
+                        message, topic, e);
         }
     }
 

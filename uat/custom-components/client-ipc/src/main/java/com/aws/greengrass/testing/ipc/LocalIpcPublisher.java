@@ -54,9 +54,8 @@ public class LocalIpcPublisher implements Consumer<String[]> {
             if (e.getCause() instanceof UnauthorizedError) {
                 log.error("Unauthorized error while publishing to topic: {}", topic);
             } else {
-                log.error("Exception occurred when using IPC.");
+                log.error("Exception occurred when using IPC while publishing to topic: {}", topic);
             }
-            System.exit(2);
         }
     }
 

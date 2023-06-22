@@ -33,7 +33,7 @@ public class IpcClientMainRouter {
                                .getPublisher()
                                .accept(args);
         } else {
-            log.error("Unsupported ipc operation");
+            log.error("Unsupported operation {}", operationName);
             System.exit(1);
         }
     }
