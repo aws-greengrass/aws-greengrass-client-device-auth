@@ -125,6 +125,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     @Override
     public MqttPublishReply publish(long timeout, @NonNull Message message) {
         checkUserProperties(message.getUserProperties());
+        checkContentType(message.getContentType());
 
         MqttMessage mqttMessage = new MqttMessage();
         mqttMessage.setQos(message.getQos());
@@ -202,7 +203,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(), null);
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(), null, null);
             executorService.submit(() -> {
                 grpcClient.onReceiveMqttMessage(connectionId, message);
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
@@ -214,6 +215,12 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private void checkUserProperties(List<Mqtt5Properties> userProperties) {
         if (userProperties != null && !userProperties.isEmpty()) {
             logger.warn("MQTT V3 doesn't support user properties");
+        }
+    }
+
+    private void checkContentType(String contentType) {
+        if (contentType != null && !contentType.isEmpty()) {
+            logger.warn("MQTT V3 doesn't support content type");
         }
     }
 }

@@ -290,6 +290,10 @@ class GRPCControlServer {
                 internalMessage.userProperties(message.getPropertiesList());
             }
 
+            if (message.hasContentType()) {
+                internalMessage.contentType(message.getContentType());
+            }
+
             MqttPublishReply publishReply = connection.publish(timeout, internalMessage.build());
                 if (publishReply != null) {
                     logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",

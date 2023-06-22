@@ -35,6 +35,9 @@ public interface GRPCClient {
 
         /** User properties. */
         private List<Mqtt5Properties> userProperties;
+
+        /** Payload content type. */
+        private String contentType;
     }
 
 

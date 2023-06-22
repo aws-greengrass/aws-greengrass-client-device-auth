@@ -115,6 +115,9 @@ public interface MqttConnection {
         /** User properties. */
         private List<Mqtt5Properties>  userProperties;
 
+        /** Payload content type. */
+        private String contentType;
+
         // TODO: add user's properties and so one
     }
 

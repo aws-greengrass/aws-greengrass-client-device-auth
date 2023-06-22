@@ -125,6 +125,10 @@ class GRPCDiscoveryClient implements GRPCClient {
             msgBuilder.addAllProperties(message.getUserProperties());
         }
 
+        if (message.getContentType() != null && !message.getContentType().isEmpty()) {
+            msgBuilder.setContentType(message.getContentType());
+        }
+
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
                         .setAgentId(agentId)
                         .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
