@@ -6,6 +6,8 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
+import com.aws.greengrass.clientdevices.auth.session.Session;
+import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
@@ -32,6 +34,12 @@ public final class PermissionEvaluationUtils {
     private static final Pattern SERVICE_RESOURCE_PATTERN = Pattern.compile(
             String.format(SERVICE_RESOURCE_FORMAT, SERVICE_PATTERN_STRING, SERVICE_RESOURCE_TYPE_PATTERN_STRING,
                     SERVICE_RESOURCE_NAME_PATTERN_STRING), Pattern.UNICODE_CHARACTER_CLASS);
+
+    private static final String POLICY_VARIABLE_PATTERN_STRING = "\\$\\{iot:(\\w*+.\\w*+.\\w*+)}";
+
+    private static final String PROVIDER_STRING = "Connection";
+
+    private static final Logger LOGGER = LogManager.getLogger(SessionConfig.class);
 
 
     private PermissionEvaluationUtils() {
@@ -145,6 +153,43 @@ public final class PermissionEvaluationUtils {
 
         throw new IllegalArgumentException(
                 String.format("Resource %s is not in the form of %s", resourceStr, SERVICE_RESOURCE_PATTERN.pattern()));
+    }
+
+    /**
+     * utility method of updating permission with policy variable value.
+     *
+     * @param session             current device session
+     * @param permission              permission to parse
+     * @return updated permission
+     */
+    public static Permission updateResource(Session session, Permission permission) {
+
+        String resource = permission.getResource();
+
+        Pattern pattern = Pattern.compile(POLICY_VARIABLE_PATTERN_STRING);
+        Matcher matcher = pattern.matcher(resource);
+
+        while (matcher.find()) { 
+
+            String[] vars = matcher.group(1).split("\\.");
+            String attributeNamespace = vars[1];
+            String attributeName = vars[2];
+
+            // this currently supports the ThingName attribute
+            if (vars[0].equals(PROVIDER_STRING) && session.containsSessionAttribute(attributeNamespace, attributeName)){
+
+                String policyVariableValue = session.getSessionAttribute(attributeNamespace, attributeName).toString();
+
+                resource = matcher.replaceFirst(policyVariableValue);
+
+                permission = Permission.builder().principal(permission.getPrincipal()).operation(permission.getOperation()).resource(resource).build();
+            } else {
+                LOGGER.warn("Policy variable {}.{}.{} detected but could not be parsed", vars[0],
+                        vars[1], vars[2]);
+            }
+        }
+
+        return permission;
     }
 
     @Value
