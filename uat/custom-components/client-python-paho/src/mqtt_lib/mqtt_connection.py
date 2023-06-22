@@ -11,6 +11,7 @@ import socket
 import time
 
 from dataclasses import dataclass
+from typing import List
 
 import paho.mqtt.client as mqtt
 
@@ -18,10 +19,16 @@ from paho.mqtt import MQTTException as PahoException
 from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCodes
 from paho.mqtt.packettypes import PacketTypes
+from paho.mqtt.subscribeoptions import SubscribeOptions
 
 from mqtt_lib.temp_files_manager import TempFilesManager
 from exceptions.mqtt_exception import MQTTException
-from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import Mqtt5ConnAck, Mqtt5Disconnect, MqttPublishReply
+from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import (
+    Mqtt5ConnAck,
+    Mqtt5Disconnect,
+    MqttPublishReply,
+    MqttSubscribeReply,
+)
 from grpc_client_server.grpc_discovery_client import GRPCDiscoveryClient
 
 
@@ -33,6 +40,15 @@ class MqttResult:
     flags: dict = None
     properties: Properties = None
     error_string: str = ""
+    mid: int = 0
+
+
+@dataclass
+class SubscribesResult:
+    """Class SubscribesResult"""
+
+    granted_qos: List[int] = None
+    properties: Properties = None
     mid: int = 0
 
 
@@ -82,6 +98,21 @@ class MqttMessage:
     payload: bytes
 
     # TODO add user properties and other fields
+
+
+@dataclass
+class Subscribtion:
+    """Subscription information"""
+
+    # Topic filter.
+    filter: str
+    # Maximum QoS
+    qos: int
+    # No local subscription.
+    no_local: bool
+
+    retain_as_published: bool
+    retain_handling: int
 
 
 class AsyncioHelper:
@@ -175,6 +206,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         self.__on_connect_future = None
         self.__on_disconnect_future = None
         self.__on_publish_future = None
+        self.__on_subscribe_future = None
         self.__asyncio_helper = None  # pylint: disable=unused-private-member
         self.__loop = asyncio.get_running_loop()
 
@@ -204,6 +236,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         timeout - connect operation timeout in seconds
         Returns connection result
         """
+        # TODO add properties
         self.__asyncio_helper = AsyncioHelper(self.__loop, self.__client)  # pylint: disable=unused-private-member
 
         clean_start = self.__connection_params.clean_session
@@ -383,6 +416,94 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         except asyncio.InvalidStateError:
             pass
 
+    async def subscribe(
+        self, timeout: int, subscriptions: List[Subscribtion]
+    ) -> MqttSubscribeReply:  # TODO Add user properties
+        """
+        Subscribe on MQTT topics.
+        Parameters
+        ----------
+        timeout - subscribe operation timeout in seconds
+        subscriptions - Subscriptions information
+        Returns MqttSubscribeReply object
+        """
+        # TODO add set property
+        self.state_check()
+
+        mqtt_subscriptions = []
+
+        filters = []
+        qos = []
+        no_local = []
+        retain_as_published = []
+        retain_handling = []
+        for sub in subscriptions:
+            if self.__protocol == mqtt.MQTTv5:
+                options = SubscribeOptions(
+                    qos=sub.qos,
+                    noLocal=sub.no_local,
+                    retainAsPublished=sub.retain_as_published,
+                    retainHandling=sub.retain_handling,
+                )
+                mqtt_subscriptions.append((sub.filter, options))
+
+                retain_as_published.append(str(sub.retain_as_published))
+                retain_handling.append(str(sub.retain_handling))
+                no_local.append(str(sub.no_local))
+            else:
+                mqtt_subscriptions.append((sub.filter, sub.qos))
+
+            filters.append(sub.filter)
+            qos.append(str(sub.qos))
+
+        self.__on_subscribe_future = self.__loop.create_future()
+
+        try:
+            (resp_code, message_id) = self.__client.subscribe(mqtt_subscriptions, properties=None)
+
+            result = await asyncio.wait_for(self.__on_subscribe_future, timeout)
+
+            if resp_code != mqtt.MQTT_ERR_SUCCESS:
+                self.__logger.error("MQTT Subscribe failed with code %i: %s", resp_code, mqtt.error_string(resp_code))
+                raise MQTTException(f"Couldn't publish {resp_code}")
+
+            self.__logger.debug(
+                "Subscribed on filters '%s' with QoS %s no local %s retain as published %s"
+                " retain handing %s with message id %i",
+                ",".join(filters),
+                ",".join(qos),
+                ",".join(no_local),
+                ",".join(retain_as_published),
+                ",".join(retain_handling),
+                message_id,
+            )
+
+            return MqttConnection.convert_to_sub_reply(result)
+        except asyncio.TimeoutError as error:
+            raise MQTTException("Couldn't subscribe") from error
+        finally:
+            self.__on_subscribe_future = None
+
+    def __on_subscribe(
+        self, client, userdata, mid, reason_codes, properties=None
+    ):  # pylint: disable=unused-argument,too-many-arguments
+        """
+        Paho MQTT subscribe callback
+        """
+        if self.__protocol == mqtt.MQTTv5:
+            granted_qos = []
+            for reason_code in reason_codes:
+                granted_qos.append(reason_code.value)
+            mqtt_result = SubscribesResult(mid=mid, granted_qos=granted_qos, properties=properties)
+        else:
+            mqtt_result = SubscribesResult(mid=mid, granted_qos=reason_codes, properties=properties)
+
+        try:
+            if self.__on_subscribe_future is not None:
+                self.__on_subscribe_future.set_result(mqtt_result)
+        except asyncio.InvalidStateError:
+            pass
+
     def __create_client(self, connection_params: ConnectionParams) -> mqtt.Client:
         """
         Create async PAHO MQTT 5 Client
@@ -420,6 +541,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         client.on_connect = self.__on_connect
         client.on_disconnect = self.__on_disconnect
         client.on_publish = self.__on_publish
+        client.on_subscribe = self.__on_subscribe
 
         self.__logger.info("Creating MQTT %s client %s", protocol_version_for_log, tls_for_log)
 
@@ -492,3 +614,19 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         """
         # Python Paho MQTT does not support recieving any properties for the pusblished messages
         return MqttPublishReply(reasonCode=pub_info.rc)
+
+    @staticmethod
+    def convert_to_sub_reply(mqtt_result: SubscribesResult) -> MqttSubscribeReply:
+        """
+        Build MQTT subscribe reply
+        Parameters
+        ----------
+        mqtt_result - subscribe info
+        Returns MqttSubscribeReply object
+        """
+        # TODO add user properties handling
+        mqtt_sub_reply = MqttSubscribeReply(
+            reasonCodes=mqtt_result.granted_qos, reasonString=getattr(mqtt_result.properties, "ReasonString", None)
+        )
+
+        return mqtt_sub_reply
