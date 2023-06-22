@@ -76,8 +76,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 final String topic = message.getTopic();
                 final boolean isRetain = message.getRetain();
 
-                MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload(),
-                        null);
+                MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload(), null,
+                                                                    null, null);
                 executorService.submit(() -> {
                     grpcClient.onReceiveMqttMessage(connectionId, msg);
                 });
@@ -177,6 +177,14 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
         stateCheck();
         checkUserProperties(message.getUserProperties());
+
+        if (message.getContentType() != null) {
+            logger.atWarn().log("MQTT v3.1.1 does not support content type");
+        }
+
+        if (message.getPayloadFormatIndicator() != null) {
+            logger.atWarn().log("MQTT v3.1.1 does not support payload format indicator");
+        }
 
         final QualityOfService qos = QualityOfService.getEnumValueFromInteger(message.getQos());
         final String topic = message.getTopic();
@@ -347,7 +355,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     private void checkUserProperties(List<Mqtt5Properties> userProperties) {
         if (userProperties != null && !userProperties.isEmpty()) {
-            logger.warn("MQTT V3 doesn't support user properties");
+            logger.warn("MQTT v3.1.1 doesn't support user properties");
         }
     }
 }
