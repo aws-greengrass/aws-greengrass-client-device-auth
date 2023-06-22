@@ -124,7 +124,7 @@ Run
 Python Paho MQTT library is limited in
 
 1. Publishing
-Receiving properties for the published message is not implemented - Python Paho MQTT publish() method and on_publish() callback do not provide it.
+Receiving properties for the PUBACK is not implemented - Python Paho MQTT publish() method and on_publish() callback do not provide it.
 
 2. Subscribing
-Python Paho MQTT does not provide the API to set the Subscription ID.
+Python Paho MQTT does not provide the API to set the Subscription ID in SUBSCRIBE request.
