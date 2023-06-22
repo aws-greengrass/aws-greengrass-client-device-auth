@@ -22,6 +22,7 @@ public class IpcClientMainRouter {
      * @param args arguments to main
      * @throws Exception on errors
      */
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
     public static void main(String[] args) throws Exception {
         String operationName = System.getProperty(COMPONENT_NAME_SYS_PROP);
 

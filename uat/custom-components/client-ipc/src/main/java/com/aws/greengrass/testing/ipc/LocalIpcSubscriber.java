@@ -51,6 +51,7 @@ public class LocalIpcSubscriber {
      * @param args command line args
      * @throws Exception on errors
      */
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
     public void accept(String... args) throws Exception {
         log.info("Args {}", args);
 
@@ -63,7 +64,7 @@ public class LocalIpcSubscriber {
         subscribe(topics);
     }
 
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.SignatureDeclareThrowsException"})
     private void subscribe(final List<String> topics) throws Exception {
         log.info("Subscribe to topics {}", topics);
 

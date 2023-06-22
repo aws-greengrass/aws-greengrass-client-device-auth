@@ -32,6 +32,7 @@ public class LocalIpcPublisher {
      * @param args command line args
      * @throws Exception on errors
      */
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
     public void accept(String... args) throws Exception {
         log.info("Args {}", args);
         String messageText = args[1];
@@ -40,7 +41,7 @@ public class LocalIpcPublisher {
         publish(topics, messageText);
     }
 
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.SignatureDeclareThrowsException"})
     private void publish(List<String> topics, String message) throws Exception {
         log.info("Publish to topics {}", topics);
 
