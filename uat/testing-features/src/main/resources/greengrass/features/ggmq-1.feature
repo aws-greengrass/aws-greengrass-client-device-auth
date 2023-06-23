@@ -1385,6 +1385,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
 
+  # TODO: when paho-java is ready to handle payload format indicator join all T1xx scenarios together
   @GGMQ-1-T104
   Scenario Outline: GGMQ-1-T104-<mqtt-v>-<name>: As a customer, I can send and receive MQTT v5.0 messages with 'payload format indicator'
     When I create a Greengrass deployment with components
@@ -1461,7 +1462,11 @@ Feature: GGMQ-1
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
 
-    # TODO: add more agents here when 'payload format indicator' feature will be added to it
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+
     @mqtt5 @mosquitto-c
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
