@@ -1468,19 +1468,53 @@ Feature: GGMQ-1
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
 
-    # 1. payload format indicator set to 0
-    When I subscribe "subscriber" to "iot_data_0" with qos 0
+    # 7. test case when both tx/rx payload format indicators are set to 0
+    And I clear message storage
     And I set MQTT publish 'payload format indicator' flag to false
-    When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world1"
     And I set the 'payload format indicator' flag in expected received messages to false
-    And message "Hello world1" received on "subscriber" from "iot_data_0" topic within 5 seconds
+    When I subscribe "subscriber" to "payload_format_indicator_false_false" with qos 0
+    When I publish from "publisher" to "payload_format_indicator_false_false" with qos 0 and message "Payload format indicators false/false"
+    And message "Payload format indicators false/false" received on "subscriber" from "payload_format_indicator_false_false" topic within 5 seconds
 
-    # 2. payload format indicator set to 1
-    When I subscribe "subscriber" to "iot_data_1" with qos 0
+    # 8. test case when both tx/rx payload format indicators set to 1
+    And I clear message storage
     And I set MQTT publish 'payload format indicator' flag to true
-    When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world2"
     And I set the 'payload format indicator' flag in expected received messages to true
-    And message "Hello world2" received on "subscriber" from "iot_data_1" topic within 5 seconds
+    When I subscribe "subscriber" to "payload_format_indicator_true_true" with qos 0
+    When I publish from "publisher" to "payload_format_indicator_true_true" with qos 0 and message "Payload format indicators true/true"
+    And message "Payload format indicators true/true" received on "subscriber" from "payload_format_indicator_true_true" topic within 5 seconds
+
+    # 10. test case when tx payload format indicator set to 1 and rx to 0
+    And I clear message storage
+    And I set MQTT publish 'payload format indicator' flag to true
+    And I set the 'payload format indicator' flag in expected received messages to false
+    When I subscribe "subscriber" to "payload_format_indicator_true_false" with qos 0
+    When I publish from "publisher" to "payload_format_indicator_true_false" with qos 0 and message "Payload format indicators true/false"
+    And message "Payload format indicators true/false" is not received on "subscriber" from "payload_format_indicator_true_false" topic within 5 seconds
+
+    # 11. test case when tx payload format indicator set to 0 and rx to 1
+    And I clear message storage
+    And I set MQTT publish 'payload format indicator' flag to false
+    And I set the 'payload format indicator' flag in expected received messages to true
+    When I subscribe "subscriber" to "payload_format_indicator_false_true" with qos 0
+    When I publish from "publisher" to "payload_format_indicator_false_true" with qos 0 and message "Payload format indicators false/true"
+    And message "Payload format indicators false/true" is not received on "subscriber" from "payload_format_indicator_false_true" topic within 5 seconds
+
+    # 12. test case when tx payload format indicator set to 1 and rx is unset
+    And I clear message storage
+    And I set MQTT publish 'payload format indicator' flag to true
+    And I set the 'payload format indicator' flag in expected received messages to null
+    When I subscribe "subscriber" to "payload_format_indicator_true_null" with qos 0
+    When I publish from "publisher" to "payload_format_indicator_true_null" with qos 0 and message "Payload format indicators true/null"
+    And message "Payload format indicators true/null" received on "subscriber" from "payload_format_indicator_true_null" topic within 5 seconds
+
+    # 13. test case when tx payload format indicator set to 0 and rx is unset
+    And I clear message storage
+    And I set MQTT publish 'payload format indicator' flag to false
+    And I set the 'payload format indicator' flag in expected received messages to null
+    When I subscribe "subscriber" to "payload_format_indicator_false_null" with qos 0
+    When I publish from "publisher" to "payload_format_indicator_false_null" with qos 0 and message "Payload format indicators false/null"
+    And message "Payload format indicators false/null" received on "subscriber" from "payload_format_indicator_false_null" topic within 5 seconds
 
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
