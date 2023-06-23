@@ -163,8 +163,8 @@ public final class PermissionEvaluationUtils {
     /**
      * utility method to permission with variable value.
      *
-     * @param session             current device session
-     * @param permission              permission to parse
+     * @param session    current device session
+     * @param permission permission to parse
      * @return updated permission
      */
 
@@ -175,7 +175,7 @@ public final class PermissionEvaluationUtils {
         Pattern pattern = Pattern.compile(POLICY_VARIABLE_PATTERN);
         Matcher matcher = pattern.matcher(resource);
 
-        while (matcher.find()) { 
+        while (matcher.find()) {
 
             String[] vars = matcher.group(1).split("\\.");
             String attributeNamespace = vars[1];
@@ -190,9 +190,9 @@ public final class PermissionEvaluationUtils {
                 resource = matcher.replaceFirst(policyVariableValue);
 
                 permission = Permission.builder()
-                                .principal(permission.getPrincipal())
-                                .operation(permission.getOperation())
-                                .resource(resource).build();
+                        .principal(permission.getPrincipal())
+                        .operation(permission.getOperation())
+                        .resource(resource).build();
             } else {
                 LOGGER.warn("Policy variable {}.{}.{} detected but could not be parsed", vars[0],
                         vars[1], vars[2]);
