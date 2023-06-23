@@ -23,16 +23,16 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 import javax.inject.Inject;
 
+import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCClientV2.StreamingResponse;
+
 @Log4j2
-public class LocalIpcSubscriber implements Consumer<String[]> {
+public class LocalIpcSubscriber {
 
     private static final int DEFAULT_PORT = 8033;
     private static final String TOPICS_SEPARATOR = ",";
@@ -40,8 +40,6 @@ public class LocalIpcSubscriber implements Consumer<String[]> {
     private static final String DEFAULT_CONTEXT = "ReceivedPubsubMessage";
 
     private String assertionServerUrl = "http://localhost:8080";
-
-    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     @Inject
     public LocalIpcSubscriber() {
@@ -51,59 +49,75 @@ public class LocalIpcSubscriber implements Consumer<String[]> {
      * Start LocalIpcSubscriber execution.
      *
      * @param args command line args
+     * @throws Exception on errors
      */
-    @Override
-    public void accept(String[] args) {
-        log.info("Args: {}", args);
-        List<String> topics = Arrays.asList(args[0].split(TOPICS_SEPARATOR));
-        log.info("Subscribe to topics: {}", topics);
-        topics.forEach(topic -> executor.execute(() -> subscribe(topic)));
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
+    public void accept(String... args) throws Exception {
+        log.info("Args {}", args);
+
         final String url = Optional.ofNullable(args[1])
                                    .orElse(assertionServerUrl);
-        log.info("Assertion server URL: {}", url);
+        log.info("Assertion server URL {}", url);
         assertionServerUrl = url;
+
+        List<String> topics = Arrays.asList(args[0].split(TOPICS_SEPARATOR));
+        subscribe(topics);
     }
 
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private void subscribe(String topic) {
+    @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.SignatureDeclareThrowsException"})
+    private void subscribe(final List<String> topics) throws Exception {
+        log.info("Subscribe to topics {}", topics);
+
+        List<SubscribeToTopicResponseHandler> responseHandlers = new ArrayList<>();
+
+        String topic = null;
         try (GreengrassCoreIPCClientV2 ipcClient = GreengrassCoreIPCClientV2.builder()
                                                                             .withPort(DEFAULT_PORT)
                                                                             .build()) {
-            SubscribeToTopicRequest request = new SubscribeToTopicRequest().withTopic(topic);
-            GreengrassCoreIPCClientV2.StreamingResponse<SubscribeToTopicResponse, SubscribeToTopicResponseHandler>
-                    response = ipcClient.subscribeToTopic(request,
-                                                          this::onStreamEvent,
-                                                          Optional.of(this::onStreamError),
-                                                          Optional.of(this::onStreamClosed));
-            SubscribeToTopicResponseHandler responseHandler = response.getHandler();
-            log.info("Successfully subscribed to topic: {}", topic);
+            for (String t : topics) {
+                topic = t;
+                SubscribeToTopicRequest request = new SubscribeToTopicRequest().withTopic(topic);
+
+                StreamingResponse<SubscribeToTopicResponse, SubscribeToTopicResponseHandler> response = 
+                            ipcClient.subscribeToTopic(request,
+                                                        this::onStreamEvent,
+                                                        Optional.of(this::onStreamError),
+                                                        Optional.of(this::onStreamClosed));
+                SubscribeToTopicResponseHandler responseHandler = response.getHandler();
+                responseHandlers.add(responseHandler);
+                log.info("Successfully subscribed to topic {}", topic);
+            }
 
             try {
                 while (true) {
                     Thread.sleep(10_000);
                 }
             } catch (InterruptedException e) {
-                log.info("Subscribe interrupted.");
+                log.info("LocalIpcSubscriber interrupted");
             }
 
-            responseHandler.closeStream();
+            responseHandlers.forEach(responseHandler -> responseHandler.closeStream());
+
         } catch (Exception e) {
             if (e.getCause() instanceof UnauthorizedError) {
-                log.error("Unauthorized error while publishing to topic: " + topic);
+                log.error("Unauthorized error while subscribing to topic " + topic, e);
             } else {
-                log.error("Exception occurred when using IPC.", e);
+                log.error("Exception occurred when using IPC while subscribing to topic " + topic, e);
             }
+            throw e;
         }
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void onStreamEvent(SubscriptionResponseMessage subscriptionResponseMessage) {
+        String message = null;
+        String topic = null;
         try {
             BinaryMessage binaryMessage = subscriptionResponseMessage.getBinaryMessage();
-            String message = new String(binaryMessage.getMessage(), StandardCharsets.UTF_8);
-            String topic = binaryMessage.getContext()
+            message = new String(binaryMessage.getMessage(), StandardCharsets.UTF_8);
+            topic = binaryMessage.getContext()
                                         .getTopic();
-            log.info("RECEIVED TOPIC={}, MESSAGE: {}", topic, message);
+            log.info("Received IPC event topic {} message {}", topic, message);
             MessageDto dto = MessageDto.builder()
                                        .topic(topic)
                                        .message(message)
@@ -111,7 +125,8 @@ public class LocalIpcSubscriber implements Consumer<String[]> {
                                        .build();
             postToAssertionServer(dto);
         } catch (Exception e) {
-            log.error(e);
+            log.error("Exception occurred when forwarding IPC message " + message + " on topic " + topic
+                        + " to assertion server", e);
         }
     }
 
@@ -141,11 +156,11 @@ public class LocalIpcSubscriber implements Consumer<String[]> {
     }
 
     private boolean onStreamError(Throwable error) {
-        log.error("Received a stream error.", error);
+        log.error("Received a stream error", error);
         return false;
     }
 
     private void onStreamClosed() {
-        log.info("Subscribe to topic stream closed.");
+        log.info("Subscribe to topic stream closed");
     }
 }

@@ -213,7 +213,7 @@ Feature: GGMQ-1
 }
     """
     And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 120 seconds
+    Then the Greengrass deployment is COMPLETED on the device after 2 minutes
     And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
     And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
@@ -968,7 +968,7 @@ Feature: GGMQ-1
     }
 }
     """
-    Then the local Greengrass deployment is SUCCEEDED on the device after 120 seconds
+    Then the local Greengrass deployment is SUCCEEDED on the device after 2 minutes
 
     Then I wait 5 seconds
     Then message "Hello world" received on "subscriber" from "pubsub/topic/to/publish/on" topic within 10 seconds
