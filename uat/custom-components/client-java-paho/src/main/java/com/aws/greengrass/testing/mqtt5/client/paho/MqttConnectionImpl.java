@@ -188,7 +188,6 @@ public class MqttConnectionImpl implements MqttConnection {
                 if (ackUserProperties != null) {
                     builder.addAllProperties(ackUserProperties);
                 }
-                responseProps.getContentType();
             }
         } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
             logger.atError().withThrowable(ex)
