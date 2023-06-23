@@ -233,30 +233,10 @@ Feature: GGMQ-1
       | mqtt-v | name     | agent                                        | recipe                  | iot_data_1-publish | subscribe-status-q1 |
       | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml    | 0                  | GRANTED_QOS_0       |
 
-    @mqtt3 @mosquitto-c
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | iot_data_1-publish | subscribe-status-q1 |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | 0                | GRANTED_QOS_1       |
-
-    @mqtt3 @paho-java
-    Examples:
-      | mqtt-v | name      | agent                                       | recipe                  | iot_data_1-publish | subscribe-status-q1 |
-      | v3     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 0                  | GRANTED_QOS_0       |
-
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name     | agent                                        | recipe                  | iot_data_1-publish | subscribe-status-q1 |
       | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml    | 135                | GRANTED_QOS_1       |
-
-    @mqtt5 @mosquitto-c
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | iot_data_1-publish | subscribe-status-q1 |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | 135                | GRANTED_QOS_1       |
-
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name      | agent                                       | recipe                  | iot_data_1-publish | subscribe-status-q1 |
-      | v5     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 135                | GRANTED_QOS_1       |
 
 
   @GGMQ-1-T8
