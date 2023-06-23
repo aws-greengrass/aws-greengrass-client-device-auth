@@ -52,7 +52,7 @@ public class AssertionSteps {
     }
 
     /**
-     * Verify by context and message .
+     * Verify by context and message.
      *
      * @param count   int exact count of requests
      * @param context string context name
@@ -75,5 +75,4 @@ public class AssertionSteps {
             wireMockServer.shutdown();
         }
     }
-
 }
