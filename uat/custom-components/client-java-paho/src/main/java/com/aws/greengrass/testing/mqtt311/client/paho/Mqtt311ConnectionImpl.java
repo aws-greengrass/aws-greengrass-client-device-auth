@@ -226,7 +226,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     private void checkContentType(String contentType) {
         if (contentType != null && !contentType.isEmpty()) {
-            logger.warn("MQTT V3 doesn't support content type");
+            logger.warn("MQTT V3 doesn't support 'content type'");
         }
     }
 }
