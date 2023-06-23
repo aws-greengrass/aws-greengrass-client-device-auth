@@ -35,9 +35,10 @@ public final class PermissionEvaluationUtils {
             String.format(SERVICE_RESOURCE_FORMAT, SERVICE_PATTERN_STRING, SERVICE_RESOURCE_TYPE_PATTERN_STRING,
                     SERVICE_RESOURCE_NAME_PATTERN_STRING), Pattern.UNICODE_CHARACTER_CLASS);
 
-    private static final String POLICY_VARIABLE_PATTERN_STRING = "\\$\\{iot:(\\w*+.\\w*+.\\w*+)}";
+    private static final String POLICY_VARIABLE_PATTERN = "\\$\\{iot:(Connection.Thing.ThingName)}";
 
-    private static final String PROVIDER_STRING = "Connection";
+
+    private static final String PROVIDER = "Connection";
 
     private static final Logger LOGGER = LogManager.getLogger(SessionConfig.class);
 
@@ -165,11 +166,12 @@ public final class PermissionEvaluationUtils {
      * @param permission              permission to parse
      * @return updated permission
      */
+
     public static Permission updateResource(Session session, Permission permission) {
 
         String resource = permission.getResource();
 
-        Pattern pattern = Pattern.compile(POLICY_VARIABLE_PATTERN_STRING);
+        Pattern pattern = Pattern.compile(POLICY_VARIABLE_PATTERN);
         Matcher matcher = pattern.matcher(resource);
 
         while (matcher.find()) { 
@@ -179,7 +181,7 @@ public final class PermissionEvaluationUtils {
             String attributeName = vars[2];
 
             // this currently supports the ThingName attribute
-            if (vars[0].equals(PROVIDER_STRING)
+            if (vars[0].equals(PROVIDER)
                     && session.containsSessionAttribute(attributeNamespace, attributeName)) {
 
                 String policyVariableValue = session.getSessionAttribute(attributeNamespace, attributeName).toString();
