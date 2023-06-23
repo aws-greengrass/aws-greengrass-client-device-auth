@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 import com.aws.greengrass.testing.mqtt.client.DiscoveryRequest;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.MqttAgentDiscoveryGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttQoS;
@@ -27,6 +28,8 @@ import io.grpc.StatusRuntimeException;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.List;
 
 /**
  * Implementation of gRPC client used to discover agent.
@@ -117,19 +120,31 @@ class GRPCDiscoveryClient implements GRPCClient {
 
     @Override
     public void onReceiveMqttMessage(int connectionId, MqttReceivedMessage message) {
-        Mqtt5Message.Builder msg = Mqtt5Message.newBuilder()
+        Mqtt5Message.Builder builder = Mqtt5Message.newBuilder()
                                         .setTopic(message.getTopic())
                                         .setPayload(ByteString.copyFrom(message.getPayload()))
                                         .setQos(MqttQoS.forNumber(message.getQos()))
                                         .setRetain(message.isRetain());
-        if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
-            msg.addAllProperties(message.getUserProperties());
+
+        final List<Mqtt5Properties> userProperties = message.getUserProperties();
+        if (userProperties != null && !userProperties.isEmpty()) {
+            builder.addAllProperties(userProperties);
+        }
+
+        final String contentType = message.getContentType();
+        if (contentType != null) {
+            builder.setContentType(contentType);
+        }
+
+        final Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
+        if (payloadFormatIndicator != null) {
+            builder.setPayloadFormatIndicator(payloadFormatIndicator);
         }
 
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
                         .setAgentId(agentId)
                         .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
-                        .setMsg(msg.build())
+                        .setMsg(builder.build())
                         .build();
         try {
             blockingStub.onReceiveMessage(request);
@@ -145,15 +160,18 @@ class GRPCDiscoveryClient implements GRPCClient {
                         .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId)
                         .build());
         if (disconnectInfo != null) {
-            Mqtt5Disconnect.Builder disconnect = Mqtt5Disconnect.newBuilder();
-            if (disconnectInfo.getUserProperties() != null && !disconnectInfo.getUserProperties().isEmpty()) {
-                disconnect.addAllProperties(disconnectInfo.getUserProperties());
+            Mqtt5Disconnect.Builder disconnectBuilder = Mqtt5Disconnect.newBuilder()
+                .setReasonCode(disconnectInfo.getReasonCode())
+                .setReasonString(disconnectInfo.getReasonString())
+                .setServerReference(disconnectInfo.getServerReference())
+                .setSessionExpiryInterval(disconnectInfo.getSessionExpiryInterval());
+
+            final List<Mqtt5Properties> userProperties = disconnectInfo.getUserProperties();
+            if (userProperties != null && !userProperties.isEmpty()) {
+                disconnectBuilder.addAllProperties(userProperties);
             }
-            disconnect.setReasonString(disconnectInfo.getReasonString());
-            disconnect.setReasonCode(disconnectInfo.getReasonCode());
-            disconnect.setServerReference(disconnectInfo.getServerReference());
-            disconnect.setSessionExpiryInterval(disconnectInfo.getSessionExpiryInterval());
-            builder.setDisconnect(disconnect.build());
+
+            builder.setDisconnect(disconnectBuilder.build());
         }
         if (error != null) {
             builder.setError(error);

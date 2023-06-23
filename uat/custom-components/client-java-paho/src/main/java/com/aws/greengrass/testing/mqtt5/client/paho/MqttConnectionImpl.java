@@ -87,7 +87,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @Override
     public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
-                                        List<Mqtt5Properties>  userProperties) {
+                                        List<Mqtt5Properties> userProperties) {
         MqttSubscription[] mqttSubscriptions = new MqttSubscription[subscriptions.size()];
         MqttMessageListener[] listeners = new MqttMessageListener[subscriptions.size()];
         for (int i = 0; i < subscriptions.size(); i++) {
@@ -357,7 +357,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     private List<UserProperty> convertToUserProperties(List<Mqtt5Properties> properties) {
         List<UserProperty> userProperties = new ArrayList<>();
-        properties.forEach(p ->  userProperties.add(new UserProperty(p.getKey(), p.getValue())));
+        properties.forEach(p -> userProperties.add(new UserProperty(p.getKey(), p.getValue())));
         return userProperties;
     }
 
@@ -371,7 +371,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     private static List<Mqtt5Properties> convertToMqtt5Properties(List<UserProperty> properties) {
         List<Mqtt5Properties> userProperties = new ArrayList<>();
-        properties.forEach(p ->  userProperties.add(Mqtt5Properties.newBuilder()
+        properties.forEach(p -> userProperties.add(Mqtt5Properties.newBuilder()
                 .setKey(p.getKey()).setValue(p.getValue()).build()));
         return userProperties;
     }
