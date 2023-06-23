@@ -112,11 +112,14 @@ public interface MqttConnection {
         /** Payload of message. */
         private byte[] payload;
 
-        /** User properties. */
+        /** Optional user properties. */
         private List<Mqtt5Properties>  userProperties;
 
         /** Optional content type. */
         private String contentType;
+
+        /** Optional payload format indicator. */
+        private Boolean payloadFormatIndicator;
 
         // TODO: add user's properties and so one
     }

@@ -164,6 +164,12 @@ public class MqttConnectionImpl implements MqttConnection {
             logger.atInfo().log("Publish MQTT payload content type '{}'", contentType);
         }
 
+        Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
+        if (payloadFormatIndicator != null) {
+            properties.setPayloadFormat(payloadFormatIndicator);
+            logger.atInfo().log("Publish MQTT payload payload format indicator '{}'", payloadFormatIndicator);
+        }
+
         mqttMessage.setProperties(properties);
 
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
@@ -348,12 +354,14 @@ public class MqttConnectionImpl implements MqttConnection {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) {
             MqttProperties receivedProperties = mqttMessage.getProperties();
+
             String contentType = receivedProperties != null ? receivedProperties.getContentType() : null;
+            Boolean payloadFormatIndicator = receivedProperties != null ? receivedProperties.getPayloadFormat() : null;
 
             List<Mqtt5Properties> userProps = convertToMqtt5Properties(receivedProperties);
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
                     mqttMessage.getQos(), mqttMessage.isRetained(), topic,
-                    mqttMessage.getPayload(), userProps, contentType);
+                    mqttMessage.getPayload(), userProps, contentType, payloadFormatIndicator);
             executorService.submit(() -> {
                 grpcClient.onReceiveMqttMessage(connectionId, message);
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
@@ -365,6 +373,9 @@ public class MqttConnectionImpl implements MqttConnection {
             }
             if (contentType != null) {
                 logger.atInfo().log("Received MQTT message has content type '{}'", contentType);
+            }
+            if (payloadFormatIndicator != null) {
+                logger.atInfo().log("Received MQTT message has payload format indicator '{}'", contentType);
             }
         }
     }
