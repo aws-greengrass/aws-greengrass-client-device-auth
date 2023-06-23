@@ -161,7 +161,7 @@ public class MqttConnectionImpl implements MqttConnection {
         String contentType = message.getContentType();
         if (contentType != null && !contentType.isEmpty()) {
             properties.setContentType(contentType);
-            logger.atInfo().log("Publish MQTT payload 'content type' {}", contentType);
+            logger.atInfo().log("Publish MQTT payload content type '{}'", contentType);
         }
 
         mqttMessage.setProperties(properties);
@@ -365,7 +365,7 @@ public class MqttConnectionImpl implements MqttConnection {
                         .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
             }
             if (contentType != null) {
-                logger.atInfo().log("Received MQTT message has 'content type' {}", contentType);
+                logger.atInfo().log("Received MQTT message has content type '{}'", contentType);
             }
         }
     }
