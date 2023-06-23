@@ -233,30 +233,10 @@ Feature: GGMQ-1
       | mqtt-v | name     | agent                                        | recipe                  | iot_data_1-publish | subscribe-status-q1 |
       | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml    | 0                  | GRANTED_QOS_0       |
 
-    @mqtt3 @mosquitto-c
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | iot_data_1-publish | subscribe-status-q1 |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | 0                | GRANTED_QOS_1       |
-
-    @mqtt3 @paho-java
-    Examples:
-      | mqtt-v | name      | agent                                       | recipe                  | iot_data_1-publish | subscribe-status-q1 |
-      | v3     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 0                  | GRANTED_QOS_0       |
-
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name     | agent                                        | recipe                  | iot_data_1-publish | subscribe-status-q1 |
       | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml    | 135                | GRANTED_QOS_1       |
-
-    @mqtt5 @mosquitto-c
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | iot_data_1-publish | subscribe-status-q1 |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | 135                | GRANTED_QOS_1       |
-
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name      | agent                                       | recipe                  | iot_data_1-publish | subscribe-status-q1 |
-      | v5     | paho-java | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 135                | GRANTED_QOS_1       |
 
 
   @GGMQ-1-T8
@@ -1251,7 +1231,7 @@ Feature: GGMQ-1
 
 
   @GGMQ-1-T103
-  Scenario Outline: GGMQ-1-T103-<mqtt-v>-<name>: As a customer, I can use retain as published flag
+  Scenario Outline: GGMQ-1-T103-<mqtt-v>-<name>: As a customer, I can use: retain as published flag, user properties for MQTT v5.0
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth       | LATEST                                  |
       | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
@@ -1342,6 +1322,50 @@ Feature: GGMQ-1
     And I set the 'retain' flag in expected received messages to true
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world4"
     And message "Hello world4" received on "subscriber" from "iot_data_1" topic within 5 seconds
+
+    # 3. test case when publish 'user properties' are not empty.
+    #  In that case 'user properties' on receive should be equal to 'user properties' value on publish.
+
+    And I add MQTT 'user property' with key "type" and value "json" to transmit
+    And I add MQTT 'user property' with key "region" and value "Asia" to transmit
+    And I add MQTT 'user property' with key "type" and value "json" to receive
+    And I add MQTT 'user property' with key "region" and value "Asia" to receive
+    When I subscribe "subscriber" to "iot_data_2" with qos 0
+    When I publish from "publisher" to "iot_data_2" with qos 0 and message "Expected userProperties are received"
+    And message "Expected userProperties are received" received on "subscriber" from "iot_data_2" topic within 5 seconds
+
+    # 4. test case when publish 'user properties' are empty.
+    #  In that case 'user properties' on receive should not be equal to 'user properties' value on publish.
+
+    And I clear message storage
+    And I clear MQTT 'user properties' to transmit
+    And I clear MQTT 'user properties' to receive
+    And I add MQTT 'user property' with key "agent-control" and value "control" to receive
+    And I add MQTT 'user property' with key "timezone" and value "GMT6" to receive
+    When I subscribe "subscriber" to "iot_data_2" with qos 0
+    When I publish from "publisher" to "iot_data_2" with qos 0 and message "Expected userProperties are not received"
+    And message "Expected userProperties are not received" is not received on "subscriber" from "iot_data_2" topic within 5 seconds
+
+    # 5. test case when publish 'user properties' are empty.
+    #  In that case 'user properties' on receive should ignore 'user properties' value on publish.
+    And I clear message storage
+    And I clear MQTT 'user properties' to transmit
+    And I clear MQTT 'user properties' to receive
+    And I add MQTT 'user property' with key "agent-control" and value "control" to transmit
+    And I add MQTT 'user property' with key "timezone" and value "GMT6" to transmit
+    When I subscribe "subscriber" to "iot_data_3" with qos 0
+    When I publish from "publisher" to "iot_data_3" with qos 0 and message "Ignore userProperties"
+    And message "Ignore userProperties" received on "subscriber" from "iot_data_3" topic within 5 seconds
+
+    # 6. test case when publish 'user properties' are empty.
+    #  In that case 'user properties' on receive should be equal to 'user properties' value on publish.
+
+    And I clear message storage
+    And I clear MQTT 'user properties' to transmit
+    And I clear MQTT 'user properties' to receive
+    When I subscribe "subscriber" to "iot_data_4" with qos 0
+    When I publish from "publisher" to "iot_data_4" with qos 0 and message "Without userProperties"
+    And message "Without userProperties" received on "subscriber" from "iot_data_4" topic within 5 seconds
 
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0

@@ -26,7 +26,7 @@ from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import (
     MqttConnectionId,
 )
 from mqtt_lib.mqtt_lib import MQTTLib
-from mqtt_lib.mqtt_connection import ConnectionParams, MqttMessage
+from mqtt_lib.mqtt_connection import ConnectionParams, MqttMessage, Subscribtion
 from exceptions.mqtt_exception import MQTTException
 
 PORT_MIN = 1
@@ -43,6 +43,9 @@ REASON_MAX = 255
 
 QOS_MIN = 0
 QOS_MAX = 2
+
+RETAIN_HANDLING_MIN = 0
+RETAIN_HANDLING_MAX = 2
 
 
 class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
@@ -167,7 +170,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         self.__logger.info(
             "createMqttConnection: clientId %s broker %s:%i", request.clientId, request.host, request.port
         )
-
+        # TODO add properties
         connection_params = ConnectionParams(
             client_id=request.clientId,
             host=request.host,
@@ -324,8 +327,78 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         context - request context
         Returns MqttSubscribeReply object
         """
-        # TODO
-        self.__logger.info("SubscribeMqtt Placeholder TODO")
+        timeout = request.timeout
+        if timeout < TIMEOUT_MIN:
+            self.__logger.warning("SubscribeMqtt: invalid timeout, must be at least %i second", TIMEOUT_MIN)
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, f"invalid timeout, must be at least {TIMEOUT_MIN}")
+
+        index = 0
+        subscribtions = []
+        for mqtt_sub in request.subscriptions:
+            if not mqtt_sub.filter:
+                self.__logger.warning("SubscribeMqtt: empty filter at subscription index %i", index)
+                await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "empty filter")
+
+            if (mqtt_sub.qos < QOS_MIN) or (mqtt_sub.qos > QOS_MAX):
+                self.__logger.warning(
+                    "SubscribeMqtt: invalid QoS %i at subscription index %i, must be in range [%i,%i]",
+                    mqtt_sub.qos,
+                    index,
+                    QOS_MIN,
+                    QOS_MAX,
+                )
+                await context.abort(
+                    grpc.StatusCode.INVALID_ARGUMENT, f"invalid QoS, must be in range [{QOS_MIN},{QOS_MAX}]"
+                )
+
+            if (mqtt_sub.retainHandling < RETAIN_HANDLING_MIN) or (mqtt_sub.retainHandling > RETAIN_HANDLING_MAX):
+                self.__logger.warning(
+                    "SubscribeMqtt: invalid retainHandling %i at subscription index %i, must be in range [%i,%i]",
+                    mqtt_sub.retainHandling,
+                    index,
+                    RETAIN_HANDLING_MIN,
+                    RETAIN_HANDLING_MAX,
+                )
+                await context.abort(
+                    grpc.StatusCode.INVALID_ARGUMENT,
+                    f"invalid QoS, must be in range [{RETAIN_HANDLING_MIN},{RETAIN_HANDLING_MAX}]",
+                )
+
+            new_subscription = Subscribtion(
+                filter=mqtt_sub.filter,
+                qos=mqtt_sub.qos,
+                no_local=mqtt_sub.noLocal,
+                retain_as_published=mqtt_sub.retainAsPublished,
+                retain_handling=mqtt_sub.retainHandling,
+            )
+
+            subscribtions.append(new_subscription)
+
+            self.__logger.debug(
+                "Subscription: filter %s QoS %i noLocal %i retainAsPublished %i retainHandling %i",
+                new_subscription.filter,
+                new_subscription.qos,
+                new_subscription.no_local,
+                new_subscription.retain_as_published,
+                new_subscription.retain_handling,
+            )
+
+        connection_id = request.connectionId.connectionId
+        self.__logger.info("SubscribeMqtt connection_id %i", connection_id)
+
+        connection = self.__mqtt_lib.get_connection(connection_id)
+        if connection is None:
+            self.__logger.warning("SubscribeMqtt: connection with id %i is not found", connection_id)
+            await context.abort(grpc.StatusCode.NOT_FOUND, "connection for that id is not found")
+
+        try:
+            # TODO add properties
+            sub_reply = await connection.subscribe(timeout=timeout, subscriptions=subscribtions)
+            return sub_reply
+        except MQTTException as error:
+            self.__logger.warning("SubscribeMqtt: exception during publishing")
+            await context.abort(grpc.StatusCode.INTERNAL, str(error))
+
         return MqttSubscribeReply()
 
     async def UnsubscribeMqtt(

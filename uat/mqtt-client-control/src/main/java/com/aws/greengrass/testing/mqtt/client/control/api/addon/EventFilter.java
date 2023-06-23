@@ -5,11 +5,13 @@
 
 package com.aws.greengrass.testing.mqtt.client.control.api.addon;
 
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import lombok.Getter;
 import lombok.NonNull;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * Filter of events in event storage.
@@ -27,6 +29,7 @@ public final class EventFilter {
     private final String topicFilter;
     private final byte[] content;
     private final Boolean retain;
+    private final List<Mqtt5Properties> userProperties;
 
     EventFilter(Builder builder) {
         super();
@@ -41,6 +44,7 @@ public final class EventFilter {
         this.topicFilter = builder.topicFilter;
         this.content = builder.content;
         this.retain = builder.retain;
+        this.userProperties = builder.userProperties;
     }
 
     /**
@@ -58,6 +62,7 @@ public final class EventFilter {
         private String topicFilter;
         private byte[] content;
         private Boolean retain;
+        private List<Mqtt5Properties> userProperties;
 
         /**
          * Sets type of event.
@@ -194,6 +199,17 @@ public final class EventFilter {
          */
         public Builder withRetain(Boolean retain) {
             this.retain = retain;
+            return this;
+        }
+
+        /**
+         * Sets user properties.
+         * Applicable only for MQTT message events
+         *
+         * @param userProperties the user properties of the published message
+         */
+        public Builder withUserProperties(List<Mqtt5Properties> userProperties) {
+            this.userProperties = userProperties;
             return this;
         }
 
