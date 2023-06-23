@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -30,10 +30,10 @@
      /**
       * Check if attribute provider exists.
       *
-      * @param attributeNamespace Attribute namespace
+      * @param attributeProviderNameSpace Attribute namespace
       * @return True/false
       */
-     public boolean containsAttributeProvider(String attributeProviderNameSpace);
+     boolean containsAttributeProvider(String attributeProviderNameSpace);
  
      /**
       * Check if attribute exists.
@@ -42,6 +42,6 @@
       * @param attributeName      Attribute name
       * @return True/false
       */
-     boolean containsSessionAttribute( String attributeNamespace, String attributeName);
+     boolean containsSessionAttribute(String attributeNamespace, String attributeName);
  }
  

@@ -68,7 +68,8 @@ public final class PermissionEvaluationUtils {
             return false;
         }
 
-        for (Map.Entry<String, Set<Permission>> entry : groupToPermissionsMap.entrySet()) {
+        for (Map.Entry<String, Set<Permission>> entry :
+                groupToPermissionsMap.entrySet()) {
             String principal = entry.getKey();
             Set<Permission> permissions = entry.getValue();
             if (Utils.isEmpty(permissions)) {
@@ -147,8 +148,10 @@ public final class PermissionEvaluationUtils {
 
         Matcher matcher = SERVICE_RESOURCE_PATTERN.matcher(resourceStr);
         if (matcher.matches()) {
-            return Resource.builder().service(matcher.group(1)).resourceType(matcher.group(2))
-                    .resourceName(matcher.group(3)).build();
+            return Resource.builder().service(matcher.group(1))
+                    .resourceType(matcher.group(2))
+                    .resourceName(matcher.group(3))
+                    .build();
         }
 
         throw new IllegalArgumentException(
@@ -156,7 +159,7 @@ public final class PermissionEvaluationUtils {
     }
 
     /**
-     * utility method of updating permission with policy variable value.
+     * utility method to permission with variable value.
      *
      * @param session             current device session
      * @param permission              permission to parse
@@ -176,13 +179,17 @@ public final class PermissionEvaluationUtils {
             String attributeName = vars[2];
 
             // this currently supports the ThingName attribute
-            if (vars[0].equals(PROVIDER_STRING) && session.containsSessionAttribute(attributeNamespace, attributeName)){
+            if (vars[0].equals(PROVIDER_STRING)
+                    && session.containsSessionAttribute(attributeNamespace, attributeName)) {
 
                 String policyVariableValue = session.getSessionAttribute(attributeNamespace, attributeName).toString();
 
                 resource = matcher.replaceFirst(policyVariableValue);
 
-                permission = Permission.builder().principal(permission.getPrincipal()).operation(permission.getOperation()).resource(resource).build();
+                permission = Permission.builder()
+                                .principal(permission.getPrincipal())
+                                .operation(permission.getOperation())
+                                .resource(resource).build();
             } else {
                 LOGGER.warn("Policy variable {}.{}.{} detected but could not be parsed", vars[0],
                         vars[1], vars[2]);

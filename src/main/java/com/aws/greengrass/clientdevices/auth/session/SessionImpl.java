@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -46,18 +46,19 @@
          return null;
      }
  
-     @Override
+
      /**
       * Check if attribute provider exists.
       *
-      * @param attributeNamespace Attribute namespace
+      * @param attributeProviderNameSpace Attribute provider namespace
       * @return True/false
       */
+     @Override
      public boolean containsAttributeProvider(String attributeProviderNameSpace) {
          return this.containsKey(attributeProviderNameSpace);
      }
  
-     @Override
+
      /**
       * Check if attribute exists.
       *
@@ -65,8 +66,12 @@
       * @param attributeName      Attribute name
       * @return True/false
       */
-     public boolean containsSessionAttribute( String attributeNamespace, String attributeName){
-         return containsAttributeProvider(attributeNamespace) && this.getAttributeProvider(attributeNamespace).getDeviceAttributes().containsKey(attributeName);
+     @Override
+     public boolean containsSessionAttribute(String attributeNamespace, String attributeName) {
+         return containsAttributeProvider(attributeNamespace)
+                     && this.getAttributeProvider(attributeNamespace)
+                     .getDeviceAttributes()
+                     .containsKey(attributeName);
      }
  
  }
