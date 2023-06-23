@@ -12,6 +12,7 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 
 import java.util.Map;
@@ -167,7 +168,7 @@ public final class PermissionEvaluationUtils {
      * @return updated permission
      */
 
-    public static Permission updateResource(Session session, Permission permission) {
+    static Permission updateResource(@NonNull Session session, @NonNull Permission permission) {
 
         String resource = permission.getResource();
 
