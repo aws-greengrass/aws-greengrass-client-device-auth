@@ -157,10 +157,13 @@ public class MqttConnectionImpl implements MqttConnection {
             userProperties.forEach(p -> logger.atInfo()
                     .log("Publish MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
         }
-        if (message.getContentType() != null && !message.getContentType().isEmpty()) {
-            properties.setContentType(message.getContentType());
-            logger.atInfo().log("Publish MQTT payload content type: {}", message.getContentType());
+
+        String contentType = message.getContentType();
+        if (contentType != null && !contentType.isEmpty()) {
+            properties.setContentType(contentType);
+            logger.atInfo().log("Publish MQTT payload 'content type' {}", contentType);
         }
+
         mqttMessage.setProperties(properties);
 
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
@@ -362,7 +365,7 @@ public class MqttConnectionImpl implements MqttConnection {
                         .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
             }
             if (contentType != null) {
-                logger.atInfo().log("Received MQTT message has content type: {}", contentType);
+                logger.atInfo().log("Received MQTT message has 'content type' {}", contentType);
             }
         }
     }
