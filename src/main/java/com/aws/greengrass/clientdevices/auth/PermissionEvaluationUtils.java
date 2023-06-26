@@ -179,8 +179,8 @@ public final class PermissionEvaluationUtils {
             String attributeNamespace = vars[1];
             String attributeName = vars[2];
 
-            // this currently supports the ThingName attribute
-            if (policyVariable.equals(THING_NAME_VARIABLE)
+            // this supports the ThingName attribute only
+            if (THING_NAME_VARIABLE.equals(policyVariable)
                     && session.containsSessionAttribute(attributeNamespace, attributeName)) {
 
                 String policyVariableValue =
