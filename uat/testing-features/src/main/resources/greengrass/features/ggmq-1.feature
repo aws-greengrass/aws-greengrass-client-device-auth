@@ -1390,6 +1390,28 @@ Feature: GGMQ-1
     When I publish from "publisher" to "payload_format_indicator_false_null" with qos 0 and message "Payload format indicators false/null"
     And message "Payload format indicators false/null" received on "subscriber" from "payload_format_indicator_false_null" topic within 5 seconds
 
+    And I clear message storage
+
+    # 21. test case when subscribe 'no local' set to true
+    And I set MQTT subscribe 'no local' flag to true
+    When I subscribe "subscriber" to "no_local_test" with qos 0
+
+    When I publish from "subscriber" to "no_local_false" with qos 0 and message "First message no local true test"
+    Then message "First message no local true test" is not received on "subscriber" from "no_local_false" topic within 5 seconds
+
+    When I publish from "publisher" to "no_local_false" with qos 0 and message "Second message no local true test"
+    Then message "Second message no local true test" received on "subscriber" from "no_local_false" topic within 5 seconds
+
+    And I clear message storage
+
+    # 22. test case when  subscribe 'no local' set to false
+    And I set MQTT subscribe 'no local' flag to false
+    When I subscribe "subscriber" to "no_local_false" with qos 0
+
+    When I publish from "subscriber" to "no_local_false" with qos 0 and message "First message no local false test"
+    Then message "First message no local false test" received on "subscriber" from "no_local_false" topic within 5 seconds
+
+
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
 
@@ -1407,124 +1429,3 @@ Feature: GGMQ-1
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
-
-  # TODO: when paho-java is ready to handle payload format indicator join all T1xx scenarios together
-  @GGMQ-1-T104
-  Scenario Outline: GGMQ-1-T104-<mqtt-v>-<name>: As a customer, I can send and receive MQTT v5.0 messages with 'payload format indicator'
-    When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
-      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
-    And I create client device "publisher"
-    And I create client device "subscriber"
-    When I associate "subscriber" with ggc
-    When I associate "publisher" with ggc
-
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
-    """
-{
-    "MERGE":{
-        "deviceGroups":{
-            "formatVersion":"2021-03-05",
-            "definitions":{
-                "MyPermissiveDeviceGroup":{
-                    "selectionRule":"thingName: ${publisher} OR thingName: ${subscriber}",
-                    "policyName":"MyPermissivePolicy"
-                }
-            },
-            "policies":{
-                "MyPermissivePolicy":{
-                    "AllowAll":{
-                        "statementDescription":"Allow client devices to perform all actions.",
-                        "operations":[
-                            "*"
-                        ],
-                        "resources":[
-                            "*"
-                        ]
-                    }
-                }
-            }
-        }
-    }
-}
-    """
-    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
-    """
-{
-    "MERGE":{
-        "controlAddresses":"${mqttControlAddresses}",
-        "controlPort":"${mqttControlPort}"
-    }
-}
-    """
-    And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
-    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
-
-    Then I discover core device broker as "localMqttBroker1" from "publisher" in OTF
-    Then I discover core device broker as "localMqttBroker2" from "subscriber" in OTF
-    And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
-    And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
-
-    # 7. test case when both tx/rx payload format indicators are set to 0
-    And I clear message storage
-    And I set MQTT publish 'payload format indicator' flag to false
-    And I set the 'payload format indicator' flag in expected received messages to false
-    When I subscribe "subscriber" to "payload_format_indicator_false_false" with qos 0
-    When I publish from "publisher" to "payload_format_indicator_false_false" with qos 0 and message "Payload format indicators false/false"
-    And message "Payload format indicators false/false" received on "subscriber" from "payload_format_indicator_false_false" topic within 5 seconds
-
-    # 8. test case when both tx/rx payload format indicators set to 1
-    And I clear message storage
-    And I set MQTT publish 'payload format indicator' flag to true
-    And I set the 'payload format indicator' flag in expected received messages to true
-    When I subscribe "subscriber" to "payload_format_indicator_true_true" with qos 0
-    When I publish from "publisher" to "payload_format_indicator_true_true" with qos 0 and message "Payload format indicators true/true"
-    And message "Payload format indicators true/true" received on "subscriber" from "payload_format_indicator_true_true" topic within 5 seconds
-
-    # 10. test case when tx payload format indicator set to 1 and rx to 0
-    And I clear message storage
-    And I set MQTT publish 'payload format indicator' flag to true
-    And I set the 'payload format indicator' flag in expected received messages to false
-    When I subscribe "subscriber" to "payload_format_indicator_true_false" with qos 0
-    When I publish from "publisher" to "payload_format_indicator_true_false" with qos 0 and message "Payload format indicators true/false"
-    And message "Payload format indicators true/false" is not received on "subscriber" from "payload_format_indicator_true_false" topic within 5 seconds
-
-    # 11. test case when tx payload format indicator set to 0 and rx to 1
-    And I clear message storage
-    And I set MQTT publish 'payload format indicator' flag to false
-    And I set the 'payload format indicator' flag in expected received messages to true
-    When I subscribe "subscriber" to "payload_format_indicator_false_true" with qos 0
-    When I publish from "publisher" to "payload_format_indicator_false_true" with qos 0 and message "Payload format indicators false/true"
-    And message "Payload format indicators false/true" is not received on "subscriber" from "payload_format_indicator_false_true" topic within 5 seconds
-
-    # 12. test case when tx payload format indicator set to 1 and rx is unset
-    And I clear message storage
-    And I set MQTT publish 'payload format indicator' flag to true
-    And I set the 'payload format indicator' flag in expected received messages to null
-    When I subscribe "subscriber" to "payload_format_indicator_true_null" with qos 0
-    When I publish from "publisher" to "payload_format_indicator_true_null" with qos 0 and message "Payload format indicators true/null"
-    And message "Payload format indicators true/null" received on "subscriber" from "payload_format_indicator_true_null" topic within 5 seconds
-
-    # 13. test case when tx payload format indicator set to 0 and rx is unset
-    And I clear message storage
-    And I set MQTT publish 'payload format indicator' flag to false
-    And I set the 'payload format indicator' flag in expected received messages to null
-    When I subscribe "subscriber" to "payload_format_indicator_false_null" with qos 0
-    When I publish from "publisher" to "payload_format_indicator_false_null" with qos 0 and message "Payload format indicators false/null"
-    And message "Payload format indicators false/null" received on "subscriber" from "payload_format_indicator_false_null" topic within 5 seconds
-
-    And I disconnect device "subscriber" with reason code 0
-    And I disconnect device "publisher" with reason code 0
-
-    @mqtt5 @sdk-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
-
-    @mqtt5 @mosquitto-c
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
