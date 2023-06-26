@@ -78,7 +78,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
       | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       |
 
-    @mqtt3 @mosquitto-c
+    @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
@@ -93,7 +93,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_1       |
 
-    @mqtt5 @mosquitto-c
+    @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
@@ -374,7 +374,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt3 @mosquitto-c
+    @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
@@ -389,7 +389,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt5 @mosquitto-c
+    @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
@@ -512,7 +512,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt3 @mosquitto-c
+    @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
@@ -527,7 +527,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt5 @mosquitto-c
+    @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
@@ -699,7 +699,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
       | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       | GRANTED_QOS_0         | 0                  |
 
-    @mqtt3 @mosquitto-c
+    @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | UNSPECIFIED_ERROR   | GRANTED_QOS_1         | 0                  |
@@ -717,7 +717,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | NOT_AUTHORIZED      | GRANTED_QOS_1         | 16                 |
 
-    @mqtt5 @mosquitto-c
+    @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | NOT_AUTHORIZED      | GRANTED_QOS_1         | 16                 |
@@ -841,7 +841,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt3 @mosquitto-c
+    @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
@@ -856,7 +856,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt5 @mosquitto-c
+    @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
@@ -981,7 +981,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt3 @mosquitto-c
+    @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
@@ -996,7 +996,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt5 @mosquitto-c
+    @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
@@ -1085,7 +1085,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt3 @mosquitto-c
+    @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
@@ -1398,7 +1398,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt5 @mosquitto-c
+    @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
