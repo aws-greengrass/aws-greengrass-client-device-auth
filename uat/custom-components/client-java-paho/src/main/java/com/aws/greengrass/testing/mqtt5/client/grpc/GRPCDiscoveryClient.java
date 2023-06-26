@@ -125,9 +125,14 @@ class GRPCDiscoveryClient implements GRPCClient {
             msgBuilder.addAllProperties(message.getUserProperties());
         }
 
-        String contentType = message.getContentType();
-        if (contentType != null && !contentType.isEmpty()) {
+        final String contentType = message.getContentType();
+        if (contentType != null) {
             msgBuilder.setContentType(contentType);
+        }
+
+        final Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
+        if (payloadFormatIndicator != null) {
+            msgBuilder.setPayloadFormatIndicator(payloadFormatIndicator);
         }
 
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()

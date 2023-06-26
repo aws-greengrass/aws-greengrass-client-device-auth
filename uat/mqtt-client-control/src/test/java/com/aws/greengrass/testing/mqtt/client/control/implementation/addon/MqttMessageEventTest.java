@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -339,6 +340,26 @@ class MqttMessageEventTest {
     }
 
     @Test
+    void GIVEN_unknown_retain_and_filter_without_retain_WHEN_is_matched_THEN_is() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .build();
+
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertTrue(result);
+        verify(message, never()).getRetain();
+    }
+
+    @Test
     void GIVEN_user_properties_and_matched_filter_WHEN_is_matched_THEN_is() {
         final long testRunTimestamp = System.currentTimeMillis();
         final List<Mqtt5Properties> userProperties = Lists.newArrayList(
@@ -436,5 +457,121 @@ class MqttMessageEventTest {
         //THEN
         assertFalse(result);
         verify(message).getPropertiesList();
+    }
+
+
+    @Test
+    void GIVEN_payload_format_indicator_and_matched_filter_WHEN_is_matched_THEN_is() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+        final boolean payloadFormatIndicator = true;
+
+        lenient().when(message.getPayloadFormatIndicator()).thenReturn(payloadFormatIndicator);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .withPayloadFormatIndicator(payloadFormatIndicator)
+                                        .build();
+
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertTrue(result);
+        verify(message).getPayloadFormatIndicator();
+    }
+
+    @Test
+    void GIVEN_not_payload_format_indicator_and_matched_filter_WHEN_is_matched_THEN_is() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+        final boolean payloadFormatIndicator = false;
+
+        lenient().when(message.getPayloadFormatIndicator()).thenReturn(payloadFormatIndicator);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .withPayloadFormatIndicator(payloadFormatIndicator)
+                                        .build();
+
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertTrue(result);
+        verify(message).getPayloadFormatIndicator();
+    }
+
+    @Test
+    void GIVEN_payload_format_indicator_and_not_matched_filter_WHEN_is_matched_THEN_is_not() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+        final boolean payloadFormatIndicator = true;
+
+        lenient().when(message.getPayloadFormatIndicator()).thenReturn(payloadFormatIndicator);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .withPayloadFormatIndicator(!payloadFormatIndicator)
+                                        .build();
+
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertFalse(result);
+        verify(message).getPayloadFormatIndicator();
+    }
+
+    @Test
+    void GIVEN_not_payload_format_indicator_and_not_matched_filter_WHEN_is_matched_THEN_is_not() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+        final boolean payloadFormatIndicator = false;
+
+        lenient().when(message.getPayloadFormatIndicator()).thenReturn(payloadFormatIndicator);
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .withPayloadFormatIndicator(!payloadFormatIndicator)
+                                        .build();
+
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertFalse(result);
+        verify(message).getPayloadFormatIndicator();
+    }
+
+    @Test
+    void GIVEN_unknown_payload_format_indicator_and_filter_without_payload_format_indicator_WHEN_is_matched_THEN_is() {
+        // GIVEN
+        final long testRunTimestamp = System.currentTimeMillis();
+
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
+                                        .withToTimestamp(testRunTimestamp)
+                                        .withConnectionControl(connectionControl)
+                                        .build();
+
+        // WHEN
+        boolean result = mqttMessageEvent.isMatched(eventFilter);
+
+        // THEN
+        assertTrue(result);
+        verify(message, never()).getPayloadFormatIndicator();
     }
 }
