@@ -97,19 +97,26 @@ public class MqttControlSteps {
 
     // TODO: use scenario supplied values instead of defaults
     private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
+
+    // connect default properties
     private static final boolean DEFAULT_CONNECT_CLEAR_SESSION = true;
+    private static final int IOT_CORE_MQTT_PORT = 8883;
 
+    // publish default properties
     private static final boolean DEFAULT_PUBLISH_RETAIN = false;
-    private static final Boolean DEFAULT_RECEIVED_RETAIN = null;
+    private static final Boolean DEFAULT_PUBLISH_PAYLOAD_FORMAT_INDICATOR = null;
 
+    // subscribe efault properties
     private static final Integer DEFAULT_SUBSCRIPTION_ID = null;        // NOTE: do not set for IoT Core broker !!!
     private static final boolean DEFAULT_SUBSCRIBE_NO_LOCAL = false;
     private static final boolean DEFAULT_SUBSCRIBE_RETAIN_AS_PUBLISHED = false;
     private static final Mqtt5RetainHandling DEFAULT_SUBSCRIBE_RETAIN_HANDLING
             = Mqtt5RetainHandling.MQTT5_RETAIN_SEND_AT_SUBSCRIPTION;
 
-    private static final int IOT_CORE_MQTT_PORT = 8883;
 
+    // received messages default properties
+    private static final Boolean DEFAULT_RECEIVED_RETAIN = null;
+    private static final Boolean DEFAULT_RECEIVED_PAYLOAD_FORMAT_INDICATOR = null;
 
     private final TestContext testContext;
 
@@ -138,9 +145,13 @@ public class MqttControlSteps {
     /** Actual value of publish retain option. */
     private boolean publishRetain = DEFAULT_PUBLISH_RETAIN;
 
+    /** Actual value of publish payload format indicator. */
+    private Boolean publishPayloadFormatIndicator = DEFAULT_PUBLISH_PAYLOAD_FORMAT_INDICATOR;
+
     /** Actual expected value of retain flag in received messages. */
     private Boolean receivedRetain = DEFAULT_RECEIVED_RETAIN;
 
+    private Boolean receivedPayloadFormatIndicator = DEFAULT_RECEIVED_PAYLOAD_FORMAT_INDICATOR;
 
     /** Actual list of user properties to transmit. */
     private static List<Mqtt5Properties> txUserProperties = null;
@@ -413,7 +424,7 @@ public class MqttControlSteps {
     /**
      * Sets MQTT publish 'retain' flag.
      *
-     * @param retain the new values of publish 'retain' flag.
+     * @param retain the new value of publish 'retain' flag
      */
     @And("I set MQTT publish 'retain' flag to {booleanValue}")
     public void setPublishRetain(Boolean retain) {
@@ -422,14 +433,36 @@ public class MqttControlSteps {
     }
 
     /**
+     * Sets MQTT publish 'payload format indicator' flag.
+     *
+     * @param payloadFormatIndicator the new boolean value of publish 'payload format indicator' flag or null to reset
+     */
+    @And("I set MQTT publish 'payload format indicator' flag to {booleanOrNullValue}")
+    public void setPublishPayloadFormatIndicator(Boolean payloadFormatIndicator) {
+        this.publishPayloadFormatIndicator = payloadFormatIndicator;
+        log.info("Publish 'payload format indicator' flag set to {}", payloadFormatIndicator);
+    }
+
+    /**
      * Sets MQTT receive 'retain' flag.
      *
-     * @param retain the new values of receive 'retain' flag.
+     * @param retain the boolean new value of receive 'retain' flag or null
      */
     @And("I set the 'retain' flag in expected received messages to {booleanOrNullValue}")
     public void setReceivedRetain(Boolean retain) {
         this.receivedRetain = retain;
         log.info("Expected 'retain' flag in received messages set to {}", retain);
+    }
+
+    /**
+     * Sets MQTT receive 'payload format indicator' flag.
+     *
+     * @param payloadFormatIndicator the new boolean value of receive 'payload format indicator' flag or null
+     */
+    @And("I set the 'payload format indicator' flag in expected received messages to {booleanOrNullValue}")
+    public void setReceivedPayloadFormatIndicator(Boolean payloadFormatIndicator) {
+        this.receivedPayloadFormatIndicator = payloadFormatIndicator;
+        log.info("Expected 'payload format indicator' flag in received messages set to {}", payloadFormatIndicator);
     }
 
     /**
@@ -562,9 +595,10 @@ public class MqttControlSteps {
         final String topic = scenarioContext.applyInline(topicString);
 
         // do publishing
-        log.info("Publishing MQTT message '{}' as Thing {} to topic {} with QoS {} and retain {}", message,
-                    clientDeviceThingName, topic, qos, publishRetain);
-        Mqtt5Message mqtt5Message = buildMqtt5Message(qos, publishRetain, topic, message);
+        log.info("Publishing MQTT message '{}' as Thing {} to topic {} with QoS {} retain {} payloadFormatIndicator {}",
+                    message, clientDeviceThingName, topic, qos, publishRetain, publishPayloadFormatIndicator);
+        Mqtt5Message mqtt5Message = buildMqtt5Message(qos, publishRetain, topic, message,
+                                                        publishPayloadFormatIndicator);
         MqttPublishReply mqttPublishReply = connectionControl.publishMqtt(mqtt5Message);
         if (mqttPublishReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT publish request");
@@ -647,13 +681,15 @@ public class MqttControlSteps {
                                         .withContent(message)
                                         .withRetain(receivedRetain)
                                         .withUserProperties(rxUserProperties)
+                                        .withPayloadFormatIndicator(receivedPayloadFormatIndicator)
                                         .build();
         // convert time units
         TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
 
         // awaiting for message
-        log.info("Awaiting for MQTT message '{}' with retain {} on topic '{}' on Thing '{}' for {} {}", message,
-                    receivedRetain, topic, clientDeviceThingName, value, unit);
+        log.info("Awaiting for MQTT message '{}' with retain {} payload format indicator {} on topic '{}' on Thing '{}'"
+                    + " for {} {}", message, receivedRetain, receivedPayloadFormatIndicator, topic,
+                                    clientDeviceThingName, value, unit);
         List<Event> events = new ArrayList<>();
         try {
             events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
@@ -996,7 +1032,8 @@ public class MqttControlSteps {
                     .build();
     }
 
-    private Mqtt5Message buildMqtt5Message(int qos, boolean retain, @NonNull String topic, @NonNull String content) {
+    private Mqtt5Message buildMqtt5Message(int qos, boolean retain, @NonNull String topic, @NonNull String content,
+                                            Boolean payloadFormatIndicator) {
         MqttQoS mqttQoS = getMqttQoS(qos);
         Mqtt5Message.Builder builder = Mqtt5Message.newBuilder()
                             .setTopic(topic)
@@ -1006,6 +1043,10 @@ public class MqttControlSteps {
 
         if (txUserProperties != null) {
              builder.addAllProperties(txUserProperties);
+        }
+
+        if (payloadFormatIndicator != null) {
+            builder.setPayloadFormatIndicator(payloadFormatIndicator);
         }
 
         return builder.build();
