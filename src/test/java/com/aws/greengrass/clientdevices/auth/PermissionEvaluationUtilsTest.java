@@ -82,6 +82,42 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
+    void GIVEN_single_group_permission_with_variable_WHEN_evaluate_operation_permission_THEN_return_decision() throws InvalidCertificateException {
+
+        // Create session for device with ThingName = "b"
+        Certificate cert = CertificateFake.of("FAKE_CERT_ID");
+        Thing thing = Thing.of("b");
+        Session session = new SessionImpl(cert, thing);
+
+        Map<String, Set<Permission>> groupPermissions = PermissionEvaluationUtils.getDevicePolicyPermissions(session, prepareGroupVariablePermissionsData());
+
+        boolean authorized = PermissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:a", groupPermissions);
+        assertThat(authorized, is(true));
+
+        authorized = PermissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:b", groupPermissions);
+        assertThat(authorized, is(true));
+
+        authorized = PermissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:b", groupPermissions);
+        assertThat(authorized, is(true));
+
+        authorized =
+                PermissionEvaluationUtils.isAuthorized("mqtt:connect", "mqtt:broker:localBroker", groupPermissions);
+        assertThat(authorized, is(true));
+
+        authorized = PermissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:device:${iot:Connection.FakeThing.ThingName}", groupPermissions);
+        assertThat(authorized, is(true));
+
+        authorized = PermissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:d", groupPermissions);
+        assertThat(authorized, is(false));
+
+        authorized = PermissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:message:a", groupPermissions);
+        assertThat(authorized, is(false));
+
+        authorized = PermissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:device:b", groupPermissions);
+        assertThat(authorized, is(false));
+    }
+
+    @Test
     void GIVEN_single_group_permission_WHEN_evaluate_operation_permission_THEN_return_decision() {
         Map<String, Set<Permission>> groupPermissions = prepareGroupPermissionsData();
         boolean authorized = PermissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:a", groupPermissions);
@@ -118,6 +154,16 @@ class PermissionEvaluationUtilsTest {
                         Permission.builder().principal("sensor").operation("mqtt:*").resource("mqtt:topic:b").build(),
                         Permission.builder().principal("sensor").operation("mqtt:subscribe")
                                 .resource("mqtt:topic:*").build(),
+                        Permission.builder().principal("sensor").operation("mqtt:connect").resource("*").build(),};
+        return Collections.singletonMap("sensor", new HashSet<>(Arrays.asList(sensorPermission)));
+    }
+
+    private Map<String, Set<Permission>> prepareGroupVariablePermissionsData() {
+        Permission[] sensorPermission =
+                {Permission.builder().principal("sensor").operation("mqtt:publish").resource("mqtt:topic:a").build(),
+                        Permission.builder().principal("sensor").operation("mqtt:*").resource("mqtt:topic:${iot:Connection.Thing.ThingName}").build(),
+                        Permission.builder().principal("sensor").operation("mqtt:subscribe")
+                                .resource("mqtt:topic:device:${iot:Connection.FakeThing.ThingName}").build(),
                         Permission.builder().principal("sensor").operation("mqtt:connect").resource("*").build(),};
         return Collections.singletonMap("sensor", new HashSet<>(Arrays.asList(sensorPermission)));
     }
