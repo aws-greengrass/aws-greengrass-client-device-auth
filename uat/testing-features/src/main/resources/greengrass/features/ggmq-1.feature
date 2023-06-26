@@ -1155,141 +1155,107 @@ Feature: GGMQ-1
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
 
+    # publish 'retain' and subscribe 'retain control' tests
+
+    # 1. test case when publishing two messages with retain flag set and subscribe retain handling is 'send at subsription'
+    #  and only last message is received
     And I set MQTT publish 'retain' flag to true
-    When I publish from "publisher" to "iot_data_001" with qos 0 and message "Old retained message"
-    When I publish from "publisher" to "iot_data_001" with qos 0 and message "New retained message"
     And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_SEND_AT_SUBSCRIPTION"
-    When I subscribe "subscriber" to "iot_data_001" with qos 0
-    And message "Old retained message" is not received on "subscriber" from "iot_data_001" topic within 5 seconds
-    And message "New retained message" received on "subscriber" from "iot_data_001" topic within 5 seconds
+    When I publish from "publisher" to "receive_last_retain_message" with qos 0 and message "First retained message"
+    When I publish from "publisher" to "receive_last_retain_message" with qos 0 and message "Second retained message"
+    When I subscribe "subscriber" to "receive_last_retain_message" with qos 0
+    And message "First retained message" is not received on "subscriber" from "receive_last_retain_message" topic within 5 seconds
+    And message "Second retained message" received on "subscriber" from "receive_last_retain_message" topic within 5 seconds
 
+    And I clear message storage
+
+    # 2. test case when first published message has retain and second not
     And I set MQTT publish 'retain' flag to true
-    When I publish from "publisher" to "iot_data_002" with qos 0 and message "Old retained message 002"
-    And I set MQTT publish 'retain' flag to false
-    When I publish from "publisher" to "iot_data_002" with qos 0 and message "New retained message 002"
-    When I subscribe "subscriber" to "iot_data_002" with qos 0
-    And message "New retained message 002" is not received on "subscriber" from "iot_data_002" topic within 5 seconds
-    And message "Old retained message 002" received on "subscriber" from "iot_data_002" topic within 5 seconds
-
-    And I set MQTT publish 'retain' flag to true
-
-    When I publish from "publisher" to "iot_data_0" with qos 0 and message "Hello world0"
     And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_SEND_AT_SUBSCRIPTION"
-    When I subscribe "subscriber" to "iot_data_0" with qos 0
-    And message "Hello world0" received on "subscriber" from "iot_data_0" topic within 5 seconds
-    And I clear message storage
-    When I subscribe "subscriber" to "iot_data_0" with qos 0
-    And message "Hello world0" received on "subscriber" from "iot_data_0" topic within 5 seconds
-
-    When I publish from "publisher" to "retained/iot_data_1" with qos 1 and message "Hello world1" and expect status 16
-    And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_SEND_AT_NEW_SUBSCRIPTION"
-    When I subscribe "subscriber" to "retained/iot_data_1" with qos 0
-    And message "Hello world1" received on "subscriber" from "retained/iot_data_1" topic within 5 seconds
-    And I clear message storage
-    When I subscribe "subscriber" to "retained/iot_data_1" with qos 0
-    And message "Hello world1" is not received on "subscriber" from "retained/iot_data_1" topic within 5 seconds
-
-    When I publish from "publisher" to "iot_data_2" with qos 0 and message "Hello world2"
-    And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION"
-    When I subscribe "subscriber" to "iot_data_2" with qos 0
-    And message "Hello world2" is not received on "subscriber" from "iot_data_2" topic within 5 seconds
+    When I publish from "publisher" to "receive_only_retain_message_on_subscribe" with qos 0 and message "First message with retain"
 
     And I set MQTT publish 'retain' flag to false
+    When I publish from "publisher" to "receive_only_retain_message_on_subscribe" with qos 0 and message "Second message without retain"
 
-    When I publish from "publisher" to "iot_data_3" with qos 0 and message "Hello world3"
+    When I subscribe "subscriber" to "receive_only_retain_message_on_subscribe" with qos 0
+    And message "Second message without retain" is not received on "subscriber" from "receive_only_retain_message_on_subscribe" topic within 5 seconds
+    And message "First message with retain" received on "subscriber" from "receive_only_retain_message_on_subscribe" topic within 5 seconds
+
+    And I clear message storage
+
+    # 3. test case when subscribe twice with 'retain send at subscription'
+    And I set MQTT publish 'retain' flag to true
     And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_SEND_AT_SUBSCRIPTION"
-    When I subscribe "subscriber" to "iot_data_3" with qos 0
-    And message "Hello world3" is not received on "subscriber" from "iot_data_3" topic within 5 seconds
 
-    When I publish from "publisher" to "iot_data_4" with qos 0 and message "Hello world4"
+    When I publish from "publisher" to "subscribe_twice_with_send_at_subscription" with qos 0 and message "Single message in case3"
+
+    When I subscribe "subscriber" to "subscribe_twice_with_send_at_subscription" with qos 0
+    And message "Single message in case3" received on "subscriber" from "subscribe_twice_with_send_at_subscription" topic within 5 seconds
+
+    And I clear message storage
+    When I subscribe "subscriber" to "subscribe_twice_with_send_at_subscription" with qos 0
+    And message "Single message in case3" received on "subscriber" from "subscribe_twice_with_send_at_subscription" topic within 5 seconds
+
+    And I clear message storage
+
+    # 4. test case when subscribe twice with 'retain send at new subscription' when has retained message
+    And I set MQTT publish 'retain' flag to true
     And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_SEND_AT_NEW_SUBSCRIPTION"
-    When I subscribe "subscriber" to "iot_data_4" with qos 0
-    And message "Hello world4" is not received on "subscriber" from "iot_data_4" topic within 5 seconds
 
-    When I publish from "publisher" to "iot_data_5" with qos 0 and message "Hello world5"
+    When I publish from "publisher" to "send_at_new_subscription" with qos 1 and message "Single retained message in case4" and expect status 16
+    When I subscribe "subscriber" to "send_at_new_subscription" with qos 0
+    And message "Single retained message in case4" received on "subscriber" from "send_at_new_subscription" topic within 5 seconds
+
+    And I clear message storage
+    When I subscribe "subscriber" to "send_at_new_subscription" with qos 0
+    And message "Single retained message in case4" is not received on "subscriber" from "send_at_new_subscription" topic within 5 seconds
+
+    And I clear message storage
+
+    # 5. test case when has retained message and subscribe with 'do not send and subscription'
+    And I clear message storage
+    And I set MQTT publish 'retain' flag to true
     And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION"
-    When I subscribe "subscriber" to "iot_data_5" with qos 0
-    And message "Hello world5" is not received on "subscriber" from "iot_data_5" topic within 5 seconds
 
-    And I disconnect device "subscriber" with reason code 0
-    And I disconnect device "publisher" with reason code 0
+    When I publish from "publisher" to "do_not_send_at_subscription" with qos 0 and message "Single retained message in case5"
+    When I subscribe "subscriber" to "do_not_send_at_subscription" with qos 0
+    And message "Single retained message in case5" is not received on "subscriber" from "do_not_send_at_subscription" topic within 5 seconds
 
-    @mqtt5 @sdk-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+    And I clear message storage
 
-    @mqtt5 @mosquitto-c
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+    # 6. test case when has no retained messages and subscribed with 'send at subscription'
+    And I set MQTT publish 'retain' flag to false
+    And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_SEND_AT_SUBSCRIPTION"
 
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+    When I publish from "publisher" to "t102_case6" with qos 0 and message "Single not retained message in case6"
+    When I subscribe "subscriber" to "t102_case6" with qos 0
+    And message "Single not retained message in case6" is not received on "subscriber" from "t102_case6" topic within 5 seconds
+
+    And I clear message storage
+
+    # 7. test case when no retained messages and subscribed with 'send at new subscription'
+    And I set MQTT publish 'retain' flag to false
+    And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_SEND_AT_NEW_SUBSCRIPTION"
+
+    When I publish from "publisher" to "t102_case7" with qos 0 and message "Single not retained message in case7"
+    When I subscribe "subscriber" to "t102_case7" with qos 0
+    And message "Single not retained message in case7" is not received on "subscriber" from "t102_case7" topic within 5 seconds
 
 
-  @GGMQ-1-T103
-  Scenario Outline: GGMQ-1-T103-<mqtt-v>-<name>: As a customer, I can use: retain as published flag, user properties for MQTT v5.0
-    When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
-      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
-    And I create client device "publisher"
-    And I create client device "subscriber"
-    When I associate "subscriber" with ggc
-    When I associate "publisher" with ggc
+    And I clear message storage
 
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
-    """
-{
-    "MERGE":{
-        "deviceGroups":{
-            "formatVersion":"2021-03-05",
-            "definitions":{
-                "MyPermissiveDeviceGroup":{
-                    "selectionRule":"thingName: ${publisher} OR thingName: ${subscriber}",
-                    "policyName":"MyPermissivePolicy"
-                }
-            },
-            "policies":{
-                "MyPermissivePolicy":{
-                    "AllowAll":{
-                        "statementDescription":"Allow client devices to perform all actions.",
-                        "operations":[
-                            "*"
-                        ],
-                        "resources":[
-                            "*"
-                        ]
-                    }
-                }
-            }
-        }
-    }
-}
-    """
-    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
-    """
-{
-    "MERGE":{
-        "controlAddresses":"${mqttControlAddresses}",
-        "controlPort":"${mqttControlPort}"
-    }
-}
-    """
-    And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
-    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+    # 8. test case when no retaine messages and subscribed with 'do not send at subscription'
+    And I set MQTT publish 'retain' flag to false
+    And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION"
 
-    Then I discover core device broker as "localMqttBroker1" from "publisher" in OTF
-    Then I discover core device broker as "localMqttBroker2" from "subscriber" in OTF
-    And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
-    And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
+    When I publish from "publisher" to "t102_case8" with qos 0 and message "Single not retained message in case8"
+    When I subscribe "subscriber" to "t102_case8" with qos 0
+    And message "Single not retained message in case8" is not received on "subscriber" from "t102_case8" topic within 5 seconds
 
-    # 1. test case when subscribe 'retain as published' is false.
+    # 'retain as published' tests
+    And I clear message storage
+
+    # 9. test case when subscribe 'retain as published' is false.
     #  In that case 'retain' flag on receive should be false regardless 'retain' value on publish.
 
     And I set MQTT subscribe 'retain as published' flag to false
@@ -1306,7 +1272,7 @@ Feature: GGMQ-1
     And message "Hello world2" received on "subscriber" from "iot_data_0" topic within 5 seconds
 
 
-    # 2. test case when subscribe 'retain as published' is true.
+    # 10. test case when subscribe 'retain as published' is true.
     #  In that case 'retain' flag on receive should be equal to 'retain' value on publish.
 
     And I set MQTT subscribe 'retain as published' flag to true
@@ -1323,7 +1289,8 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world4"
     And message "Hello world4" received on "subscriber" from "iot_data_1" topic within 5 seconds
 
-    # 3. test case when publish 'user properties' are not empty.
+    # 'user properties' tests
+    # 11. test case when publish 'user properties' are not empty.
     #  In that case 'user properties' on receive should be equal to 'user properties' value on publish.
 
     And I add MQTT 'user property' with key "type" and value "json" to transmit
@@ -1334,7 +1301,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_2" with qos 0 and message "Expected userProperties are received"
     And message "Expected userProperties are received" received on "subscriber" from "iot_data_2" topic within 5 seconds
 
-    # 4. test case when publish 'user properties' are empty.
+    # 12. test case when publish 'user properties' are empty.
     #  In that case 'user properties' on receive should not be equal to 'user properties' value on publish.
 
     And I clear message storage
@@ -1346,7 +1313,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_2" with qos 0 and message "Expected userProperties are not received"
     And message "Expected userProperties are not received" is not received on "subscriber" from "iot_data_2" topic within 5 seconds
 
-    # 5. test case when publish 'user properties' are empty.
+    # 13. test case when publish 'user properties' are empty.
     #  In that case 'user properties' on receive should ignore 'user properties' value on publish.
     And I clear message storage
     And I clear MQTT 'user properties' to transmit
@@ -1357,7 +1324,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_3" with qos 0 and message "Ignore userProperties"
     And message "Ignore userProperties" received on "subscriber" from "iot_data_3" topic within 5 seconds
 
-    # 6. test case when publish 'user properties' are empty.
+    # 14. test case when publish 'user properties' are empty.
     #  In that case 'user properties' on receive should be equal to 'user properties' value on publish.
 
     And I clear message storage
@@ -1367,85 +1334,10 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_4" with qos 0 and message "Without userProperties"
     And message "Without userProperties" received on "subscriber" from "iot_data_4" topic within 5 seconds
 
-    And I disconnect device "subscriber" with reason code 0
-    And I disconnect device "publisher" with reason code 0
+    # 'payload format indicator' tests
+    And I clear message storage
 
-    @mqtt5 @sdk-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
-
-    @mqtt5 @mosquitto-c
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
-
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
-
-  # TODO: when paho-java is ready to handle payload format indicator join all T1xx scenarios together
-  @GGMQ-1-T104
-  Scenario Outline: GGMQ-1-T104-<mqtt-v>-<name>: As a customer, I can send and receive MQTT v5.0 messages with 'payload format indicator'
-    When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
-      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
-    And I create client device "publisher"
-    And I create client device "subscriber"
-    When I associate "subscriber" with ggc
-    When I associate "publisher" with ggc
-
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
-    """
-{
-    "MERGE":{
-        "deviceGroups":{
-            "formatVersion":"2021-03-05",
-            "definitions":{
-                "MyPermissiveDeviceGroup":{
-                    "selectionRule":"thingName: ${publisher} OR thingName: ${subscriber}",
-                    "policyName":"MyPermissivePolicy"
-                }
-            },
-            "policies":{
-                "MyPermissivePolicy":{
-                    "AllowAll":{
-                        "statementDescription":"Allow client devices to perform all actions.",
-                        "operations":[
-                            "*"
-                        ],
-                        "resources":[
-                            "*"
-                        ]
-                    }
-                }
-            }
-        }
-    }
-}
-    """
-    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
-    """
-{
-    "MERGE":{
-        "controlAddresses":"${mqttControlAddresses}",
-        "controlPort":"${mqttControlPort}"
-    }
-}
-    """
-    And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
-    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
-
-    Then I discover core device broker as "localMqttBroker1" from "publisher" in OTF
-    Then I discover core device broker as "localMqttBroker2" from "subscriber" in OTF
-    And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
-    And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
-
-    # 7. test case when both tx/rx payload format indicators are set to 0
+    # 15. test case when both tx/rx payload format indicators are set to 0
     And I clear message storage
     And I set MQTT publish 'payload format indicator' flag to false
     And I set the 'payload format indicator' flag in expected received messages to false
@@ -1453,40 +1345,45 @@ Feature: GGMQ-1
     When I publish from "publisher" to "payload_format_indicator_false_false" with qos 0 and message "Payload format indicators false/false"
     And message "Payload format indicators false/false" received on "subscriber" from "payload_format_indicator_false_false" topic within 5 seconds
 
-    # 8. test case when both tx/rx payload format indicators set to 1
     And I clear message storage
+
+    # 16. test case when both tx/rx payload format indicators set to 1
     And I set MQTT publish 'payload format indicator' flag to true
     And I set the 'payload format indicator' flag in expected received messages to true
     When I subscribe "subscriber" to "payload_format_indicator_true_true" with qos 0
     When I publish from "publisher" to "payload_format_indicator_true_true" with qos 0 and message "Payload format indicators true/true"
     And message "Payload format indicators true/true" received on "subscriber" from "payload_format_indicator_true_true" topic within 5 seconds
 
-    # 10. test case when tx payload format indicator set to 1 and rx to 0
     And I clear message storage
+
+    # 17. test case when tx payload format indicator set to 1 and rx to 0
     And I set MQTT publish 'payload format indicator' flag to true
     And I set the 'payload format indicator' flag in expected received messages to false
     When I subscribe "subscriber" to "payload_format_indicator_true_false" with qos 0
     When I publish from "publisher" to "payload_format_indicator_true_false" with qos 0 and message "Payload format indicators true/false"
     And message "Payload format indicators true/false" is not received on "subscriber" from "payload_format_indicator_true_false" topic within 5 seconds
 
-    # 11. test case when tx payload format indicator set to 0 and rx to 1
     And I clear message storage
+
+    # 18. test case when tx payload format indicator set to 0 and rx to 1
     And I set MQTT publish 'payload format indicator' flag to false
     And I set the 'payload format indicator' flag in expected received messages to true
     When I subscribe "subscriber" to "payload_format_indicator_false_true" with qos 0
     When I publish from "publisher" to "payload_format_indicator_false_true" with qos 0 and message "Payload format indicators false/true"
     And message "Payload format indicators false/true" is not received on "subscriber" from "payload_format_indicator_false_true" topic within 5 seconds
 
-    # 12. test case when tx payload format indicator set to 1 and rx is unset
     And I clear message storage
+
+    # 19. test case when tx payload format indicator set to 1 and rx is unset
     And I set MQTT publish 'payload format indicator' flag to true
     And I set the 'payload format indicator' flag in expected received messages to null
     When I subscribe "subscriber" to "payload_format_indicator_true_null" with qos 0
     When I publish from "publisher" to "payload_format_indicator_true_null" with qos 0 and message "Payload format indicators true/null"
     And message "Payload format indicators true/null" received on "subscriber" from "payload_format_indicator_true_null" topic within 5 seconds
 
-    # 13. test case when tx payload format indicator set to 0 and rx is unset
     And I clear message storage
+
+    # 20. test case when tx payload format indicator set to 0 and rx is unset
     And I set MQTT publish 'payload format indicator' flag to false
     And I set the 'payload format indicator' flag in expected received messages to null
     When I subscribe "subscriber" to "payload_format_indicator_false_null" with qos 0
@@ -1505,3 +1402,8 @@ Feature: GGMQ-1
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
