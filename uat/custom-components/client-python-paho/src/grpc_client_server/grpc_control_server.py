@@ -26,7 +26,7 @@ from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import (
     MqttConnectionId,
 )
 from mqtt_lib.mqtt_lib import MQTTLib
-from mqtt_lib.mqtt_connection import ConnectionParams, MqttMessage, Subscribtion
+from mqtt_lib.mqtt_connection import ConnectionParams, MqttPubMessage, Subscribtion
 from exceptions.mqtt_exception import MQTTException
 
 PORT_MIN = 1
@@ -261,7 +261,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         try:
             publish_reply = await connection.publish(
                 timeout=timeout,
-                message=MqttMessage(
+                message=MqttPubMessage(
                     qos=message.qos, retain=message.retain, topic=message.topic, payload=message.payload
                 ),
             )
