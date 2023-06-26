@@ -7,9 +7,9 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.session.Session;
-import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.Utils;
 import lombok.Builder;
 import lombok.NonNull;
@@ -36,13 +36,11 @@ public final class PermissionEvaluationUtils {
             String.format(SERVICE_RESOURCE_FORMAT, SERVICE_PATTERN_STRING, SERVICE_RESOURCE_TYPE_PATTERN_STRING,
                     SERVICE_RESOURCE_NAME_PATTERN_STRING), Pattern.UNICODE_CHARACTER_CLASS);
 
-    private static final String POLICY_VARIABLE_PATTERN = "\\$\\{iot:(Connection.Thing.ThingName)}";
+    private static final String POLICY_VARIABLE_FORMAT = "\\$\\{iot:(Connection.Thing.ThingName)}";
 
+    private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile(POLICY_VARIABLE_FORMAT);
 
-    private static final String PROVIDER = "Connection";
-
-    private static final Logger LOGGER = LogManager.getLogger(SessionConfig.class);
-
+    private static final String THING_NAME_VARIABLE = "Connection.Thing.ThingName";
 
     private PermissionEvaluationUtils() {
     }
@@ -172,30 +170,38 @@ public final class PermissionEvaluationUtils {
 
         String resource = permission.getResource();
 
-        Pattern pattern = Pattern.compile(POLICY_VARIABLE_PATTERN);
-        Matcher matcher = pattern.matcher(resource);
+        Matcher matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
 
         while (matcher.find()) {
 
-            String[] vars = matcher.group(1).split("\\.");
+            String policyVariable = matcher.group(1);
+            String[] vars = policyVariable.split("\\.");
             String attributeNamespace = vars[1];
             String attributeName = vars[2];
 
             // this currently supports the ThingName attribute
-            if (vars[0].equals(PROVIDER)
+            if (policyVariable.equals(THING_NAME_VARIABLE)
                     && session.containsSessionAttribute(attributeNamespace, attributeName)) {
 
-                String policyVariableValue = session.getSessionAttribute(attributeNamespace, attributeName).toString();
+                String policyVariableValue =
+                        Coerce.toString(session.getSessionAttribute(attributeNamespace, attributeName));
 
-                resource = matcher.replaceFirst(policyVariableValue);
+                if (policyVariableValue == null) {
+                    logger.atWarn().kv("attributeName", attributeName)
+                            .log("No attribute found for current session.");
+                } else {
+                    resource = matcher.replaceFirst(policyVariableValue);
 
-                permission = Permission.builder()
-                        .principal(permission.getPrincipal())
-                        .operation(permission.getOperation())
-                        .resource(resource).build();
+                    permission = Permission.builder()
+                            .principal(permission.getPrincipal())
+                            .operation(permission.getOperation())
+                            .resource(resource).build();
+                }
+
+
             } else {
-                LOGGER.warn("Policy variable {}.{}.{} detected but could not be parsed", vars[0],
-                        vars[1], vars[2]);
+                logger.atWarn().kv("policyVariable", policyVariable)
+                        .log("Policy variable detected but could not be parsed.");
             }
         }
 
