@@ -28,14 +28,6 @@ public interface Session {
     DeviceAttribute getSessionAttribute(String attributeNamespace, String attributeName);
 
     /**
-     * Check if attribute provider exists.
-     *
-     * @param attributeProviderNameSpace Attribute namespace
-     * @return True/false
-     */
-    boolean containsAttributeProvider(String attributeProviderNameSpace);
-
-    /**
      * Check if attribute exists.
      *
      * @param attributeNamespace Attribute namespace
