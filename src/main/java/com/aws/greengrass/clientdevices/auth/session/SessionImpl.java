@@ -46,23 +46,4 @@ public class SessionImpl extends ConcurrentHashMap<String, AttributeProvider> im
         return null;
     }
 
-    /**
-     * Check if attribute exists.
-     *
-     * @param attributeNameSpace Attribute namespace
-     * @param attributeName      Attribute name
-     * @return True/false
-     */
-    @Override
-    public boolean containsSessionAttribute(String attributeNameSpace, String attributeName) {
-
-        if (!this.containsKey(attributeNameSpace)) {
-            return false;
-        }
-
-        return this.getAttributeProvider(attributeNameSpace)
-                .getDeviceAttributes()
-                .containsKey(attributeName);
-    }
-
 }

@@ -165,7 +165,6 @@ public final class PermissionEvaluationUtils {
      * @param permission permission to parse
      * @return updated permission
      */
-
     static Permission updateResource(@NonNull Session session, @NonNull Permission permission) {
 
         String resource = permission.getResource();
@@ -180,15 +179,13 @@ public final class PermissionEvaluationUtils {
             String attributeName = vars[2];
 
             // this supports the ThingName attribute only
-            if (THING_NAME_VARIABLE.equals(policyVariable)
-                    && session.containsSessionAttribute(attributeNamespace, attributeName)) {
-
+            if (THING_NAME_VARIABLE.equals(policyVariable)) {
                 String policyVariableValue =
                         Coerce.toString(session.getSessionAttribute(attributeNamespace, attributeName));
 
                 if (policyVariableValue == null) {
                     logger.atWarn().kv("attributeName", attributeName)
-                            .log("No attribute found for current session.");
+                            .log("No attribute found for current session");
                 } else {
                     resource = matcher.replaceFirst(policyVariableValue);
 
@@ -197,14 +194,11 @@ public final class PermissionEvaluationUtils {
                             .operation(permission.getOperation())
                             .resource(resource).build();
                 }
-
-
             } else {
                 logger.atWarn().kv("policyVariable", policyVariable)
-                        .log("Policy variable detected but could not be parsed.");
+                        .log("Policy variable detected but could not be parsed");
             }
         }
-
         return permission;
     }
 
