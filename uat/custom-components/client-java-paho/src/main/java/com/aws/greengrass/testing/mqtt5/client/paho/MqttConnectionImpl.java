@@ -87,7 +87,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @Override
     public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
-                                        List<Mqtt5Properties>  userProperties) {
+                                        List<Mqtt5Properties> userProperties) {
         MqttSubscription[] mqttSubscriptions = new MqttSubscription[subscriptions.size()];
         MqttMessageListener[] listeners = new MqttMessageListener[subscriptions.size()];
         for (int i = 0; i < subscriptions.size(); i++) {
@@ -150,14 +150,21 @@ public class MqttConnectionImpl implements MqttConnection {
         mqttMessage.setPayload(message.getPayload());
         mqttMessage.setRetained(message.isRetain());
 
+        MqttProperties properties = new MqttProperties();
         if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
-            MqttProperties properties = new MqttProperties();
             List<UserProperty> userProperties = convertToUserProperties(message.getUserProperties());
             properties.setUserProperties(userProperties);
             userProperties.forEach(p -> logger.atInfo()
                     .log("Publish MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
-            mqttMessage.setProperties(properties);
         }
+
+        String contentType = message.getContentType();
+        if (contentType != null && !contentType.isEmpty()) {
+            properties.setContentType(contentType);
+            logger.atInfo().log("Publish MQTT payload content type '{}'", contentType);
+        }
+
+        mqttMessage.setProperties(properties);
 
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
         try {
@@ -340,9 +347,13 @@ public class MqttConnectionImpl implements MqttConnection {
     private class MqttMessageListener implements IMqttMessageListener {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) {
-            List<Mqtt5Properties> userProps = convertToMqtt5Properties(mqttMessage.getProperties());
+            MqttProperties receivedProperties = mqttMessage.getProperties();
+            String contentType = receivedProperties != null ? receivedProperties.getContentType() : null;
+
+            List<Mqtt5Properties> userProps = convertToMqtt5Properties(receivedProperties);
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(), userProps);
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic,
+                    mqttMessage.getPayload(), userProps, contentType);
             executorService.submit(() -> {
                 grpcClient.onReceiveMqttMessage(connectionId, message);
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
@@ -352,12 +363,15 @@ public class MqttConnectionImpl implements MqttConnection {
                 userProps.forEach(p -> logger.atInfo()
                         .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
             }
+            if (contentType != null) {
+                logger.atInfo().log("Received MQTT message has content type '{}'", contentType);
+            }
         }
     }
 
     private List<UserProperty> convertToUserProperties(List<Mqtt5Properties> properties) {
         List<UserProperty> userProperties = new ArrayList<>();
-        properties.forEach(p ->  userProperties.add(new UserProperty(p.getKey(), p.getValue())));
+        properties.forEach(p -> userProperties.add(new UserProperty(p.getKey(), p.getValue())));
         return userProperties;
     }
 
@@ -371,7 +385,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     private static List<Mqtt5Properties> convertToMqtt5Properties(List<UserProperty> properties) {
         List<Mqtt5Properties> userProperties = new ArrayList<>();
-        properties.forEach(p ->  userProperties.add(Mqtt5Properties.newBuilder()
+        properties.forEach(p -> userProperties.add(Mqtt5Properties.newBuilder()
                 .setKey(p.getKey()).setValue(p.getValue()).build()));
         return userProperties;
     }

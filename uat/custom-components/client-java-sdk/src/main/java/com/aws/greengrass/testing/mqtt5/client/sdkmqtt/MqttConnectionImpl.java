@@ -151,23 +151,29 @@ public class MqttConnectionImpl implements MqttConnection {
                 String topic = packet.getTopic();
                 boolean isRetain = packet.getRetain();
 
-                List<Mqtt5Properties> userProperties = null;
-                if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
-                    userProperties = convertToMqtt5Properties(packet.getUserProperties());
+                final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(),
+                                                                                        "Received");
+
+                final String contentType = packet.getContentType();
+                if (contentType != null) {
+                    logger.atInfo().log("RX content type: '{}'", contentType);
+                }
+
+                Boolean outgoingPayloadFormat = null;
+                final PublishPacket.PayloadFormatIndicator payloadFormat = packet.getPayloadFormat();
+                if (payloadFormat != null) {
+                    outgoingPayloadFormat = payloadFormat == PublishPacket.PayloadFormatIndicator.UTF8;
+                    logger.atInfo().log("RX payload format indicator: {}", outgoingPayloadFormat);
                 }
 
                 MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload(),
-                        userProperties);
+                        userProperties, contentType, outgoingPayloadFormat);
                 executorService.submit(() -> {
                     grpcClient.onReceiveMqttMessage(connectionId, message);
                 });
 
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
                                         connectionId, topic, qos, isRetain);
-                if (userProperties != null) {
-                    userProperties.forEach(p -> logger.atInfo()
-                            .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
-                }
             }
         }
     }
@@ -229,18 +235,16 @@ public class MqttConnectionImpl implements MqttConnection {
     public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
 
         if (!isClosing.getAndSet(true)) {
-            DisconnectPacket.DisconnectReasonCode disconnectReason
+            final DisconnectPacket.DisconnectReasonCode disconnectReason
                     = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
-            DisconnectPacket.DisconnectPacketBuilder disconnectBuilder = new DisconnectPacket.DisconnectPacketBuilder()
+            DisconnectPacket.DisconnectPacketBuilder builder = new DisconnectPacket.DisconnectPacketBuilder()
                     .withReasonCode(disconnectReason);
 
             if (userProperties != null && !userProperties.isEmpty()) {
-                disconnectBuilder.withUserProperties(convertToUserProperties(userProperties));
-                userProperties.forEach(p -> logger.atInfo()
-                        .log("Disconnect MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
+                builder.withUserProperties(convertToUserProperties(userProperties, "TX DISCONNECT"));
             }
 
-            client.stop(disconnectBuilder.build());
+            client.stop(builder.build());
 
             try {
                 final long deadline = System.nanoTime() + timeout * 1_000_000_000;
@@ -274,13 +278,6 @@ public class MqttConnectionImpl implements MqttConnection {
 
         stateCheck();
 
-        /* TODO: use also
-                    withResponseTopic()
-                    withPayloadFormat()
-                    withMessageExpiryIntervalSeconds()
-                    withContentType()
-                    withCorrelationData() - ???
-        */
         QOS qosEnum = QOS.getEnumValueFromInteger(message.getQos());
         PublishPacket.PublishPacketBuilder publishPacket = new PublishPacket.PublishPacketBuilder()
                                             .withTopic(message.getTopic())
@@ -288,11 +285,29 @@ public class MqttConnectionImpl implements MqttConnection {
                                             .withRetain(message.isRetain())
                                             .withPayload(message.getPayload());
 
-        if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
-            List<UserProperty> userProperties = convertToUserProperties(message.getUserProperties());
-            publishPacket.withUserProperties(convertToUserProperties(message.getUserProperties()));
-            userProperties.forEach(p -> logger.atInfo()
-                    .log("Publish MQTT userProperties: {}, {}", p.key, p.value));
+        /* TODO: use also
+                    withResponseTopic()
+                    withPayloadFormat()
+                    withMessageExpiryIntervalSeconds()
+                    withCorrelationData() - ???
+        */
+
+        final List<Mqtt5Properties> userProperties = message.getUserProperties();
+        if (userProperties != null && !userProperties.isEmpty()) {
+            publishPacket.withUserProperties(convertToUserProperties(userProperties, "TX PUBLISH"));
+        }
+
+        final String contentType = message.getContentType();
+        if (contentType != null) {
+            publishPacket.withContentType(contentType);
+            logger.atInfo().log("Publish content type: '{}'", contentType);
+        }
+
+        final Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
+        if (payloadFormatIndicator != null) {
+            publishPacket.withPayloadFormat(payloadFormatIndicator
+                    ? PublishPacket.PayloadFormatIndicator.UTF8 : PublishPacket.PayloadFormatIndicator.BYTES);
+            logger.atInfo().log("Publish payload format indicator: {}", payloadFormatIndicator);
         }
 
         CompletableFuture<PublishResult> publishFuture = client.publish(publishPacket.build());
@@ -326,11 +341,11 @@ public class MqttConnectionImpl implements MqttConnection {
             builder.withSubscription(subscription.getFilter(), qosEnum, subscription.isNoLocal(),
                                     subscription.isRetainAsPublished(),
                                     handling);
-            if (userProperties != null && !userProperties.isEmpty()) {
-                builder.withUserProperties(convertToUserProperties(userProperties));
-                userProperties.forEach(p -> logger.atInfo()
-                        .log("Subscribe MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
-            }
+
+        }
+
+        if (userProperties != null && !userProperties.isEmpty()) {
+            builder.withUserProperties(convertToUserProperties(userProperties, "SUBSCRIBE"));
         }
 
         CompletableFuture<SubAckPacket> subscribeFuture = client.subscribe(builder.build());
@@ -353,10 +368,9 @@ public class MqttConnectionImpl implements MqttConnection {
         stateCheck();
 
         UnsubscribePacket.UnsubscribePacketBuilder builder = new UnsubscribePacket.UnsubscribePacketBuilder();
+
         if (userProperties != null && !userProperties.isEmpty()) {
-            builder.withUserProperties(convertToUserProperties(userProperties));
-            userProperties.forEach(p -> logger.atInfo()
-                    .log("Unsubscribe MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
+            builder.withUserProperties(convertToUserProperties(userProperties, "UNSUBSCRIBE"));
         }
         filters.forEach(builder::withSubscription);
 
@@ -378,20 +392,19 @@ public class MqttConnectionImpl implements MqttConnection {
     private Mqtt5Client createClient(MqttLib.ConnectionParams connectionParams) {
 
         try (AwsIotMqtt5ClientBuilder builder = getClientBuilder(connectionParams)) {
-            ConnectPacket.ConnectPacketBuilder connectProperties = new ConnectPacket.ConnectPacketBuilder()
+            ConnectPacket.ConnectPacketBuilder connectBuilder = new ConnectPacket.ConnectPacketBuilder()
                 .withClientId(connectionParams.getClientId())
                 .withKeepAliveIntervalSeconds(Long.valueOf(connectionParams.getKeepalive()));
 
-            if (connectionParams.getUserProperties() != null && !connectionParams.getUserProperties().isEmpty()) {
-                List<UserProperty> userProperties = convertToUserProperties(connectionParams.getUserProperties());
-                userProperties.forEach(p -> logger.atInfo()
-                        .log("Connect MQTT userProperties: {}, {}", p.key, p.value));
+            final List<Mqtt5Properties> userProperties = connectionParams.getUserProperties();
+            if (userProperties != null && !userProperties.isEmpty()) {
+                connectBuilder.withUserProperties(convertToUserProperties(userProperties, "CONNECT"));
             }
 
             ClientSessionBehavior clientSessionBehavior = connectionParams.isCleanSession()
                         ? ClientSessionBehavior.CLEAN : ClientSessionBehavior.DEFAULT;
 
-            builder.withConnectProperties(connectProperties)
+            builder.withConnectProperties(connectBuilder)
                 .withSessionBehavior(clientSessionBehavior)
                 .withPort(Long.valueOf(connectionParams.getPort()))
                 .withLifeCycleEvents(lifecycleEvents)
@@ -462,7 +475,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
         ConnAckPacket.ConnectReasonCode reasonCode = packet.getReasonCode();
 
-        List<Mqtt5Properties> userProperties = getAckUserProperties(packet.getUserProperties(), "ConAck");
+        final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(), "CONNACK");
 
         QOS maximumQOS = packet.getMaximumQOS();
         return new ConnAckInfo(packet.getSessionPresent(),
@@ -502,7 +515,7 @@ public class MqttConnectionImpl implements MqttConnection {
             resultCodes = codes.stream().map(c -> c == null ? null : c.getValue()).collect(Collectors.toList());
         }
 
-        List<Mqtt5Properties> userProperties = getAckUserProperties(packet.getUserProperties(), "SubAck");
+        final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(), "SUBACK");
 
         return new SubAckInfo(resultCodes, packet.getReasonString(), userProperties);
     }
@@ -518,7 +531,7 @@ public class MqttConnectionImpl implements MqttConnection {
             resultCodes = codes.stream().map(c -> c == null ? null : c.getValue()).collect(Collectors.toList());
         }
 
-        List<Mqtt5Properties> userProperties = getAckUserProperties(packet.getUserProperties(), "UnsubAck");
+        final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(), "UNSUBACK");
 
         return new UnsubAckInfo(resultCodes, packet.getReasonString(), userProperties);
     }
@@ -533,7 +546,8 @@ public class MqttConnectionImpl implements MqttConnection {
         }
         PubAckPacket.PubAckReasonCode reasonCode = pubAckPacket.getReasonCode();
 
-        List<Mqtt5Properties> userProperties = getAckUserProperties(pubAckPacket.getUserProperties(), "PubAck");
+        final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(pubAckPacket.getUserProperties(),
+                                                                                "PUBACK");
 
         return new PubAckInfo(reasonCode == null ? null : reasonCode.getValue(), pubAckPacket.getReasonString(),
                 userProperties);
@@ -543,14 +557,10 @@ public class MqttConnectionImpl implements MqttConnection {
         if (packet == null) {
             return null;
         }
-        List<Mqtt5Properties> userProperties = null;
-        if (packet.getUserProperties() != null && !packet.getUserProperties().isEmpty()) {
-            userProperties = convertToMqtt5Properties(packet.getUserProperties());
-            userProperties.forEach(p -> logger.atInfo()
-                    .log("Disconnect MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
-        }
 
-        DisconnectPacket.DisconnectReasonCode reasonCode = packet.getReasonCode();
+        final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(),
+                                                                                "RX DISCONNECT");
+        final DisconnectPacket.DisconnectReasonCode reasonCode = packet.getReasonCode();
 
         return new DisconnectInfo(reasonCode == null ? null : reasonCode.getValue(),
                                     convertLongToInteger(packet.getSessionExpiryIntervalSeconds()),
@@ -560,26 +570,29 @@ public class MqttConnectionImpl implements MqttConnection {
                                     );
     }
 
-    private List<UserProperty> convertToUserProperties(List<Mqtt5Properties> properties) {
+    private List<UserProperty> convertToUserProperties(@NonNull List<Mqtt5Properties> properties,
+                                                        @NonNull String type) {
         List<UserProperty> userProperties = new ArrayList<>();
-        properties.forEach(p ->  userProperties.add(new UserProperty(p.getKey(), p.getValue())));
+        properties.forEach(p -> {
+            userProperties.add(new UserProperty(p.getKey(), p.getValue()));
+            logger.atInfo().log("{} MQTT userProperties: {}, {}", type, p.getKey(), p.getValue());
+        });
+
         return userProperties;
     }
 
-    private static List<Mqtt5Properties> convertToMqtt5Properties(List<UserProperty> properties) {
-        List<Mqtt5Properties> userProperties = new ArrayList<>();
-        properties.forEach(p ->  userProperties.add(Mqtt5Properties.newBuilder()
-                .setKey(p.key).setValue(p.value).build()));
-        return userProperties;
-    }
-
-    private static List<Mqtt5Properties> getAckUserProperties(List<UserProperty> userPropertyList, String commandName) {
-        List<Mqtt5Properties> userProperties = null;
-        if (userPropertyList != null && !userPropertyList.isEmpty()) {
-            userProperties = convertToMqtt5Properties(userPropertyList);
-            userProperties.forEach(p -> logger.atInfo()
-                    .log("{} MQTT userProperties: {}, {}", commandName, p.getKey(), p.getValue()));
+    @SuppressWarnings("PMD.ReturnEmptyCollectionRatherThanNull")
+    private static List<Mqtt5Properties> convertToMqtt5Properties(List<UserProperty> properties, @NonNull String type) {
+        if (properties == null || properties.isEmpty()) {
+            return null;
         }
-        return userProperties;
+
+        List<Mqtt5Properties> mqttUserProperties = new ArrayList<>();
+        properties.forEach(p -> {
+            mqttUserProperties.add(Mqtt5Properties.newBuilder().setKey(p.key).setValue(p.value).build());
+            logger.atInfo().log("{} MQTT userProperties: {}, {}", type, p.key, p.value);
+        });
+
+        return mqttUserProperties;
     }
 }

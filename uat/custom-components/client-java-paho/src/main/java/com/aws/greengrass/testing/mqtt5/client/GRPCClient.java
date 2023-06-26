@@ -35,6 +35,9 @@ public interface GRPCClient {
 
         /** User properties. */
         private List<Mqtt5Properties> userProperties;
+
+        /** Optional content type. */
+        private String contentType;
     }
 
 

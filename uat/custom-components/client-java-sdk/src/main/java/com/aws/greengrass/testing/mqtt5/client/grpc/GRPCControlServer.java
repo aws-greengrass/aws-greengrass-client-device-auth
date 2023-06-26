@@ -372,6 +372,14 @@ class GRPCControlServer {
                 internalMessage.userProperties(message.getPropertiesList());
             }
 
+            if (message.hasContentType()) {
+                internalMessage.contentType(message.getContentType());
+            }
+
+            if (message.hasPayloadFormatIndicator()) {
+                internalMessage.payloadFormatIndicator(message.getPayloadFormatIndicator());
+            }
+
             MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
             try {
                 MqttConnection.PubAckInfo pubAckInfo = connection.publish(timeout, internalMessage.build());
