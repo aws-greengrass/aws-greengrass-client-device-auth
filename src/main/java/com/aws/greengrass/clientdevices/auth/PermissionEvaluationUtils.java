@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public final class PermissionEvaluationUtils {
     private static final Logger logger = LogManager.getLogger(PermissionEvaluationUtils.class);
@@ -95,6 +96,25 @@ public final class PermissionEvaluationUtils {
         }
 
         return false;
+    }
+
+    /**
+     * utility method to permission with variable value.
+     *
+     * @param session    current device session
+     * @param groupToPermissionsMap set of permissions for each device group
+     * @return permission map with updated resources
+     */
+    public static Map<String, Set<Permission>> getDevicePolicyPermissions(
+            @NonNull Session session, Map<String, Set<Permission>> groupToPermissionsMap) {
+        return groupToPermissionsMap.entrySet().stream()
+                .filter(entry -> !Utils.isEmpty(entry.getValue()))
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().stream()
+                                .map(permission -> updateResource(session, permission))
+                                .collect(Collectors.toSet())
+                ));
     }
 
     private static boolean comparePrincipal(String requestPrincipal, String policyPrincipal) {
