@@ -167,7 +167,7 @@ public class MqttConnectionImpl implements MqttConnection {
         Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
         if (payloadFormatIndicator != null) {
             properties.setPayloadFormat(payloadFormatIndicator);
-            logger.atInfo().log("Publish MQTT payload payload format indicator '{}'", payloadFormatIndicator);
+            logger.atInfo().log("Publish MQTT payload format indicator '{}'", payloadFormatIndicator);
         }
 
         mqttMessage.setProperties(properties);
@@ -375,7 +375,7 @@ public class MqttConnectionImpl implements MqttConnection {
                 logger.atInfo().log("Received MQTT message has content type '{}'", contentType);
             }
             if (payloadFormatIndicator != null) {
-                logger.atInfo().log("Received MQTT message has payload format indicator '{}'", contentType);
+                logger.atInfo().log("Received MQTT message has payload format indicator '{}'", payloadFormatIndicator);
             }
         }
     }
