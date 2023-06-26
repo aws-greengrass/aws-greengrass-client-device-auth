@@ -355,8 +355,12 @@ public class MqttConnectionImpl implements MqttConnection {
         public void messageArrived(String topic, MqttMessage mqttMessage) {
             MqttProperties receivedProperties = mqttMessage.getProperties();
 
-            String contentType = receivedProperties != null ? receivedProperties.getContentType() : null;
-            Boolean payloadFormatIndicator = receivedProperties != null ? receivedProperties.getPayloadFormat() : null;
+            String contentType = null;
+            Boolean payloadFormatIndicator = null;
+            if (receivedProperties != null) {
+                contentType = receivedProperties.getContentType();
+                payloadFormatIndicator = receivedProperties.getPayloadFormat();
+            }
 
             List<Mqtt5Properties> userProps = convertToMqtt5Properties(receivedProperties);
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
