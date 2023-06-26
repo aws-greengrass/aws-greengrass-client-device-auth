@@ -466,7 +466,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
 
             if resp_code != mqtt.MQTT_ERR_SUCCESS:
                 self.__logger.error("MQTT Subscribe failed with code %i: %s", resp_code, mqtt.error_string(resp_code))
-                raise MQTTException(f"Couldn't publish {resp_code}")
+                raise MQTTException(f"Couldn't subscribe {resp_code}")
 
             self.__logger.debug(
                 "Subscribed on filters '%s' with QoS %s no local %s retain as published %s"
