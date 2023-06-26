@@ -99,7 +99,7 @@ public class MqttControlSteps {
     private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
 
     // connect default properties
-    private static final boolean DEFAULT_CONNECT_CLEAR_SESSION = true;
+    private static final boolean DEFAULT_CONNECT_CLEAR_SESSION = true;  // TODO: use also variable and step to set it
     private static final int IOT_CORE_MQTT_PORT = 8883;
 
     // publish default properties

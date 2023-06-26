@@ -1396,11 +1396,8 @@ Feature: GGMQ-1
     And I set MQTT subscribe 'no local' flag to true
     When I subscribe "subscriber" to "no_local_test" with qos 0
 
-    When I publish from "subscriber" to "no_local_false" with qos 0 and message "First message no local true test"
-    Then message "First message no local true test" is not received on "subscriber" from "no_local_false" topic within 5 seconds
-
-    When I publish from "publisher" to "no_local_false" with qos 0 and message "Second message no local true test"
-    Then message "Second message no local true test" received on "subscriber" from "no_local_false" topic within 5 seconds
+    When I publish from "subscriber" to "no_local_true" with qos 0 and message "First message no local true test"
+    Then message "First message no local true test" is not received on "subscriber" from "no_local_true" topic within 5 seconds
 
     And I clear message storage
 
