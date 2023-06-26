@@ -294,6 +294,10 @@ class GRPCControlServer {
                 internalMessage.contentType(message.getContentType());
             }
 
+            if (message.hasPayloadFormatIndicator()) {
+                internalMessage.payloadFormatIndicator(message.getPayloadFormatIndicator());
+            }
+
             MqttPublishReply publishReply = connection.publish(timeout, internalMessage.build());
                 if (publishReply != null) {
                     logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",

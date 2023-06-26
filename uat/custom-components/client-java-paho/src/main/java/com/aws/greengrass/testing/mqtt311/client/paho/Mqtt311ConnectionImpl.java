@@ -126,6 +126,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     public MqttPublishReply publish(long timeout, @NonNull Message message) {
         checkUserProperties(message.getUserProperties());
         checkContentType(message.getContentType());
+        checkPayloadFormatIndicator(message.getPayloadFormatIndicator());
 
         MqttMessage mqttMessage = new MqttMessage();
         mqttMessage.setQos(message.getQos());
@@ -203,7 +204,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(), null, null);
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(),
+                    null, null, null);
             executorService.submit(() -> {
                 grpcClient.onReceiveMqttMessage(connectionId, message);
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
@@ -221,6 +223,12 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private void checkContentType(String contentType) {
         if (contentType != null && !contentType.isEmpty()) {
             logger.warn("MQTT V3.1.1 doesn't support 'content type'");
+        }
+    }
+
+    private void checkPayloadFormatIndicator(Boolean payloadFormatIndicator) {
+        if (payloadFormatIndicator != null) {
+            logger.warn("MQTT V3.1.1 doesn't support 'payload format indicator'");
         }
     }
 }
