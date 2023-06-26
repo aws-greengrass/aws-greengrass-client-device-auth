@@ -6,10 +6,13 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
+import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.Utils;
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 
 import java.util.Map;
@@ -33,6 +36,11 @@ public final class PermissionEvaluationUtils {
             String.format(SERVICE_RESOURCE_FORMAT, SERVICE_PATTERN_STRING, SERVICE_RESOURCE_TYPE_PATTERN_STRING,
                     SERVICE_RESOURCE_NAME_PATTERN_STRING), Pattern.UNICODE_CHARACTER_CLASS);
 
+    private static final String POLICY_VARIABLE_FORMAT = "\\$\\{iot:(Connection.Thing.ThingName)}";
+
+    private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile(POLICY_VARIABLE_FORMAT);
+
+    private static final String THING_NAME_VARIABLE = "Connection.Thing.ThingName";
 
     private PermissionEvaluationUtils() {
     }
@@ -60,7 +68,8 @@ public final class PermissionEvaluationUtils {
             return false;
         }
 
-        for (Map.Entry<String, Set<Permission>> entry : groupToPermissionsMap.entrySet()) {
+        for (Map.Entry<String, Set<Permission>> entry :
+                groupToPermissionsMap.entrySet()) {
             String principal = entry.getKey();
             Set<Permission> permissions = entry.getValue();
             if (Utils.isEmpty(permissions)) {
@@ -139,12 +148,58 @@ public final class PermissionEvaluationUtils {
 
         Matcher matcher = SERVICE_RESOURCE_PATTERN.matcher(resourceStr);
         if (matcher.matches()) {
-            return Resource.builder().service(matcher.group(1)).resourceType(matcher.group(2))
-                    .resourceName(matcher.group(3)).build();
+            return Resource.builder().service(matcher.group(1))
+                    .resourceType(matcher.group(2))
+                    .resourceName(matcher.group(3))
+                    .build();
         }
 
         throw new IllegalArgumentException(
                 String.format("Resource %s is not in the form of %s", resourceStr, SERVICE_RESOURCE_PATTERN.pattern()));
+    }
+
+    /**
+     * utility method to permission with variable value.
+     *
+     * @param session    current device session
+     * @param permission permission to parse
+     * @return updated permission
+     */
+    static Permission updateResource(@NonNull Session session, @NonNull Permission permission) {
+
+        String resource = permission.getResource();
+
+        Matcher matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
+
+        while (matcher.find()) {
+
+            String policyVariable = matcher.group(1);
+            String[] vars = policyVariable.split("\\.");
+            String attributeNamespace = vars[1];
+            String attributeName = vars[2];
+
+            // this supports the ThingName attribute only
+            if (THING_NAME_VARIABLE.equals(policyVariable)) {
+                String policyVariableValue =
+                        Coerce.toString(session.getSessionAttribute(attributeNamespace, attributeName));
+
+                if (policyVariableValue == null) {
+                    logger.atWarn().kv("attributeName", attributeName)
+                            .log("No attribute found for current session");
+                } else {
+                    resource = matcher.replaceFirst(policyVariableValue);
+
+                    permission = Permission.builder()
+                            .principal(permission.getPrincipal())
+                            .operation(permission.getOperation())
+                            .resource(resource).build();
+                }
+            } else {
+                logger.atWarn().kv("policyVariable", policyVariable)
+                        .log("Policy variable detected but could not be parsed");
+            }
+        }
+        return permission;
     }
 
     @Value
