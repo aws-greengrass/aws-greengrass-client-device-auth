@@ -1390,6 +1390,25 @@ Feature: GGMQ-1
     When I publish from "publisher" to "payload_format_indicator_false_null" with qos 0 and message "Payload format indicators false/null"
     And message "Payload format indicators false/null" received on "subscriber" from "payload_format_indicator_false_null" topic within 5 seconds
 
+    And I clear message storage
+
+    # 21. test case when subscribe 'no local' set to true
+    And I set MQTT subscribe 'no local' flag to true
+    When I subscribe "subscriber" to "no_local_test" with qos 0
+
+    When I publish from "subscriber" to "no_local_true" with qos 0 and message "First message no local true test"
+    Then message "First message no local true test" is not received on "subscriber" from "no_local_true" topic within 5 seconds
+
+    And I clear message storage
+
+    # 22. test case when  subscribe 'no local' set to false
+    And I set MQTT subscribe 'no local' flag to false
+    When I subscribe "subscriber" to "no_local_false" with qos 0
+
+    When I publish from "subscriber" to "no_local_false" with qos 0 and message "First message no local false test"
+    Then message "First message no local false test" received on "subscriber" from "no_local_false" topic within 5 seconds
+
+
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
 

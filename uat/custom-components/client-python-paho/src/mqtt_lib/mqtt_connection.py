@@ -28,6 +28,7 @@ from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import (
     Mqtt5Disconnect,
     MqttPublishReply,
     MqttSubscribeReply,
+    Mqtt5Message,
 )
 from grpc_client_server.grpc_discovery_client import GRPCDiscoveryClient
 
@@ -89,7 +90,7 @@ class ConnectResult:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass
-class MqttMessage:
+class MqttPubMessage:
     """Publish message information and payload"""
 
     qos: int
@@ -363,7 +364,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         except asyncio.InvalidStateError:
             pass
 
-    async def publish(self, timeout: int, message: MqttMessage) -> MqttPublishReply:
+    async def publish(self, timeout: int, message: MqttPubMessage) -> MqttPublishReply:
         """
         Publish MQTT message.
         Parameters
@@ -465,7 +466,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
 
             if resp_code != mqtt.MQTT_ERR_SUCCESS:
                 self.__logger.error("MQTT Subscribe failed with code %i: %s", resp_code, mqtt.error_string(resp_code))
-                raise MQTTException(f"Couldn't publish {resp_code}")
+                raise MQTTException(f"Couldn't subscribe {resp_code}")
 
             self.__logger.debug(
                 "Subscribed on filters '%s' with QoS %s no local %s retain as published %s"
@@ -503,6 +504,14 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
                 self.__on_subscribe_future.set_result(mqtt_result)
         except asyncio.InvalidStateError:
             pass
+
+    def __on_message(self, client, userdata, message):  # pylint: disable=unused-argument
+        """
+        Paho MQTT receive message callback
+        """
+        self.__logger.debug("onMessage message %s from topic '%s'", message.payload, message.topic)
+        mqtt_message = MqttConnection.convert_to_mqtt_message(message=message)
+        self.__grpc_client.on_receive_mqtt_message(self.__connection_id, mqtt_message)
 
     def __create_client(self, connection_params: ConnectionParams) -> mqtt.Client:
         """
@@ -542,6 +551,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         client.on_disconnect = self.__on_disconnect
         client.on_publish = self.__on_publish
         client.on_subscribe = self.__on_subscribe
+        client.on_message = self.__on_message
 
         self.__logger.info("Creating MQTT %s client %s", protocol_version_for_log, tls_for_log)
 
@@ -630,3 +640,19 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         )
 
         return mqtt_sub_reply
+
+    @staticmethod
+    def convert_to_mqtt_message(message: mqtt.MQTTMessage) -> Mqtt5Message:
+        """
+        Convert MQTTMessage info to Mqtt5Message
+        Parameters
+        ----------
+        message - MQTTMessage object
+        Returns Mqtt5Message object
+        """
+        mqtt_message = Mqtt5Message(
+            topic=message.topic, payload=message.payload, qos=message.qos, retain=message.retain
+        )
+
+        # TODO add user properties, payload format indicator, content type for mqtt5
+        return mqtt_message
