@@ -30,7 +30,7 @@ import static org.hamcrest.Matchers.is;
 class PermissionEvaluationUtilsTest {
 
     @Test
-    void GIVEN_single_group_permission_with_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
+    void GIVEN_single_permission_with_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
         Certificate cert = CertificateFake.of("FAKE_CERT_ID");
         Thing thing = Thing.of("b");
         Session session = new SessionImpl(cert, thing);
@@ -46,7 +46,7 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
-    void GIVEN_single_group_permission_with_invalid_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
+    void GIVEN_single_permission_with_invalid_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
         Certificate cert = CertificateFake.of("FAKE_CERT_ID");
         Thing thing = Thing.of("b");
         Session session = new SessionImpl(cert, thing);
@@ -64,7 +64,7 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
-    void GIVEN_single_group_permission_with_nonexistent_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
+    void GIVEN_single_permission_with_nonexistent_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
         Certificate cert = CertificateFake.of("FAKE_CERT_ID");
         Thing thing = Thing.of("b");
         Session session = new SessionImpl(cert, thing);
@@ -79,6 +79,46 @@ class PermissionEvaluationUtilsTest {
         assertThat(updatedPolicyVariablePermission.equals(policyVariablePermission), is(true));
 
         assertThat(updatedPolicyVariablePermission.equals(permission), is(false));
+    }
+
+    @Test
+    void GIVEN_single_permission_with_multiple_policy_variables_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
+        Certificate cert = CertificateFake.of("FAKE_CERT_ID");
+        Thing thing = Thing.of("b");
+        Session session = new SessionImpl(cert, thing);
+
+        Permission policyVariablePermission =
+                Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/${iot:Connection.Thing.ThingName}/${iot:Connection.Thing.ThingName}/src").build();
+
+        Permission updatedPolicyVariablePermission = PermissionEvaluationUtils.replaceResourcePolicyVariable(session, policyVariablePermission);
+
+        Permission permission = Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/b/b/src").build();
+
+        assertThat(updatedPolicyVariablePermission.equals(policyVariablePermission), is(false));
+
+        assertThat(updatedPolicyVariablePermission.equals(permission), is(true));
+    }
+
+    @Test
+    void GIVEN_single_permission_with_multiple_invalid_policy_variables_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
+        Certificate cert = CertificateFake.of("FAKE_CERT_ID");
+        Thing thing = Thing.of("b");
+        Session session = new SessionImpl(cert, thing);
+
+        Permission policyVariablePermission =
+                Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/${iot:Connection.Thing.ThingName}/${iot:Connection}.Thing.RealThing}/src").build();
+
+        Permission updatedPolicyVariablePermission = PermissionEvaluationUtils.replaceResourcePolicyVariable(session, policyVariablePermission);
+
+        Permission permission = Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/b/b/src").build();
+
+        Permission expectedPermission = Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/b/${iot:Connection}.Thing.RealThing}/src").build();
+
+        assertThat(updatedPolicyVariablePermission.equals(policyVariablePermission), is(false));
+
+        assertThat(updatedPolicyVariablePermission.equals(permission), is(false));
+
+        assertThat(updatedPolicyVariablePermission.equals(expectedPermission), is(true));
     }
 
     @Test

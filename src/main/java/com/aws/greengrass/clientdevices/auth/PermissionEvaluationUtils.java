@@ -192,7 +192,6 @@ public final class PermissionEvaluationUtils {
         Matcher matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
 
         while (matcher.find()) {
-
             String policyVariable = matcher.group(1);
             String[] vars = policyVariable.split("\\.");
             String attributeNamespace = vars[1];
@@ -207,8 +206,10 @@ public final class PermissionEvaluationUtils {
                     logger.atWarn().kv("attributeName", attributeName)
                             .log("No attribute found for current session");
                 } else {
+                    // for ThingName support only, we can use .replaceAll()
+                    // to support additional policy variables in the future
                     resource = matcher.replaceFirst(policyVariableValue);
-
+                    matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
                     permission = Permission.builder()
                             .principal(permission.getPrincipal())
                             .operation(permission.getOperation())
