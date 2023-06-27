@@ -112,11 +112,13 @@ class PermissionEvaluationUtilsTest {
 
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/b/b/src").build();
 
-        Permission expectedfPermission = Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/b/${iot:Connection}.Thing.RealThing}/src").build();
+        Permission expectedPermission = Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/b/${iot:Connection}.Thing.RealThing}/src").build();
 
         assertThat(updatedPolicyVariablePermission.equals(policyVariablePermission), is(false));
 
         assertThat(updatedPolicyVariablePermission.equals(permission), is(false));
+
+        assertThat(updatedPolicyVariablePermission.equals(expectedPermission), is(true));
     }
 
     @Test
