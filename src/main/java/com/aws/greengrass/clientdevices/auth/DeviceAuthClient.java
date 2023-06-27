@@ -142,6 +142,6 @@ public class DeviceAuthClient {
         }
 
         return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
-                groupManager.getApplicablePolicyPermissions(session));
+                PermissionEvaluationUtils.transformGroupPermissionsWithVariableValue(session,groupManager.getApplicablePolicyPermissions(session)));
     }
 }
