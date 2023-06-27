@@ -429,7 +429,7 @@ Feature: GGMQ-1
 
 
   @GGMQ-1-T9
-  Scenario Outline: GGMQ-1-T9-<mqtt-v>-<name>: As a customer,I can configure local MQTT messages to be forwarded to an IoT Core MQTT topic
+  Scenario Outline: GGMQ-1-T9-<mqtt-v>-<name>: As a customer, I can configure local MQTT messages to be forwarded to an IoT Core MQTT topic
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                  |
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
@@ -1502,6 +1502,131 @@ Feature: GGMQ-1
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                 |
+
+  @GGMQ-1-T18
+  Scenario Outline: GGMQ-1-T18-<mqtt-v>-<name>: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic, with Greengrass in disconnected state
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+    And I create client device "localMqttSubscriber"
+    And I create client device "iotCorePublisher"
+    When I associate "localMqttSubscriber" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${localMqttSubscriber}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 1 minutes
+
+    When I set device mqtt connectivity to offline
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST |
+      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST |
+      | <agent>                                  | LATEST |
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.Bridge configuration to:
+    """
+{
+    "MERGE":{
+        "mqttTopicMapping":{
+            "mapping1:":{
+                "topic":"${localMqttSubscriber}topic/to/localmqtt",
+                "source":"IotCore",
+                "target":"LocalMqtt"
+            }
+        }
+    }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 299 seconds
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 1 minutes
+
+    And I set device mqtt connectivity to online
+
+    When I discover core device broker as "localBroker" from "localMqttSubscriber" in OTF
+    And I label IoT Core broker as "iotCoreBroker"
+    And I connect device "localMqttSubscriber" on <agent> to "localBroker" using mqtt "<mqtt-v>"
+    And I connect device "iotCorePublisher" on <agent> to "iotCoreBroker" using mqtt "<mqtt-v>"
+
+    And I subscribe "localMqttSubscriber" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1
+
+    And I wait 30 seconds
+    When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1 and message "Hello world1"
+    Then message "Hello world1" received on "localMqttSubscriber" from "${localMqttSubscriber}topic/to/localmqtt" topic within 10 seconds
+
+    And I disconnect device "iotCorePublisher" with reason code 0
+    And I disconnect device "localMqttSubscriber" with reason code 0
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+
+    @mqtt3 @mosquitto-c @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+
+    @mqtt5 @mosquitto-c @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                     | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+
 
   @GGMQ-1-T101
   Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can use publish retain flag using MQTT V3.1.1
