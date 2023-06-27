@@ -30,7 +30,7 @@ import static org.hamcrest.Matchers.is;
 class PermissionEvaluationUtilsTest {
 
     @Test
-    void GIVEN_single_group_permission_with_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
+    void GIVEN_single_permission_with_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
         Certificate cert = CertificateFake.of("FAKE_CERT_ID");
         Thing thing = Thing.of("b");
         Session session = new SessionImpl(cert, thing);
@@ -46,7 +46,7 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
-    void GIVEN_single_group_permission_with_invalid_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
+    void GIVEN_single_permission_with_invalid_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
         Certificate cert = CertificateFake.of("FAKE_CERT_ID");
         Thing thing = Thing.of("b");
         Session session = new SessionImpl(cert, thing);
@@ -64,7 +64,7 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
-    void GIVEN_single_group_permission_with_nonexistent_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
+    void GIVEN_single_permission_with_nonexistent_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() throws InvalidCertificateException {
         Certificate cert = CertificateFake.of("FAKE_CERT_ID");
         Thing thing = Thing.of("b");
         Session session = new SessionImpl(cert, thing);
