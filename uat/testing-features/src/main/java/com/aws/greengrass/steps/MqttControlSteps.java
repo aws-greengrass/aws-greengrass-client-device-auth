@@ -1201,7 +1201,7 @@ public class MqttControlSteps {
      * @param brokerId broker name in tests
      */
     @And("I label IoT Core broker as {string}")
-    public void addCoreDeviceBroker(String brokerId) {
+    public void addIoTCoreBroker(String brokerId) {
         final String endpoint = resources.lifecycle(IotLifecycle.class)
                                          .dataEndpoint();
         final String ca = registrationContext.rootCA();
