@@ -10,6 +10,7 @@ import com.aws.greengrass.testing.model.RegistrationContext;
 import com.aws.greengrass.testing.model.ScenarioContext;
 import com.aws.greengrass.testing.model.TestContext;
 import com.aws.greengrass.testing.modules.model.AWSResourcesContext;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
@@ -736,7 +737,7 @@ public class MqttControlSteps {
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.UseObjectForClearerAPI"})
     @And("I connect device {string} on {word} to {string} using mqtt {string}")
-    public void connect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
+    public Mqtt5ConnAck connect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
 
         // get address information about broker
         final List<MqttBrokerConnectionInfo> bc = brokers.get(brokerId);
@@ -770,7 +771,7 @@ public class MqttControlSteps {
                 log.info("Connection with broker {} established to address {}:{} as Thing {} on {}",
                          brokerId, host, port, clientDeviceThingName, componentId);
                 setConnectionControl(connectionControl, clientDeviceThingName);
-                return;
+                return connectionControl.getConnAck();
             } catch (RuntimeException ex) {
                 lastException = ex;
             }
@@ -780,6 +781,31 @@ public class MqttControlSteps {
             throw new RuntimeException("No addresses to connect");
         }
         throw lastException;
+    }
+
+    /**
+     * Creates MQTT connection.
+     *
+     * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
+     * @param componentId  the componentId of MQTT client
+     * @param brokerId the id of broker, before must be discovered or added by default
+     * @param mqttVersion the MQTT version string
+     * @throws RuntimeException throws in fail case
+     *
+     */
+    @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.AvoidCatchingGenericException"})
+    @And("I can not connect device {string} on {word} to {string} using mqtt {string}")
+    public void canNotConnect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
+        try {
+            Mqtt5ConnAck connAck = connect(clientDeviceId, componentId, brokerId, mqttVersion);
+            int actualStatus = connAck.getReasonCode();
+
+            if (actualStatus == 0 || actualStatus == 1) {
+                log.error("ConAck returned 'success' reason code, but expected 'failed'");
+                throw new RuntimeException("ConAck returned 'success' reason code, but expected 'failed'");
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     /**
