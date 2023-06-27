@@ -1002,6 +1002,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "pubsub/topic/to/publish/on" with qos 1
     When I subscribe "subscriber" to "prefix/pubsub/topic/to/publish/on" with qos 1
 
+    And I verify greengrass-cli is available in greengrass root
     When I install the component LocalIpcPublisher from local store with configuration
     """
 {
@@ -1510,6 +1511,7 @@ Feature: GGMQ-1
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
       | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
       | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                  |
+      | aws.greengrass.Cli                       | LATEST                                  |
       | <agent>                                  | classpath:/local-store/recipes/<recipe> |
     And I create client device "localMqttSubscriber"
     And I create client device "iotCorePublisher"
@@ -1555,15 +1557,10 @@ Feature: GGMQ-1
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
     And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 1 minutes
+    And I verify greengrass-cli is available in greengrass root
 
     When I set device mqtt connectivity to offline
-    When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST |
-      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST |
-      | <agent>                                  | LATEST |
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.Bridge configuration to:
+    And I install the component aws.greengrass.clientdevices.mqtt.Bridge from local store with configuration
     """
 {
     "MERGE":{
@@ -1577,9 +1574,7 @@ Feature: GGMQ-1
     }
 }
     """
-    And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 299 seconds
-    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" within 1 minutes
+    Then the local Greengrass deployment is SUCCEEDED on the device after 120 seconds
 
     And I set device mqtt connectivity to online
 
@@ -1591,8 +1586,8 @@ Feature: GGMQ-1
     And I subscribe "localMqttSubscriber" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1
 
     And I wait 30 seconds
-    When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1 and message "Hello world1"
-    Then message "Hello world1" received on "localMqttSubscriber" from "${localMqttSubscriber}topic/to/localmqtt" topic within 10 seconds
+    When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1 and message "t18 message"
+    Then message "t18 message" received on "localMqttSubscriber" from "${localMqttSubscriber}topic/to/localmqtt" topic within 10 seconds
 
     And I disconnect device "iotCorePublisher" with reason code 0
     And I disconnect device "localMqttSubscriber" with reason code 0

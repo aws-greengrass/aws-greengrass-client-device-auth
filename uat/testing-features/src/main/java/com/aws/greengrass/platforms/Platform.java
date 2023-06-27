@@ -60,5 +60,4 @@ public abstract class Platform {
      * @return bundle of cross-platform commands for interacting with the network.
      */
     public abstract NetworkUtils getNetworkUtils();
-
 }

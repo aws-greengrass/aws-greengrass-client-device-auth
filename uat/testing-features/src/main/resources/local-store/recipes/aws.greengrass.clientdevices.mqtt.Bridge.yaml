@@ -1,0 +1,24 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+
+---
+RecipeFormatVersion: "2020-01-25"
+ComponentName: "aws.greengrass.clientdevices.mqtt.Bridge"
+ComponentVersion: "2.2.6"
+ComponentType: "aws.greengrass.plugin"
+ComponentDescription: "The MQTT bridge component relays MQTT messages between client\
+  \ devices, Greengrass components, and AWS IoT Core."
+ComponentPublisher: "AWS"
+ComponentConfiguration:
+  DefaultConfiguration:
+    startupTimeoutSeconds: "120"
+Manifests:
+  - Artifacts:
+      - URI: classpath:/local-store/artifacts/aws.greengrass.clientdevices.mqtt.Bridge.jar
+        Permission:
+          Read: ALL
+          Execute: NONE
+    Lifecycle:
+      Startup:
+        Timeout: "{configuration:/startupTimeoutSeconds}"

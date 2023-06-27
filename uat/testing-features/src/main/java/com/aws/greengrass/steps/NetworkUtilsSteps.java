@@ -14,6 +14,7 @@ import io.cucumber.java.en.When;
 import lombok.extern.log4j.Log4j2;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.inject.Inject;
 
 @Log4j2
@@ -22,7 +23,7 @@ public class NetworkUtilsSteps {
 
     private final ScenarioContext scenarioContext;
 
-    private boolean mqttConnectivity = true;
+    private final AtomicBoolean mqttConnectivity = new AtomicBoolean(true);
 
     @Inject
     public NetworkUtilsSteps(ScenarioContext scenarioContext) {
@@ -63,12 +64,16 @@ public class NetworkUtilsSteps {
      */
     @When("I set device mqtt connectivity to {connectivityValue}")
     public void setDeviceMqtt(final boolean connectivity) throws IOException, InterruptedException {
-        if (connectivity) {
-            Platform.getInstance().getNetworkUtils().recoverMqtt();
-        } else {
-            Platform.getInstance().getNetworkUtils().disconnectMqtt();
+        boolean old = mqttConnectivity.getAndSet(connectivity);
+        if (old != connectivity) {
+            if (connectivity) {
+                log.info("Unblocking MQTT connections");
+                Platform.getInstance().getNetworkUtils().recoverMqtt();
+            } else {
+                log.info("Blocking MQTT connections");
+                Platform.getInstance().getNetworkUtils().disconnectMqtt();
+            }
         }
-        mqttConnectivity = connectivity;
     }
 
     /**
@@ -77,10 +82,11 @@ public class NetworkUtilsSteps {
      * @throws IOException on IO errors
      * @throws InterruptedException when thread has been interrupted
      */
-    @After
+    @After(order = Integer.MAX_VALUE)
     public void restoreDefaultSettings() throws IOException, InterruptedException {
-        if (!mqttConnectivity) {
-            mqttConnectivity = true;
+        boolean old = mqttConnectivity.getAndSet(true);
+        if (!old) {
+            log.info("Automatically unblocking blocked MQTT connections");
             Platform.getInstance().getNetworkUtils().recoverMqtt();
         }
     }
