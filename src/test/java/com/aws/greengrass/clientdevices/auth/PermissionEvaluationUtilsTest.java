@@ -38,7 +38,7 @@ class PermissionEvaluationUtilsTest {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/${iot:Connection.Thing.ThingName}").build();
 
-        Permission updatedPolicyVariablePermission = PermissionEvaluationUtils.updateResource(session, policyVariablePermission);
+        Permission updatedPolicyVariablePermission = PermissionEvaluationUtils.replaceResourcePolicyVariable(session, policyVariablePermission);
 
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/b").build();
 
@@ -54,7 +54,7 @@ class PermissionEvaluationUtilsTest {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/${iot:Connection.Thing.ThingName/}").build();
 
-        Permission updatedPolicyVariablePermission = PermissionEvaluationUtils.updateResource(session, policyVariablePermission);
+        Permission updatedPolicyVariablePermission = PermissionEvaluationUtils.replaceResourcePolicyVariable(session, policyVariablePermission);
 
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/b").build();
 
@@ -72,7 +72,7 @@ class PermissionEvaluationUtilsTest {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/${iot:Connection.Thing.RealThing}").build();
 
-        Permission updatedPolicyVariablePermission = PermissionEvaluationUtils.updateResource(session, policyVariablePermission);
+        Permission updatedPolicyVariablePermission = PermissionEvaluationUtils.replaceResourcePolicyVariable(session, policyVariablePermission);
 
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation").resource("/msg/b").build();
 
@@ -89,7 +89,7 @@ class PermissionEvaluationUtilsTest {
         Thing thing = Thing.of("b");
         Session session = new SessionImpl(cert, thing);
 
-        Map<String, Set<Permission>> groupPermissions = PermissionEvaluationUtils.getDevicePolicyPermissions(session, prepareGroupVariablePermissionsData());
+        Map<String, Set<Permission>> groupPermissions = PermissionEvaluationUtils.transformGroupPermissionsWithVariableValue(session, prepareGroupVariablePermissionsData());
 
         boolean authorized = PermissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:a", groupPermissions);
         assertThat(authorized, is(true));

@@ -99,20 +99,20 @@ public final class PermissionEvaluationUtils {
     }
 
     /**
-     * utility method to permission with variable value.
+     * utility method to transform map of group permissions by updating policy variables with device variable values.
      *
      * @param session    current device session
      * @param groupToPermissionsMap set of permissions for each device group
      * @return permission map with updated resources
      */
-    public static Map<String, Set<Permission>> getDevicePolicyPermissions(
+    public static Map<String, Set<Permission>> transformGroupPermissionsWithVariableValue(
             @NonNull Session session, Map<String, Set<Permission>> groupToPermissionsMap) {
         return groupToPermissionsMap.entrySet().stream()
                 .filter(entry -> !Utils.isEmpty(entry.getValue()))
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         entry -> entry.getValue().stream()
-                                .map(permission -> updateResource(session, permission))
+                                .map(permission -> replaceResourcePolicyVariable(session, permission))
                                 .collect(Collectors.toSet())
                 ));
     }
@@ -179,13 +179,13 @@ public final class PermissionEvaluationUtils {
     }
 
     /**
-     * utility method to permission with variable value.
+     * utility method to replace policy variables in permission with device attribute.
      *
      * @param session    current device session
      * @param permission permission to parse
      * @return updated permission
      */
-    static Permission updateResource(@NonNull Session session, @NonNull Permission permission) {
+    static Permission replaceResourcePolicyVariable(@NonNull Session session, @NonNull Permission permission) {
 
         String resource = permission.getResource();
 
