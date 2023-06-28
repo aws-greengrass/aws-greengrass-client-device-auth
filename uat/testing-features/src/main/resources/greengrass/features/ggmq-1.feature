@@ -1597,30 +1597,10 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  |
       | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
 
-    @mqtt3 @mosquitto-c @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
-
-    @mqtt3 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
-
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
-
-    @mqtt5 @mosquitto-c @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
-
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
 
 
   @GGMQ-1-T101
