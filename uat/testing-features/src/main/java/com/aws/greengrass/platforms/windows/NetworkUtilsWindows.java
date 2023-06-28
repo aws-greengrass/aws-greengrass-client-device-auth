@@ -16,8 +16,8 @@ import java.util.concurrent.TimeUnit;
 @Log4j2
 @AllArgsConstructor
 public class NetworkUtilsWindows extends NetworkUtils {
-    private static final String NETSH_ADD_RULE_FORMAT = "netsh advfirewall firewall "
-            + "add rule name='%s' protocol=tcp dir=in action=block localport=%s && "
+    private static final String NETSH_ADD_RULE_FORMAT
+            = "netsh advfirewall firewall add rule name='%s' protocol=tcp dir=in action=block localport=%s && "
             + "netsh advfirewall firewall add rule name='%s' protocol=tcp dir=out action=block remoteport=%s";
     private static final String NETSH_DELETE_RULE_FORMAT = "netsh advfirewall firewall delete rule name='%s'";
     private static final String NETSH_GET_RULE_FORMAT = "netsh advfirewall firewall show rule name='%s'";
@@ -29,18 +29,10 @@ public class NetworkUtilsWindows extends NetworkUtils {
     private static final String COMMAND_FAILED_TO_RUN = "Command (%s) failed to run.";
 
     // Windows requires a name for every firewall name (can have duplicates)
-    // Format: evergreen_uat_{PORT_NUMBER}
+    // Format: otf_uat_{PORT_NUMBER}
     // Example:
-    // evergreen_uat_8883
-    private static final String FIREWALL_RULE_NAME_FORMAT = "evergreen_uat_%s";
-
-    /*
-    Network commands for disconnecting entire network in case we want to
-    disconnect the network like we do on Mac's network utils
-
-    private static final String DISCONNECT_COMMAND = "ipconfig /release";
-    private static final String CONNECT_COMMAND = "ipconfig /renew";
-    */
+    // otf_uat_8883
+    private static final String FIREWALL_RULE_NAME_FORMAT = "otf_uat_%s";
 
     @Override
     public void disconnectMqtt() throws InterruptedException, IOException {
