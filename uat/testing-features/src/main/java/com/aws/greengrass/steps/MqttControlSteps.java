@@ -10,7 +10,6 @@ import com.aws.greengrass.testing.model.RegistrationContext;
 import com.aws.greengrass.testing.model.ScenarioContext;
 import com.aws.greengrass.testing.model.TestContext;
 import com.aws.greengrass.testing.modules.model.AWSResourcesContext;
-import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
@@ -737,7 +736,7 @@ public class MqttControlSteps {
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.UseObjectForClearerAPI"})
     @And("I connect device {string} on {word} to {string} using mqtt {string}")
-    public Mqtt5ConnAck connect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
+    public void connect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
 
         // get address information about broker
         final List<MqttBrokerConnectionInfo> bc = brokers.get(brokerId);
@@ -771,7 +770,7 @@ public class MqttControlSteps {
                 log.info("Connection with broker {} established to address {}:{} as Thing {} on {}",
                          brokerId, host, port, clientDeviceThingName, componentId);
                 setConnectionControl(connectionControl, clientDeviceThingName);
-                return connectionControl.getConnAck();
+                return;
             } catch (RuntimeException ex) {
                 lastException = ex;
             }
@@ -797,14 +796,8 @@ public class MqttControlSteps {
     @And("I can not connect device {string} on {word} to {string} using mqtt {string}")
     public void canNotConnect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
         try {
-            Mqtt5ConnAck connAck = connect(clientDeviceId, componentId, brokerId, mqttVersion);
-            int actualStatus = connAck.getReasonCode();
-
-            if (actualStatus == 0 || actualStatus == 1) {
-                log.error("ConAck returned 'success' reason code, but expected 'failed'");
-                throw new RuntimeException("ConAck returned 'success' reason code, but expected 'failed'");
-            }
-        } catch (Exception ignored) {
+            connect(clientDeviceId, componentId, brokerId, mqttVersion);
+        } catch (RuntimeException ignored) {
         }
     }
 
@@ -1160,7 +1153,7 @@ public class MqttControlSteps {
      * @param brokerId broker name in tests
      */
     @And("I label IoT Core broker as {string}")
-    public void discoverCoreDeviceBroker(String brokerId) {
+    public void addCoreDeviceBroker(String brokerId) {
         final String endpoint = resources.lifecycle(IotLifecycle.class)
                                          .dataEndpoint();
         final String ca = registrationContext.rootCA();
@@ -1168,6 +1161,24 @@ public class MqttControlSteps {
                 endpoint, IOT_CORE_MQTT_PORT, Collections.singletonList(ca));
         brokers.put(brokerId, Collections.singletonList(broker));
         log.info("Added IoT Core broker as {} with endpoint {}:{}", brokerId, endpoint, IOT_CORE_MQTT_PORT);
+    }
+
+
+    /**
+     * Set up IoT core broker port.
+     *
+     * @param brokerId broker name in tests
+     * @param port broker port in tests
+     */
+    @And("I set IoT Core broker as {string} with port {int}")
+    public void setBrokerPort(String brokerId, int port) {
+        final String endpoint = resources.lifecycle(IotLifecycle.class)
+                                         .dataEndpoint();
+        final String ca = registrationContext.rootCA();
+        MqttBrokerConnectionInfo broker = new MqttBrokerConnectionInfo(
+                endpoint, port, Collections.singletonList(ca));
+        brokers.put(brokerId, Collections.singletonList(broker));
+        log.info("Added IoT Core broker as {} with endpoint {}:{}", brokerId, endpoint, port);
     }
 
     /**
