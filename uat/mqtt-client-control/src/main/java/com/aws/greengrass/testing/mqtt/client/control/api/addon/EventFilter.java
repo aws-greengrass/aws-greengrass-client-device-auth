@@ -203,7 +203,7 @@ public final class EventFilter {
          *
          * @param contentType the content type of MQTT message
          */
-        public Builder withContentType(@NonNull String contentType) {
+        public Builder withContentType(String contentType) {
             this.contentType = contentType;
             return this;
         }

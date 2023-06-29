@@ -1433,7 +1433,7 @@ Feature: GGMQ-1
     And I set MQTT 'content type' to "text/plain; charset=utf-8" to receive
     When I subscribe "subscriber" to "content_type_null_not_null" with qos 0
     When I publish from "publisher" to "content_type_null_not_null" with qos 0 and message "Content types null/not null"
-    And message "Tx content type is null" is not received on "subscriber" from "content_type_null_not_null" topic within 5 seconds
+    And message "Content types null/not null" is not received on "subscriber" from "content_type_null_not_null" topic within 5 seconds
 
     And I clear message storage
 
@@ -1442,7 +1442,7 @@ Feature: GGMQ-1
     And I clear MQTT 'content type' to receive
     When I subscribe "subscriber" to "content_type_not_null_null" with qos 0
     When I publish from "publisher" to "content_type_not_null_null" with qos 0 and message "Content types not null/null"
-    And message "Tx content type is null" received on "subscriber" from "content_type_not_null_null" topic within 5 seconds
+    And message "Content types not null/null" received on "subscriber" from "content_type_not_null_null" topic within 5 seconds
 
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
