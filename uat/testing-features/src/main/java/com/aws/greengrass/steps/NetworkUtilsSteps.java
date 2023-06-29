@@ -33,13 +33,13 @@ public class NetworkUtilsSteps {
     /**
      * Convert offline/online string to boolean.
      *
-     * @param value the string of offline/online value
+     * @param status the string of offline/online status
      * @throws RuntimeException on invalid value
      */
     @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
     @ParameterType(value = "offline|Offline|OFFLINE|online|Online|ONLINE")
-    public boolean connectivityValue(String value) {
-        switch (value) {
+    public boolean connectivityValue(String status) {
+        switch (status) {
             case "offline":
             case "Offline":
             case "OFFLINE":
@@ -51,7 +51,8 @@ public class NetworkUtilsSteps {
                 return true;
 
             default:
-                throw new RuntimeException("Invalid connectivity value " + value);
+                log.error("Invalid connectivity status {}", status);
+                throw new RuntimeException("Invalid connectivity status " + status);
         }
     }
 
@@ -64,8 +65,8 @@ public class NetworkUtilsSteps {
      */
     @When("I set device mqtt connectivity to {connectivityValue}")
     public void setDeviceMqtt(final boolean connectivity) throws IOException, InterruptedException {
-        boolean old = mqttConnectivity.getAndSet(connectivity);
-        if (old != connectivity) {
+        boolean oldConnectivity = mqttConnectivity.getAndSet(connectivity);
+        if (oldConnectivity != connectivity) {
             if (connectivity) {
                 log.info("Unblocking MQTT connections");
                 Platform.getInstance().getNetworkUtils().recoverMqtt();
@@ -84,8 +85,8 @@ public class NetworkUtilsSteps {
      */
     @After(order = Integer.MAX_VALUE)
     public void restoreDefaultSettings() throws IOException, InterruptedException {
-        boolean old = mqttConnectivity.getAndSet(true);
-        if (!old) {
+        boolean oldConnectivity = mqttConnectivity.getAndSet(true);
+        if (!oldConnectivity) {
             log.info("Automatically unblocking blocked MQTT connections");
             Platform.getInstance().getNetworkUtils().recoverMqtt();
         }
