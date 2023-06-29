@@ -27,6 +27,7 @@ public final class EventFilter {
     private final String connectionName;
     private final String topic;
     private final String topicFilter;
+    private final String contentType;
     private final byte[] content;
     private final Boolean retain;
     private final List<Mqtt5Properties> userProperties;
@@ -43,6 +44,7 @@ public final class EventFilter {
         this.connectionName = builder.connectionName;
         this.topic = builder.topic;
         this.topicFilter = builder.topicFilter;
+        this.contentType = builder.contentType;
         this.content = builder.content;
         this.retain = builder.retain;
         this.userProperties = builder.userProperties;
@@ -62,6 +64,7 @@ public final class EventFilter {
         private String connectionName;
         private String topic;
         private String topicFilter;
+        private String contentType;
         private byte[] content;
         private Boolean retain;
         private List<Mqtt5Properties> userProperties;
@@ -191,6 +194,17 @@ public final class EventFilter {
          */
         public Builder withContent(@NonNull byte[] content) {
             this.content = content;
+            return this;
+        }
+
+        /**
+         * Sets content field of filter.
+         * Applicable only for MQTT message events
+         *
+         * @param contentType the content type of MQTT message
+         */
+        public Builder withContentType(@NonNull String contentType) {
+            this.contentType = contentType;
             return this;
         }
 

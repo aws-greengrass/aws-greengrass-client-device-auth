@@ -104,6 +104,7 @@ public class MqttControlSteps {
 
     // publish default properties
     private static final boolean DEFAULT_PUBLISH_RETAIN = false;
+    private static final String DEFAULT_CONTENT_TYPE = null;
     private static final Boolean DEFAULT_PUBLISH_PAYLOAD_FORMAT_INDICATOR = null;
 
     // subscribe efault properties
@@ -147,6 +148,12 @@ public class MqttControlSteps {
 
     /** Actual value of publish payload format indicator. */
     private Boolean publishPayloadFormatIndicator = DEFAULT_PUBLISH_PAYLOAD_FORMAT_INDICATOR;
+
+    /** Actual value of content type to transmit. */
+    private String txContentType = DEFAULT_CONTENT_TYPE;
+
+    /** Actual value of content type to receive. */
+    private String rxContentType = DEFAULT_CONTENT_TYPE;
 
     /** Actual expected value of retain flag in received messages. */
     private Boolean receivedRetain = DEFAULT_RECEIVED_RETAIN;
@@ -385,6 +392,48 @@ public class MqttControlSteps {
     public void setMqttTimeoutSec(int mqttTimeoutSec) {
         this.mqttTimeoutSec = mqttTimeoutSec;
         log.info("MQTT timeout set to {} second(s)", mqttTimeoutSec);
+    }
+
+    /**
+     * Sets MQTT content type to transmit.
+     *
+     * @param contentType MQTT content type to transmit
+     */
+    @And("I set MQTT 'content type' to {string} to transmit")
+    public void setMqttTxContentType(String contentType) {
+        this.txContentType = contentType;
+        log.info("MQTT content type set to {} to transmit", contentType);
+    }
+
+    /**
+     * Sets MQTT content type to receive.
+     *
+     * @param contentType MQTT content type to receive
+     */
+    @And("I set MQTT 'content type' to {string} to receive")
+    public void setMqttRxContentType(String contentType) {
+        this.rxContentType = contentType;
+        log.info("MQTT content type set to {} to receive", contentType);
+    }
+
+    /**
+     * Clear MQTT content type to transmit.
+     */
+    @And("I clear MQTT 'content type' to transmit")
+    @SuppressWarnings("PMD.NullAssignment")
+    public void clearMqttTxContentType() {
+        this.txContentType = null;
+        log.info("MQTT content type reset to transmit");
+    }
+
+    /**
+     * Clear MQTT content type to receive.
+     */
+    @And("I clear MQTT 'content type' to receive")
+    @SuppressWarnings("PMD.NullAssignment")
+    public void clearMqttRxContentType() {
+        this.rxContentType = null;
+        log.info("MQTT content type reset to receive");
     }
 
     /**
@@ -678,6 +727,7 @@ public class MqttControlSteps {
                                         .withType(Event.Type.EVENT_TYPE_MQTT_MESSAGE)
                                         .withConnectionControl(connectionControl)
                                         .withTopic(topic)
+                                        .withContentType(rxContentType)
                                         .withContent(message)
                                         .withRetain(receivedRetain)
                                         .withUserProperties(rxUserProperties)
@@ -1047,6 +1097,10 @@ public class MqttControlSteps {
 
         if (payloadFormatIndicator != null) {
             builder.setPayloadFormatIndicator(payloadFormatIndicator);
+        }
+
+        if (txContentType != null) {
+            builder.setContentType(txContentType);
         }
 
         return builder.build();

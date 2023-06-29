@@ -1008,7 +1008,7 @@ Feature: GGMQ-1
 
 
   @GGMQ-1-T101
-  Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can use publish retain flag
+  Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can use publish retain flag using MQTT V3.1.1
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth       | LATEST                                  |
       | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
@@ -1097,7 +1097,7 @@ Feature: GGMQ-1
 
 
   @GGMQ-1-T102
-  Scenario Outline: GGMQ-1-T102-<mqtt-v>-<name>: As a customer, I can use publish retain flag and subscribe retain handling as expected
+  Scenario Outline: GGMQ-1-T102-<mqtt-v>-<name>: As a customer, I can use publish retain flag,subscribe retain handling, content type using MQTT V5.0
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth       | LATEST                                  |
       | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
@@ -1408,6 +1408,41 @@ Feature: GGMQ-1
     When I publish from "subscriber" to "no_local_false" with qos 0 and message "First message no local false test"
     Then message "First message no local false test" received on "subscriber" from "no_local_false" topic within 5 seconds
 
+    And I clear message storage
+
+    # 23. test case when tx content type set the same value as rx
+    And I set MQTT 'content type' to "text/plain; charset=utf-8" to transmit
+    And I set MQTT 'content type' to "text/plain; charset=utf-8" to receive
+    When I subscribe "subscriber" to "content_types_the_same" with qos 0
+    When I publish from "publisher" to "content_types_the_same" with qos 0 and message "Content types not null/not null"
+    And message "Content types not null/not null" received on "subscriber" from "content_types_the_same" topic within 5 seconds
+
+    And I clear message storage
+
+    # 24. test case when tx content type set another value then rx
+    And I set MQTT 'content type' to "another content type value" to transmit
+    And I set MQTT 'content type' to "text/plain; charset=utf-8" to receive
+    When I subscribe "subscriber" to "content_type_not_the_same" with qos 0
+    When I publish from "publisher" to "content_type_not_the_same" with qos 0 and message "Different values of content types"
+    And message "Different values of content type" is not received on "subscriber" from "content_type_not_the_same" topic within 5 seconds
+
+    And I clear message storage
+
+    # 25. test case when tx content type is null
+    And I clear MQTT 'content type' to transmit
+    And I set MQTT 'content type' to "text/plain; charset=utf-8" to receive
+    When I subscribe "subscriber" to "content_type_null_not_null" with qos 0
+    When I publish from "publisher" to "content_type_null_not_null" with qos 0 and message "Content types null/not null"
+    And message "Tx content type is null" is not received on "subscriber" from "content_type_null_not_null" topic within 5 seconds
+
+    And I clear message storage
+
+    # 26. test case when rx content type is null
+    And I set MQTT 'content type' to "text/plain; charset=utf-8" to transmit
+    And I clear MQTT 'content type' to receive
+    When I subscribe "subscriber" to "content_type_not_null_null" with qos 0
+    When I publish from "publisher" to "content_type_not_null_null" with qos 0 and message "Content types not null/null"
+    And message "Tx content type is null" received on "subscriber" from "content_type_not_null_null" topic within 5 seconds
 
     And I disconnect device "subscriber" with reason code 0
     And I disconnect device "publisher" with reason code 0
