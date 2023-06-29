@@ -6,6 +6,9 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
+import com.aws.greengrass.clientdevices.auth.iot.Certificate;
+import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
+import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
@@ -17,6 +20,7 @@ import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import com.aws.greengrass.util.Coerce;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -95,6 +99,24 @@ public class DeviceAuthClientTest {
     }
 
     @Test
+    void GIVEN_sessionHasPolicyVariablesPermission_WHEN_canDevicePerform_THEN_authorizationReturnTrue() throws Exception {
+        Certificate cert = CertificateFake.of("FAKE_CERT_ID");
+        Thing thing = Thing.of("b");
+        Session session = new SessionImpl(cert, thing);
+        when(sessionManager.findSession("sessionId")).thenReturn(session);
+
+        String thingName = Coerce.toString(session.getSessionAttribute("Thing", "ThingName"));
+        when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
+                Collections.singleton(
+                        Permission.builder().operation("mqtt:publish").resource("mqtt:topic:${iot:Connection.Thing.ThingName}").principal("group1")
+                                .build())));
+
+        boolean authorized = authClient.canDevicePerform(constructPolicyVariableAuthorizationRequest(thingName));
+
+        assertThat(authorized, is(true));
+    }
+
+    @Test
     void GIVEN_internalClientSession_WHEN_canDevicePerform_THEN_authorizationReturnTrue() throws Exception {
         Session session = new SessionImpl(new Component());
         when(sessionManager.findSession("sessionId")).thenReturn(session);
@@ -107,5 +129,10 @@ public class DeviceAuthClientTest {
     private AuthorizationRequest constructAuthorizationRequest() {
         return AuthorizationRequest.builder().sessionId("sessionId").operation("mqtt:publish")
                 .resource("mqtt:topic:foo").build();
+    }
+
+    private AuthorizationRequest constructPolicyVariableAuthorizationRequest(String thingName) {
+        return AuthorizationRequest.builder().sessionId("sessionId").operation("mqtt:publish")
+                .resource(String.format("mqtt:topic:%s", thingName)).build();
     }
 }
