@@ -1516,6 +1516,20 @@ Feature: GGMQ-1
     And I create client device "localMqttSubscriber"
     And I create client device "iotCorePublisher"
     When I associate "localMqttSubscriber" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.Nucleus configuration to:
+    """
+{
+    "MERGE":{
+        "mqtt":{
+            "keepAliveTimeoutMs":5000,
+            "pingTimeoutMs":3000,
+            "minimumReconnectDelaySeconds": 5,
+            "maximumReconnectDelaySeconds": 5,
+            "minimumConnectedTimeBeforeRetryResetSeconds": 1
+        }
+    }
+}
+    """
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
@@ -1561,8 +1575,9 @@ Feature: GGMQ-1
 
     When I set device mqtt connectivity to offline
     And I restart Greengrass
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Failed to connect to AWS IoT Core" at least 3 times within 2 minutes
 
-    # TODO: when only configuration changes local deployment will be implemented in OTF replace to it
+    # TODO: when 'only configuration changes with local deployment' will be implemented in OTF replace to it
     And I install the component aws.greengrass.clientdevices.mqtt.Bridge from local store with configuration
     """
 {
@@ -1580,15 +1595,19 @@ Feature: GGMQ-1
     Then the local Greengrass deployment is SUCCEEDED on the device after 120 seconds
 
     And I set device mqtt connectivity to online
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Successfully connected to AWS IoT Core" at least 2 times within 1 minutes
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" at least 2 times within 1 minutes
+    And I wait 30 seconds
 
+    # Is critical to do discover after restart?
     When I discover core device broker as "localBroker" from "localMqttSubscriber" in OTF
     And I label IoT Core broker as "iotCoreBroker"
+
     And I connect device "localMqttSubscriber" on <agent> to "localBroker" using mqtt "<mqtt-v>"
     And I connect device "iotCorePublisher" on <agent> to "iotCoreBroker" using mqtt "<mqtt-v>"
 
     And I subscribe "localMqttSubscriber" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1
 
-    And I wait 30 seconds
     When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1 and message "t17 message"
     Then message "t17 message" received on "localMqttSubscriber" from "${localMqttSubscriber}topic/to/localmqtt" topic within 10 seconds
 
@@ -1600,30 +1619,10 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
       | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       |
 
-    @mqtt3 @mosquitto-c @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
-
-    @mqtt3 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | GRANTED_QOS_0       |
-
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_1       |
-
-    @mqtt5 @mosquitto-c @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
-
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | GRANTED_QOS_1       |
 
 
   @GGMQ-1-T18
@@ -1638,6 +1637,20 @@ Feature: GGMQ-1
     And I create client device "localMqttSubscriber"
     And I create client device "iotCorePublisher"
     When I associate "localMqttSubscriber" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.Nucleus configuration to:
+    """
+{
+    "MERGE":{
+        "mqtt":{
+            "keepAliveTimeoutMs":5000,
+            "pingTimeoutMs":3000,
+            "minimumReconnectDelaySeconds": 5,
+            "maximumReconnectDelaySeconds": 5,
+            "minimumConnectedTimeBeforeRetryResetSeconds": 1
+        }
+    }
+}
+    """
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
@@ -1683,7 +1696,7 @@ Feature: GGMQ-1
 
     When I set device mqtt connectivity to offline
 
-    # TODO: when only configuration changes local deployment will be implemented in OTF replace to it
+    # TODO: when 'only configuration changes with local deployment' will be implemented in OTF replace to it
     And I install the component aws.greengrass.clientdevices.mqtt.Bridge from local store with configuration
     """
 {
@@ -1701,15 +1714,17 @@ Feature: GGMQ-1
     Then the local Greengrass deployment is SUCCEEDED on the device after 120 seconds
 
     And I set device mqtt connectivity to online
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Connection resumed" within 1 minutes
 
     When I discover core device broker as "localBroker" from "localMqttSubscriber" in OTF
     And I label IoT Core broker as "iotCoreBroker"
+
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqtt.bridge.clients.MQTTClient: Connected to broker" at least 2 times within 1 minutes
     And I connect device "localMqttSubscriber" on <agent> to "localBroker" using mqtt "<mqtt-v>"
     And I connect device "iotCorePublisher" on <agent> to "iotCoreBroker" using mqtt "<mqtt-v>"
 
     And I subscribe "localMqttSubscriber" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1
 
-    And I wait 30 seconds
     When I publish from "iotCorePublisher" to "${localMqttSubscriber}topic/to/localmqtt" with qos 1 and message "t18 message"
     Then message "t18 message" received on "localMqttSubscriber" from "${localMqttSubscriber}topic/to/localmqtt" topic within 10 seconds
 
@@ -1718,13 +1733,13 @@ Feature: GGMQ-1
 
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       |
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_1       |
 
 
   @GGMQ-1-T101

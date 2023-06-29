@@ -6,7 +6,6 @@
 package com.aws.greengrass.steps;
 
 import com.aws.greengrass.platforms.Platform;
-import com.aws.greengrass.testing.model.ScenarioContext;
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.After;
 import io.cucumber.java.ParameterType;
@@ -21,13 +20,10 @@ import javax.inject.Inject;
 @ScenarioScoped
 public class NetworkUtilsSteps {
 
-    private final ScenarioContext scenarioContext;
-
     private final AtomicBoolean mqttConnectivity = new AtomicBoolean(true);
 
     @Inject
-    public NetworkUtilsSteps(ScenarioContext scenarioContext) {
-        this.scenarioContext = scenarioContext;
+    public NetworkUtilsSteps() {
     }
 
     /**
