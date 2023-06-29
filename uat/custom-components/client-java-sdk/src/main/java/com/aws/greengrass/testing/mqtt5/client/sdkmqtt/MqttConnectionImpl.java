@@ -250,6 +250,7 @@ public class MqttConnectionImpl implements MqttConnection {
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
     public ConnectResult start(long timeout, int connectionId) throws MqttException {
+        boolean success = false;
         this.connectionId = connectionId;
         boolean success = false;
         client.start();
