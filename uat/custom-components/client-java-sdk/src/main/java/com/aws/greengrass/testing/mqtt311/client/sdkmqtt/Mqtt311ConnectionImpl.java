@@ -14,9 +14,12 @@ import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import software.amazon.awssdk.crt.CRT;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 import software.amazon.awssdk.crt.mqtt.MqttMessage;
+import software.amazon.awssdk.crt.mqtt.OnConnectionClosedReturn;
+import software.amazon.awssdk.crt.mqtt.OnConnectionSuccessReturn;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import software.amazon.awssdk.iot.AwsIotMqttConnectionBuilder;
 
@@ -56,15 +59,53 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     final MqttClientConnectionEvents connectionEvents = new MqttClientConnectionEvents() {
         @Override
+        public void onConnectionClosed(OnConnectionClosedReturn data) {
+            isConnected.set(false);
+            logger.atInfo().log("MQTT connection {} closed", connectionId);
+        }
+
+        @Override
+        void onConnectionFailure(OnConnectionFailureReturn data) {
+            isConnected.set(false);
+
+            int errorCode = -1;
+            if (data != null) {
+                errorCode = data.getErrorCode();
+            }
+
+            logger.atInfo().log("Connect or disconnect was unsuccessful for MQTT connection {} error code {}",
+                                connectionId, errorCode);
+        }
+
+        @Override
         public void onConnectionInterrupted(int errorCode) {
             isConnected.set(false);
-            logger.atInfo().log("MQTT connection {} interrupted, error code {}", connectionId, errorCode);
+            String crtErrorString = CRT.awsErrorString(errorCode);
+            DisconnectInfo disconnectInfo = new DisconnectInfo(REASON_CODE_SUCCESS, null, crtErrorString, null, null);
+            executorService.submit(() -> {
+                grpcClient.onMqttDisconnect(connectionId, disconnectInfo, crtErrorString);
+                });
+            logger.atInfo().log("MQTT connection {} interrupted, error code {}: {}", connectionId, errorCode,
+                                crtErrorString);
         }
 
         @Override
         public void onConnectionResumed(boolean sessionPresent) {
             isConnected.set(true);
             logger.atInfo().log("MQTT connection {} resumed, sessionPresent {}", connectionId, sessionPresent);
+        }
+
+        @Override
+        public void onConnectionSuccess(OnConnectionSuccessReturn data) {
+            isConnected.set(true);
+
+            Boolean sessionPresent = null;
+            if (data != null) {
+                sessionPresent = data.getSessionPresent();
+            }
+
+            logger.atInfo().log("MQTT connection {} connecteed or reconnected sessionPresent {}", connectionId,
+                                isSessionPresent);
         }
     };
 
@@ -123,7 +164,6 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         CompletableFuture<Boolean> connectFuture = connection.connect();
         try {
             Boolean sessionPresent = connectFuture.get(timeout, TimeUnit.SECONDS);
-            isConnected.set(true);
             logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
             return buildConnectResult(true, sessionPresent);
         } catch (InterruptedException ex) {

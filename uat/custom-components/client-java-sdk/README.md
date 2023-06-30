@@ -55,14 +55,18 @@ Topic alias maximum is not provided by [ConnAckPacket](https://awslabs.github.io
 ## MQTT v3.1.1 client
 Reason string is not available in MQTT 3.1.1, corresponding fields of gRPC messages will not be set.
 
+Reason string in Mqtt5Disconnect will be filled by string provided by CRT library.
+
 SDK-based client does not provide OS specific error code or string, corresponding fields of gRPC messages will be not set.
 
-SDK-based client provides only session present flag of CONNACK packet. The Connect Return code of CONNACK is missing.
+SDK-based client provides only session present flag of CONNACK packet. The Connect result code of CONNACK is missing.
 
-Real SUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
+Real SUBACK information is not available from that client. Instead hard-coded reason code 0 is used to create a response on gRPC request.
 
-Real UNSUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
+Real UNSUBACK information is not available from that client. Instead hard-coded reason code 0 is used to create a response on gRPC request.
 
 SUBSCRIBE and UNSUBSCRIBE requests are limited to only one filter due to SDK client API limitation.
 
-Real PUBACK information is not available from that client. Instead hard-coded Result Code 0 is used to create a response on gRPC request.
+Real PUBACK information is not available from that client. Instead hard-coded reason code 0 is used to create a response on gRPC request.
+
+Disconnect reason code 0 will be used in any disconnect gRPC event due to corresponding field missing in MQTT 3.1.1 DISCONNECT.
