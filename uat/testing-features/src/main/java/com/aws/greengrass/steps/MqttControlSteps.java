@@ -399,7 +399,7 @@ public class MqttControlSteps {
      *
      * @param contentType MQTT content type to transmit
      */
-    @And("I set MQTT 'content type' to {string} to transmit")
+    @And("I set MQTT publish 'content type' to {string}")
     public void setMqttTxContentType(String contentType) {
         this.txContentType = contentType;
         log.info("MQTT content type set to {} to transmit", contentType);
@@ -410,29 +410,27 @@ public class MqttControlSteps {
      *
      * @param contentType MQTT content type to receive
      */
-    @And("I set MQTT 'content type' to {string} to receive")
+    @And("I set MQTT 'content type' in expected received messages to {string}")
     public void setMqttRxContentType(String contentType) {
         this.rxContentType = contentType;
         log.info("MQTT content type set to {} to receive", contentType);
     }
 
     /**
-     * Clear MQTT content type to transmit.
+     * Reset MQTT content type to transmit.
      */
-    @And("I clear MQTT 'content type' to transmit")
-    @SuppressWarnings("PMD.NullAssignment")
-    public void clearMqttTxContentType() {
-        this.txContentType = null;
+    @And("I reset MQTT publish 'content type'")
+    public void resetMqttTxContentType() {
+        this.txContentType = DEFAULT_CONTENT_TYPE;
         log.info("MQTT content type reset to transmit");
     }
 
     /**
-     * Clear MQTT content type to receive.
+     * Reset MQTT content type to receive.
      */
-    @And("I clear MQTT 'content type' to receive")
-    @SuppressWarnings("PMD.NullAssignment")
-    public void clearMqttRxContentType() {
-        this.rxContentType = null;
+    @And("I reset MQTT 'content type' in expected received messages")
+    public void resetMqttRxContentType() {
+        this.rxContentType = DEFAULT_CONTENT_TYPE;
         log.info("MQTT content type reset to receive");
     }
 

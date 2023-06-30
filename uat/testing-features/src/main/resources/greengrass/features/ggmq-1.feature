@@ -1411,8 +1411,8 @@ Feature: GGMQ-1
     And I clear message storage
 
     # 23. test case when tx content type set the same value as rx
-    And I set MQTT 'content type' to "text/plain; charset=utf-8" to transmit
-    And I set MQTT 'content type' to "text/plain; charset=utf-8" to receive
+    And I set MQTT publish 'content type' to "text/plain; charset=utf-8"
+    And I set MQTT 'content type' in expected received messages to "text/plain; charset=utf-8"
     When I subscribe "subscriber" to "content_types_the_same" with qos 0
     When I publish from "publisher" to "content_types_the_same" with qos 0 and message "Content types not null/not null"
     And message "Content types not null/not null" received on "subscriber" from "content_types_the_same" topic within 5 seconds
@@ -1420,8 +1420,8 @@ Feature: GGMQ-1
     And I clear message storage
 
     # 24. test case when tx content type set another value then rx
-    And I set MQTT 'content type' to "another content type value" to transmit
-    And I set MQTT 'content type' to "text/plain; charset=utf-8" to receive
+    And I set MQTT publish 'content type' to "another content type value"
+    And I set MQTT 'content type' in expected received messages to "text/plain; charset=utf-8"
     When I subscribe "subscriber" to "content_type_not_the_same" with qos 0
     When I publish from "publisher" to "content_type_not_the_same" with qos 0 and message "Different values of content types"
     And message "Different values of content type" is not received on "subscriber" from "content_type_not_the_same" topic within 5 seconds
@@ -1429,8 +1429,8 @@ Feature: GGMQ-1
     And I clear message storage
 
     # 25. test case when tx content type is null
-    And I clear MQTT 'content type' to transmit
-    And I set MQTT 'content type' to "text/plain; charset=utf-8" to receive
+    And I reset MQTT publish 'content type'
+    And I set MQTT 'content type' in expected received messages to "text/plain; charset=utf-8"
     When I subscribe "subscriber" to "content_type_null_not_null" with qos 0
     When I publish from "publisher" to "content_type_null_not_null" with qos 0 and message "Content types null/not null"
     And message "Content types null/not null" is not received on "subscriber" from "content_type_null_not_null" topic within 5 seconds
@@ -1438,8 +1438,8 @@ Feature: GGMQ-1
     And I clear message storage
 
     # 26. test case when rx content type is null
-    And I set MQTT 'content type' to "text/plain; charset=utf-8" to transmit
-    And I clear MQTT 'content type' to receive
+    And I set MQTT publish 'content type' to "text/plain; charset=utf-8"
+    And I reset MQTT 'content type' in expected received messages
     When I subscribe "subscriber" to "content_type_not_null_null" with qos 0
     When I publish from "publisher" to "content_type_not_null_null" with qos 0 and message "Content types not null/null"
     And message "Content types not null/null" received on "subscriber" from "content_type_not_null_null" topic within 5 seconds
