@@ -7,6 +7,7 @@ package com.aws.greengrass.testing.mqtt311.client.sdkmqtt;
 
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient.DisconnectInfo;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
@@ -19,6 +20,7 @@ import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 import software.amazon.awssdk.crt.mqtt.MqttMessage;
 import software.amazon.awssdk.crt.mqtt.OnConnectionClosedReturn;
+import software.amazon.awssdk.crt.mqtt.OnConnectionFailureReturn;
 import software.amazon.awssdk.crt.mqtt.OnConnectionSuccessReturn;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import software.amazon.awssdk.iot.AwsIotMqttConnectionBuilder;
@@ -65,7 +67,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         }
 
         @Override
-        void onConnectionFailure(OnConnectionFailureReturn data) {
+        public void onConnectionFailure(OnConnectionFailureReturn data) {
             isConnected.set(false);
 
             int errorCode = -1;
@@ -105,7 +107,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             }
 
             logger.atInfo().log("MQTT connection {} connecteed or reconnected sessionPresent {}", connectionId,
-                                isSessionPresent);
+                                sessionPresent);
         }
     };
 
