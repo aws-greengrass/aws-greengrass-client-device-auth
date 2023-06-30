@@ -68,5 +68,3 @@ Real UNSUBACK information is not available from that client. Instead hard-coded 
 SUBSCRIBE and UNSUBSCRIBE requests are limited to only one filter due to SDK client API limitation.
 
 Real PUBACK information is not available from that client. Instead hard-coded reason code 0 is used to create a response on gRPC request.
-
-Disconnect reason code 0 will be used in any disconnect gRPC event due to corresponding field missing in MQTT 3.1.1 DISCONNECT.

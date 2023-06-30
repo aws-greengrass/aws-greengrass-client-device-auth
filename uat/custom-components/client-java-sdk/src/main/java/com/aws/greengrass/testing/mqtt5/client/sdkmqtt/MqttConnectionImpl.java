@@ -119,6 +119,7 @@ public class MqttConnectionImpl implements MqttConnection {
             connectedFuture.complete(new OnConnectionDoneInfo(onConnectionFailureReturn, errorString));
         }
 
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
         public void onDisconnection(Mqtt5Client client, OnDisconnectionReturn onDisconnectionReturn) {
             isConnected.set(false);
@@ -127,8 +128,12 @@ public class MqttConnectionImpl implements MqttConnection {
             String errorString = CRT.awsErrorString(onDisconnectionReturn.getErrorCode());
             DisconnectInfo disconnectInfo = convertDisconnectPacket(disconnectPacket);
             executorService.submit(() -> {
-                grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
-                });
+                try {
+                    grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
+                } catch (Exception ex) {
+                    logger.atError().withThrowable(ex).log("onMqttDisconnect failed");
+                }
+            });
 
             logger.atInfo().log("MQTT connectionId {} disconnected error '{}' disconnectPacket '{}'",
                                 connectionId, errorString, disconnectPacket);
@@ -143,6 +148,8 @@ public class MqttConnectionImpl implements MqttConnection {
     }
 
     private class ClientsPublishEvents implements Mqtt5ClientOptions.PublishEvents {
+
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
         public void onMessageReceived(Mqtt5Client client, PublishReturn result) {
             PublishPacket packet = result.getPublishPacket();
@@ -169,7 +176,11 @@ public class MqttConnectionImpl implements MqttConnection {
                 MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload(),
                         userProperties, contentType, outgoingPayloadFormat);
                 executorService.submit(() -> {
-                    grpcClient.onReceiveMqttMessage(connectionId, message);
+                    try {
+                        grpcClient.onReceiveMqttMessage(connectionId, message);
+                    } catch (Exception ex) {
+                        logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
+                    }
                 });
 
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",

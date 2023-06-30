@@ -42,9 +42,9 @@ class AgentTestScenario implements Runnable {
     // pauses in milliseconds
     private static final long PAUSE_BEFORE_CONNECT = 3_000;
     private static final long PAUSE_BEFORE_SUBSCRIBE = 5_000;
-    private static final long PAUSE_BEFORE_PUBLISH = 5_000;
+    private static final long PAUSE_BEFORE_PUBLISH = 10_000;
     private static final long PAUSE_BEFORE_UNSUBSCRIBE = 5_000;
-    private static final long PAUSE_BEFORE_DISCONNECT = 15_000;
+    private static final long PAUSE_BEFORE_DISCONNECT = 10_000;
 
 
     private static final String MQTT_CLIENT_ID = "MQTT_CLIENT_ID";
