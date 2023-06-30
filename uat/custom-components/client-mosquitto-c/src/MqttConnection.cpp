@@ -458,7 +458,8 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
                                             const std::string & topic,
                                             const std::string & payload,
                                             const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
-                                            const std::string * content_type, bool * payload_format_indicator) {
+                                            const std::string * content_type, const bool * payload_format_indicator,
+                                            const int * message_expire_interval) {
     PendingRequest * request = 0;
     int message_id = 0;
     mosquitto_property * properties = NULL;
@@ -468,6 +469,38 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
         stateCheck();
 
         int rc;
+
+        // properties handled in the same order as noted in PUBLISH of MQTT v5.0 spec
+        if (payload_format_indicator) {
+            if (m_v5) {
+                char value = *payload_format_indicator ? 1 : 0;
+                rc = mosquitto_property_add_byte(&properties, MQTT_PROP_PAYLOAD_FORMAT_INDICATOR, value);
+                if (rc == MOSQ_ERR_SUCCESS) {
+                    logd("Copied TX payload format indicator %d\n", value);
+                } else {
+                    loge("mosquitto_property_add_byte failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+                    throw MqttException("couldn't set payload format indicator", rc);
+                }
+            } else {
+                logw("Payload format indicator is ignored for MQTT v3.1.1 connection\n");
+            }
+        }
+
+        if (message_expire_interval) {
+            if (m_v5) {
+                rc = mosquitto_property_add_int32(&properties, MQTT_PROP_MESSAGE_EXPIRY_INTERVAL, *message_expire_interval);
+                if (rc == MOSQ_ERR_SUCCESS) {
+                    logd("Copied TX message expire interval %d\n", *message_expire_interval);
+                } else {
+                    loge("mosquitto_property_add_int32 failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+                    throw MqttException("couldn't set message expire interval", rc);
+                }
+            } else {
+                logw("Message expire interval is ignored for MQTT v3.1.1 connection\n");
+            }
+        }
+
+        convertUserProperties(&user_properties, &properties);
 
         if (content_type) {
             if (m_v5) {
@@ -482,22 +515,6 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
                 logw("Content type is ignored for MQTT v3.1.1 connection\n");
             }
         }
-
-        if (payload_format_indicator) {
-            if (m_v5) {
-                rc = mosquitto_property_add_byte(&properties, MQTT_PROP_PAYLOAD_FORMAT_INDICATOR, *payload_format_indicator ? 1 : 0);
-                if (rc == MOSQ_ERR_SUCCESS) {
-                    logd("Copied TX payload format indicator %d\n", *payload_format_indicator);
-                } else {
-                    loge("mosquitto_property_add_byte failed with code %d: %s\n", rc, mosquitto_strerror(rc));
-                    throw MqttException("couldn't payload format indicator", rc);
-                }
-            } else {
-                logw("Payload format indicator is ignored for MQTT v3.1.1 connection\n");
-            }
-        }
-
-        convertUserProperties(&user_properties, &properties);
 
         rc = mosquitto_publish_v5(m_mosq, &message_id, topic.c_str(), payload.length(), payload.data(), qos, is_retain, properties);
         if (rc != MOSQ_ERR_SUCCESS) {
@@ -782,6 +799,7 @@ ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reas
 ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct mosquitto_message * message, const mosquitto_property * props) {
 
     uint8_t value8;
+    uint32_t value32;
     char * name_str;
     char * value_str;
     ClientControl::Mqtt5Properties * new_user_property;
@@ -823,6 +841,11 @@ ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct
                 new_user_property->set_key(name_str);
                 new_user_property->set_value(value_str);
                 logd("Copied RX user property %s:%s\n", name_str, value_str);
+                break;
+            case MQTT_PROP_MESSAGE_EXPIRY_INTERVAL:
+                mosquitto_property_read_int32(prop, id, &value32, false);
+                msg->set_messageexpireinterval(value32);
+                logd("Copied RX message expire interval %d\n", value32);
                 break;
             default:
                 logw("Unhandled PUBLISH property with id %d\n", id);

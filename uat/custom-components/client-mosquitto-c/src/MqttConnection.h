@@ -114,13 +114,15 @@ public:
      * @param user_properties the user properties of the PUBLISH request
      * @param content_type the optional content type
      * @param payload_format_indicator the pointer to optional value of 'payload format indicator' of the message
+     * @param message_expire_interval the pointer to optinal value of 'message expired interval'
      * @return pointer to allocated gRPC MqttPublishReply
      * @throw MqttException on errors
      */
     ClientControl::MqttPublishReply * publish(unsigned timeout, int qos, bool is_retain, const std::string & topic,
                                                 const std::string & payload,
                                                 const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
-                                                const std::string * content_type, bool * payload_format_indicator);
+                                                const std::string * content_type, const bool * payload_format_indicator,
+                                                const int * message_expire_interval);
 
     /**
      * Disconnect from the broker.
