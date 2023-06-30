@@ -107,6 +107,16 @@ class AgentTestScenario implements Runnable {
                                 message.getTopic(),
                                 message.getQos().getNumber(),
                                 message.getPayload());
+
+            // order is the same as in MQTTT v5.0 spec of PUBLISH message
+            if (message.hasPayloadFormatIndicator()) {
+                logger.atInfo().log("Message has payload format indicator {}", message.getPayloadFormatIndicator());
+            }
+
+            if (message.hasMessageExpireInterval()) {
+                logger.atInfo().log("Message has message expire interval {}", message.getMessageExpireInterval());
+            }
+
             for (Mqtt5Properties property : message.getPropertiesList()) {
                 logger.atInfo().log("Message has user property key {} value {}", property.getKey(),
                                         property.getValue());
@@ -114,14 +124,6 @@ class AgentTestScenario implements Runnable {
 
             if (message.hasContentType()) {
                 logger.atInfo().log("Message has content type '{}'", message.getContentType());
-            }
-
-            if (message.hasPayloadFormatIndicator()) {
-                logger.atInfo().log("Message has payload format indicator {}", message.getPayloadFormatIndicator());
-            }
-
-            if (message.hasMessageExpireInterval()) {
-                logger.atInfo().log("Message has message expire interval {}", message.getMessageExpireInterval());
             }
 
             eventStorage.addEvent(new MqttMessageEvent(connectionControl, message));
@@ -267,18 +269,21 @@ class AgentTestScenario implements Runnable {
                             .setRetain(retain);
 
         if (mqtt50) {
-            builder.addAllProperties(createMqtt5Properties("Publish"));
-
-            if (contentType != null) {
-                builder.setContentType(contentType);
-            }
-
             if (payloadFormatIndicator != null) {
                 builder.setPayloadFormatIndicator(payloadFormatIndicator);
+                logger.atInfo().log("Set property payload format indicator {}", payloadFormatIndicator);
             }
 
             if (messageExpireInterval != null) {
                 builder.setMessageExpireInterval(messageExpireInterval);
+                logger.atInfo().log("Set property message expire interval {}", messageExpireInterval);
+            }
+
+            builder.addAllProperties(createMqtt5Properties("Publish"));
+
+            if (contentType != null) {
+                builder.setContentType(contentType);
+                logger.atInfo().log("Set property content type {}", contentType);
             }
         }
 
@@ -290,7 +295,7 @@ class AgentTestScenario implements Runnable {
         properties.add(Mqtt5Properties.newBuilder().setKey("region").setValue("US").build());
         properties.add(Mqtt5Properties.newBuilder().setKey("type").setValue("JSON").build());
         properties.forEach(p -> logger.atInfo()
-                .log("{} MQTT userProperties: {}, {}", commandName, p.getKey(), p.getValue()));
+                .log("{} Set user property: {}, {}", commandName, p.getKey(), p.getValue()));
         return properties;
     }
 
