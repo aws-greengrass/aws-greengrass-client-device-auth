@@ -127,6 +127,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         checkUserProperties(message.getUserProperties());
         checkContentType(message.getContentType());
         checkPayloadFormatIndicator(message.getPayloadFormatIndicator());
+        checkMessageExpiryInterval(message.getMessageExpiryInterval());
 
         MqttMessage mqttMessage = new MqttMessage();
         mqttMessage.setQos(message.getQos());
@@ -229,6 +230,12 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private void checkPayloadFormatIndicator(Boolean payloadFormatIndicator) {
         if (payloadFormatIndicator != null) {
             logger.warn("MQTT V3.1.1 doesn't support 'payload format indicator'");
+        }
+    }
+
+    private void checkMessageExpiryInterval(Integer messageExpiryInterval) {
+        if (messageExpiryInterval != null) {
+            logger.warn("MQTT V3.1.1 doesn't support 'message expiry interval'");
         }
     }
 }
