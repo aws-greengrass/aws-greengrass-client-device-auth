@@ -1,0 +1,129 @@
+---
+services:
+  aws.greengrass.Nucleus:
+    configuration:
+      runWithDefault:
+        posixUser: nobody
+        windowsUser: integ-tester
+      logging:
+        level: "DEBUG"
+  aws.greengrass.clientdevices.Auth:
+    configuration:
+      deviceGroups:
+        formatVersion: "2021-03-05"
+        definitions:
+          myThing:
+            selectionRule: "thingName:myThing"
+            policyName: "thingAccessPolicy"
+          mySensors:
+            selectionRule: "thingName:mySensor"
+            policyName: "sensorAccessPolicy"
+        policies:
+          thingAccessPolicy:
+            policyStatement1:
+              statementDescription: "mqtt connect"
+              effect: ALLOW
+              operations:
+                - "mqtt:connect"
+              resources:
+                - "mqtt:${iot:Connection.Thing.ThingName}:foo"
+          sensorAccessPolicy:
+            policyStatement1:
+              statementDescription: "mqtt publish"
+              operations:
+                - "mqtt:publish"
+              resources:
+                - "mqtt:topic:${iot:Connection.Thing.ThingName}"
+  main:
+    dependencies:
+      - BrokerSubscribingToCertUpdates
+      - Broker2SubscribingToCertUpdates
+      - BrokerWithGetClientDeviceAuthTokenPermission
+      - BrokerWithAuthorizeClientDeviceActionPermission
+  BrokerSubscribingToCertUpdates:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    lifecycle:
+      run:
+        windows:
+          powershell -command sleep 1
+        posix:
+          sleep 1
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          policyId1:
+            policyDescription: access to certificate updates
+            operations:
+              - '*'
+            resources:
+              - '*'
+        aws.greengrass.ipc.pubsub:
+          policyId2:
+            policyDescription: access to pubsub topics for ServiceName
+            operations:
+              - '*'
+            resources:
+              - '*'
+  Broker2SubscribingToCertUpdates:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    lifecycle:
+      run:
+        windows:
+          powershell -command sleep 1
+        posix:
+          sleep 1
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          policyId1:Broker2SubscribingToCertUpdates:
+            policyDescription: access to certificate updates
+            operations:
+              - '*'
+            resources:
+              - '*'
+        aws.greengrass.ipc.pubsub:
+          policyId2:Broker2SubscribingToCertUpdates:
+            policyDescription: access to pubsub topics for ServiceName
+            operations:
+              - '*'
+            resources:
+              - '*'
+
+  BrokerWithGetClientDeviceAuthTokenPermission:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    lifecycle:
+      run:
+        windows:
+          powershell -command sleep 1
+        posix:
+          sleep 1
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          GetClientDeviceAuthTokenPolicy:
+            policyDescription: access to certificate updates
+            operations:
+              - 'aws.greengrass#GetClientDeviceAuthToken'
+            resources:
+              - '*'
+  BrokerWithAuthorizeClientDeviceActionPermission:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
+    lifecycle:
+      run:
+        windows:
+          powershell -command sleep 1
+        posix:
+          sleep 1
+    configuration:
+      accessControl:
+        aws.greengrass.clientdevices.Auth:
+          BrokerWithAuthorizeClientDeviceActionPermission:
+            policyDescription: access to certificate updates
+            operations:
+              - 'aws.greengrass#AuthorizeClientDeviceAction'
+            resources:
+              - '*'
