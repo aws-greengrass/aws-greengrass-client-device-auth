@@ -77,7 +77,7 @@ class AgentTestScenario implements Runnable {
     private static final boolean PUBLISH_RETAIN = false;
     private static final String PUBLISH_CONTENT_TYPE = "text/plain; charset=utf-8";
     private static final Boolean PUBLISH_PAYLOAD_FORMAT_INDICATOR = true;
-    private static final Integer PUBLISH_MESSAGE_EXPIRE_INTERVAL = 3600;
+    private static final Integer PUBLISH_MESSAGE_EXPIRY_INTERVAL = 3600;
 
     private static final Integer SUBSCRIPTION_ID = null;                        // NOTE: do not set for IoT Core !!!
     private static final String SUBSCRIBE_FILTER = "test/topic";
@@ -113,8 +113,8 @@ class AgentTestScenario implements Runnable {
                 logger.atInfo().log("Message has payload format indicator {}", message.getPayloadFormatIndicator());
             }
 
-            if (message.hasMessageExpireInterval()) {
-                logger.atInfo().log("Message has message expire interval {}", message.getMessageExpireInterval());
+            if (message.hasMessageExpiryInterval()) {
+                logger.atInfo().log("Message has message expiry interval {}", message.getMessageExpiryInterval());
             }
 
             for (Mqtt5Properties property : message.getPropertiesList()) {
@@ -253,7 +253,7 @@ class AgentTestScenario implements Runnable {
     private void testPublish(ConnectionControl connectionControl) {
         Mqtt5Message msg = createPublishMessage(PUBLISH_QOS, PUBLISH_RETAIN, PUBLISH_TOPIC, PUBLISH_TEXT.getBytes(),
                                                 PUBLISH_CONTENT_TYPE, PUBLISH_PAYLOAD_FORMAT_INDICATOR,
-                                                PUBLISH_MESSAGE_EXPIRE_INTERVAL);
+                                                PUBLISH_MESSAGE_EXPIRY_INTERVAL);
         MqttPublishReply reply = connectionControl.publishMqtt(msg);
         logger.atInfo().log("Published connectionId {} reason code {} reason string '{}'",
                                 connectionControl.getConnectionId(), reply.getReasonCode(), reply.getReasonString());
@@ -261,7 +261,7 @@ class AgentTestScenario implements Runnable {
 
     private Mqtt5Message createPublishMessage(MqttQoS qos, boolean retain, String topic, byte[] data,
                                                 String contentType, Boolean payloadFormatIndicator,
-                                                Integer messageExpireInterval) {
+                                                Integer messageExpiryInterval) {
         Mqtt5Message.Builder builder = Mqtt5Message.newBuilder()
                             .setTopic(topic)
                             .setPayload(ByteString.copyFrom(data))
@@ -274,9 +274,9 @@ class AgentTestScenario implements Runnable {
                 logger.atInfo().log("Set property payload format indicator {}", payloadFormatIndicator);
             }
 
-            if (messageExpireInterval != null) {
-                builder.setMessageExpireInterval(messageExpireInterval);
-                logger.atInfo().log("Set property message expire interval {}", messageExpireInterval);
+            if (messageExpiryInterval != null) {
+                builder.setMessageExpiryInterval(messageExpiryInterval);
+                logger.atInfo().log("Set property message expiry interval {}", messageExpiryInterval);
             }
 
             builder.addAllProperties(createMqtt5Properties("Publish"));

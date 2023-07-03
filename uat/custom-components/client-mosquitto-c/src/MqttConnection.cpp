@@ -459,7 +459,7 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
                                             const std::string & payload,
                                             const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
                                             const std::string * content_type, const bool * payload_format_indicator,
-                                            const int * message_expire_interval) {
+                                            const int * message_expiry_interval) {
     PendingRequest * request = 0;
     int message_id = 0;
     mosquitto_property * properties = NULL;
@@ -486,17 +486,17 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
             }
         }
 
-        if (message_expire_interval) {
+        if (message_expiry_interval) {
             if (m_v5) {
-                rc = mosquitto_property_add_int32(&properties, MQTT_PROP_MESSAGE_EXPIRY_INTERVAL, *message_expire_interval);
+                rc = mosquitto_property_add_int32(&properties, MQTT_PROP_MESSAGE_EXPIRY_INTERVAL, *message_expiry_interval);
                 if (rc == MOSQ_ERR_SUCCESS) {
-                    logd("Copied TX message expire interval %d\n", *message_expire_interval);
+                    logd("Copied TX message expiry interval %d\n", *message_expiry_interval);
                 } else {
                     loge("mosquitto_property_add_int32 failed with code %d: %s\n", rc, mosquitto_strerror(rc));
-                    throw MqttException("couldn't set message expire interval", rc);
+                    throw MqttException("couldn't set message expiry interval", rc);
                 }
             } else {
-                logw("Message expire interval is ignored for MQTT v3.1.1 connection\n");
+                logw("Message expiry interval is ignored for MQTT v3.1.1 connection\n");
             }
         }
 
@@ -844,8 +844,8 @@ ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct
                 break;
             case MQTT_PROP_MESSAGE_EXPIRY_INTERVAL:
                 mosquitto_property_read_int32(prop, id, &value32, false);
-                msg->set_messageexpireinterval(value32);
-                logd("Copied RX message expire interval %d\n", value32);
+                msg->set_messageexpiryinterval(value32);
+                logd("Copied RX message expiry interval %d\n", value32);
                 break;
             default:
                 logw("Unhandled PUBLISH property with id %d\n", id);
