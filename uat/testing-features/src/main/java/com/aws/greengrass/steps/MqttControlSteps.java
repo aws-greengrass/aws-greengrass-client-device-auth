@@ -797,7 +797,8 @@ public class MqttControlSteps {
     public void canNotConnect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
         try {
             connect(clientDeviceId, componentId, brokerId, mqttVersion);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException e) {
+            log.info("Connection was failed with message '{}'", e.getMessage());
         }
     }
 
