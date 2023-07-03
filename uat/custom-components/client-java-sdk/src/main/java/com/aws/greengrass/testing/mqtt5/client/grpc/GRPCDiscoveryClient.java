@@ -157,14 +157,29 @@ class GRPCDiscoveryClient implements GRPCClient {
     public void onMqttDisconnect(int connectionId, DisconnectInfo disconnectInfo, String error) {
         OnMqttDisconnectRequest.Builder builder = OnMqttDisconnectRequest.newBuilder()
                         .setAgentId(agentId)
-                        .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId)
-                        .build());
+                        .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build());
         if (disconnectInfo != null) {
-            Mqtt5Disconnect.Builder disconnectBuilder = Mqtt5Disconnect.newBuilder()
-                .setReasonCode(disconnectInfo.getReasonCode())
-                .setReasonString(disconnectInfo.getReasonString())
-                .setServerReference(disconnectInfo.getServerReference())
-                .setSessionExpiryInterval(disconnectInfo.getSessionExpiryInterval());
+            Mqtt5Disconnect.Builder disconnectBuilder = Mqtt5Disconnect.newBuilder();
+
+            final Integer reasonCode = disconnectInfo.getReasonCode();
+            if (reasonCode != null) {
+                disconnectBuilder.setReasonCode(reasonCode);
+            }
+
+            final Integer sessionExpiryInterval = disconnectInfo.getSessionExpiryInterval();
+            if (sessionExpiryInterval != null) {
+                disconnectBuilder.setSessionExpiryInterval(sessionExpiryInterval);
+            }
+
+            final String reasonString = disconnectInfo.getReasonString();
+            if (reasonString != null) {
+                disconnectBuilder.setReasonString(reasonString);
+            }
+
+            final String serverReference = disconnectInfo.getServerReference();
+            if (serverReference != null) {
+                disconnectBuilder.setServerReference(serverReference);
+            }
 
             final List<Mqtt5Properties> userProperties = disconnectInfo.getUserProperties();
             if (userProperties != null && !userProperties.isEmpty()) {
@@ -173,6 +188,7 @@ class GRPCDiscoveryClient implements GRPCClient {
 
             builder.setDisconnect(disconnectBuilder.build());
         }
+
         if (error != null) {
             builder.setError(error);
         }

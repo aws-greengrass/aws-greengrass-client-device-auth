@@ -7,6 +7,7 @@ package com.aws.greengrass.testing.mqtt311.client.sdkmqtt;
 
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
+import com.aws.greengrass.testing.mqtt5.client.GRPCClient.DisconnectInfo;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient.MqttReceivedMessage;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
@@ -14,9 +15,13 @@ import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import software.amazon.awssdk.crt.CRT;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnectionEvents;
 import software.amazon.awssdk.crt.mqtt.MqttMessage;
+import software.amazon.awssdk.crt.mqtt.OnConnectionClosedReturn;
+import software.amazon.awssdk.crt.mqtt.OnConnectionFailureReturn;
+import software.amazon.awssdk.crt.mqtt.OnConnectionSuccessReturn;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import software.amazon.awssdk.iot.AwsIotMqttConnectionBuilder;
 
@@ -56,9 +61,39 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     final MqttClientConnectionEvents connectionEvents = new MqttClientConnectionEvents() {
         @Override
+        public void onConnectionClosed(OnConnectionClosedReturn data) {
+            isConnected.set(false);
+            logger.atInfo().log("MQTT connection {} closed", connectionId);
+        }
+
+        @Override
+        public void onConnectionFailure(OnConnectionFailureReturn data) {
+            isConnected.set(false);
+
+            int errorCode = -1;
+            if (data != null) {
+                errorCode = data.getErrorCode();
+            }
+
+            logger.atInfo().log("Connect or disconnect was unsuccessful for MQTT connection {} error code {}",
+                                connectionId, errorCode);
+        }
+
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        @Override
         public void onConnectionInterrupted(int errorCode) {
             isConnected.set(false);
-            logger.atInfo().log("MQTT connection {} interrupted, error code {}", connectionId, errorCode);
+            String crtErrorString = CRT.awsErrorString(errorCode);
+            DisconnectInfo disconnectInfo = new DisconnectInfo(null, null, null, null, null);
+            executorService.submit(() -> {
+                try {
+                    grpcClient.onMqttDisconnect(connectionId, disconnectInfo, crtErrorString);
+                } catch (Exception ex) {
+                    logger.atError().withThrowable(ex).log("onMqttDisconnect failed");
+                }
+            });
+            logger.atInfo().log("MQTT connection {} interrupted, error code {}: {}", connectionId, errorCode,
+                                crtErrorString);
         }
 
         @Override
@@ -66,9 +101,24 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             isConnected.set(true);
             logger.atInfo().log("MQTT connection {} resumed, sessionPresent {}", connectionId, sessionPresent);
         }
+
+        @Override
+        public void onConnectionSuccess(OnConnectionSuccessReturn data) {
+            isConnected.set(true);
+
+            Boolean sessionPresent = null;
+            if (data != null) {
+                sessionPresent = data.getSessionPresent();
+            }
+
+            logger.atInfo().log("MQTT connection {} connecteed or reconnected sessionPresent {}", connectionId,
+                                sessionPresent);
+        }
     };
 
     private final Consumer<MqttMessage> messageHandler = new Consumer<MqttMessage>() {
+
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
         public void accept(MqttMessage message) {
             if (message != null) {
@@ -79,7 +129,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload(), null,
                                                                     null, null);
                 executorService.submit(() -> {
-                    grpcClient.onReceiveMqttMessage(connectionId, msg);
+                    try {
+                        grpcClient.onReceiveMqttMessage(connectionId, msg);
+                    } catch (Exception ex) {
+                        logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
+                    }
                 });
 
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
@@ -123,7 +177,6 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         CompletableFuture<Boolean> connectFuture = connection.connect();
         try {
             Boolean sessionPresent = connectFuture.get(timeout, TimeUnit.SECONDS);
-            isConnected.set(true);
             logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
             return buildConnectResult(true, sessionPresent);
         } catch (InterruptedException ex) {

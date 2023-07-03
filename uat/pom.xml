@@ -54,7 +54,8 @@
         <grpc.version>1.53.0</grpc.version>
         <os.plugin.version>1.7.1</os.plugin.version>
         <lombok.version>1.18.22</lombok.version>
-        <iot.device.sdk.version>1.11.2</iot.device.sdk.version>
+        <iot.device.sdk.version>1.13.2</iot.device.sdk.version>
+        <aws.crt.version>0.22.2</aws.crt.version>
         <paho.agent.version>1.2.5</paho.agent.version>
         <bouncycastle.version>1.70</bouncycastle.version>
         <tomcat.annotations.api.version>6.0.53</tomcat.annotations.api.version>
