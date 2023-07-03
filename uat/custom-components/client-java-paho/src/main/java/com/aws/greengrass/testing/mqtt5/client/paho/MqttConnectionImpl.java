@@ -396,7 +396,7 @@ public class MqttConnectionImpl implements MqttConnection {
                 logger.atInfo().log("Received MQTT message has payload format indicator '{}'", payloadFormatIndicator);
             }
             if (messageExpiryInterval != null) {
-                logger.atInfo().log("Received MQTT message has message expiry interval '{}'", messageExpiryInterval);
+                logger.atInfo().log("Received MQTT message has message expiry interval {}", messageExpiryInterval);
             }
         }
     }

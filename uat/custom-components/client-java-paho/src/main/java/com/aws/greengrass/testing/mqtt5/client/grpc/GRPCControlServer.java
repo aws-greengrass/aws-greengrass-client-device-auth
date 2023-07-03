@@ -298,8 +298,8 @@ class GRPCControlServer {
                 internalMessage.payloadFormatIndicator(message.getPayloadFormatIndicator());
             }
 
-            if (message.hasMessageExpireInterval()) {
-                internalMessage.messageExpiryInterval(message.getMessageExpireInterval());
+            if (message.hasMessageExpiryInterval()) {
+                internalMessage.messageExpiryInterval(message.getMessageExpiryInterval());
             }
 
             MqttPublishReply publishReply = connection.publish(timeout, internalMessage.build());
