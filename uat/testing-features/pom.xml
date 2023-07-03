@@ -27,6 +27,7 @@
             </activation>
             <properties>
                 <mosquitto.agent.artifact>mosquitto-test-client.amd64.tar.gz</mosquitto.agent.artifact>
+                <paho.python.agent.artifact>client-python-paho</paho.python.agent.artifact>
             </properties>
         </profile>
         <profile>
@@ -39,6 +40,7 @@
             <properties>
                 <!-- TODO: replace to actual windows artifact -->
                 <mosquitto.agent.artifact>README.md</mosquitto.agent.artifact>
+                <paho.python.agent.artifact>client-python-paho.exe</paho.python.agent.artifact>
             </properties>
         </profile>
     </profiles>
@@ -225,6 +227,9 @@
                                 <copy
                                         file="${project.basedir}/../custom-components/client-mosquitto-c/${mosquitto.agent.artifact}"
                                         tofile="${project.basedir}/target/classes/local-store/artifacts/${mosquitto.agent.artifact}"/>
+                                <copy
+                                        file="${project.basedir}/../custom-components/client-python-paho/${paho.python.agent.artifact}"
+                                        tofile="${project.basedir}/target/classes/local-store/artifacts/${paho.python.agent.artifact}"/>
                             </target>
                         </configuration>
                     </execution>
