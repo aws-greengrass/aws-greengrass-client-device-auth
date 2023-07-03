@@ -260,6 +260,13 @@ Status GRPCControlServer::PublishMqtt(ServerContext *, const MqttPublishRequest 
         p_payload_format_indicator = &payload_format_indicator;
     }
 
+    int message_expiry_interval;
+    int * p_message_expiry_interval = NULL;
+    if (message.has_messageexpiryinterval()) {
+        message_expiry_interval = message.messageexpiryinterval();
+        p_message_expiry_interval = &message_expiry_interval;
+    }
+
     const MqttConnectionId & connection_id_obj = request->connectionid();
     int connection_id = connection_id_obj.connectionid();
 
@@ -275,7 +282,8 @@ Status GRPCControlServer::PublishMqtt(ServerContext *, const MqttPublishRequest 
     try {
         ClientControl::MqttPublishReply * result = connection->publish(timeout, qos, is_retain, topic,
                                                                         message.payload(), message.properties(),
-                                                                        p_content_type, p_payload_format_indicator);
+                                                                        p_content_type, p_payload_format_indicator,
+                                                                        p_message_expiry_interval);
         if (result) {
             if (result->has_reasoncode()) {
                 reply->set_reasoncode(result->reasoncode());

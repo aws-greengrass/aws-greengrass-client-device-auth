@@ -37,6 +37,7 @@ message Mqtt5Message {
     repeated Mqtt5Properties properties = 5;
     optional string contentType = 6;
     optional bool payloadFormatIndicator = 7;
+    optional int32 messageExpiryInterval = 8;
 };
 
 // End of common part
