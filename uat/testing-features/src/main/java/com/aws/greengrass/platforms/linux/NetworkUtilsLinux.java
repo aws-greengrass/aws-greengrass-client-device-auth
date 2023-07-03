@@ -17,10 +17,10 @@ public class NetworkUtilsLinux extends NetworkUtils {
     private static final String DISABLE_OPTION = "--delete";
     private static final String APPEND_OPTION = "-A";
     private static final String IPTABLES_DROP_DPORT_EXTERNAL_ONLY_COMMAND_STR
-            = "sudo iptables %s INPUT -p tcp -s localhost --dport %s -j ACCEPT && "
-            + "sudo iptables %s INPUT -p tcp --dport %s -j DROP && "
-            + "sudo iptables %s OUTPUT -p tcp -d localhost --dport %s -j ACCEPT && "
-            + "sudo iptables %s OUTPUT -p tcp --dport %s -j DROP";
+            = "iptables %s INPUT -p tcp -s localhost --dport %s -j ACCEPT && "
+            + "iptables %s INPUT -p tcp --dport %s -j DROP && "
+            + "iptables %s OUTPUT -p tcp -d localhost --dport %s -j ACCEPT && "
+            + "iptables %s OUTPUT -p tcp --dport %s -j DROP";
 
     @Override
     public void disconnectMqtt() throws InterruptedException, IOException {
