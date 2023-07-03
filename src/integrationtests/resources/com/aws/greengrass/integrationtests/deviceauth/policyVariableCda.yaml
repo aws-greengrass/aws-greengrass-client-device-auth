@@ -15,9 +15,6 @@ services:
           myThing:
             selectionRule: "thingName:myThing"
             policyName: "thingAccessPolicy"
-          mySensors:
-            selectionRule: "thingName:mySensor"
-            policyName: "sensorAccessPolicy"
         policies:
           thingAccessPolicy:
             policyStatement1:
@@ -27,8 +24,7 @@ services:
                 - "mqtt:connect"
               resources:
                 - "mqtt:${iot:Connection.Thing.ThingName}:foo"
-          sensorAccessPolicy:
-            policyStatement1:
+            policyStatement2:
               statementDescription: "mqtt publish"
               operations:
                 - "mqtt:publish"
