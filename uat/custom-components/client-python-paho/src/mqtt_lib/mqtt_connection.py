@@ -48,7 +48,7 @@ class MqttResult:
 class SubscribesResult:
     """Class SubscribesResult"""
 
-    granted_qos: List[int] = None
+    reason_codes: List[int] = None
     properties: Properties = None
     mid: int = 0
 
@@ -208,6 +208,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         self.__on_disconnect_future = None
         self.__on_publish_future = None
         self.__on_subscribe_future = None
+        self.__on_unsubscribe_future = None
         self.__asyncio_helper = None  # pylint: disable=unused-private-member
         self.__loop = asyncio.get_running_loop()
 
@@ -495,9 +496,9 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             granted_qos = []
             for reason_code in reason_codes:
                 granted_qos.append(reason_code.value)
-            mqtt_result = SubscribesResult(mid=mid, granted_qos=granted_qos, properties=properties)
+            mqtt_result = SubscribesResult(mid=mid, reason_codes=granted_qos, properties=properties)
         else:
-            mqtt_result = SubscribesResult(mid=mid, granted_qos=reason_codes, properties=properties)
+            mqtt_result = SubscribesResult(mid=mid, reason_codes=reason_codes, properties=properties)
 
         try:
             if self.__on_subscribe_future is not None:
@@ -512,6 +513,70 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         self.__logger.debug("onMessage message %s from topic '%s'", message.payload, message.topic)
         mqtt_message = MqttConnection.convert_to_mqtt_message(message=message)
         self.__grpc_client.on_receive_mqtt_message(self.__connection_id, mqtt_message)
+
+    async def unsubscribe(self, timeout: int, filters: List[str]) -> MqttSubscribeReply:  # TODO Add user properties
+        """
+        Unsubscribe from MQTT topics.
+        Parameters
+        ----------
+        timeout - subscribe operation timeout in seconds
+        filters - Topics to unsubscribe
+        Returns MqttSubscribeReply object
+        """
+        # TODO add set property
+        self.state_check()
+
+        self.__on_unsubscribe_future = self.__loop.create_future()
+
+        try:
+            (resp_code, message_id) = self.__client.unsubscribe(filters, properties=None)
+
+            result = await asyncio.wait_for(self.__on_unsubscribe_future, timeout)
+
+            if resp_code != mqtt.MQTT_ERR_SUCCESS:
+                self.__logger.error("MQTT unubscribe failed with code %i: %s", resp_code, mqtt.error_string(resp_code))
+                raise MQTTException(f"Couldn't unsubscribe {resp_code}")
+
+            self.__logger.debug(
+                "Unsubscribed from filters '%s' with message id %i",
+                ",".join(filters),
+                message_id,
+            )
+
+            # For MQTT3 Paho does not provide reason codes for unsubscribe; fill list with successes
+            if result.reason_codes is None:
+                result.reason_codes = []
+                for _ in filters:
+                    result.reason_codes.append(mqtt.MQTT_ERR_SUCCESS)
+
+            return MqttConnection.convert_to_sub_reply(result)
+        except asyncio.TimeoutError as error:
+            raise MQTTException("Couldn't unsubscribe") from error
+        finally:
+            self.__on_unsubscribe_future = None
+
+    def __on_unsubscribe(
+        self, client, userdata, mid, properties=None, reason_codes=None
+    ):  # pylint: disable=unused-argument,too-many-arguments
+        """
+        Paho MQTT unsubscribe callback
+        """
+        if reason_codes is not None:
+            reason_codes_int = []
+            if isinstance(reason_codes, list):
+                for reason_code in reason_codes:
+                    reason_codes_int.append(reason_code.value)
+            else:
+                reason_codes_int.append(reason_codes.value)
+            mqtt_result = SubscribesResult(mid=mid, reason_codes=reason_codes_int, properties=properties)
+        else:
+            mqtt_result = SubscribesResult(mid=mid, reason_codes=reason_codes, properties=properties)
+
+        try:
+            if self.__on_unsubscribe_future is not None:
+                self.__on_unsubscribe_future.set_result(mqtt_result)
+        except asyncio.InvalidStateError:
+            pass
 
     def __create_client(self, connection_params: ConnectionParams) -> mqtt.Client:
         """
@@ -552,6 +617,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         client.on_publish = self.__on_publish
         client.on_subscribe = self.__on_subscribe
         client.on_message = self.__on_message
+        client.on_unsubscribe = self.__on_unsubscribe
 
         self.__logger.info("Creating MQTT %s client %s", protocol_version_for_log, tls_for_log)
 
@@ -636,7 +702,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         """
         # TODO add user properties handling
         mqtt_sub_reply = MqttSubscribeReply(
-            reasonCodes=mqtt_result.granted_qos, reasonString=getattr(mqtt_result.properties, "ReasonString", None)
+            reasonCodes=mqtt_result.reason_codes, reasonString=getattr(mqtt_result.properties, "ReasonString", None)
         )
 
         return mqtt_sub_reply

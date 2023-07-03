@@ -66,8 +66,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         self.__stop_server_future = asyncio.Future()
         self.__mqtt_lib: MQTTLib = None
 
-        # TODO delete suppress warning
-        self.__client = client  # pylint: disable=unused-private-member
+        self.__client = client
 
         super().__init__()
 
@@ -396,7 +395,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             sub_reply = await connection.subscribe(timeout=timeout, subscriptions=subscribtions)
             return sub_reply
         except MQTTException as error:
-            self.__logger.warning("SubscribeMqtt: exception during publishing")
+            self.__logger.warning("SubscribeMqtt: exception during subscribing")
             await context.abort(grpc.StatusCode.INTERNAL, str(error))
 
         return MqttSubscribeReply()
@@ -415,8 +414,39 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         context - request context
         Returns MqttSubscribeReply object
         """
-        # TODO
-        self.__logger.info("UnsubscribeRequest Placeholder TODO")
+
+        timeout = request.timeout
+        if timeout < TIMEOUT_MIN:
+            self.__logger.warning("UnsubscribeMqtt: invalid timeout, must be at least %i second", TIMEOUT_MIN)
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, f"invalid timeout, must be at least {TIMEOUT_MIN}")
+
+        index = 0
+        filters = []
+        for topic_filter in request.filters:
+            if not topic_filter:
+                self.__logger.warning("UnubscribeMqtt: empty filter at unsubscription index %i", index)
+                await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "empty filter")
+
+            filters.append(topic_filter)
+
+            self.__logger.debug("Unsubscription: filter %s", topic_filter)
+
+        connection_id = request.connectionId.connectionId
+        self.__logger.info("UnsubscribeMqtt connection_id %i", connection_id)
+
+        connection = self.__mqtt_lib.get_connection(connection_id)
+        if connection is None:
+            self.__logger.warning("UnsubscribeMqtt: connection with id %i is not found", connection_id)
+            await context.abort(grpc.StatusCode.NOT_FOUND, "connection for that id is not found")
+
+        try:
+            # TODO add properties
+            unsub_reply = await connection.unsubscribe(timeout=timeout, filters=filters)
+            return unsub_reply
+        except MQTTException as error:
+            self.__logger.warning("UnsubscribeMqtt: exception during subscribing")
+            await context.abort(grpc.StatusCode.INTERNAL, str(error))
+
         return MqttSubscribeReply()
 
     async def __check_connect_request(self, request: MqttConnectRequest, context: grpc.aio.ServicerContext):

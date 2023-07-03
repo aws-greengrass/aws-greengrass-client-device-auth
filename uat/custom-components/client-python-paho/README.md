@@ -128,3 +128,6 @@ Receiving properties for the PUBACK is not implemented - Python Paho MQTT publis
 
 2. Subscribing
 Python Paho MQTT does not provide the API to set the Subscription ID in SUBSCRIBE request.
+
+3. Unsubscription
+In Python Paho on_unsubscribe() callback does not provide reason codes for MQTTv3, instead zero code will be returned on success.
