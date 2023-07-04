@@ -123,17 +123,20 @@ public class MqttConnectionImpl implements MqttConnection {
         @Override
         public void onDisconnection(Mqtt5Client client, OnDisconnectionReturn onDisconnectionReturn) {
             isConnected.set(false);
-
             DisconnectPacket disconnectPacket = onDisconnectionReturn.getDisconnectPacket();
             String errorString = CRT.awsErrorString(onDisconnectionReturn.getErrorCode());
-            DisconnectInfo disconnectInfo = convertDisconnectPacket(disconnectPacket);
-            executorService.submit(() -> {
-                try {
-                    grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
-                } catch (Exception ex) {
-                    logger.atError().withThrowable(ex).log("onMqttDisconnect failed");
-                }
-            });
+
+            // only unsolicited disconnect
+            if (!isClosing.get()) {
+                DisconnectInfo disconnectInfo = convertDisconnectPacket(disconnectPacket);
+                executorService.submit(() -> {
+                    try {
+                        grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
+                    } catch (Exception ex) {
+                        logger.atError().withThrowable(ex).log("onMqttDisconnect failed");
+                    }
+                });
+            }
 
             logger.atInfo().log("MQTT connectionId {} disconnected error '{}' disconnectPacket '{}'",
                                 connectionId, errorString, disconnectPacket);
@@ -586,7 +589,7 @@ public class MqttConnectionImpl implements MqttConnection {
         List<UserProperty> userProperties = new ArrayList<>();
         properties.forEach(p -> {
             userProperties.add(new UserProperty(p.getKey(), p.getValue()));
-            logger.atInfo().log("{} MQTT userProperties: {}, {}", type, p.getKey(), p.getValue());
+            logger.atInfo().log("{} Tx user property '{}':'{}'", type, p.getKey(), p.getValue());
         });
 
         return userProperties;
@@ -601,7 +604,7 @@ public class MqttConnectionImpl implements MqttConnection {
         List<Mqtt5Properties> mqttUserProperties = new ArrayList<>();
         properties.forEach(p -> {
             mqttUserProperties.add(Mqtt5Properties.newBuilder().setKey(p.key).setValue(p.value).build());
-            logger.atInfo().log("{} MQTT userProperties: {}, {}", type, p.key, p.value);
+            logger.atInfo().log("{} Rx user property '{}':'{}'", type, p.key, p.value);
         });
 
         return mqttUserProperties;
