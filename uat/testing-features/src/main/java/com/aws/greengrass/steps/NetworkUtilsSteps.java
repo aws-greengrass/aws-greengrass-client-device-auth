@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.steps;
 
-import com.aws.greengrass.platforms.Platform;
+import com.aws.greengrass.testing.platform.Platform;
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.After;
 import io.cucumber.java.ParameterType;
@@ -20,10 +20,13 @@ import javax.inject.Inject;
 @ScenarioScoped
 public class NetworkUtilsSteps {
 
+    private final Platform platform;
     private final AtomicBoolean mqttConnectivity = new AtomicBoolean(true);
 
     @Inject
-    public NetworkUtilsSteps() {
+    public NetworkUtilsSteps(final Platform platform) {
+        super();
+        this.platform = platform;
     }
 
     /**
@@ -65,10 +68,10 @@ public class NetworkUtilsSteps {
         if (oldConnectivity != connectivity) {
             if (connectivity) {
                 log.info("Unblocking MQTT connections");
-                Platform.getInstance().getNetworkUtils().recoverMqtt();
+                platform.networkUtils().recoverMqtt();
             } else {
                 log.info("Blocking MQTT connections");
-                Platform.getInstance().getNetworkUtils().disconnectMqtt();
+                platform.networkUtils().disconnectMqtt();
             }
         }
     }
@@ -84,7 +87,7 @@ public class NetworkUtilsSteps {
         boolean oldConnectivity = mqttConnectivity.getAndSet(true);
         if (!oldConnectivity) {
             log.info("Automatically unblocking blocked MQTT connections");
-            Platform.getInstance().getNetworkUtils().recoverMqtt();
+            platform.networkUtils().recoverMqtt();
         }
     }
 }

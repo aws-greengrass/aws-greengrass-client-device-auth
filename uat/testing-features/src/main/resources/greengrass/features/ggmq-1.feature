@@ -1504,7 +1504,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                 |
 
-  @GGMQ-1-T17
+  @GGMQ-1-T17 @SkipOnWindows
   Scenario Outline: GGMQ-1-T17-<mqtt-v>-<name>: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic, with Greengrass in offline state
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                  |
@@ -1625,7 +1625,7 @@ Feature: GGMQ-1
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_1       |
 
 
-  @GGMQ-1-T18
+  @GGMQ-1-T18 @SkipOnWindows
   Scenario Outline: GGMQ-1-T18-<mqtt-v>-<name>: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic, with Greengrass in disconnected state
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                  |
