@@ -8,7 +8,7 @@ RecipeFormatVersion: '2020-01-25'
 ComponentName: aws.greengrass.client.Mqtt5PythonPahoClient
 ComponentVersion: '1.0.0'
 ComponentDescription: MQTT 5.0/3.1.1 Python Client powered by Eclipse Paho
-ComponentPublisher: Amazon
+ComponentPublisher: AWS
 ComponentConfiguration:
   DefaultConfiguration:
     # agentId should be the same as ComponentName
@@ -20,7 +20,7 @@ Manifests:
       - URI: classpath:/local-store/artifacts/client-python-paho
         Permission:
           Read: ALL
-          Execute: ALL
+          Execute: OWNER
     Lifecycle:
       Run: |
         {artifacts:path}/client-python-paho "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}
