@@ -95,6 +95,7 @@ public class MqttConnectionImpl implements MqttConnection {
                     subscriptions.get(i).getFilter(), subscriptions.get(i).getQos());
             subscription.setRetainHandling(subscriptions.get(i).getRetainHandling());
             subscription.setRetainAsPublished(subscriptions.get(i).isRetainAsPublished());
+            subscription.setNoLocal(subscriptions.get(i).isNoLocal());
             mqttSubscriptions[i] = subscription;
             listeners[i] = new MqttMessageListener();
         }
