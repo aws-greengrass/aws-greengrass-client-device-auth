@@ -1,0 +1,27 @@
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+
+---
+RecipeFormatVersion: '2020-01-25'
+ComponentName: aws.greengrass.client.Mqtt5PythonPahoClient
+ComponentVersion: '1.0.0'
+ComponentDescription: MQTT 5.0/3.1.1 Python Client powered by Eclipse Paho
+ComponentPublisher: AWS
+ComponentConfiguration:
+  DefaultConfiguration:
+    # agentId should be the same as ComponentName
+    agentId: aws.greengrass.client.Mqtt5PythonPahoClient
+    controlAddresses: 127.0.0.1
+    controlPort: 47619
+Manifests:
+  - Artifacts:
+      - URI: classpath:/local-store/artifacts/client-python-paho
+        Permission:
+          Read: ALL
+          Execute: OWNER
+    Lifecycle:
+      Run: |
+        {artifacts:path}/client-python-paho "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}
+# Only linux support at this moment
