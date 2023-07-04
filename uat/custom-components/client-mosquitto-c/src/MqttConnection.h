@@ -115,6 +115,8 @@ public:
      * @param content_type the optional content type
      * @param payload_format_indicator the pointer to optional value of 'payload format indicator' of the message
      * @param message_expiry_interval the pointer to optinal value of 'message expiry interval'
+     * @param response_topic the pointer to optional response topic
+     * @param correlation_data the pointer to optional binary correlation data
      * @return pointer to allocated gRPC MqttPublishReply
      * @throw MqttException on errors
      */
@@ -122,7 +124,8 @@ public:
                                                 const std::string & payload,
                                                 const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
                                                 const std::string * content_type, const bool * payload_format_indicator,
-                                                const int * message_expiry_interval);
+                                                const int * message_expiry_interval, const std::string * response_topic,
+                                                const std::string * correlation_data);
 
     /**
      * Disconnect from the broker.
