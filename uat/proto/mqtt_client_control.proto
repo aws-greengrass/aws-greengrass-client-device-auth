@@ -221,7 +221,7 @@ message MqttConnectRequest {
     repeated Mqtt5Properties properties = 8;            // CONNECT packet MQTT 5 properties
     optional TLSSettings tls = 9;                       // TLS settings for secured connection
     optional Mqtt5Message willMessage = 10;             // will message to set
-    optional int32 requestResponseInformation = 11;     // request Response Information
+    optional bool requestResponseInformation = 11;      // request Response Information
 }
 
 // Response to connect request

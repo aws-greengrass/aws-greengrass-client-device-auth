@@ -49,11 +49,14 @@ public:
      * @param key pointer to client's key content, can be NULL
      * @param v5 use MQTT v5.0
      * @param user_properties the user properties of the CONNECT request
+     * @param request_response_information pointer to optional request response information flag
      * @throw MqttException on errors
      */
     MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host,
                     unsigned short port, unsigned short keepalive, bool clean_session, const char * ca,
-                    const char * cert, const char * key, bool v5, const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
+                    const char * cert, const char * key, bool v5,
+                    const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                    const bool * request_response_information);
     ~MqttConnection();
 
 
@@ -196,6 +199,7 @@ private:
     std::string m_key;
 
     mosquitto_property * m_conn_properties;
+    bool * m_request_response_information;
 
     struct mosquitto * m_mosq;
 

@@ -164,8 +164,15 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext *, const MqttConnec
         key_char = key.c_str();
     }
 
+    bool rri;
+    bool * p_rri = NULL;
+    if (request->has_requestresponseinformation()) {
+        rri = request->requestresponseinformation();
+        p_rri = &rri;
+    }
+
     try {
-        MqttConnection * connection = m_mqtt->createConnection(m_client, client_id, host, port, keepalive, request->cleansession(), ca_char, cert_char, key_char, v5, request->properties());
+        MqttConnection * connection = m_mqtt->createConnection(m_client, client_id, host, port, keepalive, request->cleansession(), ca_char, cert_char, key_char, v5, request->properties(), p_rri);
         ClientControl::Mqtt5ConnAck * conn_ack = connection->start(timeout);
         int connection_id = m_mqtt->registerConnection(connection);
 

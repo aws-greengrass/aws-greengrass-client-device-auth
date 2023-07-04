@@ -98,10 +98,11 @@ private:
 MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host,
                                 unsigned short port, unsigned short keepalive, bool clean_session, const char * ca,
                                 const char * cert, const char * key, bool v5,
-                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties)
+                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                                const bool * rri)
     : m_mutex(), m_grpc_client(grpc_client), m_client_id(client_id), m_host(host), m_port(port), m_keepalive(keepalive),
-        m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_conn_properties(0), m_mosq(0),
-        m_requests() {
+        m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_conn_properties(0),
+        m_request_response_information(0), m_mosq(0), m_requests() {
 
     logd("Creating Mosquitto MQTT v%d connection for %s:%hu\n", m_v5 ? 5 : 3, m_host.c_str(), m_port);
 
@@ -117,12 +118,20 @@ MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::str
         m_key = key;
     }
 
+    if (rri) {
+        m_request_response_information = new bool(rri);
+    }
+
     convertUserProperties(&user_properties, &m_conn_properties);
 }
 
 MqttConnection::~MqttConnection() {
     logd("Destroy Mosquitto MQTT connection\n");
     disconnect(DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_DISCONNECT_REASON, NULL);
+
+    if (m_request_response_information) {
+        delete m_request_response_information;
+    }
 }
 
 ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
@@ -145,6 +154,21 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
                 loge("mosquitto_int_option failed with code %d: %s\n", rc, mosquitto_strerror(rc));
                 destroyLocked();
                 throw MqttException("could'n set protocol version to 5.0", rc);
+            }
+        }
+
+        if (m_request_response_information) {
+            if (m_v5) {
+                uint8_t value = *m_request_response_information ? 1 : 0;
+                rc = mosquitto_property_add_byte(&m_conn_properties, MQTT_PROP_REQUEST_RESPONSE_INFORMATION, value);
+                if (rc == MOSQ_ERR_SUCCESS) {
+                    logd("Copied TX request response information %d\n", value);
+                } else {
+                    loge("mosquitto_property_add_byte failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+                    throw MqttException("couldn't set request response information", rc);
+                }
+            } else {
+                logw("Request response information is ignored for MQTT v3.1.1 connection\n");
             }
         }
 
