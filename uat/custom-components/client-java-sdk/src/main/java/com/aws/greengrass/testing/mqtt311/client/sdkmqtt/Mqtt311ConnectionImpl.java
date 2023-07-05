@@ -127,7 +127,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 final boolean isRetain = message.getRetain();
 
                 MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload(), null,
-                                                                    null, null);
+                                                                    null, null, null);
                 executorService.submit(() -> {
                     try {
                         grpcClient.onReceiveMqttMessage(connectionId, msg);
@@ -237,6 +237,10 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
         if (message.getPayloadFormatIndicator() != null) {
             logger.atWarn().log("MQTT v3.1.1 does not support payload format indicator");
+        }
+
+        if (message.getMessageExpiryInterval() != null) {
+            logger.atWarn().log("MQTT v3.1.1 does not support message expiry interval");
         }
 
         final QualityOfService qos = QualityOfService.getEnumValueFromInteger(message.getQos());

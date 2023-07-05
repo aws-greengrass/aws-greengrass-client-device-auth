@@ -154,9 +154,9 @@ public class MqttConnectionImpl implements MqttConnection {
         public void onMessageReceived(Mqtt5Client client, PublishReturn result) {
             PublishPacket packet = result.getPublishPacket();
             if (packet != null) {
-                int qos = packet.getQOS().getValue();
-                String topic = packet.getTopic();
-                boolean isRetain = packet.getRetain();
+                final int qos = packet.getQOS().getValue();
+                final String topic = packet.getTopic();
+                final boolean isRetain = packet.getRetain();
 
                 final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(),
                                                                                         "Received");
@@ -173,8 +173,13 @@ public class MqttConnectionImpl implements MqttConnection {
                     logger.atInfo().log("RX payload format indicator: {}", outgoingPayloadFormat);
                 }
 
+                final Long messageExpiryInterval = packet.getMessageExpiryIntervalSeconds();
+                if (messageExpiryInterval != null) {
+                    logger.atInfo().log("RX message expiry interval: {}", messageExpiryInterval);
+                }
+
                 MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload(),
-                        userProperties, contentType, outgoingPayloadFormat);
+                        userProperties, contentType, outgoingPayloadFormat, messageExpiryInterval);
                 executorService.submit(() -> {
                     try {
                         grpcClient.onReceiveMqttMessage(connectionId, message);
@@ -319,6 +324,12 @@ public class MqttConnectionImpl implements MqttConnection {
             publishPacket.withPayloadFormat(payloadFormatIndicator
                     ? PublishPacket.PayloadFormatIndicator.UTF8 : PublishPacket.PayloadFormatIndicator.BYTES);
             logger.atInfo().log("Publish payload format indicator: {}", payloadFormatIndicator);
+        }
+
+        final Integer messageExpiryInterval = message.getMessageExpiryInterval();
+        if (messageExpiryInterval != null) {
+            publishPacket.withMessageExpiryIntervalSeconds(Long.valueOf(messageExpiryInterval));
+            logger.atInfo().log("Publish message expiry interval: {}", messageExpiryInterval);
         }
 
         CompletableFuture<PublishResult> publishFuture = client.publish(publishPacket.build());

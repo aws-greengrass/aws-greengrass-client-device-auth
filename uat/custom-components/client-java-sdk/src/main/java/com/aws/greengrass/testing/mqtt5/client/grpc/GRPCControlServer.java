@@ -380,6 +380,10 @@ class GRPCControlServer {
                 internalMessage.payloadFormatIndicator(message.getPayloadFormatIndicator());
             }
 
+            if (message.hasMessageExpiryInterval()) {
+                internalMessage.messageExpiryInterval(message.getMessageExpiryInterval());
+            }
+
             MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
             try {
                 MqttConnection.PubAckInfo pubAckInfo = connection.publish(timeout, internalMessage.build());
