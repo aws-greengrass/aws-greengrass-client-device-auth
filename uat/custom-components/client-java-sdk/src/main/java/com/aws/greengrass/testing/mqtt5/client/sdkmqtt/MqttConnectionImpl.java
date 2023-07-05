@@ -252,7 +252,6 @@ public class MqttConnectionImpl implements MqttConnection {
     public ConnectResult start(long timeout, int connectionId) throws MqttException {
         boolean success = false;
         this.connectionId = connectionId;
-        boolean success = false;
         client.start();
         try {
             OnConnectionDoneInfo onConnectionDoneInfo = lifecycleEvents.connectedFuture.get(timeout, TimeUnit.SECONDS);
