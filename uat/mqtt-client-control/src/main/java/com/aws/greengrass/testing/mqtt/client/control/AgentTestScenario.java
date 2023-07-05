@@ -69,6 +69,8 @@ class AgentTestScenario implements Runnable {
     private static final boolean CLEAN_SESSION = true;
     private static final int CONNECT_TIMEOUT = 30;
 
+    private static final Boolean REQUEST_RESPONSE_INFORMATION = true;
+
     private static final int DISCONNECT_REASON = 4;
 
     private static final String PUBLISH_TOPIC = "test/topic";
@@ -78,6 +80,8 @@ class AgentTestScenario implements Runnable {
     private static final String PUBLISH_CONTENT_TYPE = "text/plain; charset=utf-8";
     private static final Boolean PUBLISH_PAYLOAD_FORMAT_INDICATOR = true;
     private static final Integer PUBLISH_MESSAGE_EXPIRY_INTERVAL = 3600;
+    private static final String PUBLISH_RESPONSE_TOPIC = "/thing1/response/topic";
+    private static final byte[] PUBLISH_CORRELATION_DATA = "correlation_data".getBytes(StandardCharsets.UTF_8);
 
     private static final Integer SUBSCRIPTION_ID = null;                        // NOTE: do not set for IoT Core !!!
     private static final String SUBSCRIBE_FILTER = "test/topic";
@@ -115,6 +119,14 @@ class AgentTestScenario implements Runnable {
 
             if (message.hasMessageExpiryInterval()) {
                 logger.atInfo().log("Message has message expiry interval {}", message.getMessageExpiryInterval());
+            }
+
+            if (message.hasResponseTopic()) {
+                logger.atInfo().log("Message has response topic {}", message.getResponseTopic());
+            }
+
+            if (message.hasCorrelationData()) {
+                logger.atInfo().log("Message has correlation data {}", message.getCorrelationData());
             }
 
             for (Mqtt5Properties property : message.getPropertiesList()) {
@@ -188,7 +200,7 @@ class AgentTestScenario implements Runnable {
                 // close MQTT connection
                 List<Mqtt5Properties> userProperties = null;
                 if (mqtt50) {
-                    userProperties = createMqtt5Properties("Disconnect");
+                    userProperties = createMqtt5Properties("DISCONNECT");
                 }
                 connectionControl.closeMqttConnection(DISCONNECT_REASON, userProperties);
             }
@@ -210,7 +222,12 @@ class AgentTestScenario implements Runnable {
                                                 : MqttProtoVersion.MQTT_PROTOCOL_V_311);
 
         if (mqtt50) {
-            builder.addAllProperties(createMqtt5Properties("Connect"));
+            builder.addAllProperties(createMqtt5Properties("CONNECT"));
+
+            if (REQUEST_RESPONSE_INFORMATION != null) {
+                builder.setRequestResponseInformation(REQUEST_RESPONSE_INFORMATION);
+                logger.atInfo().log("Set CONNECT request response information {}", REQUEST_RESPONSE_INFORMATION);
+            }
         }
 
         if (useTLS) {
@@ -228,7 +245,7 @@ class AgentTestScenario implements Runnable {
 
         List<Mqtt5Properties> userProperties = null;
         if (mqtt50) {
-            userProperties = createMqtt5Properties("Subscribe");
+            userProperties = createMqtt5Properties("SUBSCRIBE");
         }
 
         MqttSubscribeReply reply = connectionControl.subscribeMqtt(SUBSCRIPTION_ID, userProperties, subscription);
@@ -253,7 +270,8 @@ class AgentTestScenario implements Runnable {
     private void testPublish(ConnectionControl connectionControl) {
         Mqtt5Message msg = createPublishMessage(PUBLISH_QOS, PUBLISH_RETAIN, PUBLISH_TOPIC, PUBLISH_TEXT.getBytes(),
                                                 PUBLISH_CONTENT_TYPE, PUBLISH_PAYLOAD_FORMAT_INDICATOR,
-                                                PUBLISH_MESSAGE_EXPIRY_INTERVAL);
+                                                PUBLISH_MESSAGE_EXPIRY_INTERVAL, PUBLISH_RESPONSE_TOPIC,
+                                                PUBLISH_CORRELATION_DATA);
         MqttPublishReply reply = connectionControl.publishMqtt(msg);
         logger.atInfo().log("Published connectionId {} reason code {} reason string '{}'",
                                 connectionControl.getConnectionId(), reply.getReasonCode(), reply.getReasonString());
@@ -261,7 +279,8 @@ class AgentTestScenario implements Runnable {
 
     private Mqtt5Message createPublishMessage(MqttQoS qos, boolean retain, String topic, byte[] data,
                                                 String contentType, Boolean payloadFormatIndicator,
-                                                Integer messageExpiryInterval) {
+                                                Integer messageExpiryInterval, String responseTopic,
+                                                byte[] correlationData) {
         Mqtt5Message.Builder builder = Mqtt5Message.newBuilder()
                             .setTopic(topic)
                             .setPayload(ByteString.copyFrom(data))
@@ -271,19 +290,30 @@ class AgentTestScenario implements Runnable {
         if (mqtt50) {
             if (payloadFormatIndicator != null) {
                 builder.setPayloadFormatIndicator(payloadFormatIndicator);
-                logger.atInfo().log("Set property payload format indicator {}", payloadFormatIndicator);
+                logger.atInfo().log("Set PUBLISH payload format indicator {}", payloadFormatIndicator);
             }
 
             if (messageExpiryInterval != null) {
                 builder.setMessageExpiryInterval(messageExpiryInterval);
-                logger.atInfo().log("Set property message expiry interval {}", messageExpiryInterval);
+                logger.atInfo().log("Set PUBLISH message expiry interval {}", messageExpiryInterval);
             }
 
-            builder.addAllProperties(createMqtt5Properties("Publish"));
+            if (responseTopic != null) {
+                builder.setResponseTopic(responseTopic);
+                logger.atInfo().log("Set PUBLISH response topic {}", responseTopic);
+            }
+
+            if (correlationData != null) {
+                ByteString byteString = ByteString.copyFrom(correlationData);
+                builder.setCorrelationData(byteString);
+                logger.atInfo().log("Set PUBLISH correlation data {}", byteString);
+            }
+
+            builder.addAllProperties(createMqtt5Properties("PUBLISH"));
 
             if (contentType != null) {
                 builder.setContentType(contentType);
-                logger.atInfo().log("Set property content type {}", contentType);
+                logger.atInfo().log("Set PUBLISH content type {}", contentType);
             }
         }
 
@@ -295,14 +325,14 @@ class AgentTestScenario implements Runnable {
         properties.add(Mqtt5Properties.newBuilder().setKey("region").setValue("US").build());
         properties.add(Mqtt5Properties.newBuilder().setKey("type").setValue("JSON").build());
         properties.forEach(p -> logger.atInfo()
-                .log("{} Set user property: {}, {}", commandName, p.getKey(), p.getValue()));
+                .log("Set {} user property: {}, {}", commandName, p.getKey(), p.getValue()));
         return properties;
     }
 
     private void testUnsubscribe(ConnectionControl connectionControl) {
         List<Mqtt5Properties> userProperties = null;
         if (mqtt50) {
-            userProperties = createMqtt5Properties("Unsubscribe");
+            userProperties = createMqtt5Properties("UNSUBSCRIBE");
         }
         MqttSubscribeReply reply = connectionControl.unsubscribeMqtt(userProperties, SUBSCRIBE_FILTER);
         logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string '{}'",
@@ -360,4 +390,3 @@ class AgentTestScenario implements Runnable {
         return null;
     }
 }
-

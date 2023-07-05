@@ -7,6 +7,7 @@ Feature: GGMQ-1
     Given my device is registered as a Thing
     And my device is running Greengrass
 
+
   @GGMQ-1-T1
   Scenario Outline: GGMQ-1-T1-<mqtt-v>-<name>: As a customer, I can connect, subscribe/publish at QoS 0 and 1 and receive using client application to MQTT topic
     When I create a Greengrass deployment with components
@@ -71,22 +72,20 @@ Feature: GGMQ-1
     When I publish from "clientDeviceTest" to "iot_data_1" with qos 1 and message "Test message1"
     And message "Test message1" received on "clientDeviceTest" from "iot_data_1" topic within 10 seconds
 
-    And I disconnect device "clientDeviceTest" with reason code 0
-
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-q1 |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml      | GRANTED_QOS_0       |
 
     @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-q1 |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml   | GRANTED_QOS_1       |
 
     @mqtt3 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | GRANTED_QOS_0       |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-q1 |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml     | GRANTED_QOS_0       |
 
     @mqtt3 @paho-python @SkipOnWindows
     Examples:
@@ -95,23 +94,24 @@ Feature: GGMQ-1
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_1       |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-q1 |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml      | GRANTED_QOS_1       |
 
     @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | GRANTED_QOS_1       |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-q1 |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml   | GRANTED_QOS_1       |
 
     @mqtt5 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-q1 |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | GRANTED_QOS_1       |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-q1 |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml     | GRANTED_QOS_1       |
 
     @mqtt5 @paho-python @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  | subscribe-status-q1 |
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | GRANTED_QOS_1       |
+
 
   @GGMQ-1-T2
   Scenario Outline: GGMQ-1-T2-<mqtt-v>-<name>: GGAD can publish to an MQTT topic at QoS 0 and QoS 1 based on CDA configuration
@@ -240,8 +240,8 @@ Feature: GGMQ-1
 
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name     | agent                                        | recipe                  | iot_data_1-publish | subscribe-status-q1 |
-      | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml    | 0                  | GRANTED_QOS_0       |
+      | mqtt-v | name     | agent                                        | recipe                    | iot_data_1-publish | subscribe-status-q1 |
+      | v3     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml      | 0                  | GRANTED_QOS_0       |
 
     @mqtt3 @paho-python @SkipOnWindows
     Examples:
@@ -250,13 +250,14 @@ Feature: GGMQ-1
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name     | agent                                        | recipe                  | iot_data_1-publish | subscribe-status-q1 |
-      | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml    | 135                | GRANTED_QOS_1       |
+      | mqtt-v | name     | agent                                        | recipe                    | iot_data_1-publish | subscribe-status-q1 |
+      | v5     | sdk-java | aws.greengrass.client.Mqtt5JavaSdkClient     | client_java_sdk.yaml      | 135                | GRANTED_QOS_1       |
 
     @mqtt5 @paho-python @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  | iot_data_1-publish | subscribe-status-q1 |
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                  | GRANTED_QOS_1       |
+
 
   @GGMQ-1-T8
   Scenario Outline: GGMQ-1-T8-<mqtt-v>-<name>: As a customer, I can configure local MQTT messages to be forwarded to a PubSub topic
@@ -386,22 +387,20 @@ Feature: GGMQ-1
     Then I wait 5 seconds
     And I get 1 assertions with context "ReceivedPubsubMessage" and message "topicPrefix message"
 
-    And I disconnect device "publisher" with reason code 0
-
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
 
     @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
 
     @mqtt3 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt3 @paho-python @SkipOnWindows
     Examples:
@@ -410,23 +409,24 @@ Feature: GGMQ-1
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
 
     @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
 
     @mqtt5 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt5 @paho-python @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  |
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+
 
   @GGMQ-1-T9
   Scenario Outline: GGMQ-1-T9-<mqtt-v>-<name>: As a customer,I can configure local MQTT messages to be forwarded to an IoT Core MQTT topic
@@ -533,23 +533,20 @@ Feature: GGMQ-1
     When I publish from "localMqttPublisher" to "${iotCoreSubscriber}topic/with/prefix" with qos 1 and message "Hello world2"
     Then message "Hello world2" received on "iotCoreSubscriber" from "prefix/${iotCoreSubscriber}topic/with/prefix" topic within 10 seconds
 
-    And I disconnect device "iotCoreSubscriber" with reason code 0
-    And I disconnect device "localMqttPublisher" with reason code 0
-
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
 
     @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
 
     @mqtt3 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt3 @paho-python @SkipOnWindows
     Examples:
@@ -558,18 +555,18 @@ Feature: GGMQ-1
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
 
     @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
 
     @mqtt5 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt5 @paho-python @SkipOnWindows
     Examples:
@@ -735,21 +732,21 @@ Feature: GGMQ-1
     #  It makes sdk-java client useless for T13
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | GRANTED_QOS_0       | GRANTED_QOS_0         | 0                  |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-na | subscribe-status-good | publish-status-nms |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml      | GRANTED_QOS_0       | GRANTED_QOS_0         | 0                  |
 
     @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | UNSPECIFIED_ERROR   | GRANTED_QOS_1         | 0                  |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-na | subscribe-status-good | publish-status-nms |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml   | UNSPECIFIED_ERROR   | GRANTED_QOS_1         | 0                  |
 
     # WARNING: Paho Java MQTT v3 client in org.eclipse.paho.client.mqttv3.IMqttAsyncClient
     #  missing API to getting actual reason code of SUBACK/PUBACK/UNSUBACK, client always return reason code 0 on publish and subscribe.
     #  It makes paho-java client useless for T13
     @mqtt3 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | GRANTED_QOS_0       | GRANTED_QOS_0         | 0                  |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-na | subscribe-status-good | publish-status-nms |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml     | GRANTED_QOS_0       | GRANTED_QOS_0         | 0                  |
 
     @mqtt3 @paho-python @SkipOnWindows
     Examples:
@@ -758,23 +755,24 @@ Feature: GGMQ-1
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    | NOT_AUTHORIZED      | GRANTED_QOS_1         | 16                 |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-na | subscribe-status-good | publish-status-nms |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml      | NOT_AUTHORIZED      | GRANTED_QOS_1         | 16                 |
 
     @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml | NOT_AUTHORIZED      | GRANTED_QOS_1         | 16                 |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-na | subscribe-status-good | publish-status-nms |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml   | NOT_AUTHORIZED      | GRANTED_QOS_1         | 16                 |
 
     @mqtt5 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   | NOT_AUTHORIZED      | GRANTED_QOS_1         | 16                 |
+      | mqtt-v | name        | agent                                     | recipe                    | subscribe-status-na | subscribe-status-good | publish-status-nms |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml     | NOT_AUTHORIZED      | GRANTED_QOS_1         | 16                 |
 
     @mqtt5 @paho-python @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  | subscribe-status-na | subscribe-status-good | publish-status-nms |
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | NOT_AUTHORIZED      | GRANTED_QOS_1         | 0                  |
+
 
   @GGMQ-1-T14
   Scenario Outline: GGMQ-1-T14-<mqtt-v>-<name>: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic
@@ -886,18 +884,18 @@ Feature: GGMQ-1
 
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
 
     @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
 
     @mqtt3 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt3 @paho-python @SkipOnWindows
     Examples:
@@ -906,18 +904,18 @@ Feature: GGMQ-1
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
 
     @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
 
     @mqtt5 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt5 @paho-python @SkipOnWindows
     Examples:
@@ -1032,22 +1030,20 @@ Feature: GGMQ-1
     Then message "Hello world" received on "subscriber" from "pubsub/topic/to/publish/on" topic within 10 seconds
     Then message "Hello world" received on "subscriber" from "prefix/pubsub/topic/to/publish/on" topic within 10 seconds
 
-    And I disconnect device "subscriber" with reason code 0
-
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
 
     @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
 
     @mqtt3 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt3 @paho-python @SkipOnWindows
     Examples:
@@ -1056,18 +1052,18 @@ Feature: GGMQ-1
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
 
     @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
 
     @mqtt5 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt5 @paho-python @SkipOnWindows
     Examples:
@@ -1145,28 +1141,26 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "iot_data_1" with qos 0
     And message "Hello world1" is not received on "subscriber" from "iot_data_1" topic within 5 seconds
 
-    And I disconnect device "subscriber" with reason code 0
-    And I disconnect device "publisher" with reason code 0
-
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
 
     @mqtt3 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
 
     @mqtt3 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt3 @paho-python @SkipOnWindows
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  |
       | v3     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+
 
   @GGMQ-1-T102
   Scenario Outline: GGMQ-1-T102-<mqtt-v>-<name>: As a customer, I can use publish retain flag,subscribe retain handling, content type using MQTT V5.0
@@ -1227,7 +1221,7 @@ Feature: GGMQ-1
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
 
-    # publish 'retain' and subscribe 'retain control' tests
+    # A.B. publish 'retain' and subscribe 'retain control' tests
 
     # 1. test case when publishing two messages with retain flag set and subscribe retain handling is 'send at subsription'
     #  and only last message is received
@@ -1324,7 +1318,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "t102_case8" with qos 0
     And message "Single not retained message in case8" is not received on "subscriber" from "t102_case8" topic within 5 seconds
 
-    # 'retain as published' tests
+    # C. 'retain as published' tests
     And I clear message storage
 
     # 9. test case when subscribe 'retain as published' is false.
@@ -1361,7 +1355,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world4"
     And message "Hello world4" received on "subscriber" from "iot_data_1" topic within 5 seconds
 
-    # 'user properties' tests
+    # D. 'user properties' tests
     # 11. test case when publish 'user properties' are not empty.
     #  In that case 'user properties' on receive should be equal to 'user properties' value on publish.
 
@@ -1406,7 +1400,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_4" with qos 0 and message "Without userProperties"
     And message "Without userProperties" received on "subscriber" from "iot_data_4" topic within 5 seconds
 
-    # 'payload format indicator' tests
+    # E. 'payload format indicator' tests
     And I clear message storage
 
     # 15. test case when both tx/rx payload format indicators are set to 0
@@ -1464,6 +1458,7 @@ Feature: GGMQ-1
 
     And I clear message storage
 
+    # F. subscribe 'no local' tests
     # 21. test case when subscribe 'no local' set to true
     And I set MQTT subscribe 'no local' flag to true
     When I subscribe "subscriber" to "no_local_test" with qos 0
@@ -1481,6 +1476,8 @@ Feature: GGMQ-1
     Then message "First message no local false test" received on "subscriber" from "no_local_false" topic within 5 seconds
 
     And I clear message storage
+
+    # G. publish/subscribe 'content type' tests
 
     # 23. test case when tx content type set the same value as rx
     And I set MQTT publish 'content type' to "text/plain; charset=utf-8"
@@ -1515,9 +1512,6 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "content_type_not_null_null" with qos 0
     When I publish from "publisher" to "content_type_not_null_null" with qos 0 and message "Content types not null/null"
     And message "Content types not null/null" received on "subscriber" from "content_type_not_null_null" topic within 5 seconds
-
-    And I disconnect device "subscriber" with reason code 0
-    And I disconnect device "publisher" with reason code 0
 
     @mqtt5 @sdk-java
     Examples:

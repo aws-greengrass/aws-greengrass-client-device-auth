@@ -84,14 +84,17 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         public void onConnectionInterrupted(int errorCode) {
             isConnected.set(false);
             String crtErrorString = CRT.awsErrorString(errorCode);
-            DisconnectInfo disconnectInfo = new DisconnectInfo(null, null, null, null, null);
-            executorService.submit(() -> {
-                try {
-                    grpcClient.onMqttDisconnect(connectionId, disconnectInfo, crtErrorString);
-                } catch (Exception ex) {
-                    logger.atError().withThrowable(ex).log("onMqttDisconnect failed");
-                }
-            });
+            // only unsolicited disconnect
+            if (!isClosing.get()) {
+                DisconnectInfo disconnectInfo = new DisconnectInfo(null, null, null, null, null);
+                    executorService.submit(() -> {
+                    try {
+                        grpcClient.onMqttDisconnect(connectionId, disconnectInfo, crtErrorString);
+                    } catch (Exception ex) {
+                        logger.atError().withThrowable(ex).log("onMqttDisconnect failed");
+                    }
+                });
+            }
             logger.atInfo().log("MQTT connection {} interrupted, error code {}: {}", connectionId, errorCode,
                                 crtErrorString);
         }
@@ -111,7 +114,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 sessionPresent = data.getSessionPresent();
             }
 
-            logger.atInfo().log("MQTT connection {} connecteed or reconnected sessionPresent {}", connectionId,
+            logger.atInfo().log("MQTT connection {} (re)connected, sessionPresent {}", connectionId,
                                 sessionPresent);
         }
     };
