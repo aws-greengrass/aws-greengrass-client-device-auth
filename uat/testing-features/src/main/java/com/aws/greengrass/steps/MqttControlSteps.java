@@ -1177,6 +1177,9 @@ public class MqttControlSteps {
     @And("I force to set broker {string} with port {int}")
     public void setBrokerPort(String brokerId, int port) {
         List<MqttBrokerConnectionInfo> connectionInfos = brokers.get(brokerId);
+        if (connectionInfos == null || connectionInfos.isEmpty()) {
+            throw new RuntimeException("Broker is not found");
+        }
         for (MqttBrokerConnectionInfo info : connectionInfos) {
                 info.setPort(port);
         }
