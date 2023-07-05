@@ -4,7 +4,6 @@
 #
 
 """Paho Python client entry point."""
-# from concurrent import futures
 import logging
 import asyncio
 import sys
