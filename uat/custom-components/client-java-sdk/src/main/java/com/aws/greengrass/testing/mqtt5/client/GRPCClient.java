@@ -42,6 +42,9 @@ public interface GRPCClient {
         /** Optional payload format indicator. */
         private Boolean payloadFormatIndicator;
 
+        /** Optional message expiry interval. */
+        private Long messageExpiryInterval;
+
         // TODO: add other properties
     }
 
