@@ -127,7 +127,9 @@ public class MqttConnectionImpl implements MqttConnection {
             String errorString = CRT.awsErrorString(onDisconnectionReturn.getErrorCode());
 
             // only unsolicited disconnect
-            if (!isClosing.get()) {
+            if (isClosing.get()) {
+                logger.atWarn().log("DISCONNECT event ignored due to shutdown initiated");
+            } else {
                 DisconnectInfo disconnectInfo = convertDisconnectPacket(disconnectPacket);
                 executorService.submit(() -> {
                     try {
@@ -152,44 +154,63 @@ public class MqttConnectionImpl implements MqttConnection {
 
     private class ClientsPublishEvents implements Mqtt5ClientOptions.PublishEvents {
 
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.CognitiveComplexity"})
         @Override
         public void onMessageReceived(Mqtt5Client client, PublishReturn result) {
+
             PublishPacket packet = result.getPublishPacket();
             if (packet != null) {
                 final int qos = packet.getQOS().getValue();
                 final String topic = packet.getTopic();
                 final boolean isRetain = packet.getRetain();
 
-                final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(),
-                                                                                        "Received");
-
-                final String contentType = packet.getContentType();
-                if (contentType != null) {
-                    logger.atInfo().log("RX content type: '{}'", contentType);
-                }
-
+                // please use the same order as in 3.3.2 PUBLISH Variable Header of MQTT v5.0 specification
                 Boolean outgoingPayloadFormat = null;
                 final PublishPacket.PayloadFormatIndicator payloadFormat = packet.getPayloadFormat();
                 if (payloadFormat != null) {
                     outgoingPayloadFormat = payloadFormat == PublishPacket.PayloadFormatIndicator.UTF8;
-                    logger.atInfo().log("RX payload format indicator: {}", outgoingPayloadFormat);
+                    logger.atInfo().log("PUBLISH Rx payload format indicator: {}", outgoingPayloadFormat);
                 }
 
-                final Long messageExpiryInterval = packet.getMessageExpiryIntervalSeconds();
-                if (messageExpiryInterval != null) {
-                    logger.atInfo().log("RX message expiry interval: {}", messageExpiryInterval);
+                Integer messageExpiryInterval = null;
+                final Long messageExpiryIntervalLong = packet.getMessageExpiryIntervalSeconds();
+                if (messageExpiryIntervalLong != null) {
+                    logger.atInfo().log("PUBLISH Rx message expiry interval: {}", messageExpiryIntervalLong);
+                    messageExpiryInterval = messageExpiryIntervalLong.intValue();
                 }
 
-                MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload(),
-                        userProperties, contentType, outgoingPayloadFormat, messageExpiryInterval);
-                executorService.submit(() -> {
-                    try {
-                        grpcClient.onReceiveMqttMessage(connectionId, message);
-                    } catch (Exception ex) {
-                        logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
-                    }
-                });
+                final String responseTopic = packet.getResponseTopic();
+                if (responseTopic != null) {
+                    logger.atInfo().log("PUBLISH Rx response topic: {}", responseTopic);
+                }
+
+                final byte[] correlationData = packet.getCorrelationData();
+                if (correlationData != null) {
+                    logger.atInfo().log("PUBLISH Rx correlation data: {}", correlationData);
+                }
+
+                final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(),
+                                                                                        "PUBLISH");
+
+                final String contentType = packet.getContentType();
+                if (contentType != null) {
+                    logger.atInfo().log("PUBLISH Rx content type: '{}'", contentType);
+                }
+
+                if (isClosing.get()) {
+                    logger.atWarn().log("PUBLISH event ignored due to shutdown initiated");
+                } else {
+                    MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload(),
+                                userProperties, contentType, outgoingPayloadFormat, messageExpiryInterval,
+                                responseTopic, correlationData);
+                    executorService.submit(() -> {
+                        try {
+                            grpcClient.onReceiveMqttMessage(connectionId, message);
+                        } catch (Exception ex) {
+                            logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
+                        }
+                    });
+                }
 
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
                                         connectionId, topic, qos, isRetain);
@@ -260,7 +281,7 @@ public class MqttConnectionImpl implements MqttConnection {
                     .withReasonCode(disconnectReason);
 
             if (userProperties != null && !userProperties.isEmpty()) {
-                builder.withUserProperties(convertToUserProperties(userProperties, "TX DISCONNECT"));
+                builder.withUserProperties(convertToUserProperties(userProperties, "DISCONNECT"));
             }
 
             client.stop(builder.build());
@@ -298,44 +319,51 @@ public class MqttConnectionImpl implements MqttConnection {
         stateCheck();
 
         QOS qosEnum = QOS.getEnumValueFromInteger(message.getQos());
-        PublishPacket.PublishPacketBuilder publishPacket = new PublishPacket.PublishPacketBuilder()
+        PublishPacket.PublishPacketBuilder builder = new PublishPacket.PublishPacketBuilder()
                                             .withTopic(message.getTopic())
                                             .withQOS(qosEnum)
                                             .withRetain(message.isRetain())
                                             .withPayload(message.getPayload());
 
-        /* TODO: use also
-                    withResponseTopic()
-                    withPayloadFormat()
-                    withMessageExpiryIntervalSeconds()
-                    withCorrelationData() - ???
-        */
 
-        final List<Mqtt5Properties> userProperties = message.getUserProperties();
-        if (userProperties != null && !userProperties.isEmpty()) {
-            publishPacket.withUserProperties(convertToUserProperties(userProperties, "TX PUBLISH"));
-        }
-
-        final String contentType = message.getContentType();
-        if (contentType != null) {
-            publishPacket.withContentType(contentType);
-            logger.atInfo().log("Publish content type: '{}'", contentType);
-        }
-
+        // please use the same order as in 3.3.2 PUBLISH Variable Header of MQTT v5.0 specification
         final Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
         if (payloadFormatIndicator != null) {
-            publishPacket.withPayloadFormat(payloadFormatIndicator
+            builder.withPayloadFormat(payloadFormatIndicator
                     ? PublishPacket.PayloadFormatIndicator.UTF8 : PublishPacket.PayloadFormatIndicator.BYTES);
-            logger.atInfo().log("Publish payload format indicator: {}", payloadFormatIndicator);
+            logger.atInfo().log("PUBLISH Tx payload format indicator: {}", payloadFormatIndicator);
         }
 
         final Integer messageExpiryInterval = message.getMessageExpiryInterval();
         if (messageExpiryInterval != null) {
-            publishPacket.withMessageExpiryIntervalSeconds(Long.valueOf(messageExpiryInterval));
-            logger.atInfo().log("Publish message expiry interval: {}", messageExpiryInterval);
+            builder.withMessageExpiryIntervalSeconds(Long.valueOf(messageExpiryInterval));
+            logger.atInfo().log("PUBLISH Tx message expiry interval: {}", messageExpiryInterval);
         }
 
-        CompletableFuture<PublishResult> publishFuture = client.publish(publishPacket.build());
+        final String responseTopic = message.getResponseTopic();
+        if (responseTopic != null) {
+            builder.withResponseTopic(responseTopic);
+            logger.atInfo().log("PUBLISH Tx response topic: {}", responseTopic);
+        }
+
+        final byte[] correlationData = message.getCorrelationData();
+        if (correlationData != null) {
+            builder.withCorrelationData(correlationData);
+            logger.atInfo().log("PUBLISH Tx correlation data: {}", correlationData);
+        }
+
+        final List<Mqtt5Properties> userProperties = message.getUserProperties();
+        if (userProperties != null && !userProperties.isEmpty()) {
+            builder.withUserProperties(convertToUserProperties(userProperties, "PUBLISH"));
+        }
+
+        final String contentType = message.getContentType();
+        if (contentType != null) {
+            builder.withContentType(contentType);
+            logger.atInfo().log("PUBLISH Tx content type: '{}'", contentType);
+        }
+
+        CompletableFuture<PublishResult> publishFuture = client.publish(builder.build());
         try {
             PublishResult publishResult = publishFuture.get(timeout, TimeUnit.SECONDS);
             return convertPublishResult(publishResult);
@@ -584,7 +612,7 @@ public class MqttConnectionImpl implements MqttConnection {
         }
 
         final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(),
-                                                                                "RX DISCONNECT");
+                                                                                "DISCONNECT");
         final DisconnectPacket.DisconnectReasonCode reasonCode = packet.getReasonCode();
 
         return new DisconnectInfo(reasonCode == null ? null : reasonCode.getValue(),

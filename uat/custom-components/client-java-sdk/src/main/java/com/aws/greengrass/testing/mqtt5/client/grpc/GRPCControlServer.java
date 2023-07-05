@@ -362,31 +362,40 @@ class GRPCControlServer {
             logger.atInfo().log("Publish: connectionId {} topic {} QoS {} retain {}",
                                     connectionId, topic, qos, isRetain);
 
-            MqttConnection.Message.MessageBuilder internalMessage = MqttConnection.Message.builder()
+            MqttConnection.Message.MessageBuilder internalBuilder = MqttConnection.Message.builder()
                                 .qos(qos)
                                 .retain(isRetain)
                                 .topic(topic)
                                 .payload(message.getPayload().toByteArray());
 
-            if (!message.getPropertiesList().isEmpty()) {
-                internalMessage.userProperties(message.getPropertiesList());
-            }
-
-            if (message.hasContentType()) {
-                internalMessage.contentType(message.getContentType());
-            }
-
+            // please use the same order as in 3.3.2 PUBLISH Variable Header of MQTT v5.0 specification
             if (message.hasPayloadFormatIndicator()) {
-                internalMessage.payloadFormatIndicator(message.getPayloadFormatIndicator());
+                internalBuilder.payloadFormatIndicator(message.getPayloadFormatIndicator());
             }
 
             if (message.hasMessageExpiryInterval()) {
-                internalMessage.messageExpiryInterval(message.getMessageExpiryInterval());
+                internalBuilder.messageExpiryInterval(message.getMessageExpiryInterval());
+            }
+
+            if (message.hasResponseTopic()) {
+                internalBuilder.responseTopic(message.getResponseTopic());
+            }
+
+            if (message.hasCorrelationData()) {
+                internalBuilder.correlationData(message.getCorrelationData().toByteArray());
+            }
+
+            if (!message.getPropertiesList().isEmpty()) {
+                internalBuilder.userProperties(message.getPropertiesList());
+            }
+
+            if (message.hasContentType()) {
+                internalBuilder.contentType(message.getContentType());
             }
 
             MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
             try {
-                MqttConnection.PubAckInfo pubAckInfo = connection.publish(timeout, internalMessage.build());
+                MqttConnection.PubAckInfo pubAckInfo = connection.publish(timeout, internalBuilder.build());
                 convertPubAckInfo(pubAckInfo, builder);
                 if (pubAckInfo != null) {
                     logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",

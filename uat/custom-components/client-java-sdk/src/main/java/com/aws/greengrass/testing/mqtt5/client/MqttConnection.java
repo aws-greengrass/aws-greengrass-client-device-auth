@@ -136,6 +136,12 @@ public interface MqttConnection {
 
         /** Optional message expiry interval. */
         private Integer messageExpiryInterval;
+
+        /** Optional response topic. */
+        private String responseTopic;
+
+        /** Optional correlation data. */
+        private byte[] correlationData;
     }
 
     /**

@@ -84,8 +84,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         public void onConnectionInterrupted(int errorCode) {
             isConnected.set(false);
             String crtErrorString = CRT.awsErrorString(errorCode);
+
             // only unsolicited disconnect
-            if (!isClosing.get()) {
+            if (isClosing.get()) {
+                logger.atWarn().log("DISCONNECT event ignored due to shutdown initiated");
+            } else {
                 DisconnectInfo disconnectInfo = new DisconnectInfo(null, null, null, null, null);
                     executorService.submit(() -> {
                     try {
@@ -95,6 +98,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                     }
                 });
             }
+
             logger.atInfo().log("MQTT connection {} interrupted, error code {}: {}", connectionId, errorCode,
                                 crtErrorString);
         }
@@ -129,15 +133,19 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 final String topic = message.getTopic();
                 final boolean isRetain = message.getRetain();
 
-                MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload(), null,
-                                                                    null, null, null);
-                executorService.submit(() -> {
-                    try {
-                        grpcClient.onReceiveMqttMessage(connectionId, msg);
-                    } catch (Exception ex) {
-                        logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
-                    }
-                });
+                if (isClosing.get()) {
+                    logger.atWarn().log("PUBLISH event ignored due to shutdown initiated");
+                } else {
+                    MqttReceivedMessage msg = new MqttReceivedMessage(qos, isRetain, topic, message.getPayload(), null,
+                                                                        null, null, null, null, null);
+                    executorService.submit(() -> {
+                        try {
+                            grpcClient.onReceiveMqttMessage(connectionId, msg);
+                        } catch (Exception ex) {
+                            logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
+                        }
+                    });
+                }
 
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
                                         connectionId, topic, qos, isRetain);
@@ -232,12 +240,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                     throws MqttException {
 
         stateCheck();
-        checkUserProperties(message.getUserProperties());
 
-        if (message.getContentType() != null) {
-            logger.atWarn().log("MQTT v3.1.1 does not support content type");
-        }
-
+        // please use the same order as in 3.3.2 PUBLISH Variable Header of MQTT v5.0 specification
         if (message.getPayloadFormatIndicator() != null) {
             logger.atWarn().log("MQTT v3.1.1 does not support payload format indicator");
         }
@@ -245,6 +249,21 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         if (message.getMessageExpiryInterval() != null) {
             logger.atWarn().log("MQTT v3.1.1 does not support message expiry interval");
         }
+
+        if (message.getResponseTopic() != null) {
+            logger.atWarn().log("MQTT v3.1.1 does not support response topic");
+        }
+
+        if (message.getCorrelationData() != null) {
+            logger.atWarn().log("MQTT v3.1.1 does not support correlation data");
+        }
+
+        checkUserProperties(message.getUserProperties());
+
+        if (message.getContentType() != null) {
+            logger.atWarn().log("MQTT v3.1.1 does not support content type");
+        }
+
 
         final QualityOfService qos = QualityOfService.getEnumValueFromInteger(message.getQos());
         final String topic = message.getTopic();

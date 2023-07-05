@@ -126,6 +126,29 @@ class GRPCDiscoveryClient implements GRPCClient {
                                         .setQos(MqttQoS.forNumber(message.getQos()))
                                         .setRetain(message.isRetain());
 
+        // please use the same order as in 3.3.2 PUBLISH Variable Header of MQTT v5.0 specification
+        final Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
+        if (payloadFormatIndicator != null) {
+            builder.setPayloadFormatIndicator(payloadFormatIndicator);
+        }
+
+
+        final Integer messageExpiryInterval = message.getMessageExpiryInterval();
+        if (messageExpiryInterval != null) {
+            builder.setMessageExpiryInterval(messageExpiryInterval);
+        }
+
+
+        final String responseTopic = message.getResponseTopic();
+        if (responseTopic != null) {
+            builder.setResponseTopic(responseTopic);
+        }
+
+        final byte[] correlationData = message.getCorrelationData();
+        if (correlationData != null) {
+            builder.setCorrelationData(ByteString.copyFrom(correlationData));
+        }
+
         final List<Mqtt5Properties> userProperties = message.getUserProperties();
         if (userProperties != null && !userProperties.isEmpty()) {
             builder.addAllProperties(userProperties);
@@ -134,11 +157,6 @@ class GRPCDiscoveryClient implements GRPCClient {
         final String contentType = message.getContentType();
         if (contentType != null) {
             builder.setContentType(contentType);
-        }
-
-        final Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
-        if (payloadFormatIndicator != null) {
-            builder.setPayloadFormatIndicator(payloadFormatIndicator);
         }
 
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
