@@ -164,8 +164,15 @@ Status GRPCControlServer::CreateMqttConnection(ServerContext *, const MqttConnec
         key_char = key.c_str();
     }
 
+    bool rri;
+    bool * p_rri = NULL;
+    if (request->has_requestresponseinformation()) {
+        rri = request->requestresponseinformation();
+        p_rri = &rri;
+    }
+
     try {
-        MqttConnection * connection = m_mqtt->createConnection(m_client, client_id, host, port, keepalive, request->cleansession(), ca_char, cert_char, key_char, v5, request->properties());
+        MqttConnection * connection = m_mqtt->createConnection(m_client, client_id, host, port, keepalive, request->cleansession(), ca_char, cert_char, key_char, v5, request->properties(), p_rri);
         ClientControl::Mqtt5ConnAck * conn_ack = connection->start(timeout);
         int connection_id = m_mqtt->registerConnection(connection);
 
@@ -260,6 +267,27 @@ Status GRPCControlServer::PublishMqtt(ServerContext *, const MqttPublishRequest 
         p_payload_format_indicator = &payload_format_indicator;
     }
 
+    int message_expiry_interval;
+    int * p_message_expiry_interval = NULL;
+    if (message.has_messageexpiryinterval()) {
+        message_expiry_interval = message.messageexpiryinterval();
+        p_message_expiry_interval = &message_expiry_interval;
+    }
+
+    std::string response_topic;
+    std::string * p_response_topic = NULL;
+    if (message.has_responsetopic()) {
+        response_topic = message.responsetopic();
+        p_response_topic = &response_topic;
+    }
+
+    std::string correlation_data;
+    std::string * p_correlation_data = NULL;
+    if (message.has_correlationdata()) {
+        correlation_data = message.correlationdata();
+        p_correlation_data = &correlation_data;
+    }
+
     const MqttConnectionId & connection_id_obj = request->connectionid();
     int connection_id = connection_id_obj.connectionid();
 
@@ -275,7 +303,9 @@ Status GRPCControlServer::PublishMqtt(ServerContext *, const MqttPublishRequest 
     try {
         ClientControl::MqttPublishReply * result = connection->publish(timeout, qos, is_retain, topic,
                                                                         message.payload(), message.properties(),
-                                                                        p_content_type, p_payload_format_indicator);
+                                                                        p_content_type, p_payload_format_indicator,
+                                                                        p_message_expiry_interval, p_response_topic,
+                                                                        p_correlation_data);
         if (result) {
             if (result->has_reasoncode()) {
                 reply->set_reasoncode(result->reasoncode());

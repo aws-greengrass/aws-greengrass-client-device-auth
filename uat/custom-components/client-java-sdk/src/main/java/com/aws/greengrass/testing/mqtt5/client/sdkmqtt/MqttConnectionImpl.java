@@ -119,16 +119,24 @@ public class MqttConnectionImpl implements MqttConnection {
             connectedFuture.complete(new OnConnectionDoneInfo(onConnectionFailureReturn, errorString));
         }
 
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
         public void onDisconnection(Mqtt5Client client, OnDisconnectionReturn onDisconnectionReturn) {
             isConnected.set(false);
-
             DisconnectPacket disconnectPacket = onDisconnectionReturn.getDisconnectPacket();
             String errorString = CRT.awsErrorString(onDisconnectionReturn.getErrorCode());
-            DisconnectInfo disconnectInfo = convertDisconnectPacket(disconnectPacket);
-            executorService.submit(() -> {
-                grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
+
+            // only unsolicited disconnect
+            if (!isClosing.get()) {
+                DisconnectInfo disconnectInfo = convertDisconnectPacket(disconnectPacket);
+                executorService.submit(() -> {
+                    try {
+                        grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
+                    } catch (Exception ex) {
+                        logger.atError().withThrowable(ex).log("onMqttDisconnect failed");
+                    }
                 });
+            }
 
             logger.atInfo().log("MQTT connectionId {} disconnected error '{}' disconnectPacket '{}'",
                                 connectionId, errorString, disconnectPacket);
@@ -143,13 +151,15 @@ public class MqttConnectionImpl implements MqttConnection {
     }
 
     private class ClientsPublishEvents implements Mqtt5ClientOptions.PublishEvents {
+
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
         public void onMessageReceived(Mqtt5Client client, PublishReturn result) {
             PublishPacket packet = result.getPublishPacket();
             if (packet != null) {
-                int qos = packet.getQOS().getValue();
-                String topic = packet.getTopic();
-                boolean isRetain = packet.getRetain();
+                final int qos = packet.getQOS().getValue();
+                final String topic = packet.getTopic();
+                final boolean isRetain = packet.getRetain();
 
                 final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(),
                                                                                         "Received");
@@ -166,10 +176,19 @@ public class MqttConnectionImpl implements MqttConnection {
                     logger.atInfo().log("RX payload format indicator: {}", outgoingPayloadFormat);
                 }
 
+                final Long messageExpiryInterval = packet.getMessageExpiryIntervalSeconds();
+                if (messageExpiryInterval != null) {
+                    logger.atInfo().log("RX message expiry interval: {}", messageExpiryInterval);
+                }
+
                 MqttReceivedMessage message = new MqttReceivedMessage(qos, isRetain, topic, packet.getPayload(),
-                        userProperties, contentType, outgoingPayloadFormat);
+                        userProperties, contentType, outgoingPayloadFormat, messageExpiryInterval);
                 executorService.submit(() -> {
-                    grpcClient.onReceiveMqttMessage(connectionId, message);
+                    try {
+                        grpcClient.onReceiveMqttMessage(connectionId, message);
+                    } catch (Exception ex) {
+                        logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
+                    }
                 });
 
                 logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
@@ -308,6 +327,12 @@ public class MqttConnectionImpl implements MqttConnection {
             publishPacket.withPayloadFormat(payloadFormatIndicator
                     ? PublishPacket.PayloadFormatIndicator.UTF8 : PublishPacket.PayloadFormatIndicator.BYTES);
             logger.atInfo().log("Publish payload format indicator: {}", payloadFormatIndicator);
+        }
+
+        final Integer messageExpiryInterval = message.getMessageExpiryInterval();
+        if (messageExpiryInterval != null) {
+            publishPacket.withMessageExpiryIntervalSeconds(Long.valueOf(messageExpiryInterval));
+            logger.atInfo().log("Publish message expiry interval: {}", messageExpiryInterval);
         }
 
         CompletableFuture<PublishResult> publishFuture = client.publish(publishPacket.build());
@@ -575,7 +600,7 @@ public class MqttConnectionImpl implements MqttConnection {
         List<UserProperty> userProperties = new ArrayList<>();
         properties.forEach(p -> {
             userProperties.add(new UserProperty(p.getKey(), p.getValue()));
-            logger.atInfo().log("{} MQTT userProperties: {}, {}", type, p.getKey(), p.getValue());
+            logger.atInfo().log("{} Tx user property '{}':'{}'", type, p.getKey(), p.getValue());
         });
 
         return userProperties;
@@ -590,7 +615,7 @@ public class MqttConnectionImpl implements MqttConnection {
         List<Mqtt5Properties> mqttUserProperties = new ArrayList<>();
         properties.forEach(p -> {
             mqttUserProperties.add(Mqtt5Properties.newBuilder().setKey(p.key).setValue(p.value).build());
-            logger.atInfo().log("{} MQTT userProperties: {}, {}", type, p.key, p.value);
+            logger.atInfo().log("{} Rx user property '{}':'{}'", type, p.key, p.value);
         });
 
         return mqttUserProperties;

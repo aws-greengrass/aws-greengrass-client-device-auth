@@ -98,10 +98,11 @@ private:
 MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host,
                                 unsigned short port, unsigned short keepalive, bool clean_session, const char * ca,
                                 const char * cert, const char * key, bool v5,
-                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties)
+                                const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                                const bool * rri)
     : m_mutex(), m_grpc_client(grpc_client), m_client_id(client_id), m_host(host), m_port(port), m_keepalive(keepalive),
-        m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_conn_properties(0), m_mosq(0),
-        m_requests() {
+        m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_conn_properties(0),
+        m_request_response_information(0), m_mosq(0), m_requests() {
 
     logd("Creating Mosquitto MQTT v%d connection for %s:%hu\n", m_v5 ? 5 : 3, m_host.c_str(), m_port);
 
@@ -117,12 +118,20 @@ MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::str
         m_key = key;
     }
 
+    if (rri) {
+        m_request_response_information = new bool(rri);
+    }
+
     convertUserProperties(&user_properties, &m_conn_properties);
 }
 
 MqttConnection::~MqttConnection() {
     logd("Destroy Mosquitto MQTT connection\n");
     disconnect(DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_DISCONNECT_REASON, NULL);
+
+    if (m_request_response_information) {
+        delete m_request_response_information;
+    }
 }
 
 ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
@@ -145,6 +154,21 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
                 loge("mosquitto_int_option failed with code %d: %s\n", rc, mosquitto_strerror(rc));
                 destroyLocked();
                 throw MqttException("could'n set protocol version to 5.0", rc);
+            }
+        }
+
+        if (m_request_response_information) {
+            if (m_v5) {
+                uint8_t value = *m_request_response_information ? 1 : 0;
+                rc = mosquitto_property_add_byte(&m_conn_properties, MQTT_PROP_REQUEST_RESPONSE_INFORMATION, value);
+                if (rc == MOSQ_ERR_SUCCESS) {
+                    logd("Copied TX request response information %d\n", value);
+                } else {
+                    loge("mosquitto_property_add_byte failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+                    throw MqttException("couldn't set request response information", rc);
+                }
+            } else {
+                logw("Request response information is ignored for MQTT v3.1.1 connection\n");
             }
         }
 
@@ -458,7 +482,9 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
                                             const std::string & topic,
                                             const std::string & payload,
                                             const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
-                                            const std::string * content_type, bool * payload_format_indicator) {
+                                            const std::string * content_type, const bool * payload_format_indicator,
+                                            const int * message_expiry_interval, const std::string * response_topic,
+                                            const std::string * correlation_data) {
     PendingRequest * request = 0;
     int message_id = 0;
     mosquitto_property * properties = NULL;
@@ -468,6 +494,67 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
         stateCheck();
 
         int rc;
+
+        // properties handled in the same order as noted in PUBLISH of MQTT v5.0 spec
+        if (payload_format_indicator) {
+            if (m_v5) {
+                char value = *payload_format_indicator ? 1 : 0;
+                rc = mosquitto_property_add_byte(&properties, MQTT_PROP_PAYLOAD_FORMAT_INDICATOR, value);
+                if (rc == MOSQ_ERR_SUCCESS) {
+                    logd("Copied TX payload format indicator %d\n", value);
+                } else {
+                    loge("mosquitto_property_add_byte failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+                    throw MqttException("couldn't set payload format indicator", rc);
+                }
+            } else {
+                logw("Payload format indicator is ignored for MQTT v3.1.1 connection\n");
+            }
+        }
+
+        if (message_expiry_interval) {
+            if (m_v5) {
+                rc = mosquitto_property_add_int32(&properties, MQTT_PROP_MESSAGE_EXPIRY_INTERVAL, *message_expiry_interval);
+                if (rc == MOSQ_ERR_SUCCESS) {
+                    logd("Copied TX message expiry interval %d\n", *message_expiry_interval);
+                } else {
+                    loge("mosquitto_property_add_int32 failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+                    throw MqttException("couldn't set message expiry interval", rc);
+                }
+            } else {
+                logw("Message expiry interval is ignored for MQTT v3.1.1 connection\n");
+            }
+        }
+
+        if (response_topic) {
+            if (m_v5) {
+                rc = mosquitto_property_add_string(&properties, MQTT_PROP_RESPONSE_TOPIC, response_topic->c_str());
+                if (rc == MOSQ_ERR_SUCCESS) {
+                    logd("Copied TX response topic \"%s\"\n", response_topic->c_str());
+                } else {
+                    loge("mosquitto_property_add_string failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+                    throw MqttException("couldn't set response topic", rc);
+                }
+            } else {
+                logw("Response topic is ignored for MQTT v3.1.1 connection\n");
+            }
+        }
+
+        if (correlation_data) {
+            if (m_v5) {
+                // NOTE: possible integer overflow when length >=2^16
+                rc = mosquitto_property_add_binary(&properties, MQTT_PROP_CORRELATION_DATA, correlation_data->data(), correlation_data->length());
+                if (rc == MOSQ_ERR_SUCCESS) {
+                    logd("Copied TX correlation data \"%.*s\"\n", correlation_data->length(), correlation_data->c_str());
+                } else {
+                    loge("mosquitto_property_add_binary failed with code %d: %s\n", rc, mosquitto_strerror(rc));
+                    throw MqttException("couldn't set correlation data", rc);
+                }
+            } else {
+                logw("Correlation data is ignored for MQTT v3.1.1 connection\n");
+            }
+        }
+
+        convertUserProperties(&user_properties, &properties);
 
         if (content_type) {
             if (m_v5) {
@@ -482,22 +569,6 @@ ClientControl::MqttPublishReply * MqttConnection::publish(unsigned timeout, int 
                 logw("Content type is ignored for MQTT v3.1.1 connection\n");
             }
         }
-
-        if (payload_format_indicator) {
-            if (m_v5) {
-                rc = mosquitto_property_add_byte(&properties, MQTT_PROP_PAYLOAD_FORMAT_INDICATOR, *payload_format_indicator ? 1 : 0);
-                if (rc == MOSQ_ERR_SUCCESS) {
-                    logd("Copied TX payload format indicator %d\n", *payload_format_indicator);
-                } else {
-                    loge("mosquitto_property_add_byte failed with code %d: %s\n", rc, mosquitto_strerror(rc));
-                    throw MqttException("couldn't payload format indicator", rc);
-                }
-            } else {
-                logw("Payload format indicator is ignored for MQTT v3.1.1 connection\n");
-            }
-        }
-
-        convertUserProperties(&user_properties, &properties);
 
         rc = mosquitto_publish_v5(m_mosq, &message_id, topic.c_str(), payload.length(), payload.data(), qos, is_retain, properties);
         if (rc != MOSQ_ERR_SUCCESS) {
@@ -679,58 +750,76 @@ ClientControl::Mqtt5ConnAck * MqttConnection::convertToConnack(int reason_code, 
             case MQTT_PROP_SESSION_EXPIRY_INTERVAL:
                 mosquitto_property_read_int32(prop, id, &value32, false);
                 conn_ack->set_sessionexpiryinterval(value32);
+                logd("Copied RX session expire interval %d\n", value32);
                 break;
             case MQTT_PROP_RECEIVE_MAXIMUM:
                 mosquitto_property_read_int16(prop, id, &value16, false);
                 conn_ack->set_receivemaximum(value16);
+                logd("Copied RX receive maximum %d\n", value16);
                 break;
             case MQTT_PROP_MAXIMUM_QOS:
                 mosquitto_property_read_byte(prop, id, &value8, false);
                 conn_ack->set_maximumqos(value8);
+                logd("Copied RX maximum QoS %d\n", value8);
                 break;
             case MQTT_PROP_RETAIN_AVAILABLE:
                 mosquitto_property_read_byte(prop, id, &value8, false);
                 conn_ack->set_retainavailable(value8);
+                logd("Copied RX retain available %d\n", value8);
                 break;
             case MQTT_PROP_MAXIMUM_PACKET_SIZE:
                 mosquitto_property_read_int32(prop, id, &value32, false);
                 conn_ack->set_maximumpacketsize(value32);
+                logd("Copied RX maximum packet size %d\n", value32);
                 break;
             case MQTT_PROP_ASSIGNED_CLIENT_IDENTIFIER:
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 conn_ack->set_assignedclientid(value_str);
+                logd("Copied RX assigned client identifier \"%s\"\n", value_str);
+                free(value_str);
                 break;
             case MQTT_PROP_REASON_STRING:
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 conn_ack->set_reasonstring(value_str);
+                logd("Copied RX reason string \"%s\"\n", value_str);
+                free(value_str);
                 break;
             case MQTT_PROP_WILDCARD_SUB_AVAILABLE:
                 mosquitto_property_read_byte(prop, id, &value8, false);
                 conn_ack->set_wildcardsubscriptionsavailable(value8);
+                logd("Copied RX wildcard subscription available %d\n", value8);
                 break;
             case MQTT_PROP_SUBSCRIPTION_ID_AVAILABLE:
                 mosquitto_property_read_byte(prop, id, &value8, false);
                 conn_ack->set_subscriptionidentifiersavailable(value8);
+                logd("Copied RX subscription identifiers available %d\n", value8);
                 break;
             case MQTT_PROP_SHARED_SUB_AVAILABLE:
                 mosquitto_property_read_byte(prop, id, &value8, false);
                 conn_ack->set_sharedsubscriptionsavailable(value8);
+                logd("Copied RX shared subscription available %d\n", value8);
                 break;
             case MQTT_PROP_SERVER_KEEP_ALIVE:
                 mosquitto_property_read_int16(prop, id, &value16, false);
                 conn_ack->set_serverkeepalive(value16);
+                logd("Copied RX server keep alive %d\n", value16);
                 break;
             case MQTT_PROP_RESPONSE_INFORMATION:
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 conn_ack->set_responseinformation(value_str);
+                logd("Copied RX response information \"%s\"\n", value_str);
+                free(value_str);
                 break;
             case MQTT_PROP_SERVER_REFERENCE:
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 conn_ack->set_serverreference(value_str);
+                logd("Copied RX server reference \"%s\"\n", value_str);
+                free(value_str);
                 break;
             case MQTT_PROP_TOPIC_ALIAS_MAXIMUM:
                 mosquitto_property_read_int16(prop, id, &value16, false);
                 conn_ack->set_topicaliasmaximum(value16);
+                logd("Copied RX topic alias maximum %d\n", value16);
                 break;
             case MQTT_PROP_USER_PROPERTY:
                 mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
@@ -738,6 +827,8 @@ ClientControl::Mqtt5ConnAck * MqttConnection::convertToConnack(int reason_code, 
                 new_user_property->set_key(name_str);
                 new_user_property->set_value(value_str);
                 logd("Copied RX user property %s:%s\n", name_str, value_str);
+                free(name_str);
+                free(value_str);
                 break;
             default:
                 logw("Unhandled CONNACK property with id %d\n", id);
@@ -762,6 +853,8 @@ ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reas
             case MQTT_PROP_REASON_STRING:
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 reply->set_reasonstring(value_str);
+                logd("Copied RX reason string \"%s\"\n", value_str);
+                free(value_str);
                 break;
             case MQTT_PROP_USER_PROPERTY:
                 mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
@@ -769,6 +862,8 @@ ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reas
                 new_user_property->set_key(name_str);
                 new_user_property->set_value(value_str);
                 logd("Copied RX user property %s:%s\n", name_str, value_str);
+                free(name_str);
+                free(value_str);
                 break;
             default:
                 logw("Unhandled PUBACK property with id %d\n", id);
@@ -782,8 +877,11 @@ ClientControl::MqttPublishReply * MqttConnection::convertToPublishReply(int reas
 ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct mosquitto_message * message, const mosquitto_property * props) {
 
     uint8_t value8;
+    uint32_t value32;
     char * name_str;
     char * value_str;
+    void * value_bin;
+    uint16_t length_bin;
     ClientControl::Mqtt5Properties * new_user_property;
 
     ClientControl::Mqtt5Message * msg = new ClientControl::Mqtt5Message();
@@ -816,6 +914,7 @@ ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 msg->set_contenttype(value_str);
                 logd("Copied RX content type \"%s\"\n", value_str);
+                free(value_str);
                 break;
             case MQTT_PROP_USER_PROPERTY:
                 mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
@@ -823,6 +922,25 @@ ClientControl::Mqtt5Message * MqttConnection::convertToMqtt5Message(const struct
                 new_user_property->set_key(name_str);
                 new_user_property->set_value(value_str);
                 logd("Copied RX user property %s:%s\n", name_str, value_str);
+                free(name_str);
+                free(value_str);
+                break;
+            case MQTT_PROP_MESSAGE_EXPIRY_INTERVAL:
+                mosquitto_property_read_int32(prop, id, &value32, false);
+                msg->set_messageexpiryinterval(value32);
+                logd("Copied RX message expiry interval %d\n", value32);
+                break;
+            case MQTT_PROP_RESPONSE_TOPIC:
+                mosquitto_property_read_string(prop, id, &value_str, false);
+                msg->set_responsetopic(value_str);
+                logd("Copied RX response topic \"%s\"\n", value_str);
+                free(value_str);
+                break;
+            case MQTT_PROP_CORRELATION_DATA:
+                mosquitto_property_read_binary(prop, id, &value_bin, &length_bin, false);
+                msg->set_correlationdata(value_bin, length_bin);
+                logd("Copied RX correlation data \"%.*s\"\n", (int)length_bin, value_bin);
+                free(value_bin);
                 break;
             default:
                 logw("Unhandled PUBLISH property with id %d\n", id);
@@ -849,14 +967,19 @@ ClientControl::Mqtt5Disconnect * MqttConnection::convertToDisconnect(int reason_
             case MQTT_PROP_SESSION_EXPIRY_INTERVAL:
                 mosquitto_property_read_int32(prop, id, &value32, false);
                 disconnect->set_sessionexpiryinterval(value32);
+                logd("Copied RX session expire interval %d\n", value32);
                 break;
             case MQTT_PROP_REASON_STRING:
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 disconnect->set_reasonstring(value_str);
+                logd("Copied RX reason string \"%s\"\n", value_str);
+                free(value_str);
                 break;
             case MQTT_PROP_SERVER_REFERENCE:
                 mosquitto_property_read_string(prop, id, &value_str, false);
                 disconnect->set_serverreference(value_str);
+                logd("Copied RX server reference \"%s\"\n", value_str);
+                free(value_str);
                 break;
             case MQTT_PROP_USER_PROPERTY:
                 mosquitto_property_read_string_pair(prop, id, &name_str, &value_str, false);
@@ -864,6 +987,8 @@ ClientControl::Mqtt5Disconnect * MqttConnection::convertToDisconnect(int reason_
                 new_user_property->set_key(name_str);
                 new_user_property->set_value(value_str);
                 logd("Copied RX user property %s:%s\n", name_str, value_str);
+                free(name_str);
+                free(value_str);
                 break;
             default:
                 logw("Unhandled DISCONNECT property with id %d\n", id);
@@ -914,6 +1039,8 @@ void MqttConnection::updateMqttSubscribeReply(const std::vector<int> & granted_q
                 new_user_property->set_key(name_str);
                 new_user_property->set_value(value_str);
                 logd("Copied RX user property %s:%s\n", name_str, value_str);
+                free(name_str);
+                free(value_str);
                 break;
             default:
                 logw("Unhandled SUBACK/UNSUBACK property with id %d\n", id);

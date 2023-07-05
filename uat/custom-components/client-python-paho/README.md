@@ -125,6 +125,10 @@ Python Paho MQTT library is limited in
 
 1. Publishing
 Receiving properties for the PUBACK is not implemented - Python Paho MQTT publish() method and on_publish() callback do not provide it.
+In Python Paho on_publish() callback does not provide reason codes for both MQTTv3 and MQTTv5, instead zero code will be returned.
 
 2. Subscribing
 Python Paho MQTT does not provide the API to set the Subscription ID in SUBSCRIBE request.
+
+3. Unsubscription
+In Python Paho on_unsubscribe() callback does not provide reason codes for MQTTv3, instead zero code will be returned on success.

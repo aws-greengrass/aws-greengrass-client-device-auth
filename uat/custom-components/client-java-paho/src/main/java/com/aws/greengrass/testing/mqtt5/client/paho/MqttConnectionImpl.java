@@ -95,6 +95,7 @@ public class MqttConnectionImpl implements MqttConnection {
                     subscriptions.get(i).getFilter(), subscriptions.get(i).getQos());
             subscription.setRetainHandling(subscriptions.get(i).getRetainHandling());
             subscription.setRetainAsPublished(subscriptions.get(i).isRetainAsPublished());
+            subscription.setNoLocal(subscriptions.get(i).isNoLocal());
             mqttSubscriptions[i] = subscription;
             listeners[i] = new MqttMessageListener();
         }
@@ -150,26 +151,7 @@ public class MqttConnectionImpl implements MqttConnection {
         mqttMessage.setPayload(message.getPayload());
         mqttMessage.setRetained(message.isRetain());
 
-        MqttProperties properties = new MqttProperties();
-        if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
-            List<UserProperty> userProperties = convertToUserProperties(message.getUserProperties());
-            properties.setUserProperties(userProperties);
-            userProperties.forEach(p -> logger.atInfo()
-                    .log("Publish MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
-        }
-
-        String contentType = message.getContentType();
-        if (contentType != null && !contentType.isEmpty()) {
-            properties.setContentType(contentType);
-            logger.atInfo().log("Publish MQTT payload content type '{}'", contentType);
-        }
-
-        Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
-        if (payloadFormatIndicator != null) {
-            properties.setPayloadFormat(payloadFormatIndicator);
-            logger.atInfo().log("Publish MQTT payload format indicator '{}'", payloadFormatIndicator);
-        }
-
+        MqttProperties properties = createPublishProperties(message);
         mqttMessage.setProperties(properties);
 
         MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
@@ -297,6 +279,37 @@ public class MqttConnectionImpl implements MqttConnection {
         return connectionOptions;
     }
 
+    private MqttProperties createPublishProperties(Message message) {
+        MqttProperties properties = new MqttProperties();
+
+        if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
+            List<UserProperty> userProperties = convertToUserProperties(message.getUserProperties());
+            properties.setUserProperties(userProperties);
+            userProperties.forEach(p -> logger.atInfo()
+                    .log("Publish MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
+        }
+
+        String contentType = message.getContentType();
+        if (contentType != null && !contentType.isEmpty()) {
+            properties.setContentType(contentType);
+            logger.atInfo().log("Publish MQTT payload content type '{}'", contentType);
+        }
+
+        Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
+        if (payloadFormatIndicator != null) {
+            properties.setPayloadFormat(payloadFormatIndicator);
+            logger.atInfo().log("Publish MQTT payload format indicator '{}'", payloadFormatIndicator);
+        }
+
+        Integer messageExpiryInterval = message.getMessageExpiryInterval();
+        if (messageExpiryInterval != null) {
+            properties.setMessageExpiryInterval(Long.valueOf(messageExpiryInterval));
+            logger.atInfo().log("Publish MQTT expiry message interval '{}'", messageExpiryInterval);
+        }
+
+        return properties;
+    }
+
     private static ConnectResult buildConnectResult(boolean success, IMqttToken token, String error) {
         ConnAckInfo connAckInfo = convertConnAckPacket(token);
         return new ConnectResult(success, connAckInfo, error);
@@ -357,9 +370,11 @@ public class MqttConnectionImpl implements MqttConnection {
 
             String contentType = null;
             Boolean payloadFormatIndicator = null;
+            Long messageExpiryInterval = null;
             if (receivedProperties != null) {
                 contentType = receivedProperties.getContentType();
                 payloadFormatIndicator = receivedProperties.getPayloadFormat();
+                messageExpiryInterval = receivedProperties.getMessageExpiryInterval();
             }
 
             List<Mqtt5Properties> userProps = convertToMqtt5Properties(receivedProperties);
@@ -380,6 +395,9 @@ public class MqttConnectionImpl implements MqttConnection {
             }
             if (payloadFormatIndicator != null) {
                 logger.atInfo().log("Received MQTT message has payload format indicator '{}'", payloadFormatIndicator);
+            }
+            if (messageExpiryInterval != null) {
+                logger.atInfo().log("Received MQTT message has message expiry interval {}", messageExpiryInterval);
             }
         }
     }

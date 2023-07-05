@@ -37,6 +37,9 @@ message Mqtt5Message {
     repeated Mqtt5Properties properties = 5;
     optional string contentType = 6;
     optional bool payloadFormatIndicator = 7;
+    optional int32 messageExpiryInterval = 8;
+    optional string responseTopic = 9;
+    optional bytes correlationData = 10;
 };
 
 // End of common part
@@ -218,6 +221,7 @@ message MqttConnectRequest {
     repeated Mqtt5Properties properties = 8;            // CONNECT packet MQTT 5 properties
     optional TLSSettings tls = 9;                       // TLS settings for secured connection
     optional Mqtt5Message willMessage = 10;             // will message to set
+    optional bool requestResponseInformation = 11;      // request Response Information
 }
 
 // Response to connect request

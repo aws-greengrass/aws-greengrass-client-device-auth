@@ -82,6 +82,11 @@ public class MqttMessageEvent extends EventImpl {
             return false;
         }
 
+        matched = isContentTypeMatched(filter.getContentType());
+        if (!matched) {
+            return false;
+        }
+
         matched = isPayloadFormatIndicatorMatched(filter.getPayloadFormatIndicator());
         if (!matched) {
             return false;
@@ -132,6 +137,10 @@ public class MqttMessageEvent extends EventImpl {
 
     private boolean isUserPropertiesMatched(List<Mqtt5Properties> userProperties) {
         return userProperties == null || userProperties.equals(message.getPropertiesList());
+    }
+
+    private boolean isContentTypeMatched(String contentType) {
+        return contentType == null || contentType.equals(message.getContentType());
     }
 
     private boolean isPayloadFormatIndicatorMatched(Boolean payloadFormatIndicator) {

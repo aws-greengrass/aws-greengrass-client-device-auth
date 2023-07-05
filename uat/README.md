@@ -104,11 +104,11 @@ Download https://d2s8p88vqu9w66.cloudfront.net/releases/greengrass-nucleus-lates
 Execute the UATs by running the following commands from the uat directory of the project.
 
 ```bash
-sudo java -Dggc.archive=<path-to-nucleus-zip> -Dtest.log.path=<path-to-test-results-folder> -Dtags=GGMQ -jar <path-to-test-jar>
+sudo -E java -Dggc.archive=<path-to-nucleus-zip> -Dtest.log.path=<path-to-test-results-folder> -Dtags=GGMQ -jar <path-to-test-jar>
 ```
 An example to run from uat directory:
 ```bash
-sudo java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="GGMQ" -jar testing-features/target/client-devices-auth-testing-features.jar
+sudo -E java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="GGMQ" -jar testing-features/target/client-devices-auth-testing-features.jar
 ```
 
 ### Run scenarios on Windows

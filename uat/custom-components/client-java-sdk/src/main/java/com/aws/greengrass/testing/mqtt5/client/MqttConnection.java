@@ -133,6 +133,9 @@ public interface MqttConnection {
 
         /** Optional payload format indicator. */
         private Boolean payloadFormatIndicator;
+
+        /** Optional message expiry interval. */
+        private Integer messageExpiryInterval;
     }
 
     /**

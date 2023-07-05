@@ -121,6 +121,9 @@ public interface MqttConnection {
         /** Optional payload format indicator. */
         private Boolean payloadFormatIndicator;
 
+        /** Optional message expiry interval. */
+        private Integer messageExpiryInterval;
+
         // TODO: add user's properties and so one
     }
 

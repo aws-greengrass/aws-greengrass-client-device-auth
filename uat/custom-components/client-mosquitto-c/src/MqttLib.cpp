@@ -33,8 +33,9 @@ MqttLib::~MqttLib() {
 MqttConnection * MqttLib::createConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id,
                                             const std::string & host, unsigned short port, unsigned short keepalive,
                                             bool clean_session, const char * ca, const char * cert, const char * key,
-                                            bool v5, const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties) {
-    return new MqttConnection(grpc_client, client_id, host, port, keepalive, clean_session, ca, cert, key, v5, user_properties);
+                                            bool v5, const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                                            const bool * rri) {
+    return new MqttConnection(grpc_client, client_id, host, port, keepalive, clean_session, ca, cert, key, v5, user_properties, rri);
 }
 
 

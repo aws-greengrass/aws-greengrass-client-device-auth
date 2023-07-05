@@ -49,11 +49,14 @@ public:
      * @param key pointer to client's key content, can be NULL
      * @param v5 use MQTT v5.0
      * @param user_properties the user properties of the CONNECT request
+     * @param request_response_information pointer to optional request response information flag
      * @throw MqttException on errors
      */
     MqttConnection(GRPCDiscoveryClient & grpc_client, const std::string & client_id, const std::string & host,
                     unsigned short port, unsigned short keepalive, bool clean_session, const char * ca,
-                    const char * cert, const char * key, bool v5, const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties);
+                    const char * cert, const char * key, bool v5,
+                    const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
+                    const bool * request_response_information);
     ~MqttConnection();
 
 
@@ -114,13 +117,18 @@ public:
      * @param user_properties the user properties of the PUBLISH request
      * @param content_type the optional content type
      * @param payload_format_indicator the pointer to optional value of 'payload format indicator' of the message
+     * @param message_expiry_interval the pointer to optinal value of 'message expiry interval'
+     * @param response_topic the pointer to optional response topic
+     * @param correlation_data the pointer to optional binary correlation data
      * @return pointer to allocated gRPC MqttPublishReply
      * @throw MqttException on errors
      */
     ClientControl::MqttPublishReply * publish(unsigned timeout, int qos, bool is_retain, const std::string & topic,
                                                 const std::string & payload,
                                                 const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
-                                                const std::string * content_type, bool * payload_format_indicator);
+                                                const std::string * content_type, const bool * payload_format_indicator,
+                                                const int * message_expiry_interval, const std::string * response_topic,
+                                                const std::string * correlation_data);
 
     /**
      * Disconnect from the broker.
@@ -191,6 +199,7 @@ private:
     std::string m_key;
 
     mosquitto_property * m_conn_properties;
+    bool * m_request_response_information;
 
     struct mosquitto * m_mosq;
 
