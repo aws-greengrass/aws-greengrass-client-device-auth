@@ -810,7 +810,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         message - MQTTMessage object
         Returns Mqtt5Message object
         """
-        props = message.properties
+        props = getattr(message, "properties", None)
         mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "PUBLISH")
         mqtt_message = Mqtt5Message(
             topic=message.topic,
