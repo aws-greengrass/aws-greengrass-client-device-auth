@@ -1135,7 +1135,7 @@ Feature: GGMQ-1
     Then the Greengrass deployment is COMPLETED on the device after 299 seconds
 
     And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
-    And I set IoT Core broker as "default_broker" with port 9443
+    And I force to set IoT Core broker as "default_broker" with port 9443
     Then I wait 60 seconds
     And I can not connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
 

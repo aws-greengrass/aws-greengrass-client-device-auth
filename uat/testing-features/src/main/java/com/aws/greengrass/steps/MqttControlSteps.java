@@ -799,7 +799,10 @@ public class MqttControlSteps {
             connect(clientDeviceId, componentId, brokerId, mqttVersion);
         } catch (RuntimeException e) {
             log.info("Connection was failed with message '{}'", e.getMessage());
+            return;
         }
+        log.error("It was expected that there would be no connection, but connected");
+        throw new RuntimeException("It was expected that there would be no connection, but connected");
     }
 
     /**
@@ -1171,14 +1174,21 @@ public class MqttControlSteps {
      * @param brokerId broker name in tests
      * @param port broker port in tests
      */
-    @And("I set IoT Core broker as {string} with port {int}")
+    @And("I force to set IoT Core broker as {string} with port {int}")
     public void setBrokerPort(String brokerId, int port) {
         final String endpoint = resources.lifecycle(IotLifecycle.class)
                                          .dataEndpoint();
         final String ca = registrationContext.rootCA();
-        MqttBrokerConnectionInfo broker = new MqttBrokerConnectionInfo(
-                endpoint, port, Collections.singletonList(ca));
-        brokers.put(brokerId, Collections.singletonList(broker));
+        List<MqttBrokerConnectionInfo> connectionInfos = brokers.get(brokerId);
+        if (connectionInfos != null && !connectionInfos.isEmpty()) {
+            for (MqttBrokerConnectionInfo info : connectionInfos) {
+                info.setPort(port);
+            }
+        } else {
+            MqttBrokerConnectionInfo broker = new MqttBrokerConnectionInfo(
+                    endpoint, port, Collections.singletonList(ca));
+            brokers.put(brokerId, Collections.singletonList(broker));
+        }
         log.info("Added IoT Core broker as {} with endpoint {}:{}", brokerId, endpoint, port);
     }
 
