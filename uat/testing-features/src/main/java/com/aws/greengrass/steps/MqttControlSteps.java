@@ -1174,22 +1174,13 @@ public class MqttControlSteps {
      * @param brokerId broker name in tests
      * @param port broker port in tests
      */
-    @And("I force to set IoT Core broker as {string} with port {int}")
+    @And("I force to set broker {string} with port {int}")
     public void setBrokerPort(String brokerId, int port) {
-        final String endpoint = resources.lifecycle(IotLifecycle.class)
-                                         .dataEndpoint();
-        final String ca = registrationContext.rootCA();
         List<MqttBrokerConnectionInfo> connectionInfos = brokers.get(brokerId);
-        if (connectionInfos != null && !connectionInfos.isEmpty()) {
-            for (MqttBrokerConnectionInfo info : connectionInfos) {
+        for (MqttBrokerConnectionInfo info : connectionInfos) {
                 info.setPort(port);
-            }
-        } else {
-            MqttBrokerConnectionInfo broker = new MqttBrokerConnectionInfo(
-                    endpoint, port, Collections.singletonList(ca));
-            brokers.put(brokerId, Collections.singletonList(broker));
         }
-        log.info("Added IoT Core broker as {} with endpoint {}:{}", brokerId, endpoint, port);
+        log.info("Port of broker {} force changed to {}", brokerId, port);
     }
 
     /**
