@@ -313,19 +313,19 @@ public class MqttConnectionImpl implements MqttConnection {
         String contentType = message.getContentType();
         if (contentType != null && !contentType.isEmpty()) {
             properties.setContentType(contentType);
-            logger.atInfo().log("Publish Tx payload content type '{}'", contentType);
+            logger.atInfo().log("PUBLISH Tx payload content type '{}'", contentType);
         }
 
         Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
         if (payloadFormatIndicator != null) {
             properties.setPayloadFormat(payloadFormatIndicator);
-            logger.atInfo().log("Publish Tx payload format indicator '{}'", payloadFormatIndicator);
+            logger.atInfo().log("PUBLISH Tx payload format indicator '{}'", payloadFormatIndicator);
         }
 
         Integer messageExpiryInterval = message.getMessageExpiryInterval();
         if (messageExpiryInterval != null) {
             properties.setMessageExpiryInterval(Long.valueOf(messageExpiryInterval));
-            logger.atInfo().log("Publish Tx expiry message interval '{}'", messageExpiryInterval);
+            logger.atInfo().log("PUBLISH Tx expiry message interval '{}'", messageExpiryInterval);
         }
 
         return properties;

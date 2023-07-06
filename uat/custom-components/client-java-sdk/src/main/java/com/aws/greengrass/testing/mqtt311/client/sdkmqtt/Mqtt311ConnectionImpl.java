@@ -47,7 +47,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final String EXCEPTION_WHEN_PUBLISHING = "Exception occurred during publish";
     private static final String EXCEPTION_WHEN_SUBSCRIBING = "Exception occurred during subscribe";
     private static final String EXCEPTION_WHEN_UNSUBSCRIBING = "Exception occurred during unsubscribe";
-    private static final long RECONNECT_TIMEOUT_SEC = 86400; // one day
+    private static final long RECONNECT_TIMEOUT_SEC = 86_400; // one day
 
     static final int REASON_CODE_SUCCESS = 0;
 
