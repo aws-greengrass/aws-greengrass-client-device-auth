@@ -132,12 +132,10 @@ class GRPCDiscoveryClient implements GRPCClient {
             builder.setPayloadFormatIndicator(payloadFormatIndicator);
         }
 
-
         final Integer messageExpiryInterval = message.getMessageExpiryInterval();
         if (messageExpiryInterval != null) {
             builder.setMessageExpiryInterval(messageExpiryInterval);
         }
-
 
         final String responseTopic = message.getResponseTopic();
         if (responseTopic != null) {

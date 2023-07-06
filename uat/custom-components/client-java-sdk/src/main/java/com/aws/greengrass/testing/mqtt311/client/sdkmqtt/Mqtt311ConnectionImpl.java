@@ -294,7 +294,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         checkUserProperties(userProperties);
 
         if (subscriptionId != null) {
-            throw new IllegalArgumentException("MQTT v3.1.1 doesn't support subscription id");
+            throw new IllegalArgumentException("Iot device SDK MQTT v3.1.1 client does not support subscription id");
         }
 
         if (subscriptions.size() != 1) {
@@ -361,6 +361,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
      */
     private MqttClientConnection createConnection(MqttLib.ConnectionParams connectionParams) throws MqttException {
         checkUserProperties(connectionParams.getUserProperties());
+        if (connectionParams.getRequestResponseInformation() != null) {
+            logger.atWarn().log("MQTT v3.1.1 does not support request response information");
+        }
 
         try (AwsIotMqttConnectionBuilder builder = getConnectionBuilder(connectionParams)) {
             builder.withEndpoint(connectionParams.getHost())

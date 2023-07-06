@@ -45,8 +45,9 @@ public interface MqttConnection {
         private String responseInformation;
         private String serverReference;
         private List<Mqtt5Properties> userProperties;
+        private Integer topicAliasMaximum;          // miss for AWS IoT device SDK MQTT5 client ?
 
-        // TODO: int topicAliasMaximum;          // miss for AWS IoT device SDK MQTT5 client ?
+
         // TODO: Authentication Method
         // TODO: Authentication Data
 

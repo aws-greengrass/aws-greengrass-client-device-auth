@@ -454,6 +454,12 @@ public class MqttConnectionImpl implements MqttConnection {
                 connectBuilder.withUserProperties(convertToUserProperties(userProperties, "CONNECT"));
             }
 
+            final Boolean requestResponseInformation = connectionParams.getRequestResponseInformation();
+            if (requestResponseInformation != null) {
+                connectBuilder.withRequestResponseInformation(requestResponseInformation);
+                logger.atInfo().log("CONNECT Tx request response information: {}", requestResponseInformation);
+            }
+
             ClientSessionBehavior clientSessionBehavior = connectionParams.isCleanSession()
                         ? ClientSessionBehavior.CLEAN : ClientSessionBehavior.DEFAULT;
 
@@ -530,6 +536,11 @@ public class MqttConnectionImpl implements MqttConnection {
 
         final List<Mqtt5Properties> userProperties = convertToMqtt5Properties(packet.getUserProperties(), "CONNACK");
 
+        final String responseInformation = packet.getResponseInformation();
+        if (responseInformation != null) {
+            logger.atInfo().log("CONNACK Rx response information: '{}'", responseInformation);
+        }
+
         QOS maximumQOS = packet.getMaximumQOS();
         return new ConnAckInfo(packet.getSessionPresent(),
                                 reasonCode == null ? null : reasonCode.getValue(),
@@ -544,9 +555,10 @@ public class MqttConnectionImpl implements MqttConnection {
                                 packet.getSubscriptionIdentifiersAvailable(),
                                 packet.getSharedSubscriptionsAvailable(),
                                 packet.getServerKeepAlive(),
-                                packet.getResponseInformation(),
+                                responseInformation,
                                 packet.getServerReference(),
-                                userProperties
+                                userProperties,
+                                null
                                 );
     }
 

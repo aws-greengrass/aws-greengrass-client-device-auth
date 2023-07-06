@@ -53,6 +53,9 @@ public interface MqttLib extends AutoCloseable {
 
         /** User properties. */
         private List<Mqtt5Properties> userProperties;
+
+        /** Optional request response information. */
+        private Boolean requestResponseInformation;
     }
 
     /**
