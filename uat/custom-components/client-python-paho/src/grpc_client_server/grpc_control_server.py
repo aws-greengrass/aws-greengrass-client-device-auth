@@ -169,7 +169,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         self.__logger.info(
             "createMqttConnection: clientId %s broker %s:%i", request.clientId, request.host, request.port
         )
-        # TODO add properties
+
         connection_params = ConnectionParams(
             client_id=request.clientId,
             host=request.host,
@@ -180,6 +180,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             ca_cert=ca_cert,
             cert=cert,
             key=key,
+            mqtt_properties=request.properties,
         )
 
         try:
@@ -250,7 +251,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             "PublishMqtt connection_id %i topic %s retain %i", connection_id, message.topic, int(message.retain)
         )
 
-        # TODO add properties handling and other fields
+        # TODO add handling other fields
 
         connection = self.__mqtt_lib.get_connection(connection_id)
         if connection is None:
@@ -261,7 +262,11 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             publish_reply = await connection.publish(
                 timeout=timeout,
                 message=MqttPubMessage(
-                    qos=message.qos, retain=message.retain, topic=message.topic, payload=message.payload
+                    qos=message.qos,
+                    retain=message.retain,
+                    topic=message.topic,
+                    payload=message.payload,
+                    mqtt_properties=message.properties,
                 ),
             )
             return publish_reply
@@ -298,15 +303,13 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         connection_id = request.connectionId.connectionId
         self.__logger.info("CloseMqttConnection connection_id %i reason %i", connection_id, reason)
 
-        # TODO add properties handling
-
         connection = self.__mqtt_lib.unregister_connection(connection_id)
         if connection is None:
             self.__logger.warning("CloseMqttConnection: connection with id %i is not found", connection_id)
             await context.abort(grpc.StatusCode.NOT_FOUND, "connection for that id is not found")
 
         try:
-            await connection.disconnect(timeout=timeout, reason=reason)
+            await connection.disconnect(timeout=timeout, reason=reason, mqtt_properties=request.properties)
             return Empty()
         except MQTTException as error:
             self.__logger.warning("CloseMqttConnection: exception during disconnecting")
@@ -391,8 +394,9 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             await context.abort(grpc.StatusCode.NOT_FOUND, "connection for that id is not found")
 
         try:
-            # TODO add properties
-            sub_reply = await connection.subscribe(timeout=timeout, subscriptions=subscribtions)
+            sub_reply = await connection.subscribe(
+                timeout=timeout, subscriptions=subscribtions, mqtt_properties=request.properties
+            )
             return sub_reply
         except MQTTException as error:
             self.__logger.warning("SubscribeMqtt: exception during subscribing")
@@ -440,8 +444,9 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             await context.abort(grpc.StatusCode.NOT_FOUND, "connection for that id is not found")
 
         try:
-            # TODO add properties
-            unsub_reply = await connection.unsubscribe(timeout=timeout, filters=filters)
+            unsub_reply = await connection.unsubscribe(
+                timeout=timeout, filters=filters, mqtt_properties=request.properties
+            )
             return unsub_reply
         except MQTTException as error:
             self.__logger.warning("UnsubscribeMqtt: exception during subscribing")
