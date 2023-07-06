@@ -177,7 +177,7 @@ class GRPCControlServer {
                 return;
             }
 
-            MqttLib.ConnectionParams.ConnectionParamsBuilder connectionParamsBuilder 
+            MqttLib.ConnectionParams.ConnectionParamsBuilder connectionParamsBuilder
                     = MqttLib.ConnectionParams.builder()
                             .clientId(clientId)
                             .host(host)
@@ -223,6 +223,10 @@ class GRPCControlServer {
 
             if (!request.getPropertiesList().isEmpty()) {
                 connectionParamsBuilder.userProperties(request.getPropertiesList());
+            }
+
+            if (request.hasRequestResponseInformation()) {
+                connectionParamsBuilder.requestResponseInformation(request.getRequestResponseInformation());
             }
 
             logger.atInfo().log("createMqttConnection: clientId {} broker {}:{}", clientId, host, port);
@@ -362,31 +366,40 @@ class GRPCControlServer {
             logger.atInfo().log("Publish: connectionId {} topic {} QoS {} retain {}",
                                     connectionId, topic, qos, isRetain);
 
-            MqttConnection.Message.MessageBuilder internalMessage = MqttConnection.Message.builder()
+            MqttConnection.Message.MessageBuilder internalBuilder = MqttConnection.Message.builder()
                                 .qos(qos)
                                 .retain(isRetain)
                                 .topic(topic)
                                 .payload(message.getPayload().toByteArray());
 
-            if (!message.getPropertiesList().isEmpty()) {
-                internalMessage.userProperties(message.getPropertiesList());
-            }
-
-            if (message.hasContentType()) {
-                internalMessage.contentType(message.getContentType());
-            }
-
+            // please use the same order as in 3.3.2 PUBLISH Variable Header of MQTT v5.0 specification
             if (message.hasPayloadFormatIndicator()) {
-                internalMessage.payloadFormatIndicator(message.getPayloadFormatIndicator());
+                internalBuilder.payloadFormatIndicator(message.getPayloadFormatIndicator());
             }
 
             if (message.hasMessageExpiryInterval()) {
-                internalMessage.messageExpiryInterval(message.getMessageExpiryInterval());
+                internalBuilder.messageExpiryInterval(message.getMessageExpiryInterval());
+            }
+
+            if (message.hasResponseTopic()) {
+                internalBuilder.responseTopic(message.getResponseTopic());
+            }
+
+            if (message.hasCorrelationData()) {
+                internalBuilder.correlationData(message.getCorrelationData().toByteArray());
+            }
+
+            if (!message.getPropertiesList().isEmpty()) {
+                internalBuilder.userProperties(message.getPropertiesList());
+            }
+
+            if (message.hasContentType()) {
+                internalBuilder.contentType(message.getContentType());
             }
 
             MqttPublishReply.Builder builder = MqttPublishReply.newBuilder();
             try {
-                MqttConnection.PubAckInfo pubAckInfo = connection.publish(timeout, internalMessage.build());
+                MqttConnection.PubAckInfo pubAckInfo = connection.publish(timeout, internalBuilder.build());
                 convertPubAckInfo(pubAckInfo, builder);
                 if (pubAckInfo != null) {
                     logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",
@@ -654,87 +667,94 @@ class GRPCControlServer {
     }
 
     @SuppressWarnings("PMD.CognitiveComplexity")
-    private static Mqtt5ConnAck convertConnAckInfo(MqttConnection.ConnAckInfo conAckInfo) {
+    private static Mqtt5ConnAck convertConnAckInfo(MqttConnection.ConnAckInfo connAckInfo) {
         final Mqtt5ConnAck.Builder builder = Mqtt5ConnAck.newBuilder();
 
-        Boolean sessionPresent = conAckInfo.getSessionPresent();
+        // please keep order the same as in 3.2.2 CONNACK Variable Header of MQTT v5.0 spec
+        Boolean sessionPresent = connAckInfo.getSessionPresent();
         if (sessionPresent != null) {
             builder.setSessionPresent(sessionPresent);
         }
 
-        Integer reasonCode = conAckInfo.getReasonCode();
+        Integer reasonCode = connAckInfo.getReasonCode();
         if (reasonCode != null) {
             builder.setReasonCode(reasonCode);
         }
 
-        Integer sessionExpiryInterval = conAckInfo.getSessionExpiryInterval();
+        // please keep order the same as in 3.2.2.3 CONNACK Properties of MQTT v5.0 spec
+        Integer sessionExpiryInterval = connAckInfo.getSessionExpiryInterval();
         if (sessionExpiryInterval != null) {
             builder.setSessionExpiryInterval(sessionExpiryInterval);
         }
 
-        Integer receiveMaximum = conAckInfo.getReceiveMaximum();
+        Integer receiveMaximum = connAckInfo.getReceiveMaximum();
         if (receiveMaximum != null) {
             builder.setReceiveMaximum(receiveMaximum);
         }
 
-        Integer maximumQoS = conAckInfo.getMaximumQoS();
+        Integer maximumQoS = connAckInfo.getMaximumQoS();
         if (maximumQoS != null) {
             builder.setMaximumQoS(maximumQoS);
         }
 
-        Boolean retainAvailable = conAckInfo.getRetainAvailable();
+        Boolean retainAvailable = connAckInfo.getRetainAvailable();
         if (retainAvailable != null) {
             builder.setRetainAvailable(retainAvailable);
         }
 
-        Integer maximumPacketSize = conAckInfo.getMaximumPacketSize();
+        Integer maximumPacketSize = connAckInfo.getMaximumPacketSize();
         if (maximumPacketSize != null) {
             builder.setMaximumPacketSize(maximumPacketSize);
         }
 
-        String assignedClientId = conAckInfo.getAssignedClientId();
+        String assignedClientId = connAckInfo.getAssignedClientId();
         if (assignedClientId != null) {
             builder.setAssignedClientId(assignedClientId);
         }
 
-        String reasonString = conAckInfo.getReasonString();
+        Integer topicAliasMaximum = connAckInfo.getTopicAliasMaximum();
+        if (topicAliasMaximum != null) {
+            builder.setTopicAliasMaximum(topicAliasMaximum);
+        }
+
+        String reasonString = connAckInfo.getReasonString();
         if (reasonString != null) {
             builder.setReasonString(reasonString);
         }
 
-        Boolean wildcardSubscriptionsAvailable = conAckInfo.getWildcardSubscriptionsAvailable();
+        List<Mqtt5Properties> userProperties = connAckInfo.getUserProperties();
+        if (userProperties != null) {
+            builder.addAllProperties(userProperties);
+        }
+
+        Boolean wildcardSubscriptionsAvailable = connAckInfo.getWildcardSubscriptionsAvailable();
         if (wildcardSubscriptionsAvailable != null) {
             builder.setWildcardSubscriptionsAvailable(wildcardSubscriptionsAvailable);
         }
 
-        Boolean subscriptionIdentifiersAvailable = conAckInfo.getSubscriptionIdentifiersAvailable();
+        Boolean subscriptionIdentifiersAvailable = connAckInfo.getSubscriptionIdentifiersAvailable();
         if (subscriptionIdentifiersAvailable != null) {
             builder.setSubscriptionIdentifiersAvailable(subscriptionIdentifiersAvailable);
         }
 
-        Boolean sharedSubscriptionsAvailable = conAckInfo.getSharedSubscriptionsAvailable();
+        Boolean sharedSubscriptionsAvailable = connAckInfo.getSharedSubscriptionsAvailable();
         if (sharedSubscriptionsAvailable != null) {
             builder.setSharedSubscriptionsAvailable(sharedSubscriptionsAvailable);
         }
 
-        Integer serverKeepAlive = conAckInfo.getServerKeepAlive();
+        Integer serverKeepAlive = connAckInfo.getServerKeepAlive();
         if (serverKeepAlive != null) {
             builder.setServerKeepAlive(serverKeepAlive);
         }
 
-        String responseInformation = conAckInfo.getResponseInformation();
+        String responseInformation = connAckInfo.getResponseInformation();
         if (responseInformation != null) {
             builder.setResponseInformation(responseInformation);
         }
 
-        String serverReference = conAckInfo.getServerReference();
+        String serverReference = connAckInfo.getServerReference();
         if (serverReference != null) {
             builder.setServerReference(serverReference);
-        }
-
-        List<Mqtt5Properties> userProperties = conAckInfo.getUserProperties();
-        if (userProperties != null) {
-            builder.addAllProperties(userProperties);
         }
 
         return builder.build();
@@ -760,7 +780,6 @@ class GRPCControlServer {
             builder.addAllProperties(userProperties);
         }
     }
-
 
     private static void convertPubAckInfo(MqttConnection.PubAckInfo pubAckInfo, MqttPublishReply.Builder builder) {
         if (pubAckInfo == null) {

@@ -65,3 +65,6 @@ In result we check all values of QoS and properties in gRPC SubscribeMqtt reques
 
 3. Unsubscription
 In Mosquitto API mosquitto_unsubscribe_v5_callback_set() callback does not provides result code, instead zero code will be returned on success.
+
+4. Windows implementation
+mosquitto library can build on Windows but miss threaded interface and can works only in synchronous mode. That brokes logic of gRPC requests and client control.
