@@ -47,6 +47,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final String EXCEPTION_WHEN_PUBLISHING = "Exception occurred during publish";
     private static final String EXCEPTION_WHEN_SUBSCRIBING = "Exception occurred during subscribe";
     private static final String EXCEPTION_WHEN_UNSUBSCRIBING = "Exception occurred during unsubscribe";
+    private static final long RECONNECT_TIMEOUT_SEC = 86400; // one day
 
     static final int REASON_CODE_SUCCESS = 0;
 
@@ -185,10 +186,12 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     public ConnectResult start(long timeout, int connectionId) throws MqttException {
         this.connectionId = connectionId;
 
+        boolean success = false;
         CompletableFuture<Boolean> connectFuture = connection.connect();
         try {
             Boolean sessionPresent = connectFuture.get(timeout, TimeUnit.SECONDS);
             logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
+            success = true;
             return buildConnectResult(true, sessionPresent);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
@@ -197,6 +200,10 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         } catch (TimeoutException | ExecutionException ex) {
             logger.atError().withThrowable(ex).log(EXCEPTION_WHEN_CONNECTING);
             throw new MqttException(EXCEPTION_WHEN_CONNECTING, ex);
+        } finally {
+            if (!success) {
+                connection.close();
+            }
         }
     }
 
@@ -370,7 +377,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 .withPort((short)connectionParams.getPort())
                 .withClientId(connectionParams.getClientId())
                 .withCleanSession(connectionParams.isCleanSession())
-                .withConnectionEventCallbacks(connectionEvents);
+                .withConnectionEventCallbacks(connectionEvents)
+                .withReconnectTimeoutSecs(RECONNECT_TIMEOUT_SEC, RECONNECT_TIMEOUT_SEC);
 
             /* TODO: other options:
                 withKeepAliveMs() / withKeepAliveSecs()
