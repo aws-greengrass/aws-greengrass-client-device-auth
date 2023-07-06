@@ -281,7 +281,7 @@ public class MqttConnectionImpl implements MqttConnection {
     @Override
     public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
 
-        if (!isClosing.getAndSet(true)) {
+        if (isClosing.compareAndSet(false, true)) {
             final DisconnectPacket.DisconnectReasonCode disconnectReason
                     = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
             DisconnectPacket.DisconnectPacketBuilder builder = new DisconnectPacket.DisconnectPacketBuilder()
