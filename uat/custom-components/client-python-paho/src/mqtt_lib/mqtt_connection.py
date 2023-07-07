@@ -33,6 +33,8 @@ from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import (
 )
 from grpc_client_server.grpc_discovery_client import GRPCDiscoveryClient
 
+RECONNECT_DELAY_SEC = 86400
+
 
 @dataclass
 class MqttResult:
@@ -83,7 +85,7 @@ class ConnectionParams:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass
-class ConnectResult:  # pylint: disable=too-many-instance-attributes
+class ConnectResult:
     """Class container for connect results"""
 
     # Useful information from CONNACK packet. Can be missed
@@ -93,7 +95,7 @@ class ConnectResult:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass
-class MqttPubMessage:
+class MqttPubMessage:  # pylint: disable=too-many-instance-attributes
     """Publish message information and payload"""
 
     qos: int
@@ -101,6 +103,9 @@ class MqttPubMessage:
     topic: str
     payload: bytes
     mqtt_properties: List[Mqtt5Properties] = None
+    payload_format_indicator: bool = None
+    content_type: str = None
+    message_expiry_interval: int = None
 
     # TODO add other fields
 
@@ -391,14 +396,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         self.state_check()
         self.__on_publish_future = self.__loop.create_future()
 
-        properties = Properties(PacketTypes.PUBLISH)
-        user_properties = self.__convert_to_user_properties(message.mqtt_properties, "PUBLISH")
-
-        # Properties are used only for the MQTT 5
-        if self.__protocol == mqtt.MQTTv311:
-            properties = None
-        else:
-            properties.UserProperty = user_properties
+        properties = self.__create_publish_properties(message)
 
         try:
             publish_info = self.__client.publish(
@@ -665,6 +663,8 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         client.on_message = self.__on_message
         client.on_unsubscribe = self.__on_unsubscribe
 
+        client.reconnect_delay_set(RECONNECT_DELAY_SEC, RECONNECT_DELAY_SEC)
+
         self.__logger.info("Creating MQTT %s client %s", protocol_version_for_log, tls_for_log)
 
         return client
@@ -673,6 +673,44 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         """Check if MQTT is connected"""
         if (self.__client is None) or not self.__client.is_connected():
             raise MQTTException("MQTT client is not in connected state")
+
+    def __create_publish_properties(self, message: MqttPubMessage):
+        """
+        Create MQTT5 properties
+        Parameters
+        ----------
+        message - MqttPubMessage
+        Returns MQTT5 properties
+        """
+        properties = Properties(PacketTypes.PUBLISH)
+        user_properties = self.__convert_to_user_properties(message.mqtt_properties, "PUBLISH")
+
+        # Properties are used only for the MQTT 5
+        if self.__protocol == mqtt.MQTTv311:
+            properties = None
+            if message.payload_format_indicator is not None:
+                self.__logger.warning("'payload format indicator' is ignored for MQTT v3.1.1 connection")
+            if message.message_expiry_interval is not None:
+                self.__logger.warning("'message expiry interval' is ignored for MQTT v3.1.1 connection")
+            if message.content_type:
+                self.__logger.warning("'content type' is ignored for MQTT v3.1.1 connection")
+        else:
+            # properties handled in the same order as noted in PUBLISH of MQTT v5.0 spec
+            if message.payload_format_indicator is not None:
+                properties.PayloadFormatIndicator = message.payload_format_indicator
+                self.__logger.info("Copied TX payload format indicator '%s'", str(message.payload_format_indicator))
+
+            if message.message_expiry_interval is not None:
+                properties.MessageExpiryInterval = message.message_expiry_interval
+                self.__logger.info("Copied TX message expiry interval %d", message.message_expiry_interval)
+
+            properties.UserProperty = user_properties
+
+            if message.content_type:
+                properties.ContentType = message.content_type
+                self.__logger.info("Copied TX content type '%s'", message.content_type)
+
+        return properties
 
     def __convert_to_user_properties(
         self, mqtt_properties: List[Mqtt5Properties], message_type: str
@@ -754,7 +792,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
 
         return conn_ack
 
-    def __convert_to_disconnect(self, mqtt_result: MqttResult) -> Mqtt5ConnAck:
+    def __convert_to_disconnect(self, mqtt_result: MqttResult) -> Mqtt5Disconnect:
         """
         Convert MqttResult into to Mqtt5Disconnect
         Parameters
@@ -812,13 +850,25 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         """
         props = getattr(message, "properties", None)
         mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "PUBLISH")
+
+        if hasattr(props, "PayloadFormatIndicator"):
+            self.__logger.info("Copied RX payload format indicator '%s'", str(props.PayloadFormatIndicator))
+
+        if hasattr(props, "MessageExpiryInterval"):
+            self.__logger.info("Copied RX message expiry interval %d", props.MessageExpiryInterval)
+
+        if hasattr(props, "ContentType"):
+            self.__logger.info("Copied RX content type '%s'", props.ContentType)
+
         mqtt_message = Mqtt5Message(
             topic=message.topic,
             payload=message.payload,
             qos=message.qos,
             retain=message.retain,
             properties=mqtt_properties,
+            contentType=getattr(props, "ContentType", None),
+            payloadFormatIndicator=getattr(props, "PayloadFormatIndicator", None),
+            messageExpiryInterval=getattr(props, "MessageExpiryInterval", None),
         )
 
-        # TODO payload format indicator, content type for mqtt5
         return mqtt_message
