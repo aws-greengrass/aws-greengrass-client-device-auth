@@ -24,7 +24,6 @@ import com.aws.greengrass.logging.impl.config.LogConfig;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.UniqueRootPathExtension;
-import com.aws.greengrass.util.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,16 +43,12 @@ import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
-import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssertOnConsumer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
 public class EvaluateClientDeviceActionsWithPolicyVariablesTest {
@@ -67,7 +62,7 @@ public class EvaluateClientDeviceActionsWithPolicyVariablesTest {
     private String clientPem;
 
     @BeforeEach
-    void beforeEach(ExtensionContext context) throws Exception{
+    void beforeEach(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, SpoolerStoreException.class);
         ignoreExceptionOfType(context, NoSuchFileException.class); // Loading CA keystore
 
@@ -142,12 +137,12 @@ public class EvaluateClientDeviceActionsWithPolicyVariablesTest {
 
     private static void authzClientDeviceAction(GreengrassCoreIPCClient ipcClient,
                                                 AuthorizeClientDeviceActionRequest request,
-                                                Consumer<AuthorizeClientDeviceActionResponse> consumer)
+                                                Boolean authorized)
             throws Exception {
         AuthorizeClientDeviceActionResponseHandler handler =
                 ipcClient.authorizeClientDeviceAction(request, Optional.empty());
         AuthorizeClientDeviceActionResponse response = handler.getResponse().get(1, TimeUnit.SECONDS);
-        consumer.accept(response);
+        assertThat(response.isIsAuthorized(), is(authorized));
     }
 
     @AfterEach
@@ -157,41 +152,36 @@ public class EvaluateClientDeviceActionsWithPolicyVariablesTest {
     }
 
     @Test
-    void GIVEN_cdaWithDeviceGroupPolicy_WHEN_AuthorizeClientDeviceValidResourceAction_THEN_returnTrue() throws Exception {
-
+    void GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithThingNameValidResource_THEN_ClientAuthorized() throws Exception {
         // make IPC call
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithAuthorizeClientDeviceActionPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
 
-            String deviceToken = getClientDeviceSessionAuthToken("MyThing", clientPem);
+            String deviceToken = getClientDeviceSessionAuthToken("myThing", clientPem);
 
             AuthorizeClientDeviceActionRequest connectRequest =
-                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:connect").withResource("mqtt:MyThing:foo")
+                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:connect").withResource("mqtt:myThing:foo")
              .withClientDeviceAuthToken(deviceToken);
 
             AuthorizeClientDeviceActionRequest publishRequest =
-                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:publish").withResource("mqtt:topic:MyThing")
+                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:publish").withResource("mqtt:topic:myThing")
                             .withClientDeviceAuthToken(deviceToken);
 
-            Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
-                    asyncAssertOnConsumer((m) -> {
-                        assertTrue(m.isIsAuthorized());
-                    });
-
-            authzClientDeviceAction(ipcClient, connectRequest, cb.getRight());
-            authzClientDeviceAction(ipcClient, publishRequest, cb.getRight());
+            authzClientDeviceAction(ipcClient, connectRequest, true);
+            authzClientDeviceAction(ipcClient, publishRequest, true);
         }
     }
 
     @Test
-    void GIVEN_cdaWithDeviceGroupPolicy_WHEN_AuthorizeClientDeviceValidInvalidResourceAction_THEN_returnFalse() throws Exception {
+    void
+    GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithThingNameInvalidResource_THEN_ClientNotAuthorized() throws Exception {
 
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithAuthorizeClientDeviceActionPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
 
-            String deviceToken = getClientDeviceSessionAuthToken("MyThing", clientPem);
+            String deviceToken = getClientDeviceSessionAuthToken("myThing", clientPem);
 
             AuthorizeClientDeviceActionRequest connectRequest =
                     new AuthorizeClientDeviceActionRequest().withOperation("mqtt:connect").withResource("mqtt:MyCoolThing:foo")
@@ -201,45 +191,35 @@ public class EvaluateClientDeviceActionsWithPolicyVariablesTest {
                     new AuthorizeClientDeviceActionRequest().withOperation("mqtt:publish").withResource("mqtt:topic:SomeThing")
                             .withClientDeviceAuthToken(deviceToken);
 
-            Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
-                    asyncAssertOnConsumer((m) -> {
-                        assertThat(m.isIsAuthorized(), is(false));
-                    });
-
-            authzClientDeviceAction(ipcClient, connectRequest, cb.getRight());
-            authzClientDeviceAction(ipcClient, publishRequest, cb.getRight());
+            authzClientDeviceAction(ipcClient, connectRequest, false);
+            authzClientDeviceAction(ipcClient, publishRequest, false);
         }
     }
 
     @Test
-    void GIVEN_cdaWithDeviceGroupPolicy_WHEN_AuthorizeClientDeviceResourceInvalidAction_THEN_returnFalse() throws Exception {
+    void GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithThingNameResourceInvalidAction_THEN_ClientNotAuthorized() throws Exception {
 
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithAuthorizeClientDeviceActionPermission")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
 
-            String deviceToken = getClientDeviceSessionAuthToken("MyThing", clientPem);
+            String deviceToken = getClientDeviceSessionAuthToken("myThing", clientPem);
 
             AuthorizeClientDeviceActionRequest connectRequest =
-                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:connect").withResource("mqtt:topic:MyThing")
+                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:connect").withResource("mqtt:topic:myThing")
                             .withClientDeviceAuthToken(deviceToken);
 
             AuthorizeClientDeviceActionRequest publishRequest =
-                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:publish").withResource("mqtt:MyThing:foo")
+                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:publish").withResource("mqtt:myThing:foo")
                             .withClientDeviceAuthToken(deviceToken);
 
-            Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
-                    asyncAssertOnConsumer((m) -> {
-                        assertThat(m.isIsAuthorized(), is(false));
-                    });
-
-            authzClientDeviceAction(ipcClient, connectRequest, cb.getRight());
-            authzClientDeviceAction(ipcClient, publishRequest, cb.getRight());
+            authzClientDeviceAction(ipcClient, connectRequest, false);
+            authzClientDeviceAction(ipcClient, publishRequest, false);
         }
     }
 
     @Test
-    void GIVEN_cdaWithDeviceGroupPolicy_WHEN_AuthorizeInvalidClientDeviceResourceAction_THEN_returnFalse() throws Exception {
+    void GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithInvalidThingNameResource_THEN_ClientNotAuthorized() throws Exception {
 
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithAuthorizeClientDeviceActionPermission")) {
@@ -248,20 +228,15 @@ public class EvaluateClientDeviceActionsWithPolicyVariablesTest {
             String deviceToken = getClientDeviceSessionAuthToken("SomeThing", clientPem);
 
             AuthorizeClientDeviceActionRequest connectRequest =
-                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:connect").withResource("mqtt:MyThing:foo")
+                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:connect").withResource("mqtt:myThing:foo")
                             .withClientDeviceAuthToken(deviceToken);
 
             AuthorizeClientDeviceActionRequest publishRequest =
-                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:publish").withResource("mqtt:topic:MyThing")
+                    new AuthorizeClientDeviceActionRequest().withOperation("mqtt:publish").withResource("mqtt:topic:myThing")
                             .withClientDeviceAuthToken(deviceToken);
 
-            Pair<CompletableFuture<Void>, Consumer<AuthorizeClientDeviceActionResponse>> cb =
-                    asyncAssertOnConsumer((m) -> {
-                        assertThat(m.isIsAuthorized(), is(false));
-                    });
-
-            authzClientDeviceAction(ipcClient, connectRequest, cb.getRight());
-            authzClientDeviceAction(ipcClient, publishRequest, cb.getRight());
+            authzClientDeviceAction(ipcClient, connectRequest, false);
+            authzClientDeviceAction(ipcClient, publishRequest, false);
         }
     }
 }
