@@ -54,6 +54,7 @@ import java.util.stream.Collectors;
  */
 public class MqttConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(MqttConnectionImpl.class);
+    private static final long RECONNECT_DELAY_MS = 86_400_000; // one day
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
     private final AtomicBoolean isConnected = new AtomicBoolean();
@@ -250,11 +251,12 @@ public class MqttConnectionImpl implements MqttConnection {
     @Override
     public ConnectResult start(long timeout, int connectionId) throws MqttException {
         this.connectionId = connectionId;
+        boolean success = false;
         client.start();
         try {
             OnConnectionDoneInfo onConnectionDoneInfo = lifecycleEvents.connectedFuture.get(timeout, TimeUnit.SECONDS);
             // translate onConnectionInfo to intermediate object and return
-            final boolean success = onConnectionDoneInfo.onConnectionSuccessReturn != null;
+            success = onConnectionDoneInfo.onConnectionSuccessReturn != null;
             ConnAckPacket packet = null;
             if (success) {
                 packet = onConnectionDoneInfo.onConnectionSuccessReturn.getConnAckPacket();
@@ -267,6 +269,11 @@ public class MqttConnectionImpl implements MqttConnection {
         } catch (Exception ex) {
             logger.atError().withThrowable(ex).log("Exception occurred during connect");
             throw new MqttException("Exception occurred during connect", ex);
+        } finally {
+            if (!success) {
+                client.stop(null);
+                client.close();
+            }
         }
     }
 
@@ -274,7 +281,7 @@ public class MqttConnectionImpl implements MqttConnection {
     @Override
     public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
 
-        if (!isClosing.getAndSet(true)) {
+        if (isClosing.compareAndSet(false, true)) {
             final DisconnectPacket.DisconnectReasonCode disconnectReason
                     = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
             DisconnectPacket.DisconnectPacketBuilder builder = new DisconnectPacket.DisconnectPacketBuilder()
@@ -467,15 +474,14 @@ public class MqttConnectionImpl implements MqttConnection {
                 .withSessionBehavior(clientSessionBehavior)
                 .withPort(Long.valueOf(connectionParams.getPort()))
                 .withLifeCycleEvents(lifecycleEvents)
-                .withPublishEvents(publishEvents);
+                .withPublishEvents(publishEvents)
+                .withMaxReconnectDelayMs(RECONNECT_DELAY_MS)
+                .withMinReconnectDelayMs(RECONNECT_DELAY_MS);
 
             /* TODO: other options:
                 withAckTimeoutSeconds()
                 withConnackTimeoutMs()
                 withExtendedValidationAndFlowControlOptions()
-                withMaxReconnectDelayMs()
-                withMaxReconnectDelayMs()
-                withMinReconnectDelayMs()
                 withOfflineQueueBehavior()
                 withPingTimeoutMs()
                 withRetryJitterMode()

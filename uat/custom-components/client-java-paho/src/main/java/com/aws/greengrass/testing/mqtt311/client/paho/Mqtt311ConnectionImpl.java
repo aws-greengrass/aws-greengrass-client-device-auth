@@ -113,7 +113,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     @Override
     public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
         checkUserProperties(userProperties);
-        if (!isClosing.getAndSet(true)) {
+        if (isClosing.compareAndSet(false, true)) {
             try {
                 disconnectAndClose(timeout);
             } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
@@ -174,15 +174,25 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
      */
     private IMqttAsyncClient createAsyncClient(MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.client.mqttv3.MqttException {
+        // FIXME: use port
+        // FIMXE: URI depends on optional TLS settings
         return new MqttAsyncClient(connectionParams.getHost(), connectionParams.getClientId());
     }
 
     private MqttConnectOptions convertParams(MqttLib.ConnectionParams connectionParams)
             throws GeneralSecurityException, IOException {
         MqttConnectOptions connectionOptions = new MqttConnectOptions();
+
+        // FIXME: use port
+        // FIMXE: URI depends on optional TLS settings
         connectionOptions.setServerURIs(new String[]{connectionParams.getHost()});
         SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
         connectionOptions.setSocketFactory(sslSocketFactory);
+        connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
+        connectionOptions.setKeepAliveInterval(connectionParams.getKeepalive());
+        connectionOptions.setCleanSession(connectionParams.isCleanSession());
+        connectionOptions.setAutomaticReconnect(false);
+
         return connectionOptions;
     }
 
@@ -204,14 +214,18 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-            GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(),
-                    null, null, null);
-            executorService.submit(() -> {
-                grpcClient.onReceiveMqttMessage(connectionId, message);
-                logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
-                        connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
-            });
+            if (isClosing.get()) {
+                logger.atWarn().log("PIBLISH event ignored due to shutdown initiated");
+            } else {
+                GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
+                        mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(),
+                        null, null, null);
+                executorService.submit(() -> {
+                    grpcClient.onReceiveMqttMessage(connectionId, message);
+                    logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
+                            connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
+                });
+            }
         }
     }
 

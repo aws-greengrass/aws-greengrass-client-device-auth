@@ -31,7 +31,7 @@ public interface MqttLib extends AutoCloseable {
         private String host;
 
         /** Port of MQTT broker. */
-        private int port;
+        private int port;                               // FIXME: WHY IS NOT USED ?
 
         /** Connection keep alive interval in seconds. */
         private int keepalive;

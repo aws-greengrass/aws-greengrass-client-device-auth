@@ -181,9 +181,10 @@ ClientControl::Mqtt5ConnAck * MqttConnection::start(unsigned timeout) {
         mosquitto_subscribe_v5_callback_set(m_mosq, on_subscribe);
         mosquitto_unsubscribe_v5_callback_set(m_mosq, on_unsubscribe);
 
+
         mosquitto_log_callback_set(m_mosq, on_log);
 
-        // TODO: mosquitto_reconnect_delay_set(m_mosq, ...)
+        mosquitto_reconnect_delay_set(m_mosq, RECONNECT_DELAY_SEC, RECONNECT_DELAY_SEC, true);
 
         if (!m_ca.empty() && !m_cert.empty() && !m_key.empty()) {
             logd("Use provided TLS credentials\n");
