@@ -1513,6 +1513,26 @@ Feature: GGMQ-1
     When I publish from "publisher" to "content_type_not_null_null" with qos 0 and message "Content types not null/null"
     And message "Content types not null/null" received on "subscriber" from "content_type_not_null_null" topic within 5 seconds
 
+    And I clear message storage
+
+    # H. publish/subscribe 'message expiry interval' tests
+
+    # 27. test case when send message expiry interval 100 and receive 100
+    And I set MQTT publish 'message expiry interval' to 100
+    And I set the 'message expiry interval' in expected received messages to 100
+    When I subscribe "subscriber" to "message_expire_interval_100" with qos 0
+    When I publish from "publisher" to "message_expire_interval_100" with qos 0 and message "Message expiry interval was 100"
+    And message "Message expiry interval was 100" received on "subscriber" from "message_expire_interval_100" topic within 5 seconds
+
+    And I clear message storage
+
+    # 28. test case when send message expiry interval 1 and message do not forward by broker
+    And I set MQTT publish 'message expiry interval' to 100
+    And I reset expected 'message expiry interval'
+    When I subscribe "subscriber" to "message_expire_interval_1" with qos 0
+    When I publish from "publisher" to "message_expire_interval_1" with qos 0 and message "Message expiry interval was 1"
+    And message "Message expiry interval was 1" is not received on "subscriber" from "message_expire_interval_1" topic within 10 seconds
+
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  | publish-status-nms |
