@@ -32,6 +32,7 @@ public final class EventFilter {
     private final Boolean retain;
     private final List<Mqtt5Properties> userProperties;
     private final Boolean payloadFormatIndicator;
+    private final Integer messageExpiryInterval;
 
     EventFilter(Builder builder) {
         super();
@@ -49,6 +50,7 @@ public final class EventFilter {
         this.retain = builder.retain;
         this.userProperties = builder.userProperties;
         this.payloadFormatIndicator = builder.payloadFormatIndicator;
+        this.messageExpiryInterval = builder.messageExpiryInterval;
     }
 
     /**
@@ -69,6 +71,7 @@ public final class EventFilter {
         private Boolean retain;
         private List<Mqtt5Properties> userProperties;
         private Boolean payloadFormatIndicator;
+        private Integer messageExpiryInterval;
 
         /**
          * Sets type of event.
@@ -238,6 +241,17 @@ public final class EventFilter {
          */
         public Builder withPayloadFormatIndicator(Boolean payloadFormatIndicator) {
             this.payloadFormatIndicator = payloadFormatIndicator;
+            return this;
+        }
+
+        /**
+         * Sets message expiry interval.
+         * Applicable only for MQTT message events
+         *
+         * @param messageExpiryInterval the message expiry interval of the message or null
+         */
+        public Builder withMessageExpiryInterval(Integer messageExpiryInterval) {
+            this.messageExpiryInterval = messageExpiryInterval;
             return this;
         }
 
