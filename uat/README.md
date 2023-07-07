@@ -114,7 +114,7 @@ sudo -E java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -D
 ### Run scenarios on Windows
 On Windows due to mosquitto-based client is not yet build on Windows use a little modified command.
 ```
-java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ and not @mosquitto-c" -jar testing-features/target/client-devices-auth-testing-features.jar
+java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ and not @SkipOnWindows" -jar testing-features/target/client-devices-auth-testing-features.jar
 ```
 
 Command arguments:
@@ -123,7 +123,7 @@ Dggc.archive - path to the nucleus zip that was downloaded.
 Dtest.log.path - path where you would like the test results to be stored.  
 
 
-Dtags can be extended, if you would like to test exact scenario, you can do as follows:
+-Dtags can be extended, if you would like to test exact scenario, you can do as follows:
 
 ```bash
 java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ-1-T1 and @sdk-java and @mqtt3" -jar testing-features/target/client-devices-auth-testing-features.jar
