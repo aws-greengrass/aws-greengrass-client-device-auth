@@ -5,11 +5,11 @@ by installing the `aws.greengrass.clientdevices.Auth` component.
 
 ## Install requirements on Linux
 ```bash
-sudo apt-get install -y maven python3-venv docker.io
+sudo apt-get install -y maven python3 python3-venv python3-pip docker.io
 ```
 
 ## Installation requirements on Windows
-Manually install Java, maven, git and [psexec](https://learn.microsoft.com/en-us/sysinternals/downloads/psexec) tools.
+Manually install Java, maven, python with pip, git, and [psexec](https://learn.microsoft.com/en-us/sysinternals/downloads/psexec) tools.
 
 ## Build the project
 ```bash
