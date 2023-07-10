@@ -1268,7 +1268,7 @@ Feature: GGMQ-1
     And I set MQTT publish 'retain' flag to true
     And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_SEND_AT_NEW_SUBSCRIPTION"
 
-    When I publish from "publisher" to "send_at_new_subscription" with qos 1 and message "Single retained message in case4" and expect status 16
+    When I publish from "publisher" to "send_at_new_subscription" with qos 1 and message "Single retained message in case4" and expect status <publish-status-nms>
     When I subscribe "subscriber" to "send_at_new_subscription" with qos 0
     And message "Single retained message in case4" received on "subscriber" from "send_at_new_subscription" topic within 5 seconds
 
@@ -1515,15 +1515,20 @@ Feature: GGMQ-1
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient  | client_java_sdk.yaml    |
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-nms |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    | 16                 |
 
     @mqtt5 @mosquitto-c @SkipOnWindows
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient | client_mosquitto_c.yaml |
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-nms |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml | 16                 |
 
     @mqtt5 @paho-java
     Examples:
-      | mqtt-v | name        | agent                                     | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient | client_java_paho.yaml   |
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-nms |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 16                 |
+
+    @mqtt5 @paho-python @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-nms |
+      | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                  |

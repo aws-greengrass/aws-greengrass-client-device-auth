@@ -246,6 +246,18 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             self.__logger.warning("PublishMqtt: missing connection id")
             await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "missing connection id")
 
+        content_type = None
+        if message.HasField("contentType"):
+            content_type = message.contentType
+
+        payload_format_indicator = None
+        if message.HasField("payloadFormatIndicator"):
+            payload_format_indicator = message.payloadFormatIndicator
+
+        message_expiry_interval = None
+        if message.HasField("messageExpiryInterval"):
+            message_expiry_interval = message.messageExpiryInterval
+
         connection_id = request.connectionId.connectionId
         self.__logger.info(
             "PublishMqtt connection_id %i topic %s retain %i", connection_id, message.topic, int(message.retain)
@@ -267,6 +279,9 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
                     topic=message.topic,
                     payload=message.payload,
                     mqtt_properties=message.properties,
+                    content_type=content_type,
+                    payload_format_indicator=payload_format_indicator,
+                    message_expiry_interval=message_expiry_interval,
                 ),
             )
             return publish_reply
