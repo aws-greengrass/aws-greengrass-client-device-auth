@@ -27,8 +27,11 @@ public interface MqttLib extends AutoCloseable {
         /** MQTT client id. */
         private String clientId;
 
-        /** URI of protocol, IP address, port of MQTT broker. */
-        private String uri;
+        /** Host name of IP address of MQTT broker. */
+        private String host;
+
+        /** Port of MQTT broker. */
+        private int port;
 
         /** Connection keep alive interval in seconds. */
         private int keepalive;

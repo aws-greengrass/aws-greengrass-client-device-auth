@@ -253,7 +253,8 @@ public class MqttConnectionImpl implements MqttConnection {
      */
     private IMqttAsyncClient createAsyncClient(MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.mqttv5.common.MqttException {
-        return new MqttAsyncClient(connectionParams.getUri(), connectionParams.getClientId());
+        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), connectionParams.getKey());
+        return new MqttAsyncClient(uri, connectionParams.getClientId());
     }
 
     private void disconnectAndClose(long timeout, int reasonCode, List<Mqtt5Properties> userProperties)
@@ -276,7 +277,10 @@ public class MqttConnectionImpl implements MqttConnection {
 
 
         MqttConnectionOptions connectionOptions = new MqttConnectionOptions();
-        connectionOptions.setServerURIs(new String[]{connectionParams.getUri()});
+
+        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), connectionParams.getKey());
+
+        connectionOptions.setServerURIs(new String[]{uri});
         connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
 
         if (connectionParams.getKey() != null) {
@@ -339,7 +343,7 @@ public class MqttConnectionImpl implements MqttConnection {
         }
 
         final String contentType = message.getContentType();
-        if (contentType != null && !contentType.isEmpty()) {
+        if (contentType != null) {
             properties.setContentType(contentType);
             logger.atInfo().log("PUBLISH Tx payload content type '{}'", contentType);
         }
@@ -430,8 +434,8 @@ public class MqttConnectionImpl implements MqttConnection {
             } else {
                 GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
                         mqttMessage.getQos(), mqttMessage.isRetained(), topic,
-                        mqttMessage.getPayload(), userProps, contentType, payloadFormatIndicator, messageExpiryInterval,
-                        responseTopic, correlationData);
+                        mqttMessage.getPayload(), userProps, contentType, payloadFormatIndicator,
+                        messageExpiryInterval.intValue(), responseTopic, correlationData);
                 executorService.submit(() -> {
                     grpcClient.onReceiveMqttMessage(connectionId, message);
                     logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",

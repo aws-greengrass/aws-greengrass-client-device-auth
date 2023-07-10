@@ -176,9 +176,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
      */
     private IMqttAsyncClient createAsyncClient(MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.client.mqttv3.MqttException {
-        // FIXME: use port
-        // FIMXE: URI depends on optional TLS settings
-        return new MqttAsyncClient(connectionParams.getUri(), connectionParams.getClientId());
+        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), connectionParams.getKey());
+        return new MqttAsyncClient(uri, connectionParams.getClientId());
     }
 
     private MqttConnectOptions convertParams(MqttLib.ConnectionParams connectionParams)
@@ -188,7 +187,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         if (connectionParams.getRequestResponseInformation() != null) {
             logger.atWarn().log("MQTT v3.1.1 does not support request response information");
         }
-        connectionOptions.setServerURIs(new String[]{connectionParams.getUri()});
+
+        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), connectionParams.getKey());
+        connectionOptions.setServerURIs(new String[]{uri});
 
         if (connectionParams.getKey() != null) {
             SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);

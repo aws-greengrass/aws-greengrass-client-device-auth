@@ -43,7 +43,7 @@ public interface GRPCClient {
         private Boolean payloadFormatIndicator;
 
         /** Optional message expiry interval. */
-        private Long messageExpiryInterval;
+        private Integer messageExpiryInterval;
 
         /** Optional response topic. */
         private String responseTopic;

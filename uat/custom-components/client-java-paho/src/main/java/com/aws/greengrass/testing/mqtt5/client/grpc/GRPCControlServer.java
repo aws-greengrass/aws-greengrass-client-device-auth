@@ -168,7 +168,8 @@ class GRPCControlServer {
             MqttLib.ConnectionParams.ConnectionParamsBuilder connectionParamsBuilder
                     = MqttLib.ConnectionParams.builder()
                     .clientId(clientId)
-                    .uri(createUri(host, port, request.hasTls()))
+                    .host(host)
+                    .port(port)
                     .keepalive(keepalive)
                     .cleanSession(request.getCleanSession())
                     .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V_50)
@@ -702,15 +703,5 @@ class GRPCControlServer {
             return false;
         }
         return true;
-    }
-
-    private String createUri(String host, int port, Boolean hasTls) {
-        String protocol = hasTls ? "ssl" : "tcp";
-
-        return protocol
-                .concat("://")
-                .concat(host)
-                .concat(":")
-                .concat(String.valueOf(port));
     }
 }

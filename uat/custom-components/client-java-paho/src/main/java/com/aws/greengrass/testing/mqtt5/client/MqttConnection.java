@@ -184,4 +184,17 @@ public interface MqttConnection {
     MqttSubscribeReply unsubscribe(long timeout, @NonNull List<String> filters,
                                    List<Mqtt5Properties> userProperties);
 
+
+    /**
+     * Create URI.
+     *
+     * @param host connection IP address
+     * @param port connection port
+     * @param key TLS key
+     * @return URI of connection
+     */
+    default String createUri(String host, int port, String key) {
+        return (key != null ? "ssl" : "tcp")
+                + "://" + host + ":" + port;
+    }
 }
