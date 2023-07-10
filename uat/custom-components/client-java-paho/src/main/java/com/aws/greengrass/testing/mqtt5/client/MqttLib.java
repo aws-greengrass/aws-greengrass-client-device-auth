@@ -27,11 +27,8 @@ public interface MqttLib extends AutoCloseable {
         /** MQTT client id. */
         private String clientId;
 
-        /** Host name of IP address of MQTT broker. */
-        private String host;
-
-        /** Port of MQTT broker. */
-        private int port;                               // FIXME: WHY IS NOT USED ?
+        /** URI of protocol, IP address, port of MQTT broker. */
+        private String uri;
 
         /** Connection keep alive interval in seconds. */
         private int keepalive;
@@ -56,6 +53,9 @@ public interface MqttLib extends AutoCloseable {
 
         /** User properties. */
         private List<Mqtt5Properties> userProperties;
+
+        /** Optional request response information. */
+        private Boolean requestResponseInformation;
     }
 
     /**

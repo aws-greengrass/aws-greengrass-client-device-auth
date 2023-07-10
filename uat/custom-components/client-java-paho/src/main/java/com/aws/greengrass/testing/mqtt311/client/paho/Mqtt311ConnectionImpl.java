@@ -128,6 +128,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         checkContentType(message.getContentType());
         checkPayloadFormatIndicator(message.getPayloadFormatIndicator());
         checkMessageExpiryInterval(message.getMessageExpiryInterval());
+        checkResponseTopic(message.getResponseTopic());
+        checkCorrelationData(message.getCorrelationData());
 
         MqttMessage mqttMessage = new MqttMessage();
         mqttMessage.setQos(message.getQos());
@@ -176,18 +178,23 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             throws org.eclipse.paho.client.mqttv3.MqttException {
         // FIXME: use port
         // FIMXE: URI depends on optional TLS settings
-        return new MqttAsyncClient(connectionParams.getHost(), connectionParams.getClientId());
+        return new MqttAsyncClient(connectionParams.getUri(), connectionParams.getClientId());
     }
 
     private MqttConnectOptions convertParams(MqttLib.ConnectionParams connectionParams)
             throws GeneralSecurityException, IOException {
         MqttConnectOptions connectionOptions = new MqttConnectOptions();
 
-        // FIXME: use port
-        // FIMXE: URI depends on optional TLS settings
-        connectionOptions.setServerURIs(new String[]{connectionParams.getHost()});
-        SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
-        connectionOptions.setSocketFactory(sslSocketFactory);
+        if (connectionParams.getRequestResponseInformation() != null) {
+            logger.atWarn().log("MQTT v3.1.1 does not support request response information");
+        }
+        connectionOptions.setServerURIs(new String[]{connectionParams.getUri()});
+
+        if (connectionParams.getKey() != null) {
+            SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
+            connectionOptions.setSocketFactory(sslSocketFactory);
+        }
+
         connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
         connectionOptions.setKeepAliveInterval(connectionParams.getKeepalive());
         connectionOptions.setCleanSession(connectionParams.isCleanSession());
@@ -219,7 +226,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             } else {
                 GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
                         mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(),
-                        null, null, null);
+                        null, null, null,null, null, null);
                 executorService.submit(() -> {
                     grpcClient.onReceiveMqttMessage(connectionId, message);
                     logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
@@ -250,6 +257,18 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private void checkMessageExpiryInterval(Integer messageExpiryInterval) {
         if (messageExpiryInterval != null) {
             logger.warn("MQTT V3.1.1 doesn't support 'message expiry interval'");
+        }
+    }
+
+    private void checkResponseTopic(String responseTopic) {
+        if (responseTopic != null) {
+            logger.atWarn().log("MQTT v3.1.1 doesn't support response topic");
+        }
+    }
+
+    private void checkCorrelationData(byte[] correlationData) {
+        if (correlationData != null) {
+            logger.atWarn().log("MQTT v3.1.1 doesn't support correlation data");
         }
     }
 }

@@ -112,6 +112,12 @@ public interface MqttConnection {
         /** Payload of message. */
         private byte[] payload;
 
+        /** Optional response topic. */
+        private String responseTopic;
+
+        /** Optional correlation data. */
+        private byte[] correlationData;
+
         /** Optional user properties. */
         private List<Mqtt5Properties>  userProperties;
 

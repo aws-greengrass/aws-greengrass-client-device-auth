@@ -168,8 +168,7 @@ class GRPCControlServer {
             MqttLib.ConnectionParams.ConnectionParamsBuilder connectionParamsBuilder
                     = MqttLib.ConnectionParams.builder()
                     .clientId(clientId)
-                    .host("ssl://".concat(host))
-                    .port(port)
+                    .uri(createUri(host, port, request.hasTls()))
                     .keepalive(keepalive)
                     .cleanSession(request.getCleanSession())
                     .mqtt50(version == MqttProtoVersion.MQTT_PROTOCOL_V_50)
@@ -177,6 +176,10 @@ class GRPCControlServer {
 
             if (request.getPropertiesList() != null && !request.getPropertiesList().isEmpty()) {
                 connectionParamsBuilder.userProperties(request.getPropertiesList());
+            }
+
+            if (request.hasRequestResponseInformation()) {
+                connectionParamsBuilder.requestResponseInformation(request.getRequestResponseInformation());
             }
 
             // check TLS optional settings
@@ -286,20 +289,28 @@ class GRPCControlServer {
                     .topic(topic)
                     .payload(message.getPayload().toByteArray());
 
-            if (message.getPropertiesList() != null && !message.getPropertiesList().isEmpty()) {
-                internalMessage.userProperties(message.getPropertiesList());
-            }
-
-            if (message.hasContentType()) {
-                internalMessage.contentType(message.getContentType());
-            }
-
             if (message.hasPayloadFormatIndicator()) {
                 internalMessage.payloadFormatIndicator(message.getPayloadFormatIndicator());
             }
 
             if (message.hasMessageExpiryInterval()) {
                 internalMessage.messageExpiryInterval(message.getMessageExpiryInterval());
+            }
+
+            if (message.hasResponseTopic()) {
+                internalMessage.responseTopic(message.getResponseTopic());
+            }
+
+            if (message.hasCorrelationData()) {
+                internalMessage.correlationData(message.getCorrelationData().toByteArray());
+            }
+
+            if (message.getPropertiesList() != null && !message.getPropertiesList().isEmpty()) {
+                internalMessage.userProperties(message.getPropertiesList());
+            }
+
+            if (message.hasContentType()) {
+                internalMessage.contentType(message.getContentType());
             }
 
             MqttPublishReply publishReply = connection.publish(timeout, internalMessage.build());
@@ -691,5 +702,15 @@ class GRPCControlServer {
             return false;
         }
         return true;
+    }
+
+    private String createUri(String host, int port, Boolean hasTls) {
+        String protocol = hasTls ? "ssl" : "tcp";
+
+        return protocol
+                .concat("://")
+                .concat(host)
+                .concat(":")
+                .concat(String.valueOf(port));
     }
 }
