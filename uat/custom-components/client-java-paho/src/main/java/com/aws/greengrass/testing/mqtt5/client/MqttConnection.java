@@ -190,11 +190,11 @@ public interface MqttConnection {
      *
      * @param host connection IP address
      * @param port connection port
-     * @param key TLS key
+     * @param hasTls has TLS
      * @return URI of connection
      */
-    default String createUri(String host, int port, String key) {
-        return (key != null ? "ssl" : "tcp")
+    default String createUri(String host, int port, Boolean hasTls) {
+        return (hasTls ? "ssl" : "tcp")
                 + "://" + host + ":" + port;
     }
 }

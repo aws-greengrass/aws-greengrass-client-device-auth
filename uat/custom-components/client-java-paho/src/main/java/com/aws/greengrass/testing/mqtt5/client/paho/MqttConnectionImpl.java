@@ -253,7 +253,7 @@ public class MqttConnectionImpl implements MqttConnection {
      */
     private IMqttAsyncClient createAsyncClient(MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.mqttv5.common.MqttException {
-        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), connectionParams.getKey());
+        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), connectionParams.isHasTls());
         return new MqttAsyncClient(uri, connectionParams.getClientId());
     }
 
@@ -278,7 +278,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
         MqttConnectionOptions connectionOptions = new MqttConnectionOptions();
 
-        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), connectionParams.getKey());
+        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), connectionParams.isHasTls());
 
         connectionOptions.setServerURIs(new String[]{uri});
         connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
