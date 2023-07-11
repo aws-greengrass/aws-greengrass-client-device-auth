@@ -1603,7 +1603,7 @@ Feature: GGMQ-1
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
 
     When I subscribe "subscriber" to "topic_request_response_information_is_set_false" with qos 0
-    When I publish from "publisher" to "topic_request_response_information_is_set_true" with qos 0 and message "Message when request response information is false"
+    When I publish from "publisher" to "topic_request_response_information_is_set_false" with qos 0 and message "Message when request response information is false"
     And message "Message when request response information is false" received on "subscriber" from "topic_request_response_information_is_set_false" topic within 5 seconds
 
     @mqtt5 @sdk-java

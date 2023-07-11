@@ -74,6 +74,7 @@ import javax.inject.Inject;
 
 import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
 
+@SuppressWarnings("PMD.ExcessivePublicCount")
 @Log4j2
 @ScenarioScoped
 public class MqttControlSteps {

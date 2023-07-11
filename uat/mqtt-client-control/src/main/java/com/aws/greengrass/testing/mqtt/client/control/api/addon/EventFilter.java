@@ -278,7 +278,12 @@ public final class EventFilter {
          *
          * @param correlationData the correlation data of the message or null
          */
+        @SuppressWarnings("PMD.NullAssignment")
         public Builder withCorrelationData(String correlationData) {
+            if (correlationData == null) {
+                this.correlationData = null;
+                return this;
+            }
             return withCorrelationData(correlationData.getBytes(StandardCharsets.UTF_8));
         }
 
