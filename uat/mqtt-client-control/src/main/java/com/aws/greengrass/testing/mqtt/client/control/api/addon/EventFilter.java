@@ -33,6 +33,8 @@ public final class EventFilter {
     private final List<Mqtt5Properties> userProperties;
     private final Boolean payloadFormatIndicator;
     private final Integer messageExpiryInterval;
+    private final String responseTopic;
+    private final byte[] correlationData;
 
     EventFilter(Builder builder) {
         super();
@@ -51,6 +53,8 @@ public final class EventFilter {
         this.userProperties = builder.userProperties;
         this.payloadFormatIndicator = builder.payloadFormatIndicator;
         this.messageExpiryInterval = builder.messageExpiryInterval;
+        this.responseTopic = builder.responseTopic;
+        this.correlationData = builder.correlationData;
     }
 
     /**
@@ -72,6 +76,8 @@ public final class EventFilter {
         private List<Mqtt5Properties> userProperties;
         private Boolean payloadFormatIndicator;
         private Integer messageExpiryInterval;
+        private String responseTopic;
+        private byte[] correlationData;
 
         /**
          * Sets type of event.
@@ -252,6 +258,38 @@ public final class EventFilter {
          */
         public Builder withMessageExpiryInterval(Integer messageExpiryInterval) {
             this.messageExpiryInterval = messageExpiryInterval;
+            return this;
+        }
+
+        /**
+         * Sets message response topic.
+         * Applicable only for MQTT message events
+         *
+         * @param responseTopic the response topic of the message or null
+         */
+        public Builder withResponseTopic(String responseTopic) {
+            this.responseTopic = responseTopic;
+            return this;
+        }
+
+        /**
+         * Sets message correlation fata.
+         * Applicable only for MQTT message events
+         *
+         * @param correlationData the correlation data of the message or null
+         */
+        public Builder withCorrelationData(String correlationData) {
+            return withCorrelationData(correlationData.getBytes(StandardCharsets.UTF_8));
+        }
+
+        /**
+         * Sets message correlation fata.
+         * Applicable only for MQTT message events
+         *
+         * @param correlationData the correlation data of the message or null
+         */
+        public Builder withCorrelationData(byte[] correlationData) {
+            this.correlationData = correlationData;
             return this;
         }
 

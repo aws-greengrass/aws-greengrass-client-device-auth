@@ -45,6 +45,10 @@ public class MqttMessageEvent extends EventImpl {
 
     @Override
     public boolean isMatched(@NonNull EventFilter filter) {
+        return isMatched1(filter) && isMatched2(filter);
+    }
+
+    private boolean isMatched1(@NonNull EventFilter filter) {
         // check type and timestamp
         boolean matched = super.isMatched(filter);
         if (!matched) {
@@ -72,7 +76,11 @@ public class MqttMessageEvent extends EventImpl {
             }
         }
 
-        matched = isRetainMatched(filter.getRetain());
+        return true;
+    }
+
+    private boolean isMatched2(@NonNull EventFilter filter) {
+        boolean matched = isRetainMatched(filter.getRetain());
         if (!matched) {
             return false;
         }
@@ -93,6 +101,16 @@ public class MqttMessageEvent extends EventImpl {
         }
 
         matched = isMessageExpiryIntervalMatched(filter.getMessageExpiryInterval());
+        if (!matched) {
+            return false;
+        }
+
+        matched = isResponseTopicMatched(filter.getResponseTopic());
+        if (!matched) {
+            return false;
+        }
+
+        matched = isCorrelationDataMatched(filter.getCorrelationData());
         if (!matched) {
             return false;
         }
@@ -131,9 +149,9 @@ public class MqttMessageEvent extends EventImpl {
         ByteString byteStringPayload = message.getPayload();
         if (byteStringPayload == null) {
             return false;
-        } else {
-            return Arrays.equals(expected, byteStringPayload.toByteArray());
         }
+
+        return Arrays.equals(expected, byteStringPayload.toByteArray());
     }
 
     private boolean isRetainMatched(Boolean retain) {
@@ -156,8 +174,24 @@ public class MqttMessageEvent extends EventImpl {
         return messageExpiryInterval == null || messageExpiryInterval == message.getMessageExpiryInterval();
     }
 
+    private boolean isResponseTopicMatched(String responseTopic) {
+        return responseTopic == null || responseTopic.equals(message.getResponseTopic());
+    }
+
+    private boolean isCorrelationDataMatched(byte[] correlationData) {
+        if (correlationData == null) {
+            return true;
+        }
+
+        ByteString byteCorrelationData = message.getCorrelationData();
+        if (byteCorrelationData == null) {
+            return false;
+        }
+
+        return Arrays.equals(correlationData, byteCorrelationData.toByteArray());
+    }
+
     private static boolean isTopicMatched(@NonNull String topic, @NonNull String topicFilter) {
         return MqttTopic.topicIsSupersetOf(topicFilter, topic);
     }
-
 }
