@@ -126,6 +126,16 @@ class GRPCDiscoveryClient implements GRPCClient {
             msgBuilder.setPayloadFormatIndicator(payloadFormatIndicator);
         }
 
+        final Integer messageExpiryInterval = message.getMessageExpiryInterval();
+        if (messageExpiryInterval != null) {
+            msgBuilder.setMessageExpiryInterval(messageExpiryInterval);
+        }
+
+        final String contentType = message.getContentType();
+        if (contentType != null) {
+            msgBuilder.setContentType(contentType);
+        }
+
         final String responseTopic = message.getResponseTopic();
         if (responseTopic != null) {
             msgBuilder.setResponseTopic(responseTopic);
@@ -138,16 +148,6 @@ class GRPCDiscoveryClient implements GRPCClient {
 
         if (message.getUserProperties() != null) {
             msgBuilder.addAllProperties(message.getUserProperties());
-        }
-
-        final String contentType = message.getContentType();
-        if (contentType != null) {
-            msgBuilder.setContentType(contentType);
-        }
-
-        final Integer messageExpiryInterval = message.getMessageExpiryInterval();
-        if (messageExpiryInterval != null) {
-            msgBuilder.setMessageExpiryInterval(messageExpiryInterval);
         }
 
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
