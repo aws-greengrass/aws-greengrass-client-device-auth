@@ -90,7 +90,10 @@ public interface MqttConnection {
         /** No local subscription. */
         private boolean noLocal;
 
+        /** Retain as published flag. */
         private boolean retainAsPublished;
+
+        /** Retain handling option. */
         private int retainHandling;
     }
 
@@ -129,8 +132,6 @@ public interface MqttConnection {
 
         /** Optional message expiry interval. */
         private Integer messageExpiryInterval;
-
-        // TODO: add user's properties and so one
     }
 
     /**

@@ -89,7 +89,7 @@ class GRPCControlServer {
             shutdownReason = request.getReason();
 
             // log an event
-            logger.atInfo().log("shutdownAgent: reason {}", shutdownReason);
+            logger.atInfo().log("shutdownAgent: reason '{}'", shutdownReason);
 
             Empty reply = Empty.newBuilder().build();
             responseObserver.onNext(reply);
@@ -281,7 +281,7 @@ class GRPCControlServer {
             }
 
             boolean isRetain = message.getRetain();
-            logger.atInfo().log("Publish: connectionId {} topic {} QoS {} retain {}",
+            logger.atInfo().log("Publish: connectionId {} topic '{}' QoS {} retain {}",
                     connectionId, topic, qos, isRetain);
 
             MqttConnection.Message.MessageBuilder internalMessage = MqttConnection.Message.builder()
@@ -316,7 +316,7 @@ class GRPCControlServer {
 
             MqttPublishReply publishReply = connection.publish(timeout, internalMessage.build());
                 if (publishReply != null) {
-                    logger.atInfo().log("Publish response: connectionId {} reason code {} reason string {}",
+                    logger.atInfo().log("Publish response: connectionId {} reason code {} reason string '{}'",
                             connectionId, publishReply.getReasonCode(), publishReply.getReasonString());
                 }
             responseObserver.onNext(publishReply);
@@ -430,8 +430,8 @@ class GRPCControlServer {
                 boolean retainAsPublished = subscription.getRetainAsPublished();
                 MqttConnection.Subscription tmp = new MqttConnection.Subscription(filter, qos, noLocal,
                         retainAsPublished, retainHandling);
-                logger.atInfo().log("Subscription: filter {} QoS {} noLocal {} retainAsPublished {} retainHandling {}",
-                        filter, qos, noLocal, retainAsPublished, retainHandling);
+                logger.atInfo().log("Subscription: filter '{}' QoS {} noLocal {} retainAsPublished {} "
+                                 + "retainHandling {}", filter, qos, noLocal, retainAsPublished, retainHandling);
                 outSubscriptions.add(tmp);
                 index++;
             }
@@ -447,7 +447,7 @@ class GRPCControlServer {
             List<Mqtt5Properties> userProperties = request.getPropertiesList();
             MqttSubscribeReply subscribeReply = connection.subscribe(timeout, outSubscriptions, userProperties);
             if (subscribeReply != null) {
-                logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string {}",
+                logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string '{}'",
                         connectionId, subscribeReply.getReasonCodesList(), subscribeReply.getReasonString());
             }
             responseObserver.onNext(subscribeReply);
@@ -490,7 +490,7 @@ class GRPCControlServer {
             MqttSubscribeReply unsubscribeReply = connection.unsubscribe(timeout, filters, userProperties);
 
             if (unsubscribeReply != null) {
-                logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string {}",
+                logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string '{}'",
                         connectionId, unsubscribeReply.getReasonCodesList(), unsubscribeReply.getReasonString());
             }
             responseObserver.onNext(unsubscribeReply);

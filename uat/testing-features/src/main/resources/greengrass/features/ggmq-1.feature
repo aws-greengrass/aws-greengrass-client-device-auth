@@ -1163,7 +1163,7 @@ Feature: GGMQ-1
 
 
   @GGMQ-1-T102
-  Scenario Outline: GGMQ-1-T102-<mqtt-v>-<name>: As a customer, I can use publish retain flag,subscribe retain handling, content type using MQTT V5.0
+  Scenario Outline: GGMQ-1-T102-<mqtt-v>-<name>: As a customer, I can use new MQTT v5.0 features
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth       | LATEST                                  |
       | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |

@@ -104,9 +104,11 @@ public class MqttConnectionImpl implements MqttConnection {
         for (int i = 0; i < subscriptions.size(); i++) {
             MqttSubscription subscription = new MqttSubscription(
                     subscriptions.get(i).getFilter(), subscriptions.get(i).getQos());
+
             subscription.setRetainHandling(subscriptions.get(i).getRetainHandling());
             subscription.setRetainAsPublished(subscriptions.get(i).isRetainAsPublished());
             subscription.setNoLocal(subscriptions.get(i).isNoLocal());
+
             mqttSubscriptions[i] = subscription;
             listeners[i] = new MqttMessageListener();
         }
@@ -412,6 +414,7 @@ public class MqttConnectionImpl implements MqttConnection {
     }
 
     private class MqttMessageListener implements IMqttMessageListener {
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) {
             MqttProperties receivedProperties = mqttMessage.getProperties();
@@ -441,11 +444,16 @@ public class MqttConnectionImpl implements MqttConnection {
                         mqttMessage.getPayload(), userProps, contentType, payloadFormatIndicator,
                         messageExpiryInterval, responseTopic, correlationData);
                 executorService.submit(() -> {
-                    grpcClient.onReceiveMqttMessage(connectionId, message);
-                    logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
-                            connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
+                    try {
+                        grpcClient.onReceiveMqttMessage(connectionId, message);
+                    } catch (Exception ex) {
+                        logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
+                    }
                 });
             }
+
+            logger.atInfo().log("Received MQTT message: connectionId {} topic '{}' QoS {} retain {}",
+                            connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
 
             if (userProps != null) {
                 userProps.forEach(p -> logger.atInfo()
