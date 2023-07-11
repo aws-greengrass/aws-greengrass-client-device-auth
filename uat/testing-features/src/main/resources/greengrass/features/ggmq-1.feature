@@ -1554,6 +1554,58 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "message_expire_interval_1" with qos 0
     And message "Message expiry interval was 1" is not received on "subscriber" from "message_expire_interval_1" topic within 10 seconds
 
+    And I clear message storage and reset all MQTT settings to default
+
+    # I. test 'response topic' feature
+
+    # 30. test case when publish message with response topic and receive message with the same response topic
+    And I set MQTT publish 'response topic' to "response_topic"
+    And I set the 'response topic' in expected received messages to "response_topic"
+
+    When I subscribe "subscriber" to "response_topic_test_case_1" with qos 0
+    When I publish from "publisher" to "response_topic_test_case_1" with qos 0 and message "Message with response topic 1"
+    And message "Message with response topic 1" received on "subscriber" from "response_topic_test_case_1" topic within 5 seconds
+
+    And I clear message storage
+    And I reset MQTT publish 'response topic'
+    And I reset expected 'response topic'
+
+    # J. test 'correlation data' feature
+    # 31. test case when publish message with correlation data and receive message with the same correlation data
+    And I set MQTT publish 'correlation data' to "correlation_data_1"
+    And I set the 'correlation data' in expected received messages to "correlation_data_1"
+
+    When I subscribe "subscriber" to "correlation_data_test_case_1" with qos 0
+    When I publish from "publisher" to "correlation_data_test_case_1" with qos 0 and message "Message with correlation data 1"
+    And message "Message with correlation data 1" received on "subscriber" from "correlation_data_test_case_1" topic within 5 seconds
+
+    And I clear message storage
+    And I reset MQTT publish 'correlation data'
+    And I reset expected 'correlation data'
+    And I disconnect device "publisher" with reason code 0
+
+    # K. test 'request response information' feature
+
+    # 32. test case when connect with 'request response information' flag set to true
+    #  unfortunately IoT Core and EMQX brokers does not provide 'Response Information' in CONNACK so we can only test connection is OK
+    And I set 'request response information' to true
+    And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
+
+    When I subscribe "subscriber" to "topic_request_response_information_is_set_true" with qos 0
+    When I publish from "publisher" to "topic_request_response_information_is_set_true" with qos 0 and message "Message when request response information is true"
+    And message "Message when request response information is true" received on "subscriber" from "topic_request_response_information_is_set_true" topic within 5 seconds
+
+    And I clear message storage
+    And I disconnect device "publisher" with reason code 0
+
+    # 33. test case when connect with 'request response information' flag set to false
+    And I set 'request response information' to false
+    And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
+
+    When I subscribe "subscriber" to "topic_request_response_information_is_set_false" with qos 0
+    When I publish from "publisher" to "topic_request_response_information_is_set_true" with qos 0 and message "Message when request response information is false"
+    And message "Message when request response information is false" received on "subscriber" from "topic_request_response_information_is_set_false" topic within 5 seconds
+
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  | publish-status-nms |
