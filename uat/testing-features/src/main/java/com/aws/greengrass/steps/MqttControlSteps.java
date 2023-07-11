@@ -103,9 +103,14 @@ public class MqttControlSteps {
     private static final int IOT_CORE_MQTT_PORT = 8883;
 
     // publish default properties
+
+    // please keep order the same as in 3.3.1 PUBLISH Fixed Header of MQTT v5.0 spec
     private static final boolean DEFAULT_PUBLISH_RETAIN = false;
-    private static final String DEFAULT_CONTENT_TYPE = null;
+
+    // please keep order the same as in 3.3.2.3 PUBLISH Properties of MQTT v5.0 spec
     private static final Boolean DEFAULT_PUBLISH_PAYLOAD_FORMAT_INDICATOR = null;
+    private static final Integer DEFAULT_MESSAGE_EXPIRY_INTERVAL = null;
+    private static final String DEFAULT_CONTENT_TYPE = null;
 
     // subscribe efault properties
     private static final Integer DEFAULT_SUBSCRIPTION_ID = null;        // NOTE: do not set for IoT Core broker !!!
@@ -135,36 +140,52 @@ public class MqttControlSteps {
     /** Actual value of timeout in seconds used in all MQTT opetations. */
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
 
+    // please keep order the same as in 3.8.3.1 Subscription Options of MQTT v5.0
     /** Actual value of subscribe no local option. */
     private boolean subscribeNoLocal = DEFAULT_SUBSCRIBE_NO_LOCAL;
-
-    private boolean subscribeRetainAsPublished = DEFAULT_SUBSCRIBE_RETAIN_AS_PUBLISHED;
 
     /** Actual value of subscribe retain handling option. */
     private Mqtt5RetainHandling subscribeRetainHandling = DEFAULT_SUBSCRIBE_RETAIN_HANDLING;
 
+    /** Actual value of subscribe retain handling option. */
+    private boolean subscribeRetainAsPublished = DEFAULT_SUBSCRIBE_RETAIN_AS_PUBLISHED;
+
+
     /** Actual value of publish retain option. */
-    private boolean publishRetain = DEFAULT_PUBLISH_RETAIN;
-
-    /** Actual value of publish payload format indicator. */
-    private Boolean publishPayloadFormatIndicator = DEFAULT_PUBLISH_PAYLOAD_FORMAT_INDICATOR;
-
-    /** Actual value of content type to transmit. */
-    private String txContentType = DEFAULT_CONTENT_TYPE;
-
-    /** Actual value of content type to receive. */
-    private String rxContentType = DEFAULT_CONTENT_TYPE;
+    private boolean txRetain = DEFAULT_PUBLISH_RETAIN;
 
     /** Actual expected value of retain flag in received messages. */
-    private Boolean receivedRetain = DEFAULT_RECEIVED_RETAIN;
+    private Boolean rxRetain = DEFAULT_RECEIVED_RETAIN;
 
-    private Boolean receivedPayloadFormatIndicator = DEFAULT_RECEIVED_PAYLOAD_FORMAT_INDICATOR;
+
+    // please keep order the same as in 3.3.2.3 PUBLISH Properties of MQTT v5.0 spec
+    /** Actual value of payload format indicator to publish. */
+    private Boolean txPayloadFormatIndicator = DEFAULT_PUBLISH_PAYLOAD_FORMAT_INDICATOR;
+
+    /** Actual expected value of payload format indicator in received messages. */
+    private Boolean rxPayloadFormatIndicator = DEFAULT_RECEIVED_PAYLOAD_FORMAT_INDICATOR;
+
+
+    /** Actual value of message expiry interval. */
+    private Integer txMessageExpiryInterval = DEFAULT_MESSAGE_EXPIRY_INTERVAL;
+
+    /** Actual expected value of message expiry interval in received messages. */
+    private Integer rxMessageExpiryInterval = DEFAULT_MESSAGE_EXPIRY_INTERVAL;
+
 
     /** Actual list of user properties to transmit. */
     private static List<Mqtt5Properties> txUserProperties = null;
 
-    /** Actual list of user properties to receive. */
+    /** Actual expected list of user properties in received messages. */
     private static List<Mqtt5Properties> rxUserProperties = null;
+
+
+    /** Actual value of content type to transmit. */
+    private String txContentType = DEFAULT_CONTENT_TYPE;
+
+    /** Actual value of content type to receive in received messages. */
+    private String rxContentType = DEFAULT_CONTENT_TYPE;
+
 
     private final Map<String, List<MqttBrokerConnectionInfo>> brokers = new HashMap<>();
     private final Map<String, MqttProtoVersion> mqttVersions = new HashMap<>();
@@ -233,6 +254,263 @@ public class MqttControlSteps {
         initMqttVersions();
         startMqttControl();
     }
+
+    /**
+     * Convert boolean string to value.
+     *
+     * @param value the string value of boolean
+     */
+    @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
+    @ParameterType(value = "true|True|TRUE|false|False|FALSE")
+    public Boolean booleanValue(String value) {
+        return Boolean.valueOf(value);
+    }
+
+    /**
+     * Convert boolean or null string to nullable value.
+     *
+     * @param value the string value of boolean or null
+     */
+    @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
+    @ParameterType(value = "true|True|TRUE|false|False|FALSE|null|NULL")
+    public Boolean booleanOrNullValue(String value) {
+        if ("null".equals(value) || "NULL".equals(value)) {
+            return null;
+        }
+
+        return Boolean.valueOf(value);
+    }
+
+    /**
+     * Sets MQTT operations timeout value.
+     *
+     * @param mqttTimeoutSec MQTT operations timeout in seconds
+     */
+    @And("I set MQTT timeout to {int} second(s)")
+    public void setMqttTimeoutSec(int mqttTimeoutSec) {
+        this.mqttTimeoutSec = mqttTimeoutSec;
+        log.info("MQTT timeout set to {} second(s)", mqttTimeoutSec);
+    }
+
+
+    /**
+     * Sets MQTT subscribe 'no local' flag.
+     *
+     * @param subscribeNoLocal the new values of 'no local' flag.
+     */
+    @And("I set MQTT subscribe 'no local' flag to {booleanValue}")
+    public void setSubscribeNoLocal(Boolean subscribeNoLocal) {
+        this.subscribeNoLocal = subscribeNoLocal;
+        log.info("Subscribe 'no local' flag set to {}", subscribeNoLocal);
+    }
+
+    /**
+     * Sets MQTT subscribe 'retain handling' property.
+     *
+     * @param subscribeRetainHandling the new values of 'retain handling' property.
+     */
+    @And("I set MQTT subscribe 'retain handling' property to {string}")
+    public void setSubscribeRetainHandling(String subscribeRetainHandling) {
+        this.subscribeRetainHandling = Mqtt5RetainHandling.valueOf(subscribeRetainHandling);
+        log.info("Subscribe 'retain handling' property set to {}", subscribeRetainHandling);
+    }
+
+    /**
+     * Sets MQTT subscribe 'retain as published' flag.
+     *
+     * @param subscribeRetainAsPublished the new values of 'retain as published' flag.
+     */
+    @And("I set MQTT subscribe 'retain as published' flag to {booleanValue}")
+    public void setSubscribeRetainAsPublished(Boolean subscribeRetainAsPublished) {
+        this.subscribeRetainAsPublished = subscribeRetainAsPublished;
+        log.info("Subscribe 'retain as published' flag set to {}", subscribeRetainAsPublished);
+    }
+
+
+    /**
+     * Sets MQTT publish 'retain' flag.
+     *
+     * @param retain the new value of publish 'retain' flag
+     */
+    @And("I set MQTT publish 'retain' flag to {booleanValue}")
+    public void setTxRetain(Boolean retain) {
+        this.txRetain = retain;
+        log.info("Publish 'retain' flag set to {}", retain);
+    }
+
+    /**
+     * Sets MQTT receive 'retain' flag.
+     *
+     * @param retain the boolean new value of receive 'retain' flag or null
+     */
+    @And("I set the 'retain' flag in expected received messages to {booleanOrNullValue}")
+    public void setRxRetain(Boolean retain) {
+        this.rxRetain = retain;
+        log.info("Expected 'retain' flag in received messages set to {}", retain);
+    }
+
+    /**
+     * Sets MQTT publish 'payload format indicator' flag.
+     *
+     * @param payloadFormatIndicator the new boolean value of publish 'payload format indicator' flag or null to reset
+     */
+    @And("I set MQTT publish 'payload format indicator' flag to {booleanOrNullValue}")
+    public void setTxPayloadFormatIndicator(Boolean payloadFormatIndicator) {
+        this.txPayloadFormatIndicator = payloadFormatIndicator;
+        log.info("Publish 'payload format indicator' flag set to {}", txPayloadFormatIndicator);
+    }
+
+    /**
+     * Sets MQTT receive 'payload format indicator' flag.
+     *
+     * @param payloadFormatIndicator the new boolean value of receive 'payload format indicator' flag or null
+     */
+    @And("I set the 'payload format indicator' flag in expected received messages to {booleanOrNullValue}")
+    public void setRxPayloadFormatIndicator(Boolean payloadFormatIndicator) {
+        this.rxPayloadFormatIndicator = payloadFormatIndicator;
+        log.info("Expected 'payload format indicator' flag in received messages set to {}", payloadFormatIndicator);
+    }
+
+    /**
+     * Sets MQTT 'message expiry interval' value for publishing.
+     *
+     * @param messageExpiryInterval the new value of message expiry interval for publishing
+     */
+    @And("I set MQTT publish 'message expiry interval' to {int}")
+    public void setTxMessageExpiryInterval(Integer messageExpiryInterval) {
+        this.txMessageExpiryInterval = messageExpiryInterval;
+        log.info("Publish 'message expiry interval' set to {}", this.txMessageExpiryInterval);
+    }
+
+    /**
+     * Reset MQTT 'message expiry interval' value for publishing.
+     *
+     */
+    @SuppressWarnings("PMD.NullAssignment")
+    @And("I reset MQTT publish 'message expiry interval'")
+    public void resetTxMessageExpiryInterval() {
+        this.txMessageExpiryInterval = null;
+        log.info("Publish 'message expiry interval' is reset");
+    }
+
+    /**
+     * Sets value of expected MQTT 'message expiry interval' in received messages.
+     *
+     * @param messageExpiryInterval the new expected value of 'message expiry interval' in received messages
+     */
+    @And("I set the 'message expiry interval' in expected received messages to {int}")
+    public void setRxMessageExpiryInterval(Integer messageExpiryInterval) {
+        this.rxMessageExpiryInterval = messageExpiryInterval;
+        log.info("Expected 'message expiry interval' in received messages set to {}", messageExpiryInterval);
+    }
+
+    /**
+     * Reset expected value 'message expiry interval' in received messages.
+     *
+     */
+    @SuppressWarnings("PMD.NullAssignment")
+    @And("I reset expected 'message expiry interval'")
+    public void resetRxMessageExpiryInterval() {
+        this.rxMessageExpiryInterval = null;
+        log.info("Expected 'message expiry interval' is reset");
+    }
+
+    /**
+     * Sets MQTT user Properties to transmit.
+     *
+     * @param key the key of userProperties property.
+     * @param value the value of userProperties property.
+     */
+    @And("I add MQTT 'user property' with key {string} and value {string} to transmit")
+    public void addTxUserProperty(String key, String value) {
+        if (txUserProperties == null) {
+            txUserProperties = new ArrayList<>();
+        }
+        Mqtt5Properties userProperty = Mqtt5Properties.newBuilder()
+                .setKey(key)
+                .setValue(value)
+                .build();
+        txUserProperties.add(userProperty);
+    }
+
+    /**
+     * Clear MQTT user properties to transmit.
+     *
+     */
+    @And("I clear MQTT 'user properties' to transmit")
+    @SuppressWarnings("PMD.NullAssignment")
+    public void clearTxUserProperties() {
+        txUserProperties = null;
+    }
+
+    /**
+     * Sets MQTT user Properties to receive.
+     *
+     * @param key the key of userProperties property.
+     * @param value the value of userProperties property.
+     */
+    @And("I add MQTT 'user property' with key {string} and value {string} to receive")
+    public void addRxUserProperty(String key, String value) {
+        if (rxUserProperties == null) {
+            rxUserProperties = new ArrayList<>();
+        }
+        Mqtt5Properties userProperty = Mqtt5Properties.newBuilder()
+                .setKey(key)
+                .setValue(value)
+                .build();
+        rxUserProperties.add(userProperty);
+    }
+
+    /**
+     * Clear MQTT user properties to receive.
+     *
+     */
+    @And("I clear MQTT 'user properties' to receive")
+    @SuppressWarnings("PMD.NullAssignment")
+    public void clearRxUserProperties() {
+        rxUserProperties = null;
+    }
+
+    /**
+     * Sets MQTT content type to transmit.
+     *
+     * @param contentType MQTT content type to transmit
+     */
+    @And("I set MQTT publish 'content type' to {string}")
+    public void setMqttTxContentType(String contentType) {
+        this.txContentType = contentType;
+        log.info("MQTT content type set to {} to transmit", contentType);
+    }
+
+    /**
+     * Sets MQTT content type to receive.
+     *
+     * @param contentType MQTT content type to receive
+     */
+    @And("I set MQTT 'content type' in expected received messages to {string}")
+    public void setMqttRxContentType(String contentType) {
+        this.rxContentType = contentType;
+        log.info("MQTT content type set to {} to receive", contentType);
+    }
+
+    /**
+     * Reset MQTT content type to transmit.
+     */
+    @And("I reset MQTT publish 'content type'")
+    public void resetMqttTxContentType() {
+        this.txContentType = DEFAULT_CONTENT_TYPE;
+        log.info("MQTT content type reset to transmit");
+    }
+
+    /**
+     * Reset MQTT content type to receive.
+     */
+    @And("I reset MQTT 'content type' in expected received messages")
+    public void resetMqttRxContentType() {
+        this.rxContentType = DEFAULT_CONTENT_TYPE;
+        log.info("MQTT content type reset to receive");
+    }
+
 
     /**
      * Associate client device with a core device .
@@ -355,161 +633,6 @@ public class MqttControlSteps {
         // do disconnect
         connectionControl.closeMqttConnection(reasonCode, txUserProperties);
         log.info("Thing {} was disconnected with reason code {}", clientDeviceId, reasonCode);
-    }
-
-    /**
-     * Convert boolean string to value.
-     *
-     * @param value the string value of boolean
-     */
-    @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
-    @ParameterType(value = "true|True|TRUE|false|False|FALSE")
-    public Boolean booleanValue(String value) {
-        return Boolean.valueOf(value);
-    }
-
-    /**
-     * Convert boolean or null string to nullable value.
-     *
-     * @param value the string value of boolean or null
-     */
-    @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
-    @ParameterType(value = "true|True|TRUE|false|False|FALSE|null|NULL")
-    public Boolean booleanOrNullValue(String value) {
-        if ("null".equals(value) || "NULL".equals(value)) {
-            return null;
-        }
-
-        return Boolean.valueOf(value);
-    }
-
-    /**
-     * Sets MQTT operations timeout value.
-     *
-     * @param mqttTimeoutSec MQTT operations timeout in seconds
-     */
-    @And("I set MQTT timeout to {int} second(s)")
-    public void setMqttTimeoutSec(int mqttTimeoutSec) {
-        this.mqttTimeoutSec = mqttTimeoutSec;
-        log.info("MQTT timeout set to {} second(s)", mqttTimeoutSec);
-    }
-
-    /**
-     * Sets MQTT content type to transmit.
-     *
-     * @param contentType MQTT content type to transmit
-     */
-    @And("I set MQTT publish 'content type' to {string}")
-    public void setMqttTxContentType(String contentType) {
-        this.txContentType = contentType;
-        log.info("MQTT content type set to {} to transmit", contentType);
-    }
-
-    /**
-     * Sets MQTT content type to receive.
-     *
-     * @param contentType MQTT content type to receive
-     */
-    @And("I set MQTT 'content type' in expected received messages to {string}")
-    public void setMqttRxContentType(String contentType) {
-        this.rxContentType = contentType;
-        log.info("MQTT content type set to {} to receive", contentType);
-    }
-
-    /**
-     * Reset MQTT content type to transmit.
-     */
-    @And("I reset MQTT publish 'content type'")
-    public void resetMqttTxContentType() {
-        this.txContentType = DEFAULT_CONTENT_TYPE;
-        log.info("MQTT content type reset to transmit");
-    }
-
-    /**
-     * Reset MQTT content type to receive.
-     */
-    @And("I reset MQTT 'content type' in expected received messages")
-    public void resetMqttRxContentType() {
-        this.rxContentType = DEFAULT_CONTENT_TYPE;
-        log.info("MQTT content type reset to receive");
-    }
-
-    /**
-     * Sets MQTT subscribe 'no local' flag.
-     *
-     * @param subscribeNoLocal the new values of 'no local' flag.
-     */
-    @And("I set MQTT subscribe 'no local' flag to {booleanValue}")
-    public void setSubscribeNoLocal(Boolean subscribeNoLocal) {
-        this.subscribeNoLocal = subscribeNoLocal;
-        log.info("Subscribe 'no local' flag set to {}", subscribeNoLocal);
-    }
-
-    /**
-     * Sets MQTT subscribe 'retain as published' flag.
-     *
-     * @param subscribeRetainAsPublished the new values of 'retain as published' flag.
-     */
-    @And("I set MQTT subscribe 'retain as published' flag to {booleanValue}")
-    public void setSubscribeRetainAsPublished(Boolean subscribeRetainAsPublished) {
-        this.subscribeRetainAsPublished = subscribeRetainAsPublished;
-        log.info("Subscribe 'retain as published' flag set to {}", subscribeRetainAsPublished);
-    }
-
-
-    /**
-     * Sets MQTT subscribe 'retain handling' property.
-     *
-     * @param subscribeRetainHandling the new values of 'retain handling' property.
-     */
-    @And("I set MQTT subscribe 'retain handling' property to {string}")
-    public void setSubscribeRetainHandling(String subscribeRetainHandling) {
-        this.subscribeRetainHandling = Mqtt5RetainHandling.valueOf(subscribeRetainHandling);
-        log.info("Subscribe 'retain handling' property set to {}", subscribeRetainHandling);
-    }
-
-    /**
-     * Sets MQTT publish 'retain' flag.
-     *
-     * @param retain the new value of publish 'retain' flag
-     */
-    @And("I set MQTT publish 'retain' flag to {booleanValue}")
-    public void setPublishRetain(Boolean retain) {
-        this.publishRetain = retain;
-        log.info("Publish 'retain' flag set to {}", retain);
-    }
-
-    /**
-     * Sets MQTT publish 'payload format indicator' flag.
-     *
-     * @param payloadFormatIndicator the new boolean value of publish 'payload format indicator' flag or null to reset
-     */
-    @And("I set MQTT publish 'payload format indicator' flag to {booleanOrNullValue}")
-    public void setPublishPayloadFormatIndicator(Boolean payloadFormatIndicator) {
-        this.publishPayloadFormatIndicator = payloadFormatIndicator;
-        log.info("Publish 'payload format indicator' flag set to {}", payloadFormatIndicator);
-    }
-
-    /**
-     * Sets MQTT receive 'retain' flag.
-     *
-     * @param retain the boolean new value of receive 'retain' flag or null
-     */
-    @And("I set the 'retain' flag in expected received messages to {booleanOrNullValue}")
-    public void setReceivedRetain(Boolean retain) {
-        this.receivedRetain = retain;
-        log.info("Expected 'retain' flag in received messages set to {}", retain);
-    }
-
-    /**
-     * Sets MQTT receive 'payload format indicator' flag.
-     *
-     * @param payloadFormatIndicator the new boolean value of receive 'payload format indicator' flag or null
-     */
-    @And("I set the 'payload format indicator' flag in expected received messages to {booleanOrNullValue}")
-    public void setReceivedPayloadFormatIndicator(Boolean payloadFormatIndicator) {
-        this.receivedPayloadFormatIndicator = payloadFormatIndicator;
-        log.info("Expected 'payload format indicator' flag in received messages set to {}", payloadFormatIndicator);
     }
 
     /**
@@ -642,10 +765,10 @@ public class MqttControlSteps {
         final String topic = scenarioContext.applyInline(topicString);
 
         // do publishing
-        log.info("Publishing MQTT message '{}' as Thing {} to topic {} with QoS {} retain {} payloadFormatIndicator {}",
-                    message, clientDeviceThingName, topic, qos, publishRetain, publishPayloadFormatIndicator);
-        Mqtt5Message mqtt5Message = buildMqtt5Message(qos, publishRetain, topic, message,
-                                                        publishPayloadFormatIndicator);
+        log.info("Publishing MQTT message '{}' as Thing {} to topic {} with QoS {} retain {}"
+                        + " payload format indicator {} message expire interval {}", message, clientDeviceThingName,
+                    topic, qos, txRetain, txPayloadFormatIndicator, txMessageExpiryInterval);
+        Mqtt5Message mqtt5Message = buildMqtt5Message(qos, topic, message);
         MqttPublishReply mqttPublishReply = connectionControl.publishMqtt(mqtt5Message);
         if (mqttPublishReply == null) {
             throw new RuntimeException("Do not receive reply to MQTT publish request");
@@ -656,7 +779,7 @@ public class MqttControlSteps {
             throw new RuntimeException("MQTT publish completed with negative reason code " + reasonCode);
         }
 
-        log.info("MQTT message {} has been succesfully published", message);
+        log.info("MQTT message '{}' has been succesfully published", message);
     }
 
     /**
@@ -727,17 +850,18 @@ public class MqttControlSteps {
                                         .withTopic(topic)
                                         .withContentType(rxContentType)
                                         .withContent(message)
-                                        .withRetain(receivedRetain)
+                                        .withRetain(rxRetain)
                                         .withUserProperties(rxUserProperties)
-                                        .withPayloadFormatIndicator(receivedPayloadFormatIndicator)
+                                        .withPayloadFormatIndicator(rxPayloadFormatIndicator)
+                                        .withMessageExpiryInterval(rxMessageExpiryInterval)
                                         .build();
         // convert time units
         TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
 
         // awaiting for message
-        log.info("Awaiting for MQTT message '{}' with retain {} payload format indicator {} on topic '{}' on Thing '{}'"
-                    + " for {} {}", message, receivedRetain, receivedPayloadFormatIndicator, topic,
-                                    clientDeviceThingName, value, unit);
+        log.info("Awaiting for MQTT message '{}' with retain {} payload format indicator {} message expiry interval {} "
+                    + "on topic '{}' on Thing '{}' for {} {}", message, rxRetain, rxPayloadFormatIndicator,
+                    rxMessageExpiryInterval, topic, clientDeviceThingName, value, unit);
         List<Event> events = new ArrayList<>();
         try {
             events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
@@ -763,61 +887,33 @@ public class MqttControlSteps {
     }
 
     /**
-     * Sets MQTT user Properties to transmit.
-     *
-     * @param key the key of userProperties property.
-     * @param value the value of userProperties property.
-     */
-    @And("I add MQTT 'user property' with key {string} and value {string} to transmit")
-    public void addTxUserProperty(String key, String value) {
-        if (txUserProperties == null) {
-            txUserProperties = new ArrayList<>();
-        }
-        Mqtt5Properties userProperty = Mqtt5Properties.newBuilder()
-                .setKey(key)
-                .setValue(value)
-                .build();
-        txUserProperties.add(userProperty);
-    }
-
-    /**
-     * Clear MQTT user properties to transmit.
+     * Clear message storage.
      *
      */
-    @And("I clear MQTT 'user properties' to transmit")
-    @SuppressWarnings("PMD.NullAssignment")
-    public void clearTxUserProperties() {
-        txUserProperties = null;
-    }
+    @And("I clear message storage and reset all MQTT settings to default")
+    public void clearAnything() {
+        clearStorage();
+        setMqttTimeoutSec(DEFAULT_MQTT_TIMEOUT_SEC);
 
-    /**
-     * Sets MQTT user Properties to receive.
-     *
-     * @param key the key of userProperties property.
-     * @param value the value of userProperties property.
-     */
-    @And("I add MQTT 'user property' with key {string} and value {string} to receive")
-    public void addRxUserProperty(String key, String value) {
-        if (rxUserProperties == null) {
-            rxUserProperties = new ArrayList<>();
-        }
-        Mqtt5Properties userProperty = Mqtt5Properties.newBuilder()
-                .setKey(key)
-                .setValue(value)
-                .build();
-        rxUserProperties.add(userProperty);
-    }
+        setTxRetain(DEFAULT_PUBLISH_RETAIN);
+        setRxRetain(DEFAULT_RECEIVED_RETAIN);
 
-    /**
-     * Clear MQTT user properties to receive.
-     *
-     */
-    @And("I clear MQTT 'user properties' to receive")
-    @SuppressWarnings("PMD.NullAssignment")
-    public void clearRxUserProperties() {
-        rxUserProperties = null;
-    }
+        setTxPayloadFormatIndicator(DEFAULT_PUBLISH_PAYLOAD_FORMAT_INDICATOR);
+        setRxPayloadFormatIndicator(DEFAULT_RECEIVED_PAYLOAD_FORMAT_INDICATOR);
 
+        setTxMessageExpiryInterval(DEFAULT_MESSAGE_EXPIRY_INTERVAL);
+        setRxMessageExpiryInterval(DEFAULT_MESSAGE_EXPIRY_INTERVAL);
+
+        clearTxUserProperties();
+        clearRxUserProperties();
+
+        setMqttTxContentType(DEFAULT_CONTENT_TYPE);
+        setMqttRxContentType(DEFAULT_CONTENT_TYPE);
+
+        setSubscribeNoLocal(DEFAULT_SUBSCRIBE_NO_LOCAL);
+        setSubscribeRetainHandling(DEFAULT_SUBSCRIBE_RETAIN_HANDLING.name());
+        setSubscribeRetainAsPublished(DEFAULT_SUBSCRIBE_RETAIN_AS_PUBLISHED);
+    }
 
     /**
      * Discover IoT core device broker directly in OTF.
@@ -1080,21 +1176,25 @@ public class MqttControlSteps {
                     .build();
     }
 
-    private Mqtt5Message buildMqtt5Message(int qos, boolean retain, @NonNull String topic, @NonNull String content,
-                                            Boolean payloadFormatIndicator) {
+    private Mqtt5Message buildMqtt5Message(int qos, @NonNull String topic, @NonNull String content) {
         MqttQoS mqttQoS = getMqttQoS(qos);
         Mqtt5Message.Builder builder = Mqtt5Message.newBuilder()
                             .setTopic(topic)
                             .setPayload(ByteString.copyFromUtf8(content))
                             .setQos(mqttQoS)
-                            .setRetain(retain);
+                            .setRetain(txRetain);
+
+        // please order the same as in 3.3.2.3 PUBLISH Properties of MQTT v5.0 spec
+        if (txPayloadFormatIndicator != null) {
+            builder.setPayloadFormatIndicator(txPayloadFormatIndicator);
+        }
 
         if (txUserProperties != null) {
              builder.addAllProperties(txUserProperties);
         }
 
-        if (payloadFormatIndicator != null) {
-            builder.setPayloadFormatIndicator(payloadFormatIndicator);
+        if (txMessageExpiryInterval != null) {
+            builder.setMessageExpiryInterval(txMessageExpiryInterval);
         }
 
         if (txContentType != null) {

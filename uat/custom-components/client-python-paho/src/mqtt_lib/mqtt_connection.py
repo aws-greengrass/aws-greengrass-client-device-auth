@@ -11,7 +11,7 @@ import socket
 import time
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple
 
 import paho.mqtt.client as mqtt
 
@@ -29,8 +29,11 @@ from grpc_client_server.grpc_generated.mqtt_client_control_pb2 import (
     MqttPublishReply,
     MqttSubscribeReply,
     Mqtt5Message,
+    Mqtt5Properties,
 )
 from grpc_client_server.grpc_discovery_client import GRPCDiscoveryClient
+
+RECONNECT_DELAY_SEC = 86400
 
 
 @dataclass
@@ -75,12 +78,14 @@ class ConnectionParams:  # pylint: disable=too-many-instance-attributes
     cert: str = None
     # Content of MQTT client's private key, can be None.
     key: str = None
+    # MQTT5 user proprties list
+    mqtt_properties: List[Mqtt5Properties] = None
 
-    # TODO Add user properties
+    # TODO Add all fields
 
 
 @dataclass
-class ConnectResult:  # pylint: disable=too-many-instance-attributes
+class ConnectResult:
     """Class container for connect results"""
 
     # Useful information from CONNACK packet. Can be missed
@@ -90,15 +95,19 @@ class ConnectResult:  # pylint: disable=too-many-instance-attributes
 
 
 @dataclass
-class MqttPubMessage:
+class MqttPubMessage:  # pylint: disable=too-many-instance-attributes
     """Publish message information and payload"""
 
     qos: int
     retain: bool
     topic: str
     payload: bytes
+    mqtt_properties: List[Mqtt5Properties] = None
+    payload_format_indicator: bool = None
+    content_type: str = None
+    message_expiry_interval: int = None
 
-    # TODO add user properties and other fields
+    # TODO add other fields
 
 
 @dataclass
@@ -221,13 +230,12 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         """
         self.__connection_id = connection_id
 
-    async def __connect_helper(self, host, port, keep_alive, clean_start):
+    async def __connect_helper(
+        self, host, port, keep_alive, clean_start, properties
+    ):  # pylint: disable=too-many-arguments
         """MQTT Connect async wrapper."""
         self.__client.connect(
-            host=host,
-            port=port,
-            keepalive=keep_alive,
-            clean_start=clean_start,
+            host=host, port=port, keepalive=keep_alive, clean_start=clean_start, properties=properties
         )
 
     async def start(self, timeout: int) -> ConnectResult:
@@ -238,14 +246,20 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         timeout - connect operation timeout in seconds
         Returns connection result
         """
-        # TODO add properties
         self.__asyncio_helper = AsyncioHelper(self.__loop, self.__client)  # pylint: disable=unused-private-member
 
         clean_start = self.__connection_params.clean_session
 
-        # Clean Start is used only for the MQTT 5
+        properties = Properties(PacketTypes.CONNECT)
+
+        user_properties = self.__convert_to_user_properties(self.__connection_params.mqtt_properties, "CONNECT")
+
+        # Clean Start and Properties are used only for the MQTT 5
         if self.__protocol == mqtt.MQTTv311:
             clean_start = mqtt.MQTT_CLEAN_START_FIRST_ONLY
+            properties = None
+        else:
+            properties.UserProperty = user_properties
 
         self.__logger.info("MQTT connection ID %i connecting...", self.__connection_id)
 
@@ -258,6 +272,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
                 port=self.__connection_params.port,
                 keep_alive=self.__connection_params.keep_alive,
                 clean_start=clean_start,
+                properties=properties,
             )
 
             await asyncio.wait_for(connect_awaitable, timeout)
@@ -266,7 +281,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             remaining_timeout = max(timeout - passed_time, 0)
 
             result = await asyncio.wait_for(self.__on_connect_future, remaining_timeout)
-            conn_ack_info = MqttConnection.convert_to_conn_ack(result)
+            conn_ack_info = self.__convert_to_conn_ack(result)
 
             connected = True
             if result.reason_code == mqtt.MQTT_ERR_SUCCESS:
@@ -318,21 +333,25 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         except asyncio.InvalidStateError:
             pass
 
-    async def disconnect(self, timeout: int, reason: int):
+    async def disconnect(self, timeout: int, reason: int, mqtt_properties: List[Mqtt5Properties]):
         """
         Closes MQTT connection.
         Parameters
         ----------
         timeout - disconnect operation timeout in seconds
+        mqtt_properties - list of Mqtt5Properties
         reason - disconnect reason code
         """
         self.__logger.info("Disconnect MQTT connection with reason code %i", reason)
         self.__on_disconnect_future = self.__loop.create_future()
 
         try:
+            user_properties = self.__convert_to_user_properties(mqtt_properties, "DISCONNECT")
             if self.__protocol == mqtt.MQTTv5:
                 reason_code_obj = ReasonCodes(PacketTypes.DISCONNECT, identifier=reason)
-                self.__client.disconnect(reasoncode=reason_code_obj)
+                properties = Properties(PacketTypes.DISCONNECT)
+                properties.UserProperty = user_properties
+                self.__client.disconnect(reasoncode=reason_code_obj, properties=properties)
             else:
                 self.__client.disconnect()
 
@@ -356,7 +375,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
 
         mqtt_result = MqttResult(reason_code=mqtt_reason_code, properties=properties)
 
-        disconnect_info = MqttConnection.convert_to_disconnect(mqtt_result=mqtt_result)
+        disconnect_info = self.__convert_to_disconnect(mqtt_result=mqtt_result)
         self.__grpc_client.on_mqtt_disconnect(self.__connection_id, disconnect_info, None)
 
         try:
@@ -374,13 +393,18 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         message - Mqtt message info and payload
         Returns MqttPublishReply object
         """
-        # TODO add set property
         self.state_check()
         self.__on_publish_future = self.__loop.create_future()
 
+        properties = self.__create_publish_properties(message)
+
         try:
             publish_info = self.__client.publish(
-                topic=message.topic, payload=message.payload, qos=message.qos, retain=message.retain
+                topic=message.topic,
+                payload=message.payload,
+                qos=message.qos,
+                retain=message.retain,
+                properties=properties,
             )
 
             result = await asyncio.wait_for(self.__on_publish_future, timeout)
@@ -400,7 +424,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
                 result.mid,
             )
 
-            return MqttConnection.convert_to_pub_reply(publish_info)
+            return self.__convert_to_pub_reply(publish_info)
         except asyncio.TimeoutError as error:
             raise MQTTException("Couldn't publish") from error
         finally:
@@ -418,18 +442,18 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         except asyncio.InvalidStateError:
             pass
 
-    async def subscribe(
-        self, timeout: int, subscriptions: List[Subscribtion]
-    ) -> MqttSubscribeReply:  # TODO Add user properties
+    async def subscribe(  # pylint: disable=too-many-locals
+        self, timeout: int, subscriptions: List[Subscribtion], mqtt_properties: List[Mqtt5Properties]
+    ) -> MqttSubscribeReply:
         """
         Subscribe on MQTT topics.
         Parameters
         ----------
         timeout - subscribe operation timeout in seconds
         subscriptions - Subscriptions information
+        mqtt_properties - list of Mqtt5Properties
         Returns MqttSubscribeReply object
         """
-        # TODO add set property
         self.state_check()
 
         mqtt_subscriptions = []
@@ -458,10 +482,19 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             filters.append(sub.filter)
             qos.append(str(sub.qos))
 
+        properties = Properties(PacketTypes.SUBSCRIBE)
+        user_properties = self.__convert_to_user_properties(mqtt_properties, "SUBSCRIBE")
+
+        # Properties are used only for the MQTT 5
+        if self.__protocol == mqtt.MQTTv311:
+            properties = None
+        else:
+            properties.UserProperty = user_properties
+
         self.__on_subscribe_future = self.__loop.create_future()
 
         try:
-            (resp_code, message_id) = self.__client.subscribe(mqtt_subscriptions, properties=None)
+            (resp_code, message_id) = self.__client.subscribe(mqtt_subscriptions, properties=properties)
 
             result = await asyncio.wait_for(self.__on_subscribe_future, timeout)
 
@@ -480,7 +513,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
                 message_id,
             )
 
-            return MqttConnection.convert_to_sub_reply(result)
+            return self.__convert_to_sub_reply(result)
         except asyncio.TimeoutError as error:
             raise MQTTException("Couldn't subscribe") from error
         finally:
@@ -511,25 +544,36 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         Paho MQTT receive message callback
         """
         self.__logger.debug("onMessage message %s from topic '%s'", message.payload, message.topic)
-        mqtt_message = MqttConnection.convert_to_mqtt_message(message=message)
+        mqtt_message = self.__convert_to_mqtt_message(message=message)
         self.__grpc_client.on_receive_mqtt_message(self.__connection_id, mqtt_message)
 
-    async def unsubscribe(self, timeout: int, filters: List[str]) -> MqttSubscribeReply:  # TODO Add user properties
+    async def unsubscribe(
+        self, timeout: int, filters: List[str], mqtt_properties: List[Mqtt5Properties]
+    ) -> MqttSubscribeReply:
         """
         Unsubscribe from MQTT topics.
         Parameters
         ----------
         timeout - subscribe operation timeout in seconds
         filters - Topics to unsubscribe
+        mqtt_properties - list of Mqtt5Properties
         Returns MqttSubscribeReply object
         """
-        # TODO add set property
         self.state_check()
+
+        properties = Properties(PacketTypes.UNSUBSCRIBE)
+        user_properties = self.__convert_to_user_properties(mqtt_properties, "UNSUBSCRIBE")
+
+        # Properties are used only for the MQTT 5
+        if self.__protocol == mqtt.MQTTv311:
+            properties = None
+        else:
+            properties.UserProperty = user_properties
 
         self.__on_unsubscribe_future = self.__loop.create_future()
 
         try:
-            (resp_code, message_id) = self.__client.unsubscribe(filters, properties=None)
+            (resp_code, message_id) = self.__client.unsubscribe(filters, properties=properties)
 
             result = await asyncio.wait_for(self.__on_unsubscribe_future, timeout)
 
@@ -549,7 +593,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
                 for _ in filters:
                     result.reason_codes.append(mqtt.MQTT_ERR_SUCCESS)
 
-            return MqttConnection.convert_to_sub_reply(result)
+            return self.__convert_to_sub_reply(result)
         except asyncio.TimeoutError as error:
             raise MQTTException("Couldn't unsubscribe") from error
         finally:
@@ -619,6 +663,8 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         client.on_message = self.__on_message
         client.on_unsubscribe = self.__on_unsubscribe
 
+        client.reconnect_delay_set(RECONNECT_DELAY_SEC, RECONNECT_DELAY_SEC)
+
         self.__logger.info("Creating MQTT %s client %s", protocol_version_for_log, tls_for_log)
 
         return client
@@ -628,16 +674,102 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         if (self.__client is None) or not self.__client.is_connected():
             raise MQTTException("MQTT client is not in connected state")
 
-    @staticmethod
-    def convert_to_conn_ack(mqtt_result: MqttResult) -> Mqtt5ConnAck:
+    def __create_publish_properties(self, message: MqttPubMessage):
         """
-        Convert MqttResult info to Mqtt5ConnAck
+        Create MQTT5 properties
+        Parameters
+        ----------
+        message - MqttPubMessage
+        Returns MQTT5 properties
+        """
+        properties = Properties(PacketTypes.PUBLISH)
+        user_properties = self.__convert_to_user_properties(message.mqtt_properties, "PUBLISH")
+
+        # Properties are used only for the MQTT 5
+        if self.__protocol == mqtt.MQTTv311:
+            properties = None
+            if message.payload_format_indicator is not None:
+                self.__logger.warning("'payload format indicator' is ignored for MQTT v3.1.1 connection")
+            if message.message_expiry_interval is not None:
+                self.__logger.warning("'message expiry interval' is ignored for MQTT v3.1.1 connection")
+            if message.content_type:
+                self.__logger.warning("'content type' is ignored for MQTT v3.1.1 connection")
+        else:
+            # properties handled in the same order as noted in PUBLISH of MQTT v5.0 spec
+            if message.payload_format_indicator is not None:
+                properties.PayloadFormatIndicator = message.payload_format_indicator
+                self.__logger.info("Copied TX payload format indicator '%s'", str(message.payload_format_indicator))
+
+            if message.message_expiry_interval is not None:
+                properties.MessageExpiryInterval = message.message_expiry_interval
+                self.__logger.info("Copied TX message expiry interval %d", message.message_expiry_interval)
+
+            properties.UserProperty = user_properties
+
+            if message.content_type:
+                properties.ContentType = message.content_type
+                self.__logger.info("Copied TX content type '%s'", message.content_type)
+
+        return properties
+
+    def __convert_to_user_properties(
+        self, mqtt_properties: List[Mqtt5Properties], message_type: str
+    ) -> List[Tuple[str, str]]:
+        """
+        Convert Mqtt5Properties into to User properties list
+        Parameters
+        ----------
+        mqtt_properties - mqtt_properties
+        message_type - message type
+        Returns User properties list
+        """
+        user_properties = []
+
+        if mqtt_properties:
+            if self.__protocol == mqtt.MQTTv5:
+                for mqtt_property in mqtt_properties:
+                    key = mqtt_property.key
+                    value = mqtt_property.value
+                    user_properties.append((key, value))
+                    self.__logger.info("%s TX user property '%s', '%s'", message_type, key, value)
+            else:
+                self.__logger.warning("User properties are ignored for MQTT v3.1.1 connection")
+
+        return user_properties
+
+    def __convert_to_mqtt5_properties(
+        self, user_properties: List[Tuple[str, str]], message_type: str
+    ) -> List[Mqtt5Properties]:
+        """
+        Convert User properties list into to Mqtt5Properties
+        Parameters
+        ----------
+        user_properties - User properties list
+        message_type - message type
+        Returns Mqtt5Properties
+        """
+        if user_properties:
+            mqtt_properties = []
+
+            for user_property in user_properties:
+                mqtt_property = Mqtt5Properties(key=user_property[0], value=user_property[1])
+                mqtt_properties.append(mqtt_property)
+                self.__logger.info("%s RX user property '%s', '%s'", message_type, user_property[0], user_property[1])
+
+            return mqtt_properties
+
+        return None
+
+    def __convert_to_conn_ack(self, mqtt_result: MqttResult) -> Mqtt5ConnAck:
+        """
+        Convert MqttResult into to Mqtt5ConnAck
         Parameters
         ----------
         mqtt_result - MqttResult object
         Returns Mqtt5ConnAck object
         """
         props = mqtt_result.properties
+        mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "CONNACK")
         conn_ack = Mqtt5ConnAck(
             sessionPresent=mqtt_result.flags["session present"],
             reasonCode=mqtt_result.reason_code,
@@ -655,32 +787,31 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             responseInformation=getattr(props, "ResponseInformation", None),
             serverReference=getattr(props, "ServerReference", None),
             topicAliasMaximum=getattr(props, "TopicAliasMaximum", None),
+            properties=mqtt_properties,
         )
-        # TODO add user properties
 
         return conn_ack
 
-    @staticmethod
-    def convert_to_disconnect(mqtt_result: MqttResult) -> Mqtt5ConnAck:
+    def __convert_to_disconnect(self, mqtt_result: MqttResult) -> Mqtt5Disconnect:
         """
-        Convert MqttResult info to Mqtt5Disconnect
+        Convert MqttResult into to Mqtt5Disconnect
         Parameters
         ----------
         mqtt_result - MqttResult object
         Returns Mqtt5Disconnect object
         """
         props = mqtt_result.properties
+        mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "DISCONNECT")
         disconnect_info = Mqtt5Disconnect(
             reasonCode=mqtt_result.reason_code,
             sessionExpiryInterval=getattr(props, "SessionExpiryInterval", None),
             reasonString=getattr(props, "ReasonString", None),
             serverReference=getattr(props, "ServerReference", None),
+            properties=mqtt_properties,
         )
-        # TODO add user properties
         return disconnect_info
 
-    @staticmethod
-    def convert_to_pub_reply(pub_info: mqtt.MQTTMessageInfo) -> MqttPublishReply:
+    def __convert_to_pub_reply(self, pub_info: mqtt.MQTTMessageInfo) -> MqttPublishReply:
         """
         Build MQTT publish reply
         Parameters
@@ -691,8 +822,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         # Python Paho MQTT does not support recieving any properties for the pusblished messages
         return MqttPublishReply(reasonCode=pub_info.rc)
 
-    @staticmethod
-    def convert_to_sub_reply(mqtt_result: SubscribesResult) -> MqttSubscribeReply:
+    def __convert_to_sub_reply(self, mqtt_result: SubscribesResult) -> MqttSubscribeReply:
         """
         Build MQTT subscribe reply
         Parameters
@@ -700,25 +830,45 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         mqtt_result - subscribe info
         Returns MqttSubscribeReply object
         """
-        # TODO add user properties handling
+        props = mqtt_result.properties
+        mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "SUBACK")
         mqtt_sub_reply = MqttSubscribeReply(
-            reasonCodes=mqtt_result.reason_codes, reasonString=getattr(mqtt_result.properties, "ReasonString", None)
+            reasonCodes=mqtt_result.reason_codes,
+            reasonString=getattr(mqtt_result.properties, "ReasonString", None),
+            properties=mqtt_properties,
         )
 
         return mqtt_sub_reply
 
-    @staticmethod
-    def convert_to_mqtt_message(message: mqtt.MQTTMessage) -> Mqtt5Message:
+    def __convert_to_mqtt_message(self, message: mqtt.MQTTMessage) -> Mqtt5Message:
         """
-        Convert MQTTMessage info to Mqtt5Message
+        Convert MQTTMessage into to Mqtt5Message
         Parameters
         ----------
         message - MQTTMessage object
         Returns Mqtt5Message object
         """
+        props = getattr(message, "properties", None)
+        mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "PUBLISH")
+
+        if hasattr(props, "PayloadFormatIndicator"):
+            self.__logger.info("Copied RX payload format indicator '%s'", str(props.PayloadFormatIndicator))
+
+        if hasattr(props, "MessageExpiryInterval"):
+            self.__logger.info("Copied RX message expiry interval %d", props.MessageExpiryInterval)
+
+        if hasattr(props, "ContentType"):
+            self.__logger.info("Copied RX content type '%s'", props.ContentType)
+
         mqtt_message = Mqtt5Message(
-            topic=message.topic, payload=message.payload, qos=message.qos, retain=message.retain
+            topic=message.topic,
+            payload=message.payload,
+            qos=message.qos,
+            retain=message.retain,
+            properties=mqtt_properties,
+            contentType=getattr(props, "ContentType", None),
+            payloadFormatIndicator=getattr(props, "PayloadFormatIndicator", None),
+            messageExpiryInterval=getattr(props, "MessageExpiryInterval", None),
         )
 
-        # TODO add user properties, payload format indicator, content type for mqtt5
         return mqtt_message

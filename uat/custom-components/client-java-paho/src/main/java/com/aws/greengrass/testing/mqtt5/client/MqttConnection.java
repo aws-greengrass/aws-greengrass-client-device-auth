@@ -112,6 +112,12 @@ public interface MqttConnection {
         /** Payload of message. */
         private byte[] payload;
 
+        /** Optional response topic. */
+        private String responseTopic;
+
+        /** Optional correlation data. */
+        private byte[] correlationData;
+
         /** Optional user properties. */
         private List<Mqtt5Properties>  userProperties;
 
@@ -178,4 +184,17 @@ public interface MqttConnection {
     MqttSubscribeReply unsubscribe(long timeout, @NonNull List<String> filters,
                                    List<Mqtt5Properties> userProperties);
 
+
+    /**
+     * Create URI.
+     *
+     * @param host connection IP address
+     * @param port connection port
+     * @param hasTls has TLS
+     * @return URI of connection
+     */
+    default String createUri(String host, int port, Boolean hasTls) {
+        return (hasTls ? "ssl" : "tcp")
+                + "://" + host + ":" + port;
+    }
 }

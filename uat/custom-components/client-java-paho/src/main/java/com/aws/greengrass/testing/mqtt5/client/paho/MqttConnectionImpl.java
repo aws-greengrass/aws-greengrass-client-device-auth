@@ -41,6 +41,7 @@ import javax.net.ssl.SSLSocketFactory;
 /**
  * Implementation of MQTT5 connection based on AWS IoT device SDK.
  */
+// FIXME: add handling of DISCONNECT event or update Limitations in README
 public class MqttConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(MqttConnectionImpl.class);
 
@@ -70,10 +71,12 @@ public class MqttConnectionImpl implements MqttConnection {
     @Override
     public ConnectResult start(MqttLib.ConnectionParams connectionParams, int connectionId) throws MqttException {
         this.connectionId = connectionId;
+        boolean success = false;
         try {
             MqttConnectionOptions connectionOptions = convertConnectParams(connectionParams);
             IMqttToken token = client.connect(connectionOptions);
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(connectionParams.getConnectionTimeout()));
+            success = true;
             return buildConnectResult(true, token, null);
         } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
             logger.atError().withThrowable(ex).log("Exception occurred during connect reason code {}",
@@ -82,6 +85,14 @@ public class MqttConnectionImpl implements MqttConnection {
         } catch (IOException | GeneralSecurityException ex) {
             logger.atError().withThrowable(ex).log("Exception occurred during connect");
             throw new MqttException("Exception occurred during connect", ex);
+        } finally {
+            if (!success) {
+                try {
+                    client.close();
+                } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
+                    logger.atWarn().withThrowable(ex).log("Exception occurred during close");
+                }
+            }
         }
     }
 
@@ -134,7 +145,7 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @Override
     public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
-        if (!isClosing.getAndSet(true)) {
+        if (isClosing.compareAndSet(false, true)) {
             try {
                 disconnectAndClose(timeout, reasonCode, userProperties);
             } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
@@ -242,8 +253,9 @@ public class MqttConnectionImpl implements MqttConnection {
      */
     private IMqttAsyncClient createAsyncClient(MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.mqttv5.common.MqttException {
-        return new MqttAsyncClient(connectionParams.getHost(),
-                connectionParams.getClientId());
+        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(),
+                connectionParams.getCert() != null);
+        return new MqttAsyncClient(uri, connectionParams.getClientId());
     }
 
     private void disconnectAndClose(long timeout, int reasonCode, List<Mqtt5Properties> userProperties)
@@ -263,17 +275,36 @@ public class MqttConnectionImpl implements MqttConnection {
 
     private MqttConnectionOptions convertConnectParams(MqttLib.ConnectionParams connectionParams)
             throws IOException, GeneralSecurityException {
+
+
         MqttConnectionOptions connectionOptions = new MqttConnectionOptions();
-        connectionOptions.setServerURIs(new String[]{connectionParams.getHost()});
+
+        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(),
+                connectionParams.getCert() != null);
+
+        connectionOptions.setServerURIs(new String[]{uri});
         connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
-        SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
-        connectionOptions.setSocketFactory(sslSocketFactory);
+
+        if (connectionParams.getKey() != null) {
+            SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
+            connectionOptions.setSocketFactory(sslSocketFactory);
+        }
+
+        connectionOptions.setKeepAliveInterval(connectionParams.getKeepalive());
+        connectionOptions.setCleanStart(connectionParams.isCleanSession());
+        connectionOptions.setAutomaticReconnect(false);
 
         List<Mqtt5Properties> userProperties = connectionParams.getUserProperties();
         if (userProperties != null && !userProperties.isEmpty()) {
             connectionOptions.setUserProperties(convertToUserProperties(userProperties));
             userProperties.forEach(p -> logger.atInfo()
-                    .log("Connect MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
+                    .log("CONNECT Tx user property '{}':'{}'", p.getKey(), p.getValue()));
+        }
+
+        final Boolean requestResponseInformation = connectionParams.getRequestResponseInformation();
+        if (requestResponseInformation != null) {
+            connectionOptions.setRequestResponseInfo(requestResponseInformation);
+            logger.atInfo().log("CONNECT Tx request response information: {}", requestResponseInformation);
         }
 
         return connectionOptions;
@@ -282,29 +313,41 @@ public class MqttConnectionImpl implements MqttConnection {
     private MqttProperties createPublishProperties(Message message) {
         MqttProperties properties = new MqttProperties();
 
+        final Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
+        if (payloadFormatIndicator != null) {
+            properties.setPayloadFormat(payloadFormatIndicator);
+            logger.atInfo().log("PUBLISH Tx payload format indicator '{}'", payloadFormatIndicator);
+        }
+
+        final Integer messageExpiryInterval = message.getMessageExpiryInterval();
+        if (messageExpiryInterval != null) {
+            properties.setMessageExpiryInterval(Long.valueOf(messageExpiryInterval));
+            logger.atInfo().log("PUBLISH Tx expiry message interval '{}'", messageExpiryInterval);
+        }
+
+        final String responseTopic = message.getResponseTopic();
+        if (responseTopic != null) {
+            properties.setResponseTopic(responseTopic);
+            logger.atInfo().log("PUBLISH Tx response topic: {}", responseTopic);
+        }
+
+        final byte[] correlationData = message.getCorrelationData();
+        if (correlationData != null) {
+            properties.setCorrelationData(correlationData);
+            logger.atInfo().log("PUBLISH Tx correlation data: {}", correlationData);
+        }
+
         if (message.getUserProperties() != null && !message.getUserProperties().isEmpty()) {
             List<UserProperty> userProperties = convertToUserProperties(message.getUserProperties());
             properties.setUserProperties(userProperties);
             userProperties.forEach(p -> logger.atInfo()
-                    .log("Publish MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
+                    .log("PUBLISH Tx user property '{}':'{}'", p.getKey(), p.getValue()));
         }
 
-        String contentType = message.getContentType();
-        if (contentType != null && !contentType.isEmpty()) {
+        final String contentType = message.getContentType();
+        if (contentType != null) {
             properties.setContentType(contentType);
-            logger.atInfo().log("Publish MQTT payload content type '{}'", contentType);
-        }
-
-        Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
-        if (payloadFormatIndicator != null) {
-            properties.setPayloadFormat(payloadFormatIndicator);
-            logger.atInfo().log("Publish MQTT payload format indicator '{}'", payloadFormatIndicator);
-        }
-
-        Integer messageExpiryInterval = message.getMessageExpiryInterval();
-        if (messageExpiryInterval != null) {
-            properties.setMessageExpiryInterval(Long.valueOf(messageExpiryInterval));
-            logger.atInfo().log("Publish MQTT expiry message interval '{}'", messageExpiryInterval);
+            logger.atInfo().log("PUBLISH Tx payload content type '{}'", contentType);
         }
 
         return properties;
@@ -337,6 +380,11 @@ public class MqttConnectionImpl implements MqttConnection {
         List<Mqtt5Properties> ackUserProperties =
                 getAckUserProperties(token.getResponseProperties().getUserProperties(), "ConAck");
 
+        String responseInformation = token.getResponseProperties().getResponseInfo();
+        if (responseInformation != null) {
+            logger.atInfo().log("CONNACK Rx response information: '{}'", responseInformation);
+        }
+
         return new ConnAckInfo(token.getSessionPresent(),
                 reasonCode,
                 sessionExpiryInterval,
@@ -350,7 +398,7 @@ public class MqttConnectionImpl implements MqttConnection {
                 subscriptionIdentifiersAvailable,
                 sharedSubscriptionAvailable,
                 token.getResponseProperties().getServerKeepAlive(),
-                token.getResponseProperties().getResponseInfo(),
+                responseInformation,
                 token.getResponseProperties().getServerReference(),
                 ackUserProperties
         );
@@ -370,22 +418,35 @@ public class MqttConnectionImpl implements MqttConnection {
 
             String contentType = null;
             Boolean payloadFormatIndicator = null;
-            Long messageExpiryInterval = null;
+            Integer messageExpiryInterval = null;
+            String responseTopic = null;
+            byte[] correlationData = null;
             if (receivedProperties != null) {
                 contentType = receivedProperties.getContentType();
                 payloadFormatIndicator = receivedProperties.getPayloadFormat();
-                messageExpiryInterval = receivedProperties.getMessageExpiryInterval();
+                if (receivedProperties.getMessageExpiryInterval() != null) {
+                    messageExpiryInterval = receivedProperties.getMessageExpiryInterval().intValue();
+                }
+                responseTopic = receivedProperties.getResponseTopic();
+                correlationData = receivedProperties.getCorrelationData();
             }
 
             List<Mqtt5Properties> userProps = convertToMqtt5Properties(receivedProperties);
-            GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                    mqttMessage.getQos(), mqttMessage.isRetained(), topic,
-                    mqttMessage.getPayload(), userProps, contentType, payloadFormatIndicator);
-            executorService.submit(() -> {
-                grpcClient.onReceiveMqttMessage(connectionId, message);
-                logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
-                        connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
-            });
+
+            if (isClosing.get()) {
+                logger.atWarn().log("PIBLISH event ignored due to shutdown initiated");
+            } else {
+                GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
+                        mqttMessage.getQos(), mqttMessage.isRetained(), topic,
+                        mqttMessage.getPayload(), userProps, contentType, payloadFormatIndicator,
+                        messageExpiryInterval, responseTopic, correlationData);
+                executorService.submit(() -> {
+                    grpcClient.onReceiveMqttMessage(connectionId, message);
+                    logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
+                            connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
+                });
+            }
+
             if (userProps != null) {
                 userProps.forEach(p -> logger.atInfo()
                         .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
@@ -398,6 +459,12 @@ public class MqttConnectionImpl implements MqttConnection {
             }
             if (messageExpiryInterval != null) {
                 logger.atInfo().log("Received MQTT message has message expiry interval {}", messageExpiryInterval);
+            }
+            if (responseTopic != null) {
+                logger.atInfo().log("Received MQTT message has response topic: {}", responseTopic);
+            }
+            if (correlationData != null) {
+                logger.atInfo().log("Received MQTT message has correlation data: {}", correlationData);
             }
         }
     }

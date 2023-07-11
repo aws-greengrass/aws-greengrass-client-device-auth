@@ -184,6 +184,8 @@ private:
     void stateCheck();
 
 
+    const int RECONNECT_DELAY_SEC = 86400; //one day
+
     std::mutex m_mutex;
     GRPCDiscoveryClient & m_grpc_client;
     std::string m_client_id;
