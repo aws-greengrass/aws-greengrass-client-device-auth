@@ -121,6 +121,21 @@ class GRPCDiscoveryClient implements GRPCClient {
                                         .setPayload(ByteString.copyFrom(message.getPayload()))
                                         .setQos(MqttQoS.forNumber(message.getQos()))
                                         .setRetain(message.isRetain());
+        final Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
+        if (payloadFormatIndicator != null) {
+            msgBuilder.setPayloadFormatIndicator(payloadFormatIndicator);
+        }
+
+        final String responseTopic = message.getResponseTopic();
+        if (responseTopic != null) {
+            msgBuilder.setResponseTopic(responseTopic);
+        }
+
+        final byte[] correlationData = message.getCorrelationData();
+        if (correlationData != null) {
+            msgBuilder.setCorrelationData(ByteString.copyFrom(correlationData));
+        }
+
         if (message.getUserProperties() != null) {
             msgBuilder.addAllProperties(message.getUserProperties());
         }
@@ -128,11 +143,6 @@ class GRPCDiscoveryClient implements GRPCClient {
         final String contentType = message.getContentType();
         if (contentType != null) {
             msgBuilder.setContentType(contentType);
-        }
-
-        final Boolean payloadFormatIndicator = message.getPayloadFormatIndicator();
-        if (payloadFormatIndicator != null) {
-            msgBuilder.setPayloadFormatIndicator(payloadFormatIndicator);
         }
 
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
