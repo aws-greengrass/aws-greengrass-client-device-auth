@@ -1221,7 +1221,7 @@ Feature: GGMQ-1
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
     And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
 
-    # A.B. publish 'retain' and subscribe 'retain control' tests
+    # A.B. PUBLISH 'retain' and SUBSCRIBE 'retain control' tests
 
     # 1. test case when publishing two messages with retain flag set and subscribe retain handling is 'send at subsription'
     #  and only last message is received
@@ -1307,7 +1307,6 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "t102_case7" with qos 0
     And message "Single not retained message in case7" is not received on "subscriber" from "t102_case7" topic within 5 seconds
 
-
     And I clear message storage
 
     # 8. test case when no retaine messages and subscribed with 'do not send at subscription'
@@ -1318,8 +1317,9 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "t102_case8" with qos 0
     And message "Single not retained message in case8" is not received on "subscriber" from "t102_case8" topic within 5 seconds
 
-    # C. 'retain as published' tests
-    And I clear message storage
+    And I clear message storage and reset all MQTT settings to default
+
+    # C. SUBSCRIBE 'retain as published' tests
 
     # 9. test case when subscribe 'retain as published' is false.
     #  In that case 'retain' flag on receive should be false regardless 'retain' value on publish.
@@ -1355,7 +1355,10 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world4"
     And message "Hello world4" received on "subscriber" from "iot_data_1" topic within 5 seconds
 
-    # D. 'user properties' tests
+    And I clear message storage and reset all MQTT settings to default
+
+    # D. PUBLISH 'user properties' tests
+
     # 11. test case when publish 'user properties' are not empty.
     #  In that case 'user properties' on receive should be equal to 'user properties' value on publish.
 
@@ -1367,10 +1370,11 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_2" with qos 0 and message "Expected userProperties are received"
     And message "Expected userProperties are received" received on "subscriber" from "iot_data_2" topic within 5 seconds
 
+    And I clear message storage
+
     # 12. test case when publish 'user properties' are empty.
     #  In that case 'user properties' on receive should not be equal to 'user properties' value on publish.
 
-    And I clear message storage
     And I clear MQTT 'user properties' to transmit
     And I clear MQTT 'user properties' to receive
     And I add MQTT 'user property' with key "agent-control" and value "control" to receive
@@ -1379,9 +1383,10 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_2" with qos 0 and message "Expected userProperties are not received"
     And message "Expected userProperties are not received" is not received on "subscriber" from "iot_data_2" topic within 5 seconds
 
+    And I clear message storage
+
     # 13. test case when publish 'user properties' are empty.
     #  In that case 'user properties' on receive should ignore 'user properties' value on publish.
-    And I clear message storage
     And I clear MQTT 'user properties' to transmit
     And I clear MQTT 'user properties' to receive
     And I add MQTT 'user property' with key "agent-control" and value "control" to transmit
@@ -1390,21 +1395,22 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_3" with qos 0 and message "Ignore userProperties"
     And message "Ignore userProperties" received on "subscriber" from "iot_data_3" topic within 5 seconds
 
+    And I clear message storage
+
     # 14. test case when publish 'user properties' are empty.
     #  In that case 'user properties' on receive should be equal to 'user properties' value on publish.
 
-    And I clear message storage
     And I clear MQTT 'user properties' to transmit
     And I clear MQTT 'user properties' to receive
     When I subscribe "subscriber" to "iot_data_4" with qos 0
     When I publish from "publisher" to "iot_data_4" with qos 0 and message "Without userProperties"
     And message "Without userProperties" received on "subscriber" from "iot_data_4" topic within 5 seconds
 
+    And I clear message storage and reset all MQTT settings to default
+
     # E. 'payload format indicator' tests
-    And I clear message storage
 
     # 15. test case when both tx/rx payload format indicators are set to 0
-    And I clear message storage
     And I set MQTT publish 'payload format indicator' flag to false
     And I set the 'payload format indicator' flag in expected received messages to false
     When I subscribe "subscriber" to "payload_format_indicator_false_false" with qos 0
@@ -1456,9 +1462,10 @@ Feature: GGMQ-1
     When I publish from "publisher" to "payload_format_indicator_false_null" with qos 0 and message "Payload format indicators false/null"
     And message "Payload format indicators false/null" received on "subscriber" from "payload_format_indicator_false_null" topic within 5 seconds
 
-    And I clear message storage
+    And I clear message storage and reset all MQTT settings to default
 
     # F. subscribe 'no local' tests
+
     # 21. test case when subscribe 'no local' set to true
     And I set MQTT subscribe 'no local' flag to true
     When I subscribe "subscriber" to "no_local_test" with qos 0
@@ -1475,7 +1482,7 @@ Feature: GGMQ-1
     When I publish from "subscriber" to "no_local_false" with qos 0 and message "First message no local false test"
     Then message "First message no local false test" received on "subscriber" from "no_local_false" topic within 5 seconds
 
-    And I clear message storage
+    And I clear message storage and reset all MQTT settings to default
 
     # G. publish/subscribe 'content type' tests
 
@@ -1512,6 +1519,40 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "content_type_not_null_null" with qos 0
     When I publish from "publisher" to "content_type_not_null_null" with qos 0 and message "Content types not null/null"
     And message "Content types not null/null" received on "subscriber" from "content_type_not_null_null" topic within 5 seconds
+
+    And I clear message storage and reset all MQTT settings to default
+
+    # H. test 'message expiry interval' feature
+
+    # 27. test case when send message expiry interval 50 and receive 50 without delay
+    And I set MQTT publish 'retain' flag to false
+    And I set MQTT publish 'message expiry interval' to 50
+    And I set the 'message expiry interval' in expected received messages to 50
+    When I subscribe "subscriber" to "message_expire_interval_50" with qos 0
+    When I publish from "publisher" to "message_expire_interval_50" with qos 0 and message "Message expiry interval was 50"
+    And message "Message expiry interval was 50" received on "subscriber" from "message_expire_interval_50" topic within 5 seconds
+
+    And I clear message storage
+
+    # 28. test case when send message expiry interval 100 make 5 seconds pause and receive 95
+    And I set MQTT publish 'retain' flag to true
+    And I set MQTT publish 'message expiry interval' to 100
+    And I set the 'message expiry interval' in expected received messages to 95
+    When I publish from "publisher" to "message_expire_interval_100" with qos 0 and message "Message expiry interval was 100"
+    And I wait 5 seconds
+    When I subscribe "subscriber" to "message_expire_interval_100" with qos 0
+    And message "Message expiry interval was 100" received on "subscriber" from "message_expire_interval_100" topic within 5 seconds
+
+    And I clear message storage
+
+    # 29. test case when send message expiry interval 1 make 5 seconds pause and message do not forward by broker
+    And I set MQTT publish 'retain' flag to true
+    And I set MQTT publish 'message expiry interval' to 1
+    And I reset expected 'message expiry interval'
+    When I publish from "publisher" to "message_expire_interval_1" with qos 0 and message "Message expiry interval was 1"
+    And I wait 5 seconds
+    When I subscribe "subscriber" to "message_expire_interval_1" with qos 0
+    And message "Message expiry interval was 1" is not received on "subscriber" from "message_expire_interval_1" topic within 10 seconds
 
     @mqtt5 @sdk-java
     Examples:

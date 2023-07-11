@@ -92,6 +92,11 @@ public class MqttMessageEvent extends EventImpl {
             return false;
         }
 
+        matched = isMessageExpiryIntervalMatched(filter.getMessageExpiryInterval());
+        if (!matched) {
+            return false;
+        }
+
         // TODO: check QoS ?
 
         // check content
@@ -147,7 +152,12 @@ public class MqttMessageEvent extends EventImpl {
         return payloadFormatIndicator == null || payloadFormatIndicator == message.getPayloadFormatIndicator();
     }
 
+    private boolean isMessageExpiryIntervalMatched(Integer messageExpiryInterval) {
+        return messageExpiryInterval == null || messageExpiryInterval == message.getMessageExpiryInterval();
+    }
+
     private static boolean isTopicMatched(@NonNull String topic, @NonNull String topicFilter) {
         return MqttTopic.topicIsSupersetOf(topicFilter, topic);
     }
+
 }
