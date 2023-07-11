@@ -145,6 +145,11 @@ class GRPCDiscoveryClient implements GRPCClient {
             msgBuilder.setContentType(contentType);
         }
 
+        final Integer messageExpiryInterval = message.getMessageExpiryInterval();
+        if (messageExpiryInterval != null) {
+            msgBuilder.setMessageExpiryInterval(messageExpiryInterval);
+        }
+
         OnReceiveMessageRequest request = OnReceiveMessageRequest.newBuilder()
                         .setAgentId(agentId)
                         .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build())
