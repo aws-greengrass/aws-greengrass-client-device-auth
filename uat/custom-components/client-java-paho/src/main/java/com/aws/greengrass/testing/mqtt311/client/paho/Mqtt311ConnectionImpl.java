@@ -176,7 +176,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
      */
     private IMqttAsyncClient createAsyncClient(MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.client.mqttv3.MqttException {
-        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), connectionParams.isHasTls());
+        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(),
+                connectionParams.getCert() != null);
         return new MqttAsyncClient(uri, connectionParams.getClientId());
     }
 
@@ -188,7 +189,8 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             logger.atWarn().log("MQTT v3.1.1 does not support request response information");
         }
 
-        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), connectionParams.isHasTls());
+        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(),
+                connectionParams.getCert() != null);
         connectionOptions.setServerURIs(new String[]{uri});
 
         if (connectionParams.getKey() != null) {

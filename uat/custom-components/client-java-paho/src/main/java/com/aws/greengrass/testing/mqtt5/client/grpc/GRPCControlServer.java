@@ -183,7 +183,6 @@ class GRPCControlServer {
                 connectionParamsBuilder.requestResponseInformation(request.getRequestResponseInformation());
             }
 
-            connectionParamsBuilder.hasTls(request.hasTls());
             // check TLS optional settings
             if (request.hasTls()) {
                 TLSSettings tls = request.getTls();
