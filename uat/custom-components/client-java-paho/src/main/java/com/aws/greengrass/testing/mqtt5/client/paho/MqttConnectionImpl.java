@@ -418,13 +418,15 @@ public class MqttConnectionImpl implements MqttConnection {
 
             String contentType = null;
             Boolean payloadFormatIndicator = null;
-            Long messageExpiryInterval = null;
+            Integer messageExpiryInterval = null;
             String responseTopic = null;
             byte[] correlationData = null;
             if (receivedProperties != null) {
                 contentType = receivedProperties.getContentType();
                 payloadFormatIndicator = receivedProperties.getPayloadFormat();
-                messageExpiryInterval = receivedProperties.getMessageExpiryInterval();
+                if (receivedProperties.getMessageExpiryInterval() != null) {
+                    messageExpiryInterval = receivedProperties.getMessageExpiryInterval().intValue();
+                }
                 responseTopic = receivedProperties.getResponseTopic();
                 correlationData = receivedProperties.getCorrelationData();
             }
@@ -437,7 +439,7 @@ public class MqttConnectionImpl implements MqttConnection {
                 GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
                         mqttMessage.getQos(), mqttMessage.isRetained(), topic,
                         mqttMessage.getPayload(), userProps, contentType, payloadFormatIndicator,
-                        messageExpiryInterval.intValue(), responseTopic, correlationData);
+                        messageExpiryInterval, responseTopic, correlationData);
                 executorService.submit(() -> {
                     grpcClient.onReceiveMqttMessage(connectionId, message);
                     logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
