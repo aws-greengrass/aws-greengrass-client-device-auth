@@ -100,6 +100,7 @@ public interface EngineControl {
     /**
      * Stops engine instance.
      *
+     * @param shutdownAgents when set control will send shutdown request to active agents
      */
-    void stopEngine();
+    void stopEngine(boolean shutdownAgents);
 }

@@ -23,6 +23,7 @@ import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import io.grpc.Grpc;
 import io.grpc.InsecureChannelCredentials;
 import io.grpc.ManagedChannel;
+import io.grpc.StatusRuntimeException;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -164,8 +165,8 @@ public class AgentControlImpl implements AgentControl {
     @Override
     public void shutdownAgent(@NonNull String reason) {
         ShutdownRequest request = ShutdownRequest.newBuilder().setReason(reason).build();
-        blockingStub.shutdownAgent(request);
         isShutdownSent.set(true);
+        blockingStub.shutdownAgent(request);
         logger.atInfo().log("shutdown request sent successfully");
     }
 
@@ -308,15 +309,23 @@ public class AgentControlImpl implements AgentControl {
     private void closeAllMqttConnections() {
         connections.forEach((connectionId, connectionControl) -> {
             if (connections.remove(connectionId, connectionControl)) {
-                connectionControl.closeMqttConnection(DEFAULT_DISCONNECT_REASON.getValue());
+                try {
+                    connectionControl.closeMqttConnection(DEFAULT_DISCONNECT_REASON.getValue());
+                } catch (StatusRuntimeException ex) {
+                    logger.atWarn().withThrowable(ex).log("Couldn't send close MQTT connection request");
+                }
             }
         });
     }
 
     private void disconnect(boolean sendShutdown) {
-        if (!isDisconnected.getAndSet(true)) {
-            if (sendShutdown && !isShutdownSent.getAndSet(true)) {
-                shutdownAgent("none");
+        if (isDisconnected.compareAndSet(false, true)) {
+            if (sendShutdown && isShutdownSent.compareAndSet(false, true)) {
+                try {
+                    shutdownAgent("none");
+                } catch (StatusRuntimeException ex) {
+                    logger.atWarn().withThrowable(ex).log("Couldn't send shutdown request");
+                }
             }
             channel.shutdown();
             try {

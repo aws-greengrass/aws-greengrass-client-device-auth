@@ -197,12 +197,16 @@ class AgentTestScenario implements Runnable {
                                                         status.getCode(), status.getDescription());
         } finally {
             if (connectionControl != null) {
-                // close MQTT connection
-                List<Mqtt5Properties> userProperties = null;
-                if (mqtt50) {
-                    userProperties = createMqtt5Properties("DISCONNECT");
+                try {
+                    // close MQTT connection
+                    List<Mqtt5Properties> userProperties = null;
+                    if (mqtt50) {
+                        userProperties = createMqtt5Properties("DISCONNECT");
+                    }
+                    connectionControl.closeMqttConnection(DISCONNECT_REASON, userProperties);
+                } catch (StatusRuntimeException ex) {
+                    logger.atWarn().withThrowable(ex).log("Exception during close MQTT connection");
                 }
-                connectionControl.closeMqttConnection(DISCONNECT_REASON, userProperties);
             }
             agentControl.shutdownAgent("That's it.");
         }

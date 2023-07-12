@@ -18,6 +18,7 @@ import io.grpc.InsecureServerCredentials;
 import io.grpc.Server;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
+import io.grpc.StatusRuntimeException;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -144,10 +145,10 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     }
 
     @Override
-    public void stopEngine() {
+    public void stopEngine(boolean shutdownAgents) {
         Server srv = server.getAndSet(null);
         if (srv != null) {
-            unregisterAllAgent();
+            unregisterAllAgent(shutdownAgents);
             srv.shutdown();
             logger.atInfo().log("gRPC MQTT client control server stopped");
         }
@@ -188,6 +189,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
         AgentControlImpl agentControl = agents.remove(agentId);
         if (agentControl != null) {
             agentControl.stopAgent(false);
+
             if (engineEvents != null) {
                 engineEvents.onAgentDeattached(agentControl);
             }
@@ -215,11 +217,15 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     }
 
 
-    @SuppressWarnings("PMD.CollapsibleIfStatements")
-    private void unregisterAllAgent() {
+    private void unregisterAllAgent(boolean shutdownAgents) {
         agents.forEach((agentId, agentControl) -> {
             if (agents.remove(agentId, agentControl)) {
-                agentControl.stopAgent(true);
+                try {
+                    agentControl.stopAgent(shutdownAgents);
+                } catch (StatusRuntimeException ex) {
+                    logger.atWarn().withThrowable(ex).log("Couldn't stop agent id {}", agentId);
+                }
+
                 if (engineEvents != null) {
                     engineEvents.onAgentDeattached(agentControl);
                 }

@@ -76,7 +76,7 @@ public class ExampleControl {
             public void run() {
                 // Use stderr here since the logger may have been reset by its JVM shutdown hook.
                 logger.atInfo().log("*** shutting down gRPC server since JVM is shutting down");
-                engineControl.stopEngine();
+                engineControl.stopEngine(true);
                 shutdownExecutorService();
                 logger.atInfo().log("*** server shut down");
             }
