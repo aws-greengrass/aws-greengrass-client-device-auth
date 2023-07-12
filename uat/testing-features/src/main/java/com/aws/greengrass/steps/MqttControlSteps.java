@@ -93,7 +93,6 @@ public class MqttControlSteps {
     private static final int DEFAULT_CONTROL_GRPC_PORT = 0;
     private static final String MQTT_CONTROL_PORT_KEY = "mqttControlPort";
 
-    private static final Integer DEFAULT_CLIENT_CUSTOM_CONNECTION_PORT = null;
     private static final int MIN_QOS = 0;
     private static final int MAX_QOS = 2;
 
@@ -146,9 +145,6 @@ public class MqttControlSteps {
     private final EventStorageImpl eventStorage;
 
     private final GreengrassV2Client greengrassClient;
-
-    /** Actual value of port in MQTT connection. */
-    private static Integer customConnectionPort = DEFAULT_CLIENT_CUSTOM_CONNECTION_PORT;
 
     /** Actual value of timeout in seconds used in all MQTT opetations. */
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
@@ -317,26 +313,6 @@ public class MqttControlSteps {
         }
 
         return Boolean.valueOf(value);
-    }
-
-    /**
-     * Sets MQTT custom connection port.
-     *
-     * @param port MQTT connection port
-     */
-    @And("I set MQTT connection port to {int}")
-    public void setMqttConnectionPort(int port) {
-        customConnectionPort = port;
-        log.info("MQTT connection port set to {}", customConnectionPort);
-    }
-
-    /**
-     * Resets MQTT custom connection port.
-     */
-    @And("I reset MQTT connection port")
-    public void resetMqttConnectionPort() {
-        customConnectionPort = DEFAULT_CLIENT_CUSTOM_CONNECTION_PORT;
-        log.info("MQTT connection port reset to default");
     }
 
     /**
@@ -783,7 +759,7 @@ public class MqttControlSteps {
         for (final MqttBrokerConnectionInfo broker : bc) {
             final List<String> caList = broker.getCaList();
             final String host = broker.getHost();
-            final Integer port = customConnectionPort == null ? broker.getPort() : customConnectionPort;
+            final Integer port = broker.getPort();
             log.info("Creating MQTT connection with broker {} to address {}:{} as Thing {} on {} using MQTT {}",
                      brokerId, host, port, clientDeviceThingName, componentId, mqttVersion);
             MqttConnectRequest request = buildMqttConnectRequest(

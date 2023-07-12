@@ -1078,8 +1078,10 @@ Feature: GGMQ-1
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
       | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
       | <agent>                                  | classpath:/local-store/recipes/<recipe> |
-    And I create client device "clientDeviceTest"
-    When I associate "clientDeviceTest" with ggc
+    And I create client device "clientDeviceTest1"
+    And I create client device "clientDeviceTest2"
+    When I associate "clientDeviceTest1" with ggc
+    When I associate "clientDeviceTest2" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
@@ -1088,7 +1090,7 @@ Feature: GGMQ-1
             "formatVersion":"2021-03-05",
             "definitions":{
                 "MyPermissiveDeviceGroup":{
-                    "selectionRule":"thingName: ${clientDeviceTest}",
+                    "selectionRule":"thingName: ${clientDeviceTest1} OR thingName: ${clientDeviceTest2}",
                     "policyName":"MyPermissivePolicy"
                 }
             },
@@ -1123,9 +1125,9 @@ Feature: GGMQ-1
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
     And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
-    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
-    And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
-    And I disconnect device "clientDeviceTest" with reason code 0
+    And I discover core device broker as "default_broker" from "clientDeviceTest1" in OTF
+    And I connect device "clientDeviceTest1" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    And I disconnect device "clientDeviceTest1" with reason code 0
 
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST |
@@ -1140,6 +1142,17 @@ Feature: GGMQ-1
     }
 }
     """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 299 seconds
+    Then I wait 60 seconds
+    And I discover core device broker as "default_broker" from "clientDeviceTest2" in OTF
+    And I can not connect device "clientDeviceTest2" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST |
+      | <agent>                                  | LATEST |
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.EMQX configuration to:
     """
 {
@@ -1157,16 +1170,9 @@ Feature: GGMQ-1
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 299 seconds
-    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
-    And I set MQTT connection port to 9999
     Then I wait 60 seconds
-    And I can not connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
-
-    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
-    And I set MQTT connection port to 11111
-    Then I wait 60 seconds
-    And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
-    And I disconnect device "clientDeviceTest" with reason code 0
+    And I discover core device broker as "default_broker" from "clientDeviceTest2" in OTF
+    And I connect device "clientDeviceTest2" on <agent> to "default_broker" using mqtt "<mqtt-v>"
 
     @mqtt3 @sdk-java
     Examples:
