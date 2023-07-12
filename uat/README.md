@@ -128,3 +128,9 @@ Dtest.log.path - path where you would like the test results to be stored.
 ```bash
 java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ-1-T1 and @sdk-java and @mqtt3" -jar testing-features/target/client-devices-auth-testing-features.jar
 ```
+
+
+## Limitations
+MQTT clients based on IoT Device SDK for Java v2, mosquitto C, Paho Java, Paho Python do no provide API to get information from PUBREC/PUBREL/PUBCOMP packages used when messages published with QoS 2.
+
+Not all features of MQTT v5.0 has been implemented in clients and supported by gRPC proto and the control as was requested, it is not a bugs it a design requirement.
