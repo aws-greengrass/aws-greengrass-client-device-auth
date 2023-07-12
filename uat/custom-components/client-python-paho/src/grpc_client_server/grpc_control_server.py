@@ -166,6 +166,10 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
                 self.__logger.warning("CreateMqttConnection: key is empty")
                 await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "key is empty")
 
+        request_response_information = None
+        if request.HasField("requestResponseInformation"):
+            request_response_information = request.requestResponseInformation
+
         self.__logger.info(
             "createMqttConnection: clientId %s broker %s:%i", request.clientId, request.host, request.port
         )
@@ -181,6 +185,7 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
             cert=cert,
             key=key,
             mqtt_properties=request.properties,
+            request_response_information=request_response_information,
         )
 
         try:
@@ -258,12 +263,18 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         if message.HasField("messageExpiryInterval"):
             message_expiry_interval = message.messageExpiryInterval
 
+        response_topic = None
+        if message.HasField("responseTopic"):
+            response_topic = message.responseTopic
+
+        correlation_data = None
+        if message.HasField("correlationData"):
+            correlation_data = message.correlationData
+
         connection_id = request.connectionId.connectionId
         self.__logger.info(
             "PublishMqtt connection_id %i topic %s retain %i", connection_id, message.topic, int(message.retain)
         )
-
-        # TODO add handling other fields
 
         connection = self.__mqtt_lib.get_connection(connection_id)
         if connection is None:
@@ -278,6 +289,8 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
                     retain=message.retain,
                     topic=message.topic,
                     payload=message.payload,
+                    response_topic=response_topic,
+                    correlation_data=correlation_data,
                     mqtt_properties=message.properties,
                     content_type=content_type,
                     payload_format_indicator=payload_format_indicator,

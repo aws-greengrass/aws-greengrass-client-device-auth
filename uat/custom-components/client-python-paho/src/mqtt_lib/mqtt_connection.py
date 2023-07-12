@@ -80,8 +80,8 @@ class ConnectionParams:  # pylint: disable=too-many-instance-attributes
     key: str = None
     # MQTT5 user proprties list
     mqtt_properties: List[Mqtt5Properties] = None
-
-    # TODO Add all fields
+    # Optional request response information.
+    request_response_information: bool = None
 
 
 @dataclass
@@ -98,16 +98,26 @@ class ConnectResult:
 class MqttPubMessage:  # pylint: disable=too-many-instance-attributes
     """Publish message information and payload"""
 
+    # QoS value.
     qos: int
+    # Retain flag.
     retain: bool
+    # Topic of message.
     topic: str
+    # Payload of message.
     payload: bytes
+    # Optional response topic.
+    response_topic: str = None
+    # Optional correlation data.
+    correlation_data: bytes = None
+    # Optional user properties.
     mqtt_properties: List[Mqtt5Properties] = None
+    # Optional content type.
     payload_format_indicator: bool = None
+    # Optional payload format indicator.
     content_type: str = None
+    # Optional message expiry interval.
     message_expiry_interval: int = None
-
-    # TODO add other fields
 
 
 @dataclass
@@ -116,12 +126,13 @@ class Subscribtion:
 
     # Topic filter.
     filter: str
-    # Maximum QoS
+    # Maximum QoS.
     qos: int
     # No local subscription.
     no_local: bool
-
+    # Retain as published flag.
     retain_as_published: bool
+    # Retain handling option.
     retain_handling: int
 
 
@@ -257,8 +268,16 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         # Clean Start and Properties are used only for the MQTT 5
         if self.__protocol == mqtt.MQTTv311:
             clean_start = mqtt.MQTT_CLEAN_START_FIRST_ONLY
+            if self.__connection_params.request_response_information is not None:
+                self.__logger.warning("'Request response information' is ignored for MQTT v3.1.1 connection")
             properties = None
         else:
+            if self.__connection_params.request_response_information is not None:
+                properties.RequestResponseInformation = self.__connection_params.request_response_information
+                self.__logger.info(
+                    "Copied TX request response information '%s'",
+                    str(self.__connection_params.request_response_information),
+                )
             properties.UserProperty = user_properties
 
         self.__logger.info("MQTT connection ID %i connecting...", self.__connection_id)
@@ -692,8 +711,13 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
                 self.__logger.warning("'payload format indicator' is ignored for MQTT v3.1.1 connection")
             if message.message_expiry_interval is not None:
                 self.__logger.warning("'message expiry interval' is ignored for MQTT v3.1.1 connection")
-            if message.content_type:
+            if message.response_topic is not None:
+                self.__logger.warning("'response topic' is ignored for MQTT v3.1.1 connection")
+            if message.correlation_data is not None:
+                self.__logger.warning("'correlation data' is ignored for MQTT v3.1.1 connection")
+            if message.content_type is not None:
                 self.__logger.warning("'content type' is ignored for MQTT v3.1.1 connection")
+
         else:
             # properties handled in the same order as noted in PUBLISH of MQTT v5.0 spec
             if message.payload_format_indicator is not None:
@@ -703,6 +727,14 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             if message.message_expiry_interval is not None:
                 properties.MessageExpiryInterval = message.message_expiry_interval
                 self.__logger.info("Copied TX message expiry interval %d", message.message_expiry_interval)
+
+            if message.response_topic is not None:
+                properties.ResponseTopic = message.response_topic
+                self.__logger.warning("Copied TX response topic '%s'", message.response_topic)
+
+            if message.correlation_data is not None:
+                properties.CorrelationData = message.correlation_data
+                self.__logger.warning("Copied TX correlation data '%s'", str(message.correlation_data))
 
             properties.UserProperty = user_properties
 
@@ -849,13 +881,20 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         Returns Mqtt5Message object
         """
         props = getattr(message, "properties", None)
-        mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "PUBLISH")
 
         if hasattr(props, "PayloadFormatIndicator"):
             self.__logger.info("Copied RX payload format indicator '%s'", str(props.PayloadFormatIndicator))
 
         if hasattr(props, "MessageExpiryInterval"):
             self.__logger.info("Copied RX message expiry interval %d", props.MessageExpiryInterval)
+
+        if hasattr(props, "ResponseTopic"):
+            self.__logger.info("Copied RX message response topic '%s'", props.ResponseTopic)
+
+        if hasattr(props, "CorrelationData"):
+            self.__logger.info("Copied RX message correlation data '%s'", str(props.CorrelationData))
+
+        mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "PUBLISH")
 
         if hasattr(props, "ContentType"):
             self.__logger.info("Copied RX content type '%s'", props.ContentType)
@@ -869,6 +908,8 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             contentType=getattr(props, "ContentType", None),
             payloadFormatIndicator=getattr(props, "PayloadFormatIndicator", None),
             messageExpiryInterval=getattr(props, "MessageExpiryInterval", None),
+            responseTopic=getattr(props, "ResponseTopic", None),
+            correlationData=getattr(props, "CorrelationData", None),
         )
 
         return mqtt_message
