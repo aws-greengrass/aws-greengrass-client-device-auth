@@ -43,12 +43,9 @@ public class MqttMessageEvent extends EventImpl {
         return connectionControl.getConnectionName();
     }
 
+    @SuppressWarnings("PMD.CognitiveComplexity")
     @Override
     public boolean isMatched(@NonNull EventFilter filter) {
-        return isMatchedPart1(filter) && isMatchedPart2(filter);
-    }
-
-    private boolean isMatchedPart1(@NonNull EventFilter filter) {
         // check type and timestamp
         boolean matched = super.isMatched(filter);
         if (!matched) {
@@ -76,11 +73,7 @@ public class MqttMessageEvent extends EventImpl {
             }
         }
 
-        return true;
-    }
-
-    private boolean isMatchedPart2(@NonNull EventFilter filter) {
-        boolean matched = isRetainMatched(filter.getRetain());
+        matched = isRetainMatched(filter.getRetain());
         if (!matched) {
             return false;
         }
@@ -115,7 +108,7 @@ public class MqttMessageEvent extends EventImpl {
             return false;
         }
 
-        // TODO: check QoS ?
+        // TODO: check QoS ? it can be differ on transmit and receive sides
 
         // check content
         return comparePayload(filter.getContent());

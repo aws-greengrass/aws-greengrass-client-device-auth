@@ -1567,11 +1567,40 @@ Feature: GGMQ-1
     And message "Message with response topic 1" received on "subscriber" from "response_topic_test_case_1" topic within 5 seconds
 
     And I clear message storage
-    And I reset MQTT publish 'response topic'
+
+    # 31. test case when publish message with response topic set but expected response topic is not set
+    And I set MQTT publish 'response topic' to "response_topic_2"
     And I reset expected 'response topic'
 
+    When I subscribe "subscriber" to "response_topic_test_case_2" with qos 0
+    When I publish from "publisher" to "response_topic_test_case_2" with qos 0 and message "Message with response topic 2"
+    And message "Message with response topic 2" received on "subscriber" from "response_topic_test_case_2" topic within 5 seconds
+
+    And I clear message storage
+
+    # 32. test case when response topic in publish is not set but expected in received message
+    And I reset MQTT publish 'response topic'
+    And I set the 'response topic' in expected received messages to "response_topic_3"
+
+    When I subscribe "subscriber" to "response_topic_test_case_3" with qos 0
+    When I publish from "publisher" to "response_topic_test_case_3" with qos 0 and message "Message without response topic 3"
+    And message "Message without response topic 3" is not received on "subscriber" from "response_topic_test_case_3" topic within 10 seconds
+
+    And I clear message storage
+
+    # 33. test case when response topic in pulish and receive are not the same
+    And I set MQTT publish 'response topic' to "response_topic_4"
+    And I set the 'response topic' in expected received messages to "response_topic_5"
+
+    When I subscribe "subscriber" to "response_topic_test_case_4" with qos 0
+    When I publish from "publisher" to "response_topic_test_case_4" with qos 0 and message "Message with response topic 4"
+    And message "Message with response topic 4" is not received on "subscriber" from "response_topic_test_case_4" topic within 10 seconds
+
+    And I clear message storage and reset all MQTT settings to default
+
     # J. test 'correlation data' feature
-    # 31. test case when publish message with correlation data and receive message with the same correlation data
+
+    # 34. test case when publish message with correlation data and receive message with the same correlation data
     And I set MQTT publish 'correlation data' to "correlation_data_1"
     And I set the 'correlation data' in expected received messages to "correlation_data_1"
 
@@ -1579,14 +1608,42 @@ Feature: GGMQ-1
     When I publish from "publisher" to "correlation_data_test_case_1" with qos 0 and message "Message with correlation data 1"
     And message "Message with correlation data 1" received on "subscriber" from "correlation_data_test_case_1" topic within 5 seconds
 
+    # 35. test case when publish message with correlation data but without expected correlation data
+    And I set MQTT publish 'correlation data' to "correlation_data_2"
+    And "I reset expected 'correlation data'"
+
+    When I subscribe "subscriber" to "correlation_data_test_case_2" with qos 0
+    When I publish from "publisher" to "correlation_data_test_case_2" with qos 0 and message "Message with correlation data 2"
+    And message "Message with correlation data 2" received on "subscriber" from "correlation_data_test_case_2" topic within 5 seconds
+
     And I clear message storage
+
+    # 36. test case when correlation data in publish is not set but expected in received message
     And I reset MQTT publish 'correlation data'
-    And I reset expected 'correlation data'
+    And I set the 'correlation data' in expected received messages to "correlation_data_3"
+
+    When I subscribe "subscriber" to "correlation_data_test_case_3" with qos 0
+    When I publish from "publisher" to "correlation_data_test_case_3" with qos 0 and message "Message without correlation data 3"
+    And message "Message without correlation data 3" is not received on "subscriber" from "correlation_data_test_case_3" topic within 10 seconds
+
+    And I clear message storage
+
+    # 37. test case when correlation data in pulish and receive are not the same
+    And I set MQTT publish 'correlation data' to "correlation_data_4"
+    And I set the 'correlation data' in expected received messages to "correlation_data_5"
+
+    When I subscribe "subscriber" to "correlation_data_test_case_4" with qos 0
+    When I publish from "publisher" to "correlation_data_test_case_4" with qos 0 and message "Message with correlation data 4"
+    And message "Message with correlation data 4" is not received on "subscriber" from "correlation_data_test_case_4" topic within 10 seconds
+
+    And I clear message storage and reset all MQTT settings to default
+
+    # request response information is a CONNECT packet property
     And I disconnect device "publisher" with reason code 0
 
     # K. test 'request response information' feature
 
-    # 32. test case when connect with 'request response information' flag set to true
+    # 38. test case when connect with 'request response information' flag set to true
     #  unfortunately IoT Core and EMQX brokers does not provide 'Response Information' in CONNACK so we can only test connection is OK
     And I set 'request response information' to true
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
@@ -1598,7 +1655,7 @@ Feature: GGMQ-1
     And I clear message storage
     And I disconnect device "publisher" with reason code 0
 
-    # 33. test case when connect with 'request response information' flag set to false
+    # 39. test case when connect with 'request response information' flag set to false
     And I set 'request response information' to false
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
 
