@@ -45,10 +45,10 @@ public class MqttMessageEvent extends EventImpl {
 
     @Override
     public boolean isMatched(@NonNull EventFilter filter) {
-        return isMatched1(filter) && isMatched2(filter);
+        return isMatchedPart1(filter) && isMatchedPart2(filter);
     }
 
-    private boolean isMatched1(@NonNull EventFilter filter) {
+    private boolean isMatchedPart1(@NonNull EventFilter filter) {
         // check type and timestamp
         boolean matched = super.isMatched(filter);
         if (!matched) {
@@ -79,7 +79,7 @@ public class MqttMessageEvent extends EventImpl {
         return true;
     }
 
-    private boolean isMatched2(@NonNull EventFilter filter) {
+    private boolean isMatchedPart2(@NonNull EventFilter filter) {
         boolean matched = isRetainMatched(filter.getRetain());
         if (!matched) {
             return false;
