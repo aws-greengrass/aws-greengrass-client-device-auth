@@ -332,7 +332,7 @@ public class MqttControlSteps {
      *
      * @param connectCleanSession the new boolean value of clean session or null
      */
-    @And("I set 'clean session' to {booleanOrNullValue}")
+    @And("I set 'clean session' to {booleanValue}")
     public void setCleanSessions(Boolean connectCleanSession) {
         this.connectCleanSession = connectCleanSession;
         log.info("CONNECT 'clean session' set to {}", connectCleanSession);
@@ -1203,7 +1203,6 @@ public class MqttControlSteps {
                                                         int port, MqttProtoVersion version) {
         final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceThingName);
 
-        // TODO: use values from scenario instead of defaults for keepAlive, cleanSession
         MqttConnectRequest.Builder builder = MqttConnectRequest.newBuilder()
                                  .setClientId(clientDeviceThingName)
                                  .setHost(host)
@@ -1212,6 +1211,10 @@ public class MqttControlSteps {
                                  .setCleanSession(connectCleanSession)
                                  .setTls(buildTlsSettings(thingSpec, caList))
                                  .setProtocolVersion(version);
+
+        if (connectRequestResponseInformation != null) {
+            builder.setRequestResponseInformation(connectRequestResponseInformation);
+        }
 
         if (txUserProperties != null) {
              builder.addAllProperties(txUserProperties);
