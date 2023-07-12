@@ -1125,19 +1125,33 @@ Feature: GGMQ-1
 
     And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
     And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    And I disconnect device "clientDeviceTest" with reason code 0
 
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST |
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
       | aws.greengrass.clientdevices.IPDetector  | LATEST |
       | <agent>                                  | LATEST |
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.IPDetector configuration to:
+    """
+{
+    "MERGE":{
+        "defaultPort":"11111"
+    }
+}
+    """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 299 seconds
-
     And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
-    And I force to set broker "default_broker" with port 9443
+    And I set MQTT connection port to 9999
     Then I wait 60 seconds
     And I can not connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
+    And I set MQTT connection port to 11111
+    Then I wait 60 seconds
+    And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    And I disconnect device "clientDeviceTest" with reason code 0
 
     @mqtt3 @sdk-java
     Examples:
