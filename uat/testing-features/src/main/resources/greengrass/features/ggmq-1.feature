@@ -1140,6 +1140,21 @@ Feature: GGMQ-1
     }
 }
     """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.EMQX configuration to:
+    """
+{
+    "MERGE":{
+        "emqx": {
+        "listener.ssl.external": "11111",
+        "listener.ssl.external.max_connections": "1024000",
+        "listener.ssl.external.max_conn_rate": "500",
+        "listener.ssl.external.rate_limit": "50KB,5s",
+        "listener.ssl.external.handshake_timeout": "15s",
+        "log.level": "warning"
+      }
+    }
+}
+    """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 299 seconds
     And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
