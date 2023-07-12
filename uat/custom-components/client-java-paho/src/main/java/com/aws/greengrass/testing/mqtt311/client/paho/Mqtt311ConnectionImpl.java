@@ -222,6 +222,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     private class MqttMessageListener implements IMqttMessageListener {
 
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
             if (isClosing.get()) {
@@ -231,10 +232,15 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                         mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(),
                         null, null, null,null, null, null);
                 executorService.submit(() -> {
-                    grpcClient.onReceiveMqttMessage(connectionId, message);
-                    logger.atInfo().log("Received MQTT message: connectionId {} topic {} QoS {} retain {}",
-                            connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
+                    try {
+                        grpcClient.onReceiveMqttMessage(connectionId, message);
+                    } catch (Exception ex) {
+                        logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
+                    }
                 });
+
+                logger.atInfo().log("Received MQTT message: connectionId {} topic '{}' QoS {} retain {}",
+                                        connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
             }
         }
     }

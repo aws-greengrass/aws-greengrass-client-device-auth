@@ -74,6 +74,7 @@ import javax.inject.Inject;
 
 import static software.amazon.awssdk.iot.discovery.DiscoveryClient.TLS_EXT_ALPN;
 
+@SuppressWarnings("PMD.ExcessivePublicCount")
 @Log4j2
 @ScenarioScoped
 public class MqttControlSteps {
@@ -96,11 +97,17 @@ public class MqttControlSteps {
     private static final int MAX_QOS = 2;
 
     // TODO: use scenario supplied values instead of defaults
-    private static final int DEFAULT_MQTT_KEEP_ALIVE = 60;
+    private static final int IOT_CORE_MQTT_PORT = 8883;
 
     // connect default properties
-    private static final boolean DEFAULT_CONNECT_CLEAR_SESSION = true;  // TODO: use also variable and step to set it
-    private static final int IOT_CORE_MQTT_PORT = 8883;
+    // please keep order the same as in 3.1.2 CONNECT Variable Header of MQTT v5.0 spec
+    private static final boolean DEFAULT_CONNECT_CLEAN_SESSION = true;
+    private static final int DEFAULT_CONNECT_KEEP_ALIVE = 60;
+
+    // please keep order the same as in 3.1.2.11 CONNECT Properties of MQTT v5.0 spec
+    private static final Boolean DEFAULT_REQUEST_RESPONSE_INFORMATION = null;
+
+    // TODO: CONNACK Response Information
 
     // publish default properties
 
@@ -110,6 +117,8 @@ public class MqttControlSteps {
     // please keep order the same as in 3.3.2.3 PUBLISH Properties of MQTT v5.0 spec
     private static final Boolean DEFAULT_PUBLISH_PAYLOAD_FORMAT_INDICATOR = null;
     private static final Integer DEFAULT_MESSAGE_EXPIRY_INTERVAL = null;
+    private static final String DEFAULT_RESPONSE_TOPIC = null;
+    private static final String DEFAULT_CORRELATION_DATA = null;
     private static final String DEFAULT_CONTENT_TYPE = null;
 
     // subscribe efault properties
@@ -140,6 +149,17 @@ public class MqttControlSteps {
     /** Actual value of timeout in seconds used in all MQTT opetations. */
     private int mqttTimeoutSec = DEFAULT_MQTT_TIMEOUT_SEC;
 
+    // please keep order the same as in 3.1.2 CONNECT Variable Header of MQTT v5.0 spec
+    /** Actual value of CONNECT clean session. */
+    private boolean connectCleanSession = DEFAULT_CONNECT_CLEAN_SESSION;
+
+    /** Actual value of CONNECT keep alive. */
+    private int connectKeepAlive = DEFAULT_CONNECT_KEEP_ALIVE;
+
+    private Boolean connectRequestResponseInformation = DEFAULT_REQUEST_RESPONSE_INFORMATION;
+
+    // TODO: CONNACK response information
+
     // please keep order the same as in 3.8.3.1 Subscription Options of MQTT v5.0
     /** Actual value of subscribe no local option. */
     private boolean subscribeNoLocal = DEFAULT_SUBSCRIBE_NO_LOCAL;
@@ -166,11 +186,25 @@ public class MqttControlSteps {
     private Boolean rxPayloadFormatIndicator = DEFAULT_RECEIVED_PAYLOAD_FORMAT_INDICATOR;
 
 
-    /** Actual value of message expiry interval. */
+    /** Actual value of message expiry interval to publishing. */
     private Integer txMessageExpiryInterval = DEFAULT_MESSAGE_EXPIRY_INTERVAL;
 
     /** Actual expected value of message expiry interval in received messages. */
     private Integer rxMessageExpiryInterval = DEFAULT_MESSAGE_EXPIRY_INTERVAL;
+
+
+    /** Actual value of response topic to publishing. */
+    private String txResponseTopic = DEFAULT_RESPONSE_TOPIC;
+
+    /** Actual expected value of response topic in received messages. */
+    private String rxResponseTopic = DEFAULT_RESPONSE_TOPIC;
+
+
+    /** Actual value of correlation data to publishing. */
+    private String txCorrelationData = DEFAULT_CORRELATION_DATA;
+
+    /** Actual expected value of correlation data in received messages. */
+    private String rxCorrelationData = DEFAULT_CORRELATION_DATA;
 
 
     /** Actual list of user properties to transmit. */
@@ -294,6 +328,43 @@ public class MqttControlSteps {
 
 
     /**
+     * Sets or resets CONNECT clean session boolean value.
+     *
+     * @param connectCleanSession the new boolean value of clean session or null
+     */
+    @And("I set 'clean session' to {booleanValue}")
+    public void setCleanSessions(Boolean connectCleanSession) {
+        this.connectCleanSession = connectCleanSession;
+        log.info("CONNECT 'clean session' set to {}", connectCleanSession);
+    }
+
+
+    /**
+     * Sets CONNECT 'keep alive' value.
+     *
+     * @param connectKeepAlive the value of CONNECT 'keep alive' property
+     */
+    @And("I set CONNECT 'keep alive' to {int} second(s)")
+    public void setConnectKeepAlive(int connectKeepAlive) {
+        this.connectKeepAlive = connectKeepAlive;
+        log.info("CONNECT 'keep alive' set to {}", connectKeepAlive);
+    }
+
+
+    /**
+     * Sets or resets CONNECT 'request response information' flag.
+     *
+     * @param connectRequestResponseInformation the value of CONNECT 'request response information' flag or null
+     */
+    @And("I set 'request response information' to {booleanOrNullValue}")
+    public void setConnectRequestResponseInformation(Boolean connectRequestResponseInformation) {
+        this.connectRequestResponseInformation = connectRequestResponseInformation;
+        log.info("CONNECT 'request response information' set to {}", connectRequestResponseInformation);
+    }
+
+    // TODO: CONNACK response information
+
+    /**
      * Sets MQTT subscribe 'no local' flag.
      *
      * @param subscribeNoLocal the new values of 'no local' flag.
@@ -379,7 +450,7 @@ public class MqttControlSteps {
     @And("I set MQTT publish 'message expiry interval' to {int}")
     public void setTxMessageExpiryInterval(Integer messageExpiryInterval) {
         this.txMessageExpiryInterval = messageExpiryInterval;
-        log.info("Publish 'message expiry interval' set to {}", this.txMessageExpiryInterval);
+        log.info("Publish 'message expiry interval' set to {}", messageExpiryInterval);
     }
 
     /**
@@ -414,6 +485,97 @@ public class MqttControlSteps {
         this.rxMessageExpiryInterval = null;
         log.info("Expected 'message expiry interval' is reset");
     }
+
+    /**
+     * Sets MQTT 'response topic' value for publishing.
+     *
+     * @param responseTopic the new value of response topic for publishing
+     */
+    @And("I set MQTT publish 'response topic' to {string}")
+    public void setTxResponseTopic(String responseTopic) {
+        this.txResponseTopic = responseTopic;
+        log.info("Publish 'response topic' set to {}", responseTopic);
+    }
+
+    /**
+     * Reset MQTT 'response topic' value for publishing.
+     *
+     */
+    @SuppressWarnings("PMD.NullAssignment")
+    @And("I reset MQTT publish 'response topic'")
+    public void resetTxResponseTopic() {
+        this.txResponseTopic = null;
+        log.info("Publish 'response topic' is reset");
+    }
+
+    /**
+     * Sets value of expected MQTT 'response topic' in received messages.
+     *
+     * @param responseTopic the new expected value of 'response topic' in received messages
+     */
+    @And("I set the 'response topic' in expected received messages to {string}")
+    public void setRxResponseTopic(String responseTopic) {
+        this.rxResponseTopic = responseTopic;
+        log.info("Expected 'response topic' in received messages set to {}", responseTopic);
+    }
+
+    /**
+     * Reset expected value 'response topic' in received messages.
+     *
+     */
+    @SuppressWarnings("PMD.NullAssignment")
+    @And("I reset expected 'response topic'")
+    public void resetRxResponseTopic() {
+        this.rxResponseTopic = null;
+        log.info("Expected 'response topic' is reset");
+    }
+
+
+    /**
+     * Sets MQTT 'correlation data' value for publishing.
+     *
+     * @param correlationData the new value of correlation data for publishing
+     */
+    @And("I set MQTT publish 'correlation data' to {string}")
+    public void setTxCorrelationData(String correlationData) {
+        this.txCorrelationData = correlationData;
+        log.info("Publish 'correlation data' set to {}", correlationData);
+    }
+
+    /**
+     * Reset MQTT 'correlation data' value for publishing.
+     *
+     */
+    @SuppressWarnings("PMD.NullAssignment")
+    @And("I reset MQTT publish 'correlation data'")
+    public void resetTxCorrelationData() {
+        this.txCorrelationData = null;
+        log.info("Publish 'correlation data' is reset");
+    }
+
+
+    /**
+     * Sets value of expected MQTT 'correlation data' in received messages.
+     *
+     * @param correlationData the new expected value of 'correlation data' in received messages
+     */
+    @And("I set the 'correlation data' in expected received messages to {string}")
+    public void setRxCorrelationData(String correlationData) {
+        this.rxCorrelationData = correlationData;
+        log.info("Expected 'correlation data' in received messages set to {}", correlationData);
+    }
+
+    /**
+     * Reset expected value 'correlation data' in received messages.
+     *
+     */
+    @SuppressWarnings("PMD.NullAssignment")
+    @And("I reset expected 'correlation data'")
+    public void resetRxCorrelationData() {
+        this.rxCorrelationData = null;
+        log.info("Expected 'correlation data' is reset");
+    }
+
 
     /**
      * Sets MQTT user Properties to transmit.
@@ -496,18 +658,20 @@ public class MqttControlSteps {
     /**
      * Reset MQTT content type to transmit.
      */
+    @SuppressWarnings("PMD.NullAssignment")
     @And("I reset MQTT publish 'content type'")
     public void resetMqttTxContentType() {
-        this.txContentType = DEFAULT_CONTENT_TYPE;
+        this.txContentType = null;
         log.info("MQTT content type reset to transmit");
     }
 
     /**
      * Reset MQTT content type to receive.
      */
+    @SuppressWarnings("PMD.NullAssignment")
     @And("I reset MQTT 'content type' in expected received messages")
     public void resetMqttRxContentType() {
-        this.rxContentType = DEFAULT_CONTENT_TYPE;
+        this.rxContentType = null;
         log.info("MQTT content type reset to receive");
     }
 
@@ -766,8 +930,10 @@ public class MqttControlSteps {
 
         // do publishing
         log.info("Publishing MQTT message '{}' as Thing {} to topic {} with QoS {} retain {}"
-                        + " payload format indicator {} message expire interval {}", message, clientDeviceThingName,
-                    topic, qos, txRetain, txPayloadFormatIndicator, txMessageExpiryInterval);
+                        + " payload format indicator {} message expire interval {} response topic {} "
+                        + "correlation data {}", message, clientDeviceThingName, topic, qos, txRetain,
+                    txPayloadFormatIndicator, txMessageExpiryInterval, txResponseTopic, txCorrelationData);
+
         Mqtt5Message mqtt5Message = buildMqtt5Message(qos, topic, message);
         MqttPublishReply mqttPublishReply = connectionControl.publishMqtt(mqtt5Message);
         if (mqttPublishReply == null) {
@@ -854,14 +1020,18 @@ public class MqttControlSteps {
                                         .withUserProperties(rxUserProperties)
                                         .withPayloadFormatIndicator(rxPayloadFormatIndicator)
                                         .withMessageExpiryInterval(rxMessageExpiryInterval)
+                                        .withResponseTopic(rxResponseTopic)
+                                        .withCorrelationData(rxCorrelationData)
                                         .build();
         // convert time units
         TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
 
         // awaiting for message
         log.info("Awaiting for MQTT message '{}' with retain {} payload format indicator {} message expiry interval {} "
-                    + "on topic '{}' on Thing '{}' for {} {}", message, rxRetain, rxPayloadFormatIndicator,
-                    rxMessageExpiryInterval, topic, clientDeviceThingName, value, unit);
+                    + "response topic {} correlation data {} on topic '{}' on Thing '{}' for {} {}", message, rxRetain,
+                    rxPayloadFormatIndicator, rxMessageExpiryInterval, rxResponseTopic, rxCorrelationData, topic,
+                    clientDeviceThingName, value, unit);
+
         List<Event> events = new ArrayList<>();
         try {
             events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
@@ -894,6 +1064,10 @@ public class MqttControlSteps {
     public void clearAnything() {
         clearStorage();
         setMqttTimeoutSec(DEFAULT_MQTT_TIMEOUT_SEC);
+        setCleanSessions(DEFAULT_CONNECT_CLEAN_SESSION);
+        setConnectKeepAlive(DEFAULT_CONNECT_KEEP_ALIVE);
+        setConnectRequestResponseInformation(DEFAULT_REQUEST_RESPONSE_INFORMATION);
+        // TODO: reset CONNACK ResponseInformation
 
         setTxRetain(DEFAULT_PUBLISH_RETAIN);
         setRxRetain(DEFAULT_RECEIVED_RETAIN);
@@ -903,6 +1077,12 @@ public class MqttControlSteps {
 
         setTxMessageExpiryInterval(DEFAULT_MESSAGE_EXPIRY_INTERVAL);
         setRxMessageExpiryInterval(DEFAULT_MESSAGE_EXPIRY_INTERVAL);
+
+        setTxResponseTopic(DEFAULT_RESPONSE_TOPIC);
+        setRxResponseTopic(DEFAULT_RESPONSE_TOPIC);
+
+        setTxCorrelationData(DEFAULT_CORRELATION_DATA);
+        setRxCorrelationData(DEFAULT_CORRELATION_DATA);
 
         clearTxUserProperties();
         clearRxUserProperties();
@@ -1023,15 +1203,18 @@ public class MqttControlSteps {
                                                         int port, MqttProtoVersion version) {
         final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceThingName);
 
-        // TODO: use values from scenario instead of defaults for keepAlive, cleanSession
         MqttConnectRequest.Builder builder = MqttConnectRequest.newBuilder()
                                  .setClientId(clientDeviceThingName)
                                  .setHost(host)
                                  .setPort(port)
-                                 .setKeepalive(DEFAULT_MQTT_KEEP_ALIVE)
-                                 .setCleanSession(DEFAULT_CONNECT_CLEAR_SESSION)
+                                 .setKeepalive(connectKeepAlive)
+                                 .setCleanSession(connectCleanSession)
                                  .setTls(buildTlsSettings(thingSpec, caList))
                                  .setProtocolVersion(version);
+
+        if (connectRequestResponseInformation != null) {
+            builder.setRequestResponseInformation(connectRequestResponseInformation);
+        }
 
         if (txUserProperties != null) {
              builder.addAllProperties(txUserProperties);
@@ -1195,6 +1378,14 @@ public class MqttControlSteps {
 
         if (txMessageExpiryInterval != null) {
             builder.setMessageExpiryInterval(txMessageExpiryInterval);
+        }
+
+        if (txResponseTopic != null) {
+            builder.setResponseTopic(txResponseTopic);
+        }
+
+        if (txCorrelationData != null) {
+            builder.setCorrelationData(ByteString.copyFromUtf8(txCorrelationData));
         }
 
         if (txContentType != null) {

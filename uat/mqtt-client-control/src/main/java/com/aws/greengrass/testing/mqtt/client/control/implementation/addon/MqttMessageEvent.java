@@ -43,6 +43,7 @@ public class MqttMessageEvent extends EventImpl {
         return connectionControl.getConnectionName();
     }
 
+    @SuppressWarnings("PMD.CognitiveComplexity")
     @Override
     public boolean isMatched(@NonNull EventFilter filter) {
         // check type and timestamp
@@ -97,7 +98,17 @@ public class MqttMessageEvent extends EventImpl {
             return false;
         }
 
-        // TODO: check QoS ?
+        matched = isResponseTopicMatched(filter.getResponseTopic());
+        if (!matched) {
+            return false;
+        }
+
+        matched = isCorrelationDataMatched(filter.getCorrelationData());
+        if (!matched) {
+            return false;
+        }
+
+        // TODO: check QoS ? it can be differ on transmit and receive sides
 
         // check content
         return comparePayload(filter.getContent());
@@ -131,9 +142,9 @@ public class MqttMessageEvent extends EventImpl {
         ByteString byteStringPayload = message.getPayload();
         if (byteStringPayload == null) {
             return false;
-        } else {
-            return Arrays.equals(expected, byteStringPayload.toByteArray());
         }
+
+        return Arrays.equals(expected, byteStringPayload.toByteArray());
     }
 
     private boolean isRetainMatched(Boolean retain) {
@@ -156,8 +167,24 @@ public class MqttMessageEvent extends EventImpl {
         return messageExpiryInterval == null || messageExpiryInterval == message.getMessageExpiryInterval();
     }
 
+    private boolean isResponseTopicMatched(String responseTopic) {
+        return responseTopic == null || responseTopic.equals(message.getResponseTopic());
+    }
+
+    private boolean isCorrelationDataMatched(byte[] correlationData) {
+        if (correlationData == null) {
+            return true;
+        }
+
+        ByteString byteCorrelationData = message.getCorrelationData();
+        if (byteCorrelationData == null) {
+            return false;
+        }
+
+        return Arrays.equals(correlationData, byteCorrelationData.toByteArray());
+    }
+
     private static boolean isTopicMatched(@NonNull String topic, @NonNull String topicFilter) {
         return MqttTopic.topicIsSupersetOf(topicFilter, topic);
     }
-
 }
