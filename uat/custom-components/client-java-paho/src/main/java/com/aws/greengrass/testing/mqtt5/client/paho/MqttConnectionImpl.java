@@ -380,7 +380,7 @@ public class MqttConnectionImpl implements MqttConnection {
         Integer reasonCode = reasonCodes == null ? null : reasonCodes[0];
 
         List<Mqtt5Properties> ackUserProperties =
-                getAckUserProperties(token.getResponseProperties().getUserProperties(), "ConAck");
+                getAckUserProperties(token.getResponseProperties().getUserProperties(), "ConnAck");
 
         String responseInformation = token.getResponseProperties().getResponseInfo();
         if (responseInformation != null) {
