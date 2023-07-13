@@ -385,7 +385,6 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 withPingTimeoutMs()
                 withProtocolOperationTimeoutMs()
                 withTimeoutMs()
-                withReconnectTimeoutSecs()
                 withSocketOptions()
                 withUsername()
                 withPassword()

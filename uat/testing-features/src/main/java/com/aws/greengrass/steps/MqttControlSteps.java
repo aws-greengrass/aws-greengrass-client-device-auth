@@ -1418,10 +1418,10 @@ public class MqttControlSteps {
     @After
     public void stopMqttControlEngine() throws InterruptedException {
         try {
-            engineControl.stopEngine();
+            engineControl.stopEngine(false);
             engineControl.awaitTermination();
-        } catch (StatusRuntimeException e) {
-            log.warn(e);
+        } catch (StatusRuntimeException ex) {
+            log.warn("Exception during stopping control engine", ex);
         }
     }
 

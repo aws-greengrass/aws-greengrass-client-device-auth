@@ -1610,7 +1610,7 @@ Feature: GGMQ-1
 
     # 35. test case when publish message with correlation data but without expected correlation data
     And I set MQTT publish 'correlation data' to "correlation_data_2"
-    And "I reset expected 'correlation data'"
+    And I reset expected 'correlation data'
 
     When I subscribe "subscriber" to "correlation_data_test_case_2" with qos 0
     When I publish from "publisher" to "correlation_data_test_case_2" with qos 0 and message "Message with correlation data 2"
