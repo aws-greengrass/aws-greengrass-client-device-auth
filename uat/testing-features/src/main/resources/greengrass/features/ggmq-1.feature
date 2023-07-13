@@ -1125,12 +1125,7 @@ Feature: GGMQ-1
 {
     "MERGE":{
         "emqx": {
-        "listener.ssl.external": "9000",
-        "listener.ssl.external.max_connections": "1024000",
-        "listener.ssl.external.max_conn_rate": "500",
-        "listener.ssl.external.rate_limit": "50KB,5s",
-        "listener.ssl.external.handshake_timeout": "15s",
-        "log.level": "warning"
+        "listener.ssl.external": "9000"
       }
     }
 }
@@ -1173,12 +1168,7 @@ Feature: GGMQ-1
 {
     "MERGE":{
         "emqx": {
-        "listener.ssl.external": "9001",
-        "listener.ssl.external.max_connections": "1024000",
-        "listener.ssl.external.max_conn_rate": "500",
-        "listener.ssl.external.rate_limit": "50KB,5s",
-        "listener.ssl.external.handshake_timeout": "15s",
-        "log.level": "warning"
+        "listener.ssl.external": "9001"
       }
     }
 }
