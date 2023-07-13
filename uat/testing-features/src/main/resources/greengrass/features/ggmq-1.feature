@@ -1078,10 +1078,10 @@ Feature: GGMQ-1
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
       | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
       | <agent>                                  | classpath:/local-store/recipes/<recipe> |
-    And I create client device "clientDeviceTest1"
-    And I create client device "clientDeviceTest2"
-    When I associate "clientDeviceTest1" with ggc
-    When I associate "clientDeviceTest2" with ggc
+    And I create client device "basic_connect"
+    And I create client device "basic_connect_2"
+    When I associate "basic_connect" with ggc
+    When I associate "basic_connect_2" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
@@ -1090,7 +1090,7 @@ Feature: GGMQ-1
             "formatVersion":"2021-03-05",
             "definitions":{
                 "MyPermissiveDeviceGroup":{
-                    "selectionRule":"thingName: ${clientDeviceTest1} OR thingName: ${clientDeviceTest2}",
+                    "selectionRule":"thingName: ${basic_connect} OR thingName: ${basic_connect_2}",
                     "policyName":"MyPermissivePolicy"
                 }
             },
@@ -1120,14 +1120,29 @@ Feature: GGMQ-1
     }
 }
     """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.EMQX configuration to:
+    """
+{
+    "MERGE":{
+        "emqx": {
+        "listener.ssl.external": "9000",
+        "listener.ssl.external.max_connections": "1024000",
+        "listener.ssl.external.max_conn_rate": "500",
+        "listener.ssl.external.rate_limit": "50KB,5s",
+        "listener.ssl.external.handshake_timeout": "15s",
+        "log.level": "warning"
+      }
+    }
+}
+    """
 
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
     And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
-    And I discover core device broker as "default_broker" from "clientDeviceTest1" in OTF
-    And I connect device "clientDeviceTest1" on <agent> to "default_broker" using mqtt "<mqtt-v>"
-    And I disconnect device "clientDeviceTest1" with reason code 0
+    And I discover core device broker as "default_broker" from "basic_connect" in OTF
+    And I connect device "basic_connect" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    And I disconnect device "basic_connect" with reason code 0
 
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST |
@@ -1138,15 +1153,15 @@ Feature: GGMQ-1
     """
 {
     "MERGE":{
-        "defaultPort":"11111"
+        "defaultPort":"9001"
     }
 }
     """
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 299 seconds
     Then I wait 60 seconds
-    And I discover core device broker as "default_broker" from "clientDeviceTest2" in OTF
-    And I can not connect device "clientDeviceTest2" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    And I discover core device broker as "second_attempt_discovery" from "basic_connect_2" in OTF
+    And I can not connect device "basic_connect_2" on <agent> to "second_attempt_discovery" using mqtt "<mqtt-v>"
 
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST |
@@ -1158,7 +1173,7 @@ Feature: GGMQ-1
 {
     "MERGE":{
         "emqx": {
-        "listener.ssl.external": "11111",
+        "listener.ssl.external": "9001",
         "listener.ssl.external.max_connections": "1024000",
         "listener.ssl.external.max_conn_rate": "500",
         "listener.ssl.external.rate_limit": "50KB,5s",
@@ -1171,8 +1186,8 @@ Feature: GGMQ-1
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 299 seconds
     Then I wait 60 seconds
-    And I discover core device broker as "default_broker" from "clientDeviceTest2" in OTF
-    And I connect device "clientDeviceTest2" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    And I discover core device broker as "third_attempt_discovery" from "basic_connect_2" in OTF
+    And I connect device "basic_connect_2" on <agent> to "third_attempt_discovery" using mqtt "<mqtt-v>"
 
     @mqtt3 @sdk-java
     Examples:

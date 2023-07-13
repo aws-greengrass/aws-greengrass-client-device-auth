@@ -783,7 +783,7 @@ public class MqttControlSteps {
     }
 
     /**
-     * Creates MQTT failed connection.
+     * Try to create MQTT connection to broker and ensure connection has been failed.
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
      * @param componentId  the componentId of MQTT client
