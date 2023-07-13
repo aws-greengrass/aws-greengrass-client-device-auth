@@ -166,6 +166,7 @@ public class AgentControlImpl implements AgentControl {
     public void shutdownAgent(@NonNull String reason) {
         ShutdownRequest request = ShutdownRequest.newBuilder().setReason(reason).build();
         isShutdownSent.set(true);
+        logger.atInfo().log("sending shutdown request");
         blockingStub.shutdownAgent(request);
         logger.atInfo().log("shutdown request sent successfully");
     }
@@ -310,9 +311,11 @@ public class AgentControlImpl implements AgentControl {
         connections.forEach((connectionId, connectionControl) -> {
             if (connections.remove(connectionId, connectionControl)) {
                 try {
+                    logger.atInfo().log("sending implicit closeMqttConnection");
                     connectionControl.closeMqttConnection(DEFAULT_DISCONNECT_REASON.getValue());
+                    logger.atInfo().log("implicit closeMqttConnection sent");
                 } catch (StatusRuntimeException ex) {
-                    logger.atWarn().withThrowable(ex).log("Couldn't send close MQTT connection request");
+                    logger.atWarn().withThrowable(ex).log("Couldn't send closeMqttConnection request");
                 }
             }
         });
@@ -327,9 +330,15 @@ public class AgentControlImpl implements AgentControl {
                     logger.atWarn().withThrowable(ex).log("Couldn't send shutdown request");
                 }
             }
+            logger.atInfo().log("shutting down channel with agent id {}", agentId);
             channel.shutdown();
             try {
-                channel.awaitTermination(10, TimeUnit.SECONDS);
+                boolean gone = channel.awaitTermination(10, TimeUnit.SECONDS);
+                if (gone) {
+                    logger.atInfo().log("channel terminated with agent id {}", agentId);
+                } else {
+                    logger.atWarn().log("ternination is not finished in time with agent id {}", agentId);
+                }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             }

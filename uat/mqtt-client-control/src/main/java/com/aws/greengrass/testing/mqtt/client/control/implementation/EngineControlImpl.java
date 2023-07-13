@@ -172,12 +172,13 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
                 engineEvents.onAgentAttached(agentControl);
             }
         } else {
-            // check agent is relocated after restart
+            // check agent is relocated after restart (for example was re-deployed)
             if (agentControl.isOnThatAddress(address, port)) {
                 logger.atInfo().log("Agent {} on {}:{} send duplicated DiscoveryAgent", agentId, address, port);
             } else {
                 logger.atInfo().log("Agent {} relocated to {}:{}", agentId, address, port);
                 agents.remove(agentId);
+                stopAgent(agentId, agentControl, false);
                 // recursion
                 onDiscoveryAgent(agentId, address, port);
             }
@@ -188,7 +189,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     public void onUnregisterAgent(@NonNull String agentId) {
         AgentControlImpl agentControl = agents.remove(agentId);
         if (agentControl != null) {
-            agentControl.stopAgent(false);
+            stopAgent(agentId, agentControl, false);
 
             if (engineEvents != null) {
                 engineEvents.onAgentDeattached(agentControl);
@@ -220,12 +221,7 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
     private void unregisterAllAgent(boolean shutdownAgents) {
         agents.forEach((agentId, agentControl) -> {
             if (agents.remove(agentId, agentControl)) {
-                try {
-                    agentControl.stopAgent(shutdownAgents);
-                } catch (StatusRuntimeException ex) {
-                    logger.atWarn().withThrowable(ex).log("Couldn't stop agent id {}", agentId);
-                }
-
+                stopAgent(agentId, agentControl, shutdownAgents);
                 if (engineEvents != null) {
                     engineEvents.onAgentDeattached(agentControl);
                 }
@@ -251,5 +247,13 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
             logger.atError().withThrowable(ex).log("Couldn't get local IP addresses");
         }
         return ips;
+    }
+
+    private void stopAgent(String agentId, AgentControlImpl agentControl, boolean sendShutdown) {
+        try {
+            agentControl.stopAgent(sendShutdown);
+        } catch (StatusRuntimeException ex) {
+            logger.atWarn().withThrowable(ex).log("Couldn't stop agent id {}", agentId);
+        }
     }
 }

@@ -1421,7 +1421,7 @@ public class MqttControlSteps {
             engineControl.stopEngine(false);
             engineControl.awaitTermination();
         } catch (StatusRuntimeException ex) {
-            log.warn("Exception during stop clients control", ex);
+            log.warn("Exception during stopping control engine", ex);
         }
     }
 
