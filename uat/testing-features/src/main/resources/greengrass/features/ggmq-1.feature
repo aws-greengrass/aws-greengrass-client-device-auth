@@ -1130,6 +1130,14 @@ Feature: GGMQ-1
     }
 }
     """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.IPDetector configuration to:
+    """
+{
+    "MERGE":{
+        "defaultPort":"9000"
+    }
+}
+    """
 
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
