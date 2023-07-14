@@ -1498,7 +1498,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                 |
 
-  @GGMQ-1-T17 @SkipOnWindows
+  @GGMQ-1-T17
   Scenario Outline: GGMQ-1-T17-<mqtt-v>-<name>: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic, with Greengrass in offline state
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                  |
@@ -1575,9 +1575,7 @@ Feature: GGMQ-1
     And I restart Greengrass
     And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Failed to connect to AWS IoT Core" at least 3 times within 2 minutes
 
-    # TODO: when 'only configuration changes with local deployment' will be implemented in OTF replace to it
-    #  step failed on Windows
-    And I install the component aws.greengrass.clientdevices.mqtt.Bridge from local store with configuration
+    And I update my local deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.Bridge configuration to:
     """
 {
     "MERGE":{
@@ -1621,7 +1619,7 @@ Feature: GGMQ-1
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml | GRANTED_QOS_1       |
 
 
-  @GGMQ-1-T18 @SkipOnWindows
+  @GGMQ-1-T18
   Scenario Outline: GGMQ-1-T18-<mqtt-v>-<name>: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic, with Greengrass in disconnected state
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                  |
@@ -1697,9 +1695,7 @@ Feature: GGMQ-1
     When I set device mqtt connectivity to offline
     And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Failed to connect to AWS IoT Core" at least 3 times within 2 minutes
 
-    # TODO: when 'only configuration changes with local deployment' will be implemented in OTF replace to it
-    #  step failed on Windows
-    And I install the component aws.greengrass.clientdevices.mqtt.Bridge from local store with configuration
+    And I update my local deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.Bridge configuration to:
     """
 {
     "MERGE":{
