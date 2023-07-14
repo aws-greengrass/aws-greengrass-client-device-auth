@@ -17,11 +17,10 @@ ComponentConfiguration:
     controlPort: 47619
 Manifests:
   - Artifacts:
-      - URI: classpath:/local-store/artifacts/client-python-paho
+      - URI: classpath:/local-store/artifacts/client-python-paho.exe
         Permission:
           Read: ALL
           Execute: OWNER
     Lifecycle:
       Run: |
-        {artifacts:path}/client-python-paho "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}
-# Only linux support at this moment
+        {artifacts:path}/client-python-paho.exe "{configuration:/agentId}" "{configuration:/controlPort}" {configuration:/controlAddresses}
