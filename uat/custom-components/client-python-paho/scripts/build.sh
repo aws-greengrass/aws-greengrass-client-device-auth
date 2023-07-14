@@ -17,7 +17,7 @@ pip3 install -r requirements.txt
 python3 -m grpc_tools.protoc -I../../../proto --python_out=../src/grpc_client_server/grpc_generated --pyi_out=../src/grpc_client_server/grpc_generated --grpc_python_out=../src/grpc_client_server/grpc_generated ../../../proto/mqtt_client_control.proto
 python3 fix_generated.py
 pyinstaller client-python-paho.spec
-mv dist/client-python-paho ../
+mv dist/client-python-paho ../client-python-paho.exe
 rm -r dist
 rm -r build
 cd $STARTDIR
