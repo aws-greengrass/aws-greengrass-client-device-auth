@@ -130,10 +130,10 @@ java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@G
 ```
 
 ### Run scenarios on CodeBuild
-Because scenario usually requires upload/download artifacts to S3, create and delete roles, policies, do greengrass discoverty and so one please ensure codeBuild instance have enough AWS permissions to do that.
+Due to scenario usually requires upload/download artifacts to S3, create and delete roles, policies, do Greengrass discovery and so one please ensure CodeBuild instance has enough AWS permissions to do that.
 For more information please read [Create a CodeBuild service role](https://docs.aws.amazon.com/codebuild/latest/userguide/setting-up.html#setting-up-service-role)
 
 ## Limitations
 MQTT clients based on IoT Device SDK for Java v2, mosquitto C, Paho Java, Paho Python do no provide API to get information from PUBREC/PUBREL/PUBCOMP packages used when messages published with QoS 2.
 
-Not all features of MQTT v5.0 has been implemented in clients and supported by gRPC proto and the control as was requested, it is not bugs it is a design requirement.
+Not all features of MQTT v5.0 have been implemented in clients and are supported by gRPC proto and the control as was requested, these are not bugs but designed by requirement.
