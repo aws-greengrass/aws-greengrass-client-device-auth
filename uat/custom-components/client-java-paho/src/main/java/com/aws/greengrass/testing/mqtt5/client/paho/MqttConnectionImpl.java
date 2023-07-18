@@ -476,6 +476,9 @@ public class MqttConnectionImpl implements MqttConnection {
                     }
                 });
             }
+
+            logger.atInfo().log("MQTT connectionId {} disconnected error '{}' disconnectInfo '{}'",
+                    connectionId, errorString, disconnectInfo);
         }
 
         @Override
