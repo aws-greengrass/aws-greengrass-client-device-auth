@@ -1227,6 +1227,119 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                       | recipe                  |
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
 
+  @GGMQ-1-T22
+  Scenario Outline: GGMQ-1-T22-<mqtt-v>-<name>: As a customer, I can send a message of size 128KiB to the MQTT broker
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.Bridge | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+    And I create client device "large_payload_publisher"
+    When I associate "large_payload_publisher" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${large_payload_publisher}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.Bridge configuration to:
+    """
+{
+    "MERGE":{
+        "mqttTopicMapping":{
+            "mapping1:":{
+                "topic":"${large_payload_publisher}topic/to/iotcore",
+                "source":"LocalMqtt",
+                "target":"IotCore"
+            }
+        }
+    }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+
+    And I discover core device broker as "default_broker" from "large_payload_publisher" in OTF
+    And I connect device "large_payload_publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    And I subscribe "large_payload_publisher" to "${large_payload_publisher}topic/to/iotcore" with qos 1
+    When I publish from "large_payload_publisher" to "${large_payload_publisher}topic/to/iotcore" with qos 1 and large message with beginning of "Hello world1" with size 128 KB
+    Then message beginning with "Hello world1" received on "large_payload_publisher" from "${large_payload_publisher}topic/to/iotcore" topic within 10 seconds
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
+
+    @mqtt3 @mosquitto-c @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
+
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
+
+    @mqtt3 @paho-python @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
+
+    @mqtt5 @mosquitto-c @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
+
+    @mqtt5 @paho-python @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+
 
   @GGMQ-1-T101
   Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can use publish retain flag using MQTT V3.1.1

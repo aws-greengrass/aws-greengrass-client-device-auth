@@ -35,6 +35,7 @@ public final class EventFilter {
     private final Integer messageExpiryInterval;
     private final String responseTopic;
     private final byte[] correlationData;
+    private final Boolean isMessageFull;
 
     EventFilter(Builder builder) {
         super();
@@ -55,6 +56,7 @@ public final class EventFilter {
         this.messageExpiryInterval = builder.messageExpiryInterval;
         this.responseTopic = builder.responseTopic;
         this.correlationData = builder.correlationData;
+        this.isMessageFull = builder.isMessageFull;
     }
 
     /**
@@ -78,6 +80,7 @@ public final class EventFilter {
         private Integer messageExpiryInterval;
         private String responseTopic;
         private byte[] correlationData;
+        private Boolean isMessageFull;
 
         /**
          * Sets type of event.
@@ -295,6 +298,18 @@ public final class EventFilter {
          */
         public Builder withCorrelationData(byte[] correlationData) {
             this.correlationData = correlationData;
+            return this;
+        }
+
+
+        /**
+         * Sets indicator of message is full or not.
+         * Applicable only for MQTT message events
+         *
+         * @param isMessageFull is message full or not
+         */
+        public Builder withIsMessageFull(Boolean isMessageFull) {
+            this.isMessageFull = isMessageFull;
             return this;
         }
 

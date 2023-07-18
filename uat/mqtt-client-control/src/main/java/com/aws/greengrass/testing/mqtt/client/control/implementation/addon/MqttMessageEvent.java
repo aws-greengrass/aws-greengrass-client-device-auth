@@ -13,6 +13,7 @@ import com.google.protobuf.ByteString;
 import lombok.Getter;
 import lombok.NonNull;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
@@ -111,7 +112,7 @@ public class MqttMessageEvent extends EventImpl {
         // TODO: check QoS ? it can be differ on transmit and receive sides
 
         // check content
-        return comparePayload(filter.getContent());
+        return comparePayload(filter.getContent(), filter.getIsMessageFull());
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -134,7 +135,7 @@ public class MqttMessageEvent extends EventImpl {
         return connectionName == null || connectionName.equals(getConnectionName());
     }
 
-    private boolean comparePayload(byte[] expected) {
+    private boolean comparePayload(byte[] expected, Boolean isMessageFull) {
         if (expected == null) {
             return true;
         }
@@ -144,7 +145,13 @@ public class MqttMessageEvent extends EventImpl {
             return false;
         }
 
-        return Arrays.equals(expected, byteStringPayload.toByteArray());
+        if (isMessageFull == null || isMessageFull) {
+            return Arrays.equals(expected, byteStringPayload.toByteArray());
+        } else {
+            String expectedBeginningMessage = new String(expected, StandardCharsets.UTF_8);
+            String actualMessage = byteStringPayload.toString(StandardCharsets.UTF_8);
+            return actualMessage.contains(expectedBeginningMessage);
+        }
     }
 
     private boolean isRetainMatched(Boolean retain) {

@@ -58,12 +58,14 @@ import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 import software.amazon.awssdk.utils.CollectionUtils;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -918,12 +920,49 @@ public class MqttControlSteps {
     }
 
     /**
+     * Publish the large MQTT message.
+     *
+     * @param clientDeviceId user defined client device id
+     * @param topicString the topic to publish message
+     * @param qos the value of MQTT QoS for publishing
+     * @param messageBeginning the content of message with beginning to publish
+     * @param kbSize the size of message
+     * @throws StatusRuntimeException on gRPC errors
+     * @throws IllegalArgumentException on invalid QoS argument
+     */
+    @When("I publish from {string} to {string} with qos {int} and large message with beginning of {string} "
+            + "with size {int} KB")
+    public void publishLargeMessage(String clientDeviceId, String topicString, int qos,
+                                    String messageBeginning, int kbSize) {
+        int lengthInBytes = kbSize * 1028;
+        // 1 char is 2 bytes
+        int fullMessageSize = lengthInBytes / 2;
+
+        if (messageBeginning.length() > fullMessageSize) {
+            throw new RuntimeException("messageBeginning is larger than expected size");
+        }
+
+        byte[] randomMessageBytes = new byte[fullMessageSize - messageBeginning.length()];
+
+        new Random().nextBytes(randomMessageBytes);
+        String randomMessage = new String(randomMessageBytes, StandardCharsets.UTF_8);
+
+        while (randomMessage.contains(messageBeginning)) {
+            new Random().nextBytes(randomMessageBytes);
+            randomMessage = new String(randomMessageBytes, StandardCharsets.UTF_8);
+        }
+
+        String message = messageBeginning + randomMessage;
+        publish(clientDeviceId, topicString, qos, message, PublishReasonCode.SUCCESS.getValue());
+    }
+
+    /**
      * Publish the MQTT message.
      *
      * @param clientDeviceId user defined client device id
      * @param topicString the topic to publish message
      * @param qos the value of MQTT QoS for publishing
-     * @param message the the content of message to publish
+     * @param message the content of message to publish
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
      */
@@ -938,7 +977,7 @@ public class MqttControlSteps {
      * @param clientDeviceId user defined client device id
      * @param topicString the topic to publish message
      * @param qos the value of MQTT QoS for publishing
-     * @param message the the content of message to publish
+     * @param message the content of message to publish
      * @param expectedStatus the status of MQTT QoS for publish reply
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
@@ -987,7 +1026,7 @@ public class MqttControlSteps {
     @And("message {string} is not received on {string} from {string} topic within {int} {word}")
     public void notReceivedMessage(String message, String clientDeviceId, String topicString, int value, String unit)
             throws TimeoutException, InterruptedException {
-        receive(message, clientDeviceId, topicString, value, unit, false);
+        receive(message, clientDeviceId, topicString, value, unit, false, false);
     }
 
     /**
@@ -1006,7 +1045,28 @@ public class MqttControlSteps {
     @And("message {string} received on {string} from {string} topic within {int} {word}")
     public void receivedMessage(String message, String clientDeviceId, String topicString, int value, String unit)
                             throws TimeoutException, InterruptedException {
-        receive(message, clientDeviceId, topicString, value, unit, true);
+        receive(message, clientDeviceId, topicString, value, unit, true, true);
+    }
+
+
+    /**
+     * Verify is MQTT message is received in limited duration of time.
+     *
+     * @param message content of message to receive
+     * @param clientDeviceId the user defined client device id
+     * @param topicString the topic (not a filter) which message has been sent
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @throws TimeoutException when matched message was not received in specified duration of time
+     * @throws RuntimeException on internal errors
+     * @throws InterruptedException then thread has been interrupted
+     */
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
+    @And("message beginning with {string} received on {string} from {string} topic within {int} {word}")
+    public void receivedMessageBeginning(String message, String clientDeviceId, String topicString, int value,
+                                         String unit)
+                            throws TimeoutException, InterruptedException {
+        receive(message, clientDeviceId, topicString, value, unit, true, false);
     }
 
     /**
@@ -1018,13 +1078,14 @@ public class MqttControlSteps {
      * @param value the duration of time to wait for message
      * @param unit the time unit to wait
      * @param isExpectedMessage used for setting message expectation
+     * @param isMessageFull used for setting full message expectation
      * @throws TimeoutException when matched message was not received in specified duration of time
      * @throws RuntimeException on internal errors
      * @throws InterruptedException then thread has been interrupted
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
     public void receive(String message, String clientDeviceId, String topicString, int value,
-                        String unit, boolean isExpectedMessage)
+                        String unit, boolean isExpectedMessage, boolean isMessageFull)
                             throws TimeoutException, InterruptedException {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
@@ -1045,6 +1106,7 @@ public class MqttControlSteps {
                                         .withMessageExpiryInterval(rxMessageExpiryInterval)
                                         .withResponseTopic(rxResponseTopic)
                                         .withCorrelationData(rxCorrelationData)
+                                        .withIsMessageFull(isMessageFull)
                                         .build();
         // convert time units
         TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
