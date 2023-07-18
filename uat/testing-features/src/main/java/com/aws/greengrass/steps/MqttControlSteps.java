@@ -120,7 +120,6 @@ public class MqttControlSteps {
     private static final String DEFAULT_RESPONSE_TOPIC = null;
     private static final String DEFAULT_CORRELATION_DATA = null;
     private static final String DEFAULT_CONTENT_TYPE = null;
-    private static final String DEFAULT_LONG_MESSAGE = null;
 
     // subscribe efault properties
     private static final Integer DEFAULT_SUBSCRIPTION_ID = null;        // NOTE: do not set for IoT Core broker !!!
@@ -220,9 +219,6 @@ public class MqttControlSteps {
 
     /** Actual value of content type to receive in received messages. */
     private String rxContentType = DEFAULT_CONTENT_TYPE;
-
-    /** Actual value of long messages. */
-    private String txLongMessage = DEFAULT_LONG_MESSAGE;
 
 
     private final Map<String, List<MqttBrokerConnectionInfo>> brokers = new HashMap<>();
@@ -928,29 +924,17 @@ public class MqttControlSteps {
      * @param topicString the topic to publish message
      * @param qos the value of MQTT QoS for publishing
      * @param messageBeginning the content of message with beginning to publish
-     * @param kbSize the size of message
+     * @param messageLength the length of message
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
      */
     @When("I publish from {string} to {string} with qos {int} and large message with beginning of {string} "
-            + "with size {int} KB")
+            + "with length {int}")
     public void publishLargeMessage(String clientDeviceId, String topicString, int qos,
-                                    String messageBeginning, int kbSize) {
-        int lengthInBytes = kbSize * 1028;
-        // 1 char is 2 bytes
-        int fullMessageSize = lengthInBytes / 2;
+                                    String messageBeginning, int messageLength) {
+        String longMessage = generateLongMessage(messageBeginning, messageLength);
 
-        if (messageBeginning.length() > fullMessageSize) {
-            throw new RuntimeException("messageBeginning is larger than expected size");
-        }
-
-        StringBuilder longMessageBuilder = new StringBuilder();
-        for (int i = 0; i < fullMessageSize / messageBeginning.length(); i++) {
-            longMessageBuilder.append(messageBeginning);
-        }
-        txLongMessage = longMessageBuilder.toString();
-
-        publish(clientDeviceId, topicString, qos, txLongMessage, PublishReasonCode.SUCCESS.getValue());
+        publish(clientDeviceId, topicString, qos, longMessage, PublishReasonCode.SUCCESS.getValue());
     }
 
     /**
@@ -1049,7 +1033,8 @@ public class MqttControlSteps {
     /**
      * Verify is MQTT message is received in limited duration of time.
      *
-     * @param message content of message to receive
+     * @param message beginning of long message to receive
+     * @param messageLength the length of long message
      * @param clientDeviceId the user defined client device id
      * @param topicString the topic (not a filter) which message has been sent
      * @param value the duration of time to wait for message
@@ -1059,15 +1044,13 @@ public class MqttControlSteps {
      * @throws InterruptedException then thread has been interrupted
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
-    @And("message beginning with {string} received on {string} from {string} topic within {int} {word}")
-    public void receivedMessageBeginning(String message, String clientDeviceId, String topicString, int value,
-                                         String unit)
+    @And("message beginning with {string} and with length {int} received on {string} "
+            + "from {string} topic within {int} {word}")
+    public void receivedMessageBeginning(String message, int messageLength, String clientDeviceId, String topicString,
+                                         int value, String unit)
                             throws TimeoutException, InterruptedException {
-        if (!txLongMessage.contains(message)) {
-            log.error("Long message does not contain '{}'", message);
-            throw new RuntimeException("Long message does not contain expected beginning");
-        }
-        receive(txLongMessage, clientDeviceId, topicString, value, unit, true);
+        String longMessage = generateLongMessage(message, messageLength);
+        receive(longMessage, clientDeviceId, topicString, value, unit, true);
     }
 
     /**
@@ -1261,6 +1244,17 @@ public class MqttControlSteps {
                     + reason);
         }
         log.info("MQTT topics filter {} has been unsubscribed", filter);
+    }
+
+    private String generateLongMessage(String messageBeginning, int totalLength) {
+        StringBuilder longMessageBuilder = new StringBuilder();
+        int repeatedTimes = totalLength / messageBeginning.length() + 1;
+
+        for (int i = 0; i < repeatedTimes; i++) {
+            longMessageBuilder.append(messageBeginning);
+        }
+
+        return longMessageBuilder.substring(0, totalLength);
     }
 
     private IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) throws IOException {

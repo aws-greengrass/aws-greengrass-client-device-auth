@@ -1297,8 +1297,8 @@ Feature: GGMQ-1
     And I connect device "large_payload_publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
 
     And I subscribe "large_payload_publisher" to "${large_payload_publisher}topic/to/iotcore" with qos 1
-    When I publish from "large_payload_publisher" to "${large_payload_publisher}topic/to/iotcore" with qos 1 and large message with beginning of "Hello world1" with size 128 KB
-    Then message beginning with "Hello world1" received on "large_payload_publisher" from "${large_payload_publisher}topic/to/iotcore" topic within 10 seconds
+    When I publish from "large_payload_publisher" to "${large_payload_publisher}topic/to/iotcore" with qos 1 and large message with beginning of "Hello world1" with length 130098
+    Then message beginning with "Hello world1" and with length 130098 received on "large_payload_publisher" from "${large_payload_publisher}topic/to/iotcore" topic within 10 seconds
 
     @mqtt3 @sdk-java
     Examples:
