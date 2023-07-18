@@ -417,10 +417,9 @@ public class MqttConnectionImpl implements MqttConnection {
     }
 
     private class MqttMessageListener implements IMqttMessageListener {
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) {
-            MqttConnectionImpl.this.messageArrived(topic, mqttMessage);
+            processMessage(topic, mqttMessage);
         }
     }
 
@@ -485,9 +484,8 @@ public class MqttConnectionImpl implements MqttConnection {
         }
 
         @Override
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
-        public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-            MqttConnectionImpl.this.messageArrived(topic, mqttMessage);
+        public void messageArrived(String topic, MqttMessage mqttMessage) {
+            processMessage(topic, mqttMessage);
         }
 
         @Override
@@ -504,30 +502,10 @@ public class MqttConnectionImpl implements MqttConnection {
         public void authPacketArrived(int i, MqttProperties mqttProperties) {
             logger.atInfo().log("Connection completed");
         }
-
-        private GRPCClient.DisconnectInfo convertDisconnectPacket(MqttDisconnectResponse response) {
-            if (response == null) {
-                return null;
-            }
-
-
-            List<UserProperty> properties = response.getUserProperties();
-            final List<Mqtt5Properties> userProperties = properties == null
-                    ? null : convertToMqtt5Properties(properties);
-
-            final int reasonCode = response.getReturnCode();
-
-            return new GRPCClient.DisconnectInfo(reasonCode,
-                    null,
-                    response.getReasonString(),
-                    response.getServerReference(),
-                    userProperties
-            );
-        }
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private void messageArrived(String topic, MqttMessage mqttMessage) {
+    private void processMessage(String topic, MqttMessage mqttMessage) {
         MqttProperties receivedProperties = mqttMessage.getProperties();
 
         String contentType = null;
@@ -585,5 +563,25 @@ public class MqttConnectionImpl implements MqttConnection {
         if (correlationData != null) {
             logger.atInfo().log("Received MQTT message has correlation data: {}", correlationData);
         }
+    }
+
+    private GRPCClient.DisconnectInfo convertDisconnectPacket(MqttDisconnectResponse response) {
+        if (response == null) {
+            return null;
+        }
+
+
+        List<UserProperty> properties = response.getUserProperties();
+        final List<Mqtt5Properties> userProperties = properties == null
+                ? null : convertToMqtt5Properties(properties);
+
+        final int reasonCode = response.getReturnCode();
+
+        return new GRPCClient.DisconnectInfo(reasonCode,
+                null,
+                response.getReasonString(),
+                response.getServerReference(),
+                userProperties
+        );
     }
 }

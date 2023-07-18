@@ -228,7 +228,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) {
-            Mqtt311ConnectionImpl.this.messageArrived(topic, mqttMessage);
+            processMessage(topic, mqttMessage);
         }
     }
 
@@ -293,7 +293,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) {
-            Mqtt311ConnectionImpl.this.messageArrived(topic, mqttMessage);
+            processMessage(topic, mqttMessage);
         }
 
         @Override
@@ -303,7 +303,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private void messageArrived(String topic, MqttMessage mqttMessage) {
+    private void processMessage(String topic, MqttMessage mqttMessage) {
         if (isClosing.get()) {
             logger.atWarn().log("PIBLISH event ignored due to shutdown initiated");
         } else {
