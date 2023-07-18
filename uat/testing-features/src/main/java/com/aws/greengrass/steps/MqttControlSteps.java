@@ -58,14 +58,12 @@ import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 import software.amazon.awssdk.utils.CollectionUtils;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -122,6 +120,7 @@ public class MqttControlSteps {
     private static final String DEFAULT_RESPONSE_TOPIC = null;
     private static final String DEFAULT_CORRELATION_DATA = null;
     private static final String DEFAULT_CONTENT_TYPE = null;
+    private static final String DEFAULT_LONG_MESSAGE = null;
 
     // subscribe efault properties
     private static final Integer DEFAULT_SUBSCRIPTION_ID = null;        // NOTE: do not set for IoT Core broker !!!
@@ -221,6 +220,9 @@ public class MqttControlSteps {
 
     /** Actual value of content type to receive in received messages. */
     private String rxContentType = DEFAULT_CONTENT_TYPE;
+
+    /** Actual value of long messages. */
+    private String txLongMessage = DEFAULT_LONG_MESSAGE;
 
 
     private final Map<String, List<MqttBrokerConnectionInfo>> brokers = new HashMap<>();
@@ -942,18 +944,13 @@ public class MqttControlSteps {
             throw new RuntimeException("messageBeginning is larger than expected size");
         }
 
-        byte[] randomMessageBytes = new byte[fullMessageSize - messageBeginning.length()];
-
-        new Random().nextBytes(randomMessageBytes);
-        String randomMessage = new String(randomMessageBytes, StandardCharsets.UTF_8);
-
-        while (randomMessage.contains(messageBeginning)) {
-            new Random().nextBytes(randomMessageBytes);
-            randomMessage = new String(randomMessageBytes, StandardCharsets.UTF_8);
+        StringBuilder longMessageBuilder = new StringBuilder();
+        for (int i = 0; i < fullMessageSize / messageBeginning.length(); i++) {
+            longMessageBuilder.append(messageBeginning);
         }
+        txLongMessage = longMessageBuilder.toString();
 
-        String message = messageBeginning + randomMessage;
-        publish(clientDeviceId, topicString, qos, message, PublishReasonCode.SUCCESS.getValue());
+        publish(clientDeviceId, topicString, qos, txLongMessage, PublishReasonCode.SUCCESS.getValue());
     }
 
     /**
@@ -1026,7 +1023,7 @@ public class MqttControlSteps {
     @And("message {string} is not received on {string} from {string} topic within {int} {word}")
     public void notReceivedMessage(String message, String clientDeviceId, String topicString, int value, String unit)
             throws TimeoutException, InterruptedException {
-        receive(message, clientDeviceId, topicString, value, unit, false, false);
+        receive(message, clientDeviceId, topicString, value, unit, false);
     }
 
     /**
@@ -1045,7 +1042,7 @@ public class MqttControlSteps {
     @And("message {string} received on {string} from {string} topic within {int} {word}")
     public void receivedMessage(String message, String clientDeviceId, String topicString, int value, String unit)
                             throws TimeoutException, InterruptedException {
-        receive(message, clientDeviceId, topicString, value, unit, true, true);
+        receive(message, clientDeviceId, topicString, value, unit, true);
     }
 
 
@@ -1066,7 +1063,11 @@ public class MqttControlSteps {
     public void receivedMessageBeginning(String message, String clientDeviceId, String topicString, int value,
                                          String unit)
                             throws TimeoutException, InterruptedException {
-        receive(message, clientDeviceId, topicString, value, unit, true, false);
+        if (!txLongMessage.contains(message)) {
+            log.error("Long message does not contain '{}'", message);
+            throw new RuntimeException("Long message does not contain expected beginning");
+        }
+        receive(txLongMessage, clientDeviceId, topicString, value, unit, true);
     }
 
     /**
@@ -1078,14 +1079,13 @@ public class MqttControlSteps {
      * @param value the duration of time to wait for message
      * @param unit the time unit to wait
      * @param isExpectedMessage used for setting message expectation
-     * @param isMessageFull used for setting full message expectation
      * @throws TimeoutException when matched message was not received in specified duration of time
      * @throws RuntimeException on internal errors
      * @throws InterruptedException then thread has been interrupted
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
     public void receive(String message, String clientDeviceId, String topicString, int value,
-                        String unit, boolean isExpectedMessage, boolean isMessageFull)
+                        String unit, boolean isExpectedMessage)
                             throws TimeoutException, InterruptedException {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
@@ -1106,7 +1106,6 @@ public class MqttControlSteps {
                                         .withMessageExpiryInterval(rxMessageExpiryInterval)
                                         .withResponseTopic(rxResponseTopic)
                                         .withCorrelationData(rxCorrelationData)
-                                        .withIsMessageFull(isMessageFull)
                                         .build();
         // convert time units
         TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
