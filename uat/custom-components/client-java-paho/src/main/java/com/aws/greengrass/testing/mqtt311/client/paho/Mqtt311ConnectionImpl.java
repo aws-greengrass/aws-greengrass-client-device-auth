@@ -305,7 +305,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void processMessage(String topic, MqttMessage mqttMessage) {
         if (isClosing.get()) {
-            logger.atWarn().log("PIBLISH event ignored due to shutdown initiated");
+            logger.atWarn().log("PUBLISH event ignored due to shutdown initiated");
         } else {
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
                     mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(),
