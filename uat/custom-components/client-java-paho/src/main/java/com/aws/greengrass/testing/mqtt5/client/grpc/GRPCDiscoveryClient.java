@@ -8,6 +8,7 @@ package com.aws.greengrass.testing.mqtt5.client.grpc;
 import com.aws.greengrass.testing.mqtt.client.DiscoveryRequest;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
+import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
 import com.aws.greengrass.testing.mqtt.client.MqttAgentDiscoveryGrpc;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectionId;
 import com.aws.greengrass.testing.mqtt.client.MqttQoS;
@@ -26,6 +27,8 @@ import io.grpc.StatusRuntimeException;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.List;
 
 /**
  * Implementation of gRPC client used to discover agent.
@@ -165,14 +168,39 @@ class GRPCDiscoveryClient implements GRPCClient {
     @Override
     public void onMqttDisconnect(int connectionId, DisconnectInfo disconnectInfo, String error) {
         OnMqttDisconnectRequest.Builder builder = OnMqttDisconnectRequest.newBuilder()
-                        .setAgentId(agentId)
-                        .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId)
-                        .build());
+                .setAgentId(agentId)
+                .setConnectionId(MqttConnectionId.newBuilder().setConnectionId(connectionId).build());
         if (disconnectInfo != null) {
-            // TODO: fill
-            Mqtt5Disconnect disconnect = Mqtt5Disconnect.newBuilder().build();
-            builder.setDisconnect(disconnect);
+            Mqtt5Disconnect.Builder disconnectBuilder = Mqtt5Disconnect.newBuilder();
+
+            final Integer reasonCode = disconnectInfo.getReasonCode();
+            if (reasonCode != null) {
+                disconnectBuilder.setReasonCode(reasonCode);
+            }
+
+            final Integer sessionExpiryInterval = disconnectInfo.getSessionExpiryInterval();
+            if (sessionExpiryInterval != null) {
+                disconnectBuilder.setSessionExpiryInterval(sessionExpiryInterval);
+            }
+
+            final String reasonString = disconnectInfo.getReasonString();
+            if (reasonString != null) {
+                disconnectBuilder.setReasonString(reasonString);
+            }
+
+            final String serverReference = disconnectInfo.getServerReference();
+            if (serverReference != null) {
+                disconnectBuilder.setServerReference(serverReference);
+            }
+
+            final List<Mqtt5Properties> userProperties = disconnectInfo.getUserProperties();
+            if (userProperties != null && !userProperties.isEmpty()) {
+                disconnectBuilder.addAllProperties(userProperties);
+            }
+
+            builder.setDisconnect(disconnectBuilder.build());
         }
+
         if (error != null) {
             builder.setError(error);
         }
@@ -182,6 +210,7 @@ class GRPCDiscoveryClient implements GRPCClient {
         } catch (StatusRuntimeException ex) {
             logger.atError().withThrowable(ex).log(GRPC_REQUEST_FAILED);
         }
+
     }
 
     /**
