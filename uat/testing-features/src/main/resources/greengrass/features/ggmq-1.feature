@@ -1297,6 +1297,9 @@ Feature: GGMQ-1
     And I connect device "large_payload_publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
 
     And I subscribe "large_payload_publisher" to "${large_payload_publisher}topic/to/iotcore" with qos 1
+    # 130098 is 74 bytes short of 128KiB. However, the Moquette limit is frame size, not payload size.
+    # We should address this, but for now, we'll just decrease the payload slightly.
+    # NOTE: 74 bytes include a fixed header + variable length header which includes the topic name
     When I publish from "large_payload_publisher" to "${large_payload_publisher}topic/to/iotcore" with qos 1 and large message with beginning of "Hello world1" with length 130098
     Then message beginning with "Hello world1" and with length 130098 received on "large_payload_publisher" from "${large_payload_publisher}topic/to/iotcore" topic within 10 seconds
 
