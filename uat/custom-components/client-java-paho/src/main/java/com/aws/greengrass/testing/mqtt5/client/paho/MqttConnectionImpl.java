@@ -529,7 +529,7 @@ public class MqttConnectionImpl implements MqttConnection {
         List<Mqtt5Properties> userProps = convertToMqtt5Properties(receivedProperties);
 
         if (isClosing.get()) {
-            logger.atWarn().log("PIBLISH event ignored due to shutdown initiated");
+            logger.atWarn().log("PUBLISH event ignored due to shutdown initiated");
         } else {
             GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
                     mqttMessage.getQos(), mqttMessage.isRetained(), topic,
