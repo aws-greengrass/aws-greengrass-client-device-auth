@@ -783,6 +783,29 @@ public class MqttControlSteps {
     }
 
     /**
+     * Try to create MQTT connection to broker and ensure connection has been failed.
+     *
+     * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
+     * @param componentId  the componentId of MQTT client
+     * @param brokerId the id of broker, before must be discovered or added by default
+     * @param mqttVersion the MQTT version string
+     * @throws RuntimeException throws in fail case
+     *
+     */
+    @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.AvoidCatchingGenericException"})
+    @And("I can not connect device {string} on {word} to {string} using mqtt {string}")
+    public void canNotConnect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
+        try {
+            connect(clientDeviceId, componentId, brokerId, mqttVersion);
+        } catch (RuntimeException e) {
+            log.info("Connection was failed with message '{}'", e.getMessage());
+            return;
+        }
+        log.error("It was expected that there would be no connection, but connected");
+        throw new RuntimeException("It was expected that there would be no connection, but connected");
+    }
+
+    /**
      * Disconnect IoT Thing.
      *
      * @param clientDeviceId string user defined client device id
@@ -1134,7 +1157,7 @@ public class MqttControlSteps {
      * @param brokerId broker name in tests
      */
     @And("I label IoT Core broker as {string}")
-    public void discoverCoreDeviceBroker(String brokerId) {
+    public void addCoreDeviceBroker(String brokerId) {
         final String endpoint = resources.lifecycle(IotLifecycle.class)
                                          .dataEndpoint();
         final String ca = registrationContext.rootCA();
@@ -1418,10 +1441,10 @@ public class MqttControlSteps {
     @After
     public void stopMqttControlEngine() throws InterruptedException {
         try {
-            engineControl.stopEngine();
+            engineControl.stopEngine(false);
             engineControl.awaitTermination();
-        } catch (StatusRuntimeException e) {
-            log.warn(e);
+        } catch (StatusRuntimeException ex) {
+            log.warn("Exception during stopping control engine", ex);
         }
     }
 

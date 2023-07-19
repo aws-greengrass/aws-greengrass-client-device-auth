@@ -20,7 +20,9 @@ import org.eclipse.paho.mqttv5.client.IMqttAsyncClient;
 import org.eclipse.paho.mqttv5.client.IMqttMessageListener;
 import org.eclipse.paho.mqttv5.client.IMqttToken;
 import org.eclipse.paho.mqttv5.client.MqttAsyncClient;
+import org.eclipse.paho.mqttv5.client.MqttCallback;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
+import org.eclipse.paho.mqttv5.client.MqttDisconnectResponse;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
@@ -75,6 +77,7 @@ public class MqttConnectionImpl implements MqttConnection {
         try {
             MqttConnectionOptions connectionOptions = convertConnectParams(connectionParams);
             IMqttToken token = client.connect(connectionOptions);
+            client.setCallback(new MqttCallbackImpl());
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(connectionParams.getConnectionTimeout()));
             success = true;
             return buildConnectResult(true, token, null);
@@ -380,7 +383,7 @@ public class MqttConnectionImpl implements MqttConnection {
         Integer reasonCode = reasonCodes == null ? null : reasonCodes[0];
 
         List<Mqtt5Properties> ackUserProperties =
-                getAckUserProperties(token.getResponseProperties().getUserProperties(), "ConAck");
+                getAckUserProperties(token.getResponseProperties().getUserProperties(), "ConnAck");
 
         String responseInformation = token.getResponseProperties().getResponseInfo();
         if (responseInformation != null) {
@@ -414,66 +417,9 @@ public class MqttConnectionImpl implements MqttConnection {
     }
 
     private class MqttMessageListener implements IMqttMessageListener {
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
         public void messageArrived(String topic, MqttMessage mqttMessage) {
-            MqttProperties receivedProperties = mqttMessage.getProperties();
-
-            String contentType = null;
-            Boolean payloadFormatIndicator = null;
-            Integer messageExpiryInterval = null;
-            String responseTopic = null;
-            byte[] correlationData = null;
-            if (receivedProperties != null) {
-                contentType = receivedProperties.getContentType();
-                payloadFormatIndicator = receivedProperties.getPayloadFormat();
-                if (receivedProperties.getMessageExpiryInterval() != null) {
-                    messageExpiryInterval = receivedProperties.getMessageExpiryInterval().intValue();
-                }
-                responseTopic = receivedProperties.getResponseTopic();
-                correlationData = receivedProperties.getCorrelationData();
-            }
-
-            List<Mqtt5Properties> userProps = convertToMqtt5Properties(receivedProperties);
-
-            if (isClosing.get()) {
-                logger.atWarn().log("PIBLISH event ignored due to shutdown initiated");
-            } else {
-                GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                        mqttMessage.getQos(), mqttMessage.isRetained(), topic,
-                        mqttMessage.getPayload(), userProps, contentType, payloadFormatIndicator,
-                        messageExpiryInterval, responseTopic, correlationData);
-                executorService.submit(() -> {
-                    try {
-                        grpcClient.onReceiveMqttMessage(connectionId, message);
-                    } catch (Exception ex) {
-                        logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
-                    }
-                });
-            }
-
-            logger.atInfo().log("Received MQTT message: connectionId {} topic '{}' QoS {} retain {}",
-                            connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
-
-            if (userProps != null) {
-                userProps.forEach(p -> logger.atInfo()
-                        .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
-            }
-            if (contentType != null) {
-                logger.atInfo().log("Received MQTT message has content type '{}'", contentType);
-            }
-            if (payloadFormatIndicator != null) {
-                logger.atInfo().log("Received MQTT message has payload format indicator '{}'", payloadFormatIndicator);
-            }
-            if (messageExpiryInterval != null) {
-                logger.atInfo().log("Received MQTT message has message expiry interval {}", messageExpiryInterval);
-            }
-            if (responseTopic != null) {
-                logger.atInfo().log("Received MQTT message has response topic: {}", responseTopic);
-            }
-            if (correlationData != null) {
-                logger.atInfo().log("Received MQTT message has correlation data: {}", correlationData);
-            }
+            processMessage(topic, mqttMessage);
         }
     }
 
@@ -506,5 +452,139 @@ public class MqttConnectionImpl implements MqttConnection {
                     .log("{} MQTT userProperties: {}, {}", commandName, p.getKey(), p.getValue()));
         }
         return userProperties;
+    }
+
+    class MqttCallbackImpl implements MqttCallback {
+
+        @Override
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        public void disconnected(MqttDisconnectResponse mqttDisconnectResponse) {
+            GRPCClient.DisconnectInfo disconnectInfo = convertDisconnectPacket(mqttDisconnectResponse);
+
+            final String errorString = mqttDisconnectResponse.getException() == null
+                    ? null : mqttDisconnectResponse.getException().getMessage();
+
+            // only unsolicited disconnect
+            if (isClosing.get()) {
+                logger.atWarn().log("DISCONNECT event ignored due to shutdown initiated");
+            } else {
+                executorService.submit(() -> {
+                    try {
+                        grpcClient.onMqttDisconnect(connectionId, disconnectInfo, errorString);
+                    } catch (Exception ex) {
+                        logger.atError().withThrowable(ex).log("onMqttDisconnect failed");
+                    }
+                });
+            }
+
+            logger.atInfo().log("MQTT connectionId {} disconnected error '{}' disconnectInfo '{}'",
+                    connectionId, errorString, disconnectInfo);
+        }
+
+        @Override
+        public void mqttErrorOccurred(org.eclipse.paho.mqttv5.common.MqttException e) {
+            logger.error("Client error with reason code {} and message '{}'", e.getReasonCode(), e.getMessage());
+        }
+
+        @Override
+        public void messageArrived(String topic, MqttMessage mqttMessage) {
+            processMessage(topic, mqttMessage);
+        }
+
+        @Override
+        public void deliveryComplete(IMqttToken token) {
+            logger.atInfo().log("Delivery completion is {}", token.isComplete());
+        }
+
+        @Override
+        public void connectComplete(boolean reconnect, String s) {
+            logger.atInfo().log("Connection completed");
+        }
+
+        @Override
+        public void authPacketArrived(int i, MqttProperties mqttProperties) {
+            logger.atInfo().log("Connection completed");
+        }
+    }
+
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private void processMessage(String topic, MqttMessage mqttMessage) {
+        MqttProperties receivedProperties = mqttMessage.getProperties();
+
+        String contentType = null;
+        Boolean payloadFormatIndicator = null;
+        Integer messageExpiryInterval = null;
+        String responseTopic = null;
+        byte[] correlationData = null;
+        if (receivedProperties != null) {
+            contentType = receivedProperties.getContentType();
+            payloadFormatIndicator = receivedProperties.getPayloadFormat();
+            if (receivedProperties.getMessageExpiryInterval() != null) {
+                messageExpiryInterval = receivedProperties.getMessageExpiryInterval().intValue();
+            }
+            responseTopic = receivedProperties.getResponseTopic();
+            correlationData = receivedProperties.getCorrelationData();
+        }
+
+        List<Mqtt5Properties> userProps = convertToMqtt5Properties(receivedProperties);
+
+        if (isClosing.get()) {
+            logger.atWarn().log("PUBLISH event ignored due to shutdown initiated");
+        } else {
+            GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic,
+                    mqttMessage.getPayload(), userProps, contentType, payloadFormatIndicator,
+                    messageExpiryInterval, responseTopic, correlationData);
+            executorService.submit(() -> {
+                try {
+                    grpcClient.onReceiveMqttMessage(connectionId, message);
+                } catch (Exception ex) {
+                    logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
+                }
+            });
+        }
+
+        logger.atInfo().log("Received MQTT message: connectionId {} topic '{}' QoS {} retain {}",
+                connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
+
+        if (userProps != null) {
+            userProps.forEach(p -> logger.atInfo()
+                    .log("Received MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
+        }
+        if (contentType != null) {
+            logger.atInfo().log("Received MQTT message has content type '{}'", contentType);
+        }
+        if (payloadFormatIndicator != null) {
+            logger.atInfo().log("Received MQTT message has payload format indicator '{}'", payloadFormatIndicator);
+        }
+        if (messageExpiryInterval != null) {
+            logger.atInfo().log("Received MQTT message has message expiry interval {}", messageExpiryInterval);
+        }
+        if (responseTopic != null) {
+            logger.atInfo().log("Received MQTT message has response topic: {}", responseTopic);
+        }
+        if (correlationData != null) {
+            logger.atInfo().log("Received MQTT message has correlation data: {}", correlationData);
+        }
+    }
+
+    private GRPCClient.DisconnectInfo convertDisconnectPacket(MqttDisconnectResponse response) {
+        if (response == null) {
+            return null;
+        }
+
+
+        List<UserProperty> properties = response.getUserProperties();
+        final List<Mqtt5Properties> userProperties = properties == null
+                ? null : convertToMqtt5Properties(properties);
+
+        final int reasonCode = response.getReturnCode();
+
+        return new GRPCClient.DisconnectInfo(reasonCode,
+                null,
+                response.getReasonString(),
+                response.getServerReference(),
+                userProperties
+        );
     }
 }

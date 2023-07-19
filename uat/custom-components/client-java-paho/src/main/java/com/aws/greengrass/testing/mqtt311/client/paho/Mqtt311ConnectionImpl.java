@@ -21,6 +21,7 @@ import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
@@ -70,8 +71,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         this.connectionId = connectionId;
         try {
             MqttConnectOptions connectOptions = convertParams(connectionParams);
+
             IMqttToken token = mqttClient.connect(connectOptions);
+            mqttClient.setCallback(new MqttCallbackImpl());
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(connectionParams.getConnectionTimeout()));
+
             logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
             return buildConnectResult(true, token.isComplete());
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
@@ -222,26 +226,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     private class MqttMessageListener implements IMqttMessageListener {
 
-        @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
-        public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-            if (isClosing.get()) {
-                logger.atWarn().log("PIBLISH event ignored due to shutdown initiated");
-            } else {
-                GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
-                        mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(),
-                        null, null, null,null, null, null);
-                executorService.submit(() -> {
-                    try {
-                        grpcClient.onReceiveMqttMessage(connectionId, message);
-                    } catch (Exception ex) {
-                        logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
-                    }
-                });
-
-                logger.atInfo().log("Received MQTT message: connectionId {} topic '{}' QoS {} retain {}",
-                                        connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
-            }
+        public void messageArrived(String topic, MqttMessage mqttMessage) {
+            processMessage(topic, mqttMessage);
         }
     }
 
@@ -278,6 +265,61 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private void checkCorrelationData(byte[] correlationData) {
         if (correlationData != null) {
             logger.atWarn().log("MQTT v3.1.1 doesn't support correlation data");
+        }
+    }
+
+    class MqttCallbackImpl implements MqttCallback {
+
+        @SuppressWarnings("PMD.AvoidCatchingGenericException")
+        @Override
+        public void connectionLost(Throwable throwable) {
+            // only unsolicited disconnect
+            if (isClosing.get()) {
+                logger.atWarn().log("DISCONNECT event ignored due to shutdown initiated");
+            } else {
+                GRPCClient.DisconnectInfo disconnectInfo = new GRPCClient.DisconnectInfo(null, null, null, null, null);
+                executorService.submit(() -> {
+                    try {
+                        grpcClient.onMqttDisconnect(connectionId, disconnectInfo, throwable.getMessage());
+                    } catch (Exception ex) {
+                        logger.atError().withThrowable(ex).log("onMqttDisconnect failed");
+                    }
+                });
+            }
+
+            logger.atInfo().log("MQTT connection {} interrupted, error code {}", connectionId, throwable.getMessage());
+
+        }
+
+        @Override
+        public void messageArrived(String topic, MqttMessage mqttMessage) {
+            processMessage(topic, mqttMessage);
+        }
+
+        @Override
+        public void deliveryComplete(IMqttDeliveryToken token) {
+            logger.atInfo().log("Delivery completion is {}", token.isComplete());
+        }
+    }
+
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private void processMessage(String topic, MqttMessage mqttMessage) {
+        if (isClosing.get()) {
+            logger.atWarn().log("PUBLISH event ignored due to shutdown initiated");
+        } else {
+            GRPCClient.MqttReceivedMessage message = new GRPCClient.MqttReceivedMessage(
+                    mqttMessage.getQos(), mqttMessage.isRetained(), topic, mqttMessage.getPayload(),
+                    null, null, null,null, null, null);
+            executorService.submit(() -> {
+                try {
+                    grpcClient.onReceiveMqttMessage(connectionId, message);
+                } catch (Exception ex) {
+                    logger.atError().withThrowable(ex).log("onReceiveMqttMessage failed");
+                }
+            });
+
+            logger.atInfo().log("Received MQTT message: connectionId {} topic '{}' QoS {} retain {}",
+                    connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
         }
     }
 }

@@ -1071,6 +1071,163 @@ Feature: GGMQ-1
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
 
 
+  @GGMQ-1-T20
+  Scenario Outline: GGMQ-1-T20-<mqtt-v>-<name>: As a customer, I can associate and connect GGADs with GGC over custom port
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+    And I create client device "basic_connect"
+    And I create client device "basic_connect_2"
+    When I associate "basic_connect" with ggc
+    When I associate "basic_connect_2" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${basic_connect} OR thingName: ${basic_connect_2}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.EMQX configuration to:
+    """
+{
+    "MERGE":{
+        "emqx": {
+            "listener.ssl.external": "9000"
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.IPDetector configuration to:
+    """
+{
+    "MERGE":{
+        "defaultPort":"9000"
+    }
+}
+    """
+
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+
+    And I discover core device broker as "default_broker" from "basic_connect" in OTF
+    And I connect device "basic_connect" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    And I disconnect device "basic_connect" with reason code 0
+
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST |
+      | <agent>                                  | LATEST |
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.IPDetector configuration to:
+    """
+{
+    "MERGE":{
+        "defaultPort":"9001"
+    }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 299 seconds
+    Then I wait 60 seconds
+    And I discover core device broker as "second_attempt_discovery" from "basic_connect_2" in OTF
+    And I can not connect device "basic_connect_2" on <agent> to "second_attempt_discovery" using mqtt "<mqtt-v>"
+
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST |
+      | <agent>                                  | LATEST |
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.EMQX configuration to:
+    """
+{
+    "MERGE":{
+        "emqx": {
+            "listener.ssl.external": "9001"
+        }
+    }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 299 seconds
+    Then I wait 60 seconds
+    And I discover core device broker as "third_attempt_discovery" from "basic_connect_2" in OTF
+    And I connect device "basic_connect_2" on <agent> to "third_attempt_discovery" using mqtt "<mqtt-v>"
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
+
+    @mqtt3 @mosquitto-c @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
+
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
+
+    @mqtt3 @paho-python @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
+
+    @mqtt5 @mosquitto-c @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
+
+    @mqtt5 @paho-python @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+
+
   @GGMQ-1-T101
   Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can use publish retain flag using MQTT V3.1.1
     When I create a Greengrass deployment with components
@@ -1610,7 +1767,7 @@ Feature: GGMQ-1
 
     # 35. test case when publish message with correlation data but without expected correlation data
     And I set MQTT publish 'correlation data' to "correlation_data_2"
-    And "I reset expected 'correlation data'"
+    And I reset expected 'correlation data'
 
     When I subscribe "subscriber" to "correlation_data_test_case_2" with qos 0
     When I publish from "publisher" to "correlation_data_test_case_2" with qos 0 and message "Message with correlation data 2"

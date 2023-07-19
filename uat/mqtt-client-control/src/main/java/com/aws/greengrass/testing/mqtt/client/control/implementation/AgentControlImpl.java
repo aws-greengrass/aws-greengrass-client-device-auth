@@ -23,6 +23,7 @@ import com.aws.greengrass.testing.mqtt.client.control.api.ConnectionControl;
 import io.grpc.Grpc;
 import io.grpc.InsecureChannelCredentials;
 import io.grpc.ManagedChannel;
+import io.grpc.StatusRuntimeException;
 import lombok.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -164,8 +165,9 @@ public class AgentControlImpl implements AgentControl {
     @Override
     public void shutdownAgent(@NonNull String reason) {
         ShutdownRequest request = ShutdownRequest.newBuilder().setReason(reason).build();
-        blockingStub.shutdownAgent(request);
         isShutdownSent.set(true);
+        logger.atInfo().log("sending shutdown request");
+        blockingStub.shutdownAgent(request);
         logger.atInfo().log("shutdown request sent successfully");
     }
 
@@ -308,19 +310,35 @@ public class AgentControlImpl implements AgentControl {
     private void closeAllMqttConnections() {
         connections.forEach((connectionId, connectionControl) -> {
             if (connections.remove(connectionId, connectionControl)) {
-                connectionControl.closeMqttConnection(DEFAULT_DISCONNECT_REASON.getValue());
+                try {
+                    logger.atInfo().log("sending implicit closeMqttConnection");
+                    connectionControl.closeMqttConnection(DEFAULT_DISCONNECT_REASON.getValue());
+                    logger.atInfo().log("implicit closeMqttConnection sent");
+                } catch (StatusRuntimeException ex) {
+                    logger.atWarn().withThrowable(ex).log("Couldn't send closeMqttConnection request");
+                }
             }
         });
     }
 
     private void disconnect(boolean sendShutdown) {
-        if (!isDisconnected.getAndSet(true)) {
-            if (sendShutdown && !isShutdownSent.getAndSet(true)) {
-                shutdownAgent("none");
+        if (isDisconnected.compareAndSet(false, true)) {
+            if (sendShutdown && isShutdownSent.compareAndSet(false, true)) {
+                try {
+                    shutdownAgent("none");
+                } catch (StatusRuntimeException ex) {
+                    logger.atWarn().withThrowable(ex).log("Couldn't send shutdown request");
+                }
             }
+            logger.atInfo().log("shutting down channel with agent id {}", agentId);
             channel.shutdown();
             try {
-                channel.awaitTermination(10, TimeUnit.SECONDS);
+                boolean gone = channel.awaitTermination(10, TimeUnit.SECONDS);
+                if (gone) {
+                    logger.atInfo().log("channel terminated with agent id {}", agentId);
+                } else {
+                    logger.atWarn().log("ternination is not finished in time with agent id {}", agentId);
+                }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             }

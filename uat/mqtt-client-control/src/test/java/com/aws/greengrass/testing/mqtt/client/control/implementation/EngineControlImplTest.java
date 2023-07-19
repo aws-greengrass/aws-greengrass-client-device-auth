@@ -52,7 +52,7 @@ class EngineControlImplTest {
 
     @AfterEach
     void teardown() throws InterruptedException {
-        engineControl.stopEngine();
+        engineControl.stopEngine(true);
         engineControl.awaitTermination();
     }
 
@@ -218,7 +218,7 @@ class EngineControlImplTest {
         engineControl.startEngine(port, engineEvents);
 
         // WHEN
-        engineControl.stopEngine();
+        engineControl.stopEngine(true);
 
         // THEN
         assertFalse(engineControl.isEngineRunning());
