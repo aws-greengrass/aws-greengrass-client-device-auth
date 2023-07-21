@@ -212,11 +212,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
         checkUserProperties(userProperties);
 
-        if (!isClosing.getAndSet(true)) {
+        if (isClosing.compareAndSet(false, true)) {
             try {
                 final long deadline = System.nanoTime() + timeout * 1_000_000_000;
 
-                if (isConnected.get()) {
+                if (isConnected.compareAndSet(true, false)) {
                     CompletableFuture<Void> disconnnectFuture = connection.disconnect();
                     disconnnectFuture.get(timeout, TimeUnit.SECONDS);
                 } else {

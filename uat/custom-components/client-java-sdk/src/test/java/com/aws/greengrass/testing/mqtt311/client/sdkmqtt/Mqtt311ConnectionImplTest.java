@@ -135,6 +135,9 @@ class Mqtt311ConnectionImplTest {
         when(connection.disconnect()).thenReturn(connectFuture);
         connectFuture.complete(null);
 
+        // move to connected state
+        mqttConnectionImpl.connectionEvents.onConnectionResumed(true);
+
         // WHEN
         mqttConnectionImpl.disconnect(timeoutSeconds, reasonCode, null);
 
@@ -151,6 +154,9 @@ class Mqtt311ConnectionImplTest {
 
         final CompletableFuture<Void> connectFuture = new CompletableFuture<>();
         when(connection.disconnect()).thenReturn(connectFuture);
+
+        // move to connected state
+        mqttConnectionImpl.connectionEvents.onConnectionResumed(true);
 
         // WHEN, THEN
         assertThrows(MqttException.class, () -> {

@@ -277,12 +277,12 @@ public class MqttConnectionImpl implements MqttConnection {
         }
     }
 
-    @SuppressWarnings({"PMD.UseTryWithResources", "PMD.AvoidCatchingGenericException"})
+    @SuppressWarnings({"PMD.UseTryWithResources", "PMD.AvoidCatchingGenericException", "PMD.CognitiveComplexity"})
     @Override
     public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
 
         if (isClosing.compareAndSet(false, true)) {
-            if (isConnected.get()) {
+            if (isConnected.compareAndSet(true, false)) {
                 final DisconnectPacket.DisconnectReasonCode disconnectReason
                         = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
                 DisconnectPacket.DisconnectPacketBuilder builder = new DisconnectPacket.DisconnectPacketBuilder()
@@ -298,6 +298,7 @@ public class MqttConnectionImpl implements MqttConnection {
             }
 
             try {
+                client.close();
                 final long deadline = System.nanoTime() + timeout * 1_000_000_000;
                 lifecycleEvents.stoppedFuture.get(timeout, TimeUnit.SECONDS);
 
@@ -316,8 +317,6 @@ public class MqttConnectionImpl implements MqttConnection {
             } catch (Exception ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnecting from MQTT broker");
                 throw new MqttException("Could not disconnect", ex);
-            } finally {
-                client.close();
             }
         }
     }
