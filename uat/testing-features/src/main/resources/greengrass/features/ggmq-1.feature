@@ -1348,6 +1348,161 @@ Feature: GGMQ-1
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
 
 
+  @GGMQ-1-T24
+  Scenario Outline: GGMQ-1-T24-<mqtt-v>-<name>: As a customer, I can reset CDA config and update it and CDA will use the new config
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | aws.greengrass.Cli                       | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+    And I create client device "publisher"
+    And I create client device "subscriber"
+
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${publisher} OR thingName: ${subscriber}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+    When I associate "publisher" with ggc
+    When I associate "subscriber" with ggc
+
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+
+    And I discover core device broker as "default_broker" from "publisher" in OTF
+    And I connect device "publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    And I connect device "subscriber" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    When I subscribe "subscriber" to "iot_data_0" with qos 1
+    When I publish from "publisher" to "iot_data_0" with qos 1 and message "Test message0" and expect status 0
+    And message "Test message0" received on "subscriber" from "iot_data_0" topic within 5 seconds
+
+    # Reset CDA configuration
+    And I update my local deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+   "RESET":[""]
+}
+    """
+    Then the local Greengrass deployment is SUCCEEDED on the device after 120 seconds
+
+    Then I wait 65 seconds
+    When I publish from "publisher" to "iot_data_0" with qos 1 and message "Test message1" and expect status <publish-status-na>
+    And message "Test message1" is not received on "subscriber" from "iot_data_0" topic within 10 seconds
+
+    # Restore CDA configuration
+    And I update my local deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${publisher} OR thingName: ${subscriber}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+    Then the local Greengrass deployment is SUCCEEDED on the device after 120 seconds
+
+    Then I wait 65 seconds
+
+    When I publish from "publisher" to "iot_data_0" with qos 1 and message "Config update works" and expect status 0
+    And message "Config update works" received on "subscriber" from "iot_data_0" topic within 5 seconds
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    | 0                 |
+
+    @mqtt3 @mosquitto-c @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml | 0                 |
+
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 0                 |
+
+    @mqtt3 @paho-python @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
+      | v3     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                 |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    | 135               |
+
+    @mqtt5 @mosquitto-c @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml | 135               |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   | 135               |
+
+    @mqtt5 @paho-python @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
+      | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                 |
+
   @GGMQ-1-T101
   Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can use publish retain flag using MQTT V3.1.1
     When I create a Greengrass deployment with components
