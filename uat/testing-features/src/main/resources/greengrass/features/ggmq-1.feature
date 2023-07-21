@@ -1303,6 +1303,10 @@ Feature: GGMQ-1
     When I publish from "large_payload_publisher" to "${large_payload_publisher}topic/to/iotcore" with qos 1 and large message with beginning of "Hello world1" with length 130098
     Then message beginning with "Hello world1" and with length 130098 received on "large_payload_publisher" from "${large_payload_publisher}topic/to/iotcore" topic within 10 seconds
 
+    And I subscribe "large_payload_publisher" to "topic_for_large_message" with qos 0
+    When I publish from "large_payload_publisher" to "topic_for_large_message" with qos 1 and large message with beginning of "Message Larger than 128KB" with length 140000
+    Then message beginning with "Message Larger than 128KB" and with length 140000 received on "large_payload_publisher" from "topic_for_large_message" topic within 10 seconds
+
     @mqtt3 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  |
