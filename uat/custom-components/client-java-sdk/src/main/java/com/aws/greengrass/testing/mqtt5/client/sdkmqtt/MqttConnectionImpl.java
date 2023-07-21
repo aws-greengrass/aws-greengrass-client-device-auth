@@ -282,16 +282,20 @@ public class MqttConnectionImpl implements MqttConnection {
     public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
 
         if (isClosing.compareAndSet(false, true)) {
-            final DisconnectPacket.DisconnectReasonCode disconnectReason
-                    = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
-            DisconnectPacket.DisconnectPacketBuilder builder = new DisconnectPacket.DisconnectPacketBuilder()
-                    .withReasonCode(disconnectReason);
+            if (isConnected.get()) {
+                final DisconnectPacket.DisconnectReasonCode disconnectReason
+                        = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
+                DisconnectPacket.DisconnectPacketBuilder builder = new DisconnectPacket.DisconnectPacketBuilder()
+                        .withReasonCode(disconnectReason);
 
-            if (userProperties != null && !userProperties.isEmpty()) {
-                builder.withUserProperties(convertToUserProperties(userProperties, "DISCONNECT"));
+                if (userProperties != null && !userProperties.isEmpty()) {
+                    builder.withUserProperties(convertToUserProperties(userProperties, "DISCONNECT"));
+                }
+
+                client.stop(builder.build());
+            } else {
+                logger.atWarn().log("DISCONNECT was not sent on the dead connection");
             }
-
-            client.stop(builder.build());
 
             try {
                 final long deadline = System.nanoTime() + timeout * 1_000_000_000;
