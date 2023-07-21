@@ -918,12 +918,32 @@ public class MqttControlSteps {
     }
 
     /**
+     * Publish the large MQTT message.
+     *
+     * @param clientDeviceId user defined client device id
+     * @param topicString the topic to publish message
+     * @param qos the value of MQTT QoS for publishing
+     * @param messageBeginning the content of message with beginning to publish
+     * @param messageLength the length of message
+     * @throws StatusRuntimeException on gRPC errors
+     * @throws IllegalArgumentException on invalid QoS argument
+     */
+    @When("I publish from {string} to {string} with qos {int} and large message with beginning of {string} "
+            + "with length {int}")
+    public void publishLargeMessage(String clientDeviceId, String topicString, int qos,
+                                    String messageBeginning, int messageLength) {
+        String longMessage = generateLongMessage(messageBeginning, messageLength);
+
+        publish(clientDeviceId, topicString, qos, longMessage, PublishReasonCode.SUCCESS.getValue());
+    }
+
+    /**
      * Publish the MQTT message.
      *
      * @param clientDeviceId user defined client device id
      * @param topicString the topic to publish message
      * @param qos the value of MQTT QoS for publishing
-     * @param message the the content of message to publish
+     * @param message the content of message to publish
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
      */
@@ -938,7 +958,7 @@ public class MqttControlSteps {
      * @param clientDeviceId user defined client device id
      * @param topicString the topic to publish message
      * @param qos the value of MQTT QoS for publishing
-     * @param message the the content of message to publish
+     * @param message the content of message to publish
      * @param expectedStatus the status of MQTT QoS for publish reply
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
@@ -1007,6 +1027,30 @@ public class MqttControlSteps {
     public void receivedMessage(String message, String clientDeviceId, String topicString, int value, String unit)
                             throws TimeoutException, InterruptedException {
         receive(message, clientDeviceId, topicString, value, unit, true);
+    }
+
+
+    /**
+     * Verify is MQTT message is received in limited duration of time.
+     *
+     * @param message beginning of long message to receive
+     * @param messageLength the length of long message
+     * @param clientDeviceId the user defined client device id
+     * @param topicString the topic (not a filter) which message has been sent
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @throws TimeoutException when matched message was not received in specified duration of time
+     * @throws RuntimeException on internal errors
+     * @throws InterruptedException then thread has been interrupted
+     */
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
+    @And("message beginning with {string} and with length {int} received on {string} "
+            + "from {string} topic within {int} {word}")
+    public void receivedMessageBeginning(String message, int messageLength, String clientDeviceId, String topicString,
+                                         int value, String unit)
+                            throws TimeoutException, InterruptedException {
+        String longMessage = generateLongMessage(message, messageLength);
+        receive(longMessage, clientDeviceId, topicString, value, unit, true);
     }
 
     /**
@@ -1200,6 +1244,17 @@ public class MqttControlSteps {
                     + reason);
         }
         log.info("MQTT topics filter {} has been unsubscribed", filter);
+    }
+
+    private String generateLongMessage(String messageBeginning, int totalLength) {
+        StringBuilder longMessageBuilder = new StringBuilder();
+        int repeatedTimes = totalLength / messageBeginning.length() + 1;
+
+        for (int i = 0; i < repeatedTimes; i++) {
+            longMessageBuilder.append(messageBeginning);
+        }
+
+        return longMessageBuilder.substring(0, totalLength);
     }
 
     private IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) throws IOException {
