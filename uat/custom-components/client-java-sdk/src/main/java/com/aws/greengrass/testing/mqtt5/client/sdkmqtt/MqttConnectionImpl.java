@@ -250,8 +250,8 @@ public class MqttConnectionImpl implements MqttConnection {
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
     public ConnectResult start(long timeout, int connectionId) throws MqttException {
-        this.connectionId = connectionId;
         boolean success = false;
+        this.connectionId = connectionId;
         client.start();
         try {
             OnConnectionDoneInfo onConnectionDoneInfo = lifecycleEvents.connectedFuture.get(timeout, TimeUnit.SECONDS);

@@ -18,6 +18,7 @@ env:
   AWS_REGION: "us-west-2"
   CODE_BUILD_PROJECT_LINUX: "CDAUatCodeBuildLinux"
   AWS_ROLE_TO_ASSUME: "arn:aws:iam::686385081908:role/aws-greengrass-client-device-auth-codebuild-uat-role-linux"
+  CUCUMBER_TAGS: "@GGMQ"
 
 jobs:
   uat-linux:
@@ -41,3 +42,4 @@ jobs:
         with:
           project-name: ${{ env.CODE_BUILD_PROJECT_LINUX }}
           buildspec-override: uat/codebuild/uat_linux_buildspec.yaml
+          env-vars-for-codebuild: CUCUMBER_TAGS

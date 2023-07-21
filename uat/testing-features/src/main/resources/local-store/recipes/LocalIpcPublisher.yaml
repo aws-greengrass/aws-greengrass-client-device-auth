@@ -8,7 +8,7 @@ RecipeFormatVersion: '2020-01-25'
 ComponentName: LocalIpcPublisher
 ComponentVersion: '0.0.0'
 ComponentDescription: IPC publisher client for tests.
-ComponentPublisher: Amazon
+ComponentPublisher: AWS
 ComponentConfiguration:
   DefaultConfiguration:
     topicsToPublish: "pubsub/topic/to/publish/on"
