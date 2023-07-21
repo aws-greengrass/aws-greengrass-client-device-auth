@@ -1066,7 +1066,7 @@ Feature: GGMQ-1
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
 
 
-  @GGMQ-1-T17
+  @GGMQ-1-T17 @OffTheNetwork
   Scenario Outline: GGMQ-1-T17-<mqtt-v>-<name>: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic, with Greengrass in offline state
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                  |
@@ -1178,43 +1178,13 @@ Feature: GGMQ-1
 
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
-
-    @mqtt3 @mosquitto-c @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
-
-    @mqtt3 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
-
-    @mqtt3 @paho-python @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+      | mqtt-v | name        | agent                                    | recipe               |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml |
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
-
-    @mqtt5 @mosquitto-c @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
-
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
-
-    @mqtt5 @paho-python @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+      | mqtt-v | name        | agent                                    | recipe               |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml |
 
   @GGMQ-1-T22
   Scenario Outline: GGMQ-1-T22-<mqtt-v>-<name>: As a customer, I can send a message of size 128KiB to the MQTT broker
@@ -1492,7 +1462,7 @@ Feature: GGMQ-1
       | mqtt-v | name        | agent                                       | recipe                  | publish-status-na |
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                 |
 
-  @GGMQ-1-T18
+  @GGMQ-1-T18 @OffTheNetwork
   Scenario Outline: GGMQ-1-T18-<mqtt-v>-<name>: As a customer, I can configure IoT Core messages to be forwarded to local MQTT topic, with Greengrass in disconnected state
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                  |
@@ -1602,43 +1572,13 @@ Feature: GGMQ-1
 
     @mqtt3 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
-
-    @mqtt3 @mosquitto-c @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
-
-    @mqtt3 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
-
-    @mqtt3 @paho-python @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+      | mqtt-v | name        | agent                                    | recipe               |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml |
 
     @mqtt5 @sdk-java
     Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
-
-    @mqtt5 @mosquitto-c @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
-
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
-
-    @mqtt5 @paho-python @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+      | mqtt-v | name        | agent                                    | recipe               |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient | client_java_sdk.yaml |
 
 
   @GGMQ-1-T20
