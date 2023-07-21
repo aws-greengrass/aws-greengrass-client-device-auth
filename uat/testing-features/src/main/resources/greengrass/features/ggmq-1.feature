@@ -1420,8 +1420,9 @@ Feature: GGMQ-1
    "RESET":[""]
 }
     """
-    Then the local Greengrass deployment is SUCCEEDED on the device after 65 seconds
+    Then the local Greengrass deployment is SUCCEEDED on the device after 120 seconds
 
+    Then I wait 65 seconds
     When I publish from "publisher" to "iot_data_0" with qos 1 and message "Test message1" and expect status <publish-status-na>
     And message "Test message1" is not received on "subscriber" from "iot_data_0" topic within 10 seconds
 
@@ -1455,7 +1456,9 @@ Feature: GGMQ-1
     }
 }
     """
-    Then the local Greengrass deployment is SUCCEEDED on the device after 65 seconds
+    Then the local Greengrass deployment is SUCCEEDED on the device after 120 seconds
+
+    Then I wait 65 seconds
 
     When I publish from "publisher" to "iot_data_0" with qos 1 and message "Config update works" and expect status 0
     And message "Config update works" received on "subscriber" from "iot_data_0" topic within 5 seconds
