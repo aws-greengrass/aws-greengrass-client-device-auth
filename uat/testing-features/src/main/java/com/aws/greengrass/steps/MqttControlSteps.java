@@ -35,6 +35,7 @@ import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
 import com.aws.greengrass.testing.resources.iot.IotLifecycle;
 import com.aws.greengrass.testing.resources.iot.IotPolicySpec;
 import com.aws.greengrass.testing.resources.iot.IotThingSpec;
+import com.aws.greengrass.utils.MqttBrokers;
 import com.google.protobuf.ByteString;
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.After;
@@ -43,8 +44,6 @@ import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.grpc.StatusRuntimeException;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import software.amazon.awssdk.crt.io.SocketOptions;
@@ -143,6 +142,7 @@ public class MqttControlSteps {
     private final IotSteps iotSteps;
     private final EngineControl engineControl;
     private final EventStorageImpl eventStorage;
+    private final MqttBrokers mqttBrokers;
 
     private final GreengrassV2Client greengrassClient;
 
@@ -221,7 +221,6 @@ public class MqttControlSteps {
     private String rxContentType = DEFAULT_CONTENT_TYPE;
 
 
-    private final Map<String, List<MqttBrokerConnectionInfo>> brokers = new HashMap<>();
     private final Map<String, MqttProtoVersion> mqttVersions = new HashMap<>();
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
@@ -261,9 +260,11 @@ public class MqttControlSteps {
      * @param iotSteps the instance of IotSteps
      * @param engineControl the MQTT clients control
      * @param eventStorage the MQTT event storage
+     * @param mqttBrokers the connectivity info of brokers
      * @param greengrassClient the GreengrassV2Client instance
      * @throws IOException on IO errors
      */
+    @SuppressWarnings("PMD.ExcessiveParameterList")
     @Inject
     public MqttControlSteps(
             TestContext testContext,
@@ -274,6 +275,7 @@ public class MqttControlSteps {
             IotSteps iotSteps,
             EngineControl engineControl,
             EventStorageImpl eventStorage,
+            MqttBrokers mqttBrokers,
             GreengrassV2Client greengrassClient) throws IOException {
         this.testContext = testContext;
         this.scenarioContext = scenarioContext;
@@ -283,6 +285,7 @@ public class MqttControlSteps {
         this.iotSteps = iotSteps;
         this.engineControl = engineControl;
         this.eventStorage = eventStorage;
+        this.mqttBrokers = mqttBrokers;
         this.greengrassClient = greengrassClient;
 
         initMqttVersions();
@@ -719,7 +722,7 @@ public class MqttControlSteps {
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
      * @param componentId  the componentId of MQTT client
-     * @param brokerId the id of broker, before must be discovered or added by default
+     * @param brokerId the id of broker, before must be discovered or added
      */
     @And("I connect device {string} on {word} to {string}")
     public void connect(String clientDeviceId, String componentId, String brokerId) {
@@ -731,7 +734,7 @@ public class MqttControlSteps {
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
      * @param componentId  the componentId of MQTT client
-     * @param brokerId the id of broker, before must be discovered or added by default
+     * @param brokerId the id of broker, before must be discovered or added
      * @param mqttVersion the MQTT version string
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.UseObjectForClearerAPI"})
@@ -739,7 +742,7 @@ public class MqttControlSteps {
     public void connect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
 
         // get address information about broker
-        final List<MqttBrokerConnectionInfo> bc = brokers.get(brokerId);
+        final List<MqttBrokers.ConnectivityInfo> bc = mqttBrokers.getConnectivityInfo(brokerId);
         if (CollectionUtils.isNullOrEmpty(bc)) {
             throw new RuntimeException("There is no address information about broker, "
                                         + "probably discovery step missing in scenario");
@@ -756,7 +759,7 @@ public class MqttControlSteps {
         MqttProtoVersion version = convertMqttVersion(mqttVersion);
 
         RuntimeException lastException = null;
-        for (final MqttBrokerConnectionInfo broker : bc) {
+        for (final MqttBrokers.ConnectivityInfo broker : bc) {
             final List<String> caList = broker.getCaList();
             final String host = broker.getHost();
             final Integer port = broker.getPort();
@@ -787,7 +790,7 @@ public class MqttControlSteps {
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
      * @param componentId  the componentId of MQTT client
-     * @param brokerId the id of broker, before must be discovered or added by default
+     * @param brokerId the id of broker, before must be discovered or added
      * @param mqttVersion the MQTT version string
      * @throws RuntimeException throws in fail case
      *
@@ -1205,9 +1208,9 @@ public class MqttControlSteps {
         final String endpoint = resources.lifecycle(IotLifecycle.class)
                                          .dataEndpoint();
         final String ca = registrationContext.rootCA();
-        MqttBrokerConnectionInfo broker = new MqttBrokerConnectionInfo(
+        MqttBrokers.ConnectivityInfo broker = new MqttBrokers.ConnectivityInfo(
                 endpoint, IOT_CORE_MQTT_PORT, Collections.singletonList(ca));
-        brokers.put(brokerId, Collections.singletonList(broker));
+        mqttBrokers.setConnectivityInfo(brokerId, Collections.singletonList(broker));
         log.info("Added IoT Core broker as {} with endpoint {}:{}", brokerId, endpoint, IOT_CORE_MQTT_PORT);
     }
 
@@ -1346,20 +1349,20 @@ public class MqttControlSteps {
             });
         });
 
-        List<MqttBrokerConnectionInfo> mqttBrokerConnectionInfos = new ArrayList<>();
+        List<MqttBrokers.ConnectivityInfo> connectionInfos = new ArrayList<>();
         groups.forEach(group -> {
             group.getCores()
                  .stream()
                  .map(GGCore::getConnectivity)
                  .flatMap(Collection::stream)
-                 .map(ci -> new MqttBrokerConnectionInfo(
+                 .map(ci -> new MqttBrokers.ConnectivityInfo(
                     ci.getHostAddress(),
                     ci.getPortNumber(),
                     group.getCAs()))
-                 .collect(Collectors.toCollection(() -> mqttBrokerConnectionInfos));
+                 .collect(Collectors.toCollection(() -> connectionInfos));
         });
 
-        brokers.put(brokerId, mqttBrokerConnectionInfos);
+        mqttBrokers.setConnectivityInfo(brokerId, connectionInfos);
     }
 
     private String getAgentId(String componentName) {
@@ -1503,11 +1506,4 @@ public class MqttControlSteps {
         }
     }
 
-    @Data
-    @AllArgsConstructor
-    private class MqttBrokerConnectionInfo {
-        private String host;
-        private Integer port;
-        private List<String> caList;
-    }
 }
