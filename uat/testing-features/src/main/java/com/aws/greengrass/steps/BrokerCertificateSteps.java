@@ -100,7 +100,7 @@ public class BrokerCertificateSteps {
      * @throws TimeoutException when timed out
      * @throws IllegalStateException on errors
      */
-    @When("I retrieve the certificate of broker {} and store as {}")
+    @When("I retrieve the certificate of broker {string} and store as {string}")
     public void retrieveServerCertificate(String brokerId, String certName)
                 throws ExecutionException, TimeoutException, InterruptedException {
 
@@ -131,7 +131,7 @@ public class BrokerCertificateSteps {
 
                 X509Certificate cert = serverCerts[0];
                 certificates.put(certName, cert);
-                log.info("Saved broker's {} certificate {}", brokerId, cert);
+                log.info("Saved broker's '{}' certificate '{}'", brokerId, cert);
                 return;
             } catch (IllegalStateException | ExecutionException | TimeoutException ex) {
                 lastException = ex;
@@ -174,7 +174,7 @@ public class BrokerCertificateSteps {
                     // This is the only API call that matters
                     @Override
                     public String chooseClientAlias(String[] keyType, Principal[] issuers, Socket socket) {
-                        log.info("chooseClientAlias {} {}", keyType, Arrays.toString(issuers));
+                        log.debug("chooseClientAlias {} {}", keyType, Arrays.toString(issuers));
                         clientCertIssuersFut.complete(issuers);
                         return null;
                     }
@@ -206,7 +206,7 @@ public class BrokerCertificateSteps {
 
                     @Override
                     public void checkServerTrusted(X509Certificate[] chain, String authType) {
-                        log.info("checkServerTrusted {} {}", authType, Arrays.toString(chain));
+                        log.debug("checkServerTrusted {} {}", authType, Arrays.toString(chain));
                         serverCertsFut.complete(chain);
                     }
 
@@ -222,7 +222,7 @@ public class BrokerCertificateSteps {
                 if (ignoreExceptions) {
                     // We expect an IOE because we're using a HTTP client to connect to MQTT, and we aren't
                     // providing a client cert either.
-                    log.info("Expected IOE when connecting to {}", uri, e);
+                    log.debug("Expected IOE when connecting to {}", uri, e);
                 } else {
                     serverCertsFut.completeExceptionally(e);
                     clientCertIssuersFut.completeExceptionally(e);

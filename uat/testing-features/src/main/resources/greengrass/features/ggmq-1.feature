@@ -1828,8 +1828,8 @@ Feature: GGMQ-1
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
       | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
       | <agent>                                  | classpath:/local-store/recipes/<recipe> |
-    And I create client device "clientDevice"
-    When I associate "clientDevice" with ggc
+    And I create client device "clientDeviceTest"
+    When I associate "clientDeviceTest" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.Nucleus configuration to:
     """
 {
@@ -1853,7 +1853,7 @@ Feature: GGMQ-1
             "formatVersion":"2021-03-05",
             "definitions":{
                 "MyPermissiveDeviceGroup":{
-                    "selectionRule":"thingName: ${clientDevice}",
+                    "selectionRule":"thingName: ${clientDeviceTest}",
                     "policyName":"MyPermissivePolicy"
                 }
             },
@@ -1888,17 +1888,18 @@ Feature: GGMQ-1
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
     And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
-    And I discover core device broker as "local_broker" from "clientDevice" in OTF
-    Then I connect device "clientDevice" on <agent> to "local_broker" using mqtt "<mqtt-v>"
+    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
+    And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
 
-    Then I retrieve the certificate of broker "local_broker" and store as "SERVER_CERT_BEFORE_DISCONNECT"
-    When I disconnect device "clientDevice" with reason code 0
+    Then I retrieve the certificate of broker "default_broker" and store as "SERVER_CERT_BEFORE_DISCONNECT"
 
-    And I wait for 15 seconds
-    Then I connect device "clientDevice" on <agent> to "local_broker" using mqtt "<mqtt-v>"
+    When I set device mqtt connectivity to offline
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Failed to connect to AWS IoT Core" at least 3 times within 2 minutes
 
-    And I wait for 15 seconds
-    Then I retrieve the certificate of broker "local_broker" and store as "SERVER_CERT_AFTER_DISCONNECT"
+    And I set device mqtt connectivity to online
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Connection resumed" within 2 minutes
+
+    Then I retrieve the certificate of broker "default_broker" and store as "SERVER_CERT_AFTER_DISCONNECT"
 
     Then I verify the certificate "SERVER_CERT_BEFORE_DISCONNECT" equals the certificate "SERVER_CERT_AFTER_DISCONNECT"
 

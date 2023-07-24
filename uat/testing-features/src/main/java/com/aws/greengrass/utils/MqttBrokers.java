@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MqttBrokers {
+public final class MqttBrokers {
     private final Map<String, List<ConnectivityInfo>> brokers = new HashMap<>();
 
     @Data
@@ -22,6 +22,7 @@ public class MqttBrokers {
         private Integer port;
         private List<String> caList;
     }
+
 
     public void setConnectivityInfo(String brokerId, List<ConnectivityInfo> info) {
         brokers.put(brokerId, info);
