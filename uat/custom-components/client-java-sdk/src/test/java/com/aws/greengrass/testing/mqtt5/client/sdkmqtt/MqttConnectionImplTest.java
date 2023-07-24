@@ -254,6 +254,9 @@ class MqttConnectionImplTest {
 
         mqttConnectionImpl.lifecycleEvents.onStopped(client, onStoppedReturn);
 
+        // move to connected state
+        mqttConnectionImpl.lifecycleEvents.onConnectionSuccess(client, null);
+
         // WHEN
         mqttConnectionImpl.disconnect(timeoutSeconds, reasonCode, null);
 
@@ -272,6 +275,9 @@ class MqttConnectionImplTest {
         // GIVEN
         final long timeoutSeconds = SHORT_TIMEOUT_SEC;
         final int reasonCode = 4;
+
+        // move to connected state
+        mqttConnectionImpl.lifecycleEvents.onConnectionSuccess(client, null);
 
         // WHEN
         assertThrows(MqttException.class, () -> {
