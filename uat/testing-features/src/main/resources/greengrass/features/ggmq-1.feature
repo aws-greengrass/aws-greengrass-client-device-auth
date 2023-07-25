@@ -1821,7 +1821,7 @@ Feature: GGMQ-1
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                 |
 
 
-  @GGMQ-1-T27
+  @GGMQ-1-T27 @OffTheNetwork
   Scenario Outline: GGMQ-1-T27-<mqtt-v>-<name>: As a customer, my Greengrass-issued certificate does not rotate when mqtt reconnects
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                  |
@@ -1883,15 +1883,18 @@ Feature: GGMQ-1
     }
 }
     """
-
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
     And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+    And the greengrass log on the device contains the line "New server certificate generated" within 1 minutes
+    # Here we ensure Nucleus has generated initial certificate of broker but it possible not all IP addresses are added to it
+    #  sometimes detecting IP and updating cert takes >40 seconds
+    And I wait 65 seconds
 
     And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
     And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
 
-    Then I retrieve the certificate of broker "default_broker" and store as "SERVER_CERT_BEFORE_DISCONNECT"
+    Then I retrieve the certificate of broker "default_broker" and store as "BROKER_CERTIFICATE_BEFORE_DISCONNECT"
 
     When I set device mqtt connectivity to offline
     And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Failed to connect to AWS IoT Core" at least 3 times within 2 minutes
@@ -1899,9 +1902,9 @@ Feature: GGMQ-1
     And I set device mqtt connectivity to online
     And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Connection resumed" within 2 minutes
 
-    Then I retrieve the certificate of broker "default_broker" and store as "SERVER_CERT_AFTER_DISCONNECT"
+    Then I retrieve the certificate of broker "default_broker" and store as "BROKER_CERTIFICATE_AFTER_RECONNECT"
 
-    Then I verify the certificate "SERVER_CERT_BEFORE_DISCONNECT" equals the certificate "SERVER_CERT_AFTER_DISCONNECT"
+    Then I verify the certificate "BROKER_CERTIFICATE_BEFORE_DISCONNECT" equals the certificate "BROKER_CERTIFICATE_AFTER_RECONNECT"
 
     @mqtt3 @sdk-java
     Examples:
