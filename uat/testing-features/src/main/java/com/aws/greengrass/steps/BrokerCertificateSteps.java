@@ -137,10 +137,11 @@ public class BrokerCertificateSteps {
                 lastException = ex;
             }
         }
+        // probably not possible but without cause PMD warning
         if (lastException == null) {
             throw new IllegalStateException("No addresses to get certificate");
-        } else if (lastException instanceof RuntimeException) {
-            throw (RuntimeException) lastException;
+        } else if (lastException instanceof IllegalStateException) {
+            throw (IllegalStateException) lastException;
         } else if (lastException instanceof ExecutionException) {
             throw (ExecutionException) lastException;
         } else if (lastException instanceof TimeoutException) {
