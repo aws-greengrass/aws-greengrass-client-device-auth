@@ -137,3 +137,10 @@ For more information please read [Create a CodeBuild service role](https://docs.
 MQTT clients based on IoT Device SDK for Java v2, mosquitto C, Paho Java, Paho Python do no provide API to get information from PUBREC/PUBREL/PUBCOMP packages used when messages published with QoS 2.
 
 Not all features of MQTT v5.0 have been implemented in clients and are supported by gRPC proto and the control as was requested, these are not bugs but designed by requirement.
+
+### Generate html-documentation from JavaDoc
+To generate html-documentation from JavaDoc, run the following command from the uat directory of the project:
+```bash
+mvn javadoc:javadoc
+```
+The main html-file will be located in each module by path **~/target/site/apidocs/index.html**
