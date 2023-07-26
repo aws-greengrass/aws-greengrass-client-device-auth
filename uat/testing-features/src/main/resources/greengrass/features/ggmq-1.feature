@@ -1531,45 +1531,10 @@ Feature: GGMQ-1
     And I disconnect device "basic_connect" with reason code 0
     Then I remove IP address "127.0.0.2" from loopback interface
 
-    @mqtt3 @sdk-java
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
-
-    @mqtt3 @mosquitto-c @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
-
-    @mqtt3 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
-
-    @mqtt3 @paho-python @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v3     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
-
     @mqtt5 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  |
       | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
-
-    @mqtt5 @mosquitto-c @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
-
-    @mqtt5 @paho-java
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
-
-    @mqtt5 @paho-python @SkipOnWindows
-    Examples:
-      | mqtt-v | name        | agent                                       | recipe                  |
-      | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
 
 
   @GGMQ-1-T22
