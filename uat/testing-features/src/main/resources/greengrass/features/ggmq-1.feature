@@ -1463,6 +1463,80 @@ Feature: GGMQ-1
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
 
 
+  @GGMQ-1-T21
+  Scenario Outline: GGMQ-1-T21-<mqtt-v>-<name>: As a customer, I change the connectivity ip address and GGADs are able to connect via IPD
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+    And I create client device "basic_connect"
+    When I associate "basic_connect" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${basic_connect}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.IPDetector configuration to:
+    """
+{
+    "MERGE":{
+        "includeIPv4LoopbackAddrs":"true"
+    }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+
+    Then I add IP address "127.0.0.2" to loopback interface
+    Then I wait 90 seconds
+
+    And I discover core device broker as "default_broker" from "basic_connect" in OTF
+    And I connect device "basic_connect" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    And I disconnect device "basic_connect" with reason code 0
+    Then I remove IP address "127.0.0.2" from loopback interface
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
+
+
   @GGMQ-1-T22
   Scenario Outline: GGMQ-1-T22-<mqtt-v>-<name>: As a customer, I can send a message of size 128KiB to the MQTT broker
     When I create a Greengrass deployment with components
