@@ -85,5 +85,16 @@
         <spotbugs.plugin.version>4.0.0</spotbugs.plugin.version>
         <antrun.plugin.version>3.0.0</antrun.plugin.version>
         <surefire.plugin.version>3.0.0</surefire.plugin.version>
+        <maven.javadoc.plugin.version>3.5.0</maven.javadoc.plugin.version>
     </properties>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>${maven.javadoc.plugin.version}</version>
+            </plugin>
+        </plugins>
+    </reporting>
 </project>
