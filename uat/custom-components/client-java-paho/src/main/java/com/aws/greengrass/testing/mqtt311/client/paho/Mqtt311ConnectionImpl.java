@@ -114,7 +114,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             logger.atError().withThrowable(e).log("Exception occurred during subscribe, reason code {}",
                                                     e.getReasonCode());
 
-            throw new RuntimeException(e.getMessage(), e);
+            throw new MqttException("Could not subscribe", e);
         }
         return builder.build();
     }
@@ -155,7 +155,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             logger.atError().withThrowable(ex)
                     .log("Failed during publishing message with reasonCode {} and reasonString {}",
                             ex.getReasonCode(), ex.getMessage());
-            throw new RuntimeException(ex.getMessage(), ex);
+            throw new MqttException("Could not publish", ex);
         }
         return builder.build();
     }
@@ -175,7 +175,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
             logger.atError().withThrowable(e).log("Exception occurred during unsubscribe, reason code {}",
                                                     e.getReasonCode());
-            throw new RuntimeException(e.getMessage(), e);
+            throw new MqttException("Could not unsubscribe", e);
         }
         return builder.build();
     }

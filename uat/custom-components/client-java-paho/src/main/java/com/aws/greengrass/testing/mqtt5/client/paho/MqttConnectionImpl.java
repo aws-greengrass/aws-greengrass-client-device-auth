@@ -147,7 +147,7 @@ public class MqttConnectionImpl implements MqttConnection {
             }
         } catch (org.eclipse.paho.mqttv5.common.MqttException e) {
             logger.atError().withThrowable(e).log("Failed during subscribing");
-            throw new RuntimeException(e.getMessage(), e);
+            throw new MqttException("Could not subscribe", e);
         }
         return builder.build();
     }
@@ -203,7 +203,7 @@ public class MqttConnectionImpl implements MqttConnection {
             logger.atError().withThrowable(ex)
                     .log("Failed during publishing message with reasonCode {} and reasonString {}",
                             ex.getReasonCode(), ex.getMessage());
-            throw new RuntimeException(ex.getMessage(), ex);
+            throw new MqttException("Could not publish", ex);
         }
         return builder.build();
     }
@@ -252,7 +252,7 @@ public class MqttConnectionImpl implements MqttConnection {
             }
         } catch (org.eclipse.paho.mqttv5.common.MqttException e) {
             logger.atError().withThrowable(e).log("Failed during unsubscribe");
-            throw new RuntimeException(e.getMessage(), e);
+            throw new MqttException("Could not unsubscribe", e);
         }
         return builder.build();
     }
@@ -302,7 +302,6 @@ public class MqttConnectionImpl implements MqttConnection {
             Thread.currentThread().interrupt();
         } finally {
             client.close();
-            executorService.shutdown();
         }
     }
 
