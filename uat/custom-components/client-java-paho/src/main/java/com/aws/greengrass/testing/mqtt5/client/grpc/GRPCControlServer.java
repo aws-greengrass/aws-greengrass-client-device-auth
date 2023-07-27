@@ -314,11 +314,19 @@ class GRPCControlServer {
                 internalMessage.contentType(message.getContentType());
             }
 
-            MqttPublishReply publishReply = connection.publish(timeout, internalMessage.build());
+            MqttPublishReply publishReply;
+            try {
+                publishReply = connection.publish(timeout, internalMessage.build());
                 if (publishReply != null) {
                     logger.atInfo().log("Publish response: connectionId {} reason code {} reason string '{}'",
                             connectionId, publishReply.getReasonCode(), publishReply.getReasonString());
                 }
+            } catch (MqttException e) {
+                logger.atError().withThrowable(e).log("exception during publish");
+                responseObserver.onError(e);
+                return;
+            }
+
             responseObserver.onNext(publishReply);
             responseObserver.onCompleted();
         }
@@ -445,11 +453,19 @@ class GRPCControlServer {
             logger.atInfo().log("Subscribe: connectionId {} for {} filters",
                     connectionId, outSubscriptions.size());
             List<Mqtt5Properties> userProperties = request.getPropertiesList();
-            MqttSubscribeReply subscribeReply = connection.subscribe(timeout, outSubscriptions, userProperties);
-            if (subscribeReply != null) {
-                logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string '{}'",
-                        connectionId, subscribeReply.getReasonCodesList(), subscribeReply.getReasonString());
+            MqttSubscribeReply subscribeReply;
+            try {
+                subscribeReply = connection.subscribe(timeout, outSubscriptions, userProperties);
+                if (subscribeReply != null) {
+                    logger.atInfo().log("Subscribe response: connectionId {} reason codes {} reason string '{}'",
+                            connectionId, subscribeReply.getReasonCodesList(), subscribeReply.getReasonString());
+                }
+            } catch (MqttException e) {
+                logger.atError().withThrowable(e).log("exception during subscribe");
+                responseObserver.onError(e);
+                return;
             }
+
             responseObserver.onNext(subscribeReply);
             responseObserver.onCompleted();
         }
@@ -487,12 +503,19 @@ class GRPCControlServer {
             logger.atInfo().log("Unsubscribe: connectionId {} for {} filters",
                     connectionId, filters);
             List<Mqtt5Properties> userProperties = request.getPropertiesList();
-            MqttSubscribeReply unsubscribeReply = connection.unsubscribe(timeout, filters, userProperties);
-
-            if (unsubscribeReply != null) {
-                logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string '{}'",
-                        connectionId, unsubscribeReply.getReasonCodesList(), unsubscribeReply.getReasonString());
+            MqttSubscribeReply unsubscribeReply;
+            try {
+                unsubscribeReply = connection.unsubscribe(timeout, filters, userProperties);
+                if (unsubscribeReply != null) {
+                    logger.atInfo().log("Unsubscribe response: connectionId {} reason codes {} reason string '{}'",
+                            connectionId, unsubscribeReply.getReasonCodesList(), unsubscribeReply.getReasonString());
+                }
+            } catch (MqttException e) {
+                logger.atError().withThrowable(e).log("exception during unsubscribe");
+                responseObserver.onError(e);
+                return;
             }
+
             responseObserver.onNext(unsubscribeReply);
             responseObserver.onCompleted();
         }
