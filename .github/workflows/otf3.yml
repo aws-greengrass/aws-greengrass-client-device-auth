@@ -2,7 +2,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-name: OTF UATS
+name: OTF UATS v3
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ env:
   AWS_REGION: "us-west-2"
   CODE_BUILD_PROJECT_LINUX: "CDAUatCodeBuildLinux"
   AWS_ROLE_TO_ASSUME: "arn:aws:iam::686385081908:role/aws-greengrass-client-device-auth-codebuild-uat-role-linux"
-  CUCUMBER_TAGS: "@GGMQ"
+  CUCUMBER_TAGS: "@GGMQ and @mqtt3"
 
 jobs:
   uat-linux:

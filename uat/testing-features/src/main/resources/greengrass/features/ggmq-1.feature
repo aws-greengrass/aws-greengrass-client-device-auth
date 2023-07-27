@@ -1821,6 +1821,102 @@ Feature: GGMQ-1
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                 |
 
 
+  @GGMQ-1-T27 @OffTheNetwork
+  Scenario Outline: GGMQ-1-T27-<mqtt-v>-<name>: As a customer, my Greengrass-issued certificate does not rotate when mqtt reconnects
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+    And I create client device "clientDeviceTest"
+    When I associate "clientDeviceTest" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.Nucleus configuration to:
+    """
+{
+    "MERGE":{
+        "mqtt":{
+            "keepAliveTimeoutMs":10000,
+            "pingTimeoutMs":3000
+        },
+        "logging": {
+            "fileSizeKB": 102400,
+            "totalLogsSizeKB": 1024000
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${clientDeviceTest}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+    And the greengrass log on the device contains the line "New server certificate generated" within 1 minutes
+    # Here we ensure Nucleus has generated initial certificate of broker but it possible not all IP addresses are added to it
+    #  sometimes detecting IP and updating cert takes >40 seconds
+    And I wait 65 seconds
+
+    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
+    And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    Then I retrieve the certificate of broker "default_broker" and store as "BROKER_CERTIFICATE_BEFORE_DISCONNECT"
+
+    When I set device mqtt connectivity to offline
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Failed to connect to AWS IoT Core" within 2 minutes
+
+    And I set device mqtt connectivity to online
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Connection resumed" within 2 minutes
+
+    Then I retrieve the certificate of broker "default_broker" and store as "BROKER_CERTIFICATE_AFTER_RECONNECT"
+
+    Then I verify the certificate "BROKER_CERTIFICATE_BEFORE_DISCONNECT" equals the certificate "BROKER_CERTIFICATE_AFTER_RECONNECT"
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
+
+
   @GGMQ-1-T101
   Scenario Outline: GGMQ-1-T101-<mqtt-v>-<name>: As a customer, I can use publish retain flag using MQTT V3.1.1
     When I create a Greengrass deployment with components
