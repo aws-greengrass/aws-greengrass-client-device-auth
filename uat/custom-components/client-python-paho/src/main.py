@@ -146,5 +146,7 @@ class Main:
 
 if __name__ == "__main__":
     main_object = Main()
+    if sys.version_info >= (3, 8) and sys.platform.lower().startswith("win"):
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     rc = asyncio.run(main_object.main())
     sys.exit(rc)
