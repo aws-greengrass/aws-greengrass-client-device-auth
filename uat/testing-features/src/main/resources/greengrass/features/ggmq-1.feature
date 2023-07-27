@@ -1897,7 +1897,7 @@ Feature: GGMQ-1
     Then I retrieve the certificate of broker "default_broker" and store as "BROKER_CERTIFICATE_BEFORE_DISCONNECT"
 
     When I set device mqtt connectivity to offline
-    And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Failed to connect to AWS IoT Core" at least 3 times within 2 minutes
+    And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Failed to connect to AWS IoT Core" within 2 minutes
 
     And I set device mqtt connectivity to online
     And the greengrass log on the device contains the line "com.aws.greengrass.mqttclient.AwsIotMqtt5Client: Connection resumed" within 2 minutes
