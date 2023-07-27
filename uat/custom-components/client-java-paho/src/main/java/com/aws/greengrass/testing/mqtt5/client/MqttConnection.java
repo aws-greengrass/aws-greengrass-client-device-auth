@@ -151,9 +151,10 @@ public interface MqttConnection {
      * @param subscriptions list of subscriptions
      * @param userProperties  list of user's properties MQTT v5.0
      * @return useful information from SUBACK packet
+     * @throws MqttException on errors
      */
     MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
-                                 List<Mqtt5Properties> userProperties);
+                                 List<Mqtt5Properties> userProperties) throws MqttException;
 
     /**
      * Closes MQTT connection.
@@ -171,8 +172,9 @@ public interface MqttConnection {
      * @param timeout publish operation timeout in seconds
      * @param message message to publish
      * @return useful information from PUBACK packet or null of no PUBACK has been received (as for QoS 0)
+     * @throws MqttException on errors
      */
-    MqttPublishReply publish(long timeout, @NonNull Message message);
+    MqttPublishReply publish(long timeout, @NonNull Message message) throws MqttException;
 
     /**
      * Unsubscribes from topics.
@@ -181,9 +183,10 @@ public interface MqttConnection {
      * @param filters list of topic filter to unsubscribe
      * @param userProperties list of user's properties MQTT v5.0
      * @return useful information from UNSUBACK packet
+     * @throws MqttException on errors
      */
     MqttSubscribeReply unsubscribe(long timeout, @NonNull List<String> filters,
-                                   List<Mqtt5Properties> userProperties);
+                                   List<Mqtt5Properties> userProperties) throws MqttException;
 
 
     /**

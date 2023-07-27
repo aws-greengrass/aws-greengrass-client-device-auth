@@ -42,9 +42,11 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(Mqtt311ConnectionImpl.class);
     private static final String EXCEPTION_WHEN_CONNECTING = "Exception occurred during connect";
     private static final String EXCEPTION_WHEN_CONFIGURE_SSL_CA = "Exception occurred during SSL configuration";
+    private static final String EXCEPTION_WHEN_DISCONNECTING = "Exception occurred during disconnect";
     private static final int REASON_CODE_SUCCESS = 0;
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
+    private final AtomicBoolean isConnected = new AtomicBoolean();
     private final IMqttAsyncClient mqttClient;
     private final GRPCClient grpcClient;
     private int connectionId = 0;
@@ -76,6 +78,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             mqttClient.setCallback(new MqttCallbackImpl());
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(connectionParams.getConnectionTimeout()));
 
+            isConnected.set(true);
             logger.atInfo().log("MQTT 3.1.1 connection {} is establisted", connectionId);
             return buildConnectResult(true, token.isComplete());
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
@@ -89,7 +92,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
     @Override
     public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
-                                        List<Mqtt5Properties> userProperties) {
+                                        List<Mqtt5Properties> userProperties) throws MqttException {
+        stateCheck();
+
         checkUserProperties(userProperties);
         String[] filters = new String[subscriptions.size()];
         int[] qos = new int[subscriptions.size()];
@@ -109,7 +114,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             logger.atError().withThrowable(e).log("Exception occurred during subscribe, reason code {}",
                                                     e.getReasonCode());
 
-            builder.addAllReasonCodes(Collections.nCopies(subscriptions.size(), (int)e.getReasonCode()));
+            throw new RuntimeException(e.getMessage(), e);
         }
         return builder.build();
     }
@@ -127,7 +132,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public MqttPublishReply publish(long timeout, @NonNull Message message) {
+    public MqttPublishReply publish(long timeout, @NonNull Message message) throws MqttException {
+        stateCheck();
+
         checkUserProperties(message.getUserProperties());
         checkContentType(message.getContentType());
         checkPayloadFormatIndicator(message.getPayloadFormatIndicator());
@@ -148,14 +155,16 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
             logger.atError().withThrowable(ex)
                     .log("Failed during publishing message with reasonCode {} and reasonString {}",
                             ex.getReasonCode(), ex.getMessage());
-            builder.setReasonCode(ex.getReasonCode());
+            throw new RuntimeException(ex.getMessage(), ex);
         }
         return builder.build();
     }
 
     @Override
     public MqttSubscribeReply unsubscribe(long timeout, @NonNull List<String> filters,
-                                          List<Mqtt5Properties> userProperties) {
+                                          List<Mqtt5Properties> userProperties) throws MqttException {
+        stateCheck();
+
         checkUserProperties(userProperties);
 
         MqttSubscribeReply.Builder builder = MqttSubscribeReply.newBuilder();
@@ -166,7 +175,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         } catch (org.eclipse.paho.client.mqttv3.MqttException e) {
             logger.atError().withThrowable(e).log("Exception occurred during unsubscribe, reason code {}",
                                                     e.getReasonCode());
-            builder.addAllReasonCodes(Collections.nCopies(filters.size(), (int)e.getReasonCode()));
+            throw new RuntimeException(e.getMessage(), e);
         }
         return builder.build();
     }
@@ -210,10 +219,31 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         return connectionOptions;
     }
 
-    private void disconnectAndClose(long timeout) throws org.eclipse.paho.client.mqttv3.MqttException {
+    private void disconnectAndClose(long timeout) throws org.eclipse.paho.client.mqttv3.MqttException, MqttException {
         try {
-            mqttClient.disconnectForcibly(timeout);
+            final long deadline = System.nanoTime() + timeout * 1_000_000_000;
+
+            if (isConnected.compareAndSet(true, false)) {
+                mqttClient.disconnectForcibly(timeout);
+            } else {
+                logger.atWarn().log("DISCONNECT was not sent on the dead connection");
+            }
+
+            long remaining = deadline - System.nanoTime();
+            if (remaining < MIN_SHUTDOWN_NS) {
+                remaining = MIN_SHUTDOWN_NS;
+            }
+
+            executorService.shutdown();
+            if (!executorService.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
+                executorService.shutdownNow();
+            }
+
             logger.atInfo().log("MQTT 3.1.1 connection {} has been disconnected", connectionId);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.atError().withThrowable(e).log(EXCEPTION_WHEN_DISCONNECTING);
+            throw new MqttException(EXCEPTION_WHEN_DISCONNECTING, e);
         } finally {
             mqttClient.close();
         }
@@ -273,6 +303,7 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
         @Override
         public void connectionLost(Throwable throwable) {
+            isConnected.set(false);
             // only unsolicited disconnect
             if (isClosing.get()) {
                 logger.atWarn().log("DISCONNECT event ignored due to shutdown initiated");
@@ -320,6 +351,21 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
 
             logger.atInfo().log("Received MQTT message: connectionId {} topic '{}' QoS {} retain {}",
                     connectionId, topic, mqttMessage.getQos(), mqttMessage.isRetained());
+        }
+    }
+
+    /**
+     * Checks connection state.
+     *
+     * @throws MqttException when connection state is not allow opertation
+     */
+    private void stateCheck() throws MqttException {
+        if (!isConnected.get()) {
+            throw new MqttException("MQTT client is not in connected state");
+        }
+
+        if (isClosing.get()) {
+            throw new MqttException("MQTT connection is closing");
         }
     }
 }
