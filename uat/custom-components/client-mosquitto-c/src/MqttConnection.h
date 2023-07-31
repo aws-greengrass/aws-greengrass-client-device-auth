@@ -9,6 +9,7 @@
 #include <vector>
 #include <unordered_map>
 #include <mutex>
+#include <atomic>
 #include <google/protobuf/repeated_field.h>
 
 using google::protobuf::RepeatedPtrField;
@@ -195,6 +196,8 @@ private:
     bool m_clean_session;
     bool m_v5;
     int m_connection_id;
+    std::atomic_bool m_is_closing;
+    std::atomic_bool m_is_connected;
 
     std::string m_ca;
     std::string m_cert;
