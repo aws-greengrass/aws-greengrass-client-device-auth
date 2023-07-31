@@ -6,6 +6,8 @@
 package com.aws.greengrass.testing.util;
 
 import lombok.experimental.UtilityClass;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
@@ -13,19 +15,14 @@ import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Security;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateFactory;
 import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.RSAPrivateCrtKeySpec;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import javax.net.ssl.KeyManagerFactory;
@@ -60,7 +57,7 @@ public final class SslUtil {
      * @throws IOException on errors
      * @throws GeneralSecurityException on errors
      */
-    public static SSLSocketFactory getSocketFactory(final String caList, final String crt, final String key)
+    public static SSLSocketFactory getSocketFactory(final List<String> caList, final String crt, final String key)
             throws IOException, GeneralSecurityException {
 
 
@@ -71,51 +68,45 @@ public final class SslUtil {
         caKeyStore.load(null, null);
 
         // load CA certificates
-        List<Certificate> caCertificates = getCerificates(caList);
         int certNo = 0;
-        for (Certificate cert : caCertificates) {
-            caKeyStore.setCertificateEntry(String.format("ca-certificate-%d", ++certNo), cert);
+        for (String ca : caList) {
+            Certificate caCertificate = getCerificate(ca);
+            caKeyStore.setCertificateEntry(String.format("ca-certificate-%d", ++certNo), caCertificate);
         }
         trustManagerFactory.init(caKeyStore);
 
         // client key and certificates are sent to server so it can authenticate
         KeyStore credKeyStore = KeyStore.getInstance(KeyStore.getDefaultType());
         credKeyStore.load(null, null);
-        certNo = 0;
-        List<Certificate> certificates = getCerificates(crt);
-        for (Certificate cert : caCertificates) {
-            credKeyStore.setCertificateEntry(String.format("certificate-%d", ++certNo), cert);
-        }
+        Certificate certificate = getCerificate(crt);
+        credKeyStore.setCertificateEntry("certificate", certificate);
 
         // load client private key
         PrivateKey privateKey = loadPrivateKey(key);
-        credKeyStore.setKeyEntry("private-key", privateKey, PASSWORD, certificates.toArray(new Certificate[0]));
+        credKeyStore.setKeyEntry("private-key", privateKey, PASSWORD,  new Certificate[]{certificate});
 
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         keyManagerFactory.init(credKeyStore, PASSWORD);
 
         // finally, create SSL socket factory
         // FIXME: probably that force to use only TLS 1.2
-        SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+        // SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+        SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
 
         return sslContext.getSocketFactory();
     }
 
-    private static List<Certificate> getCerificates(final String certificatesPem)
+    private static Certificate getCerificate(final String certificatePem)
             throws IOException, GeneralSecurityException {
 
-        List<Certificate> certificates = new ArrayList<>();
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-
-        try (InputStream bis = new ByteArrayInputStream(certificatesPem.getBytes())) {
-            while (bis.available() > 0) {
-                Certificate cert = certificateFactory.generateCertificate(bis);
-                certificates.add(cert);
-            }
+        try (PEMParser pemParser = new PEMParser(
+                                    new InputStreamReader(
+                                     new ByteArrayInputStream(certificatePem.getBytes())))) {
+            X509CertificateHolder certHolder = (X509CertificateHolder) pemParser.readObject();
+            JcaX509CertificateConverter certificateConverter = new JcaX509CertificateConverter().setProvider("BC");
+            return certificateConverter.getCertificate(certHolder);
         }
-
-        return certificates;
     }
 
     private static PrivateKey loadPrivateKey(String privateKeyPem) throws GeneralSecurityException, IOException {

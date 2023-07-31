@@ -214,8 +214,7 @@ class GRPCControlServer {
                     return;
                 }
 
-                final String ca = String.join("\n", caList);
-                connectionParamsBuilder.ca(ca).cert(cert).key(key);
+                connectionParamsBuilder.ca(caList).cert(cert).key(key);
             }
 
             logger.atInfo().log("createMqttConnection: clientId {} broker {}:{}", clientId, host, port);
