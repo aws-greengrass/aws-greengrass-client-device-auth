@@ -6,6 +6,8 @@
 package com.aws.greengrass.testing.util;
 
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
+import org.bouncycastle.asn1.pkcs.EncryptedPrivateKeyInfo;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
@@ -90,11 +92,20 @@ public final class SslUtil {
         try (PEMParser pemParser = new PEMParser(new InputStreamReader(new ByteArrayInputStream(keyFile.getBytes())))) {
             object = pemParser.readObject();
             JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
-            key = converter.getKeyPair((PEMKeyPair) object);
+
+            if (object instanceof PrivateKeyInfo) {
+                PrivateKeyInfo keyInfo = (PrivateKeyInfo) object;
+                EncryptedPrivateKeyInfo privateKeyInfo =
+                        new EncryptedPrivateKeyInfo(keyInfo.getPrivateKeyAlgorithm(), keyInfo.getEncoded());
+                ks.setKeyEntry("private-key", privateKeyInfo.getEncoded(),
+                        new java.security.cert.Certificate[]{cert});
+            } else {
+                key = converter.getKeyPair((PEMKeyPair) object);
+                ks.setKeyEntry("private-key", key.getPrivate(), "".toCharArray(),
+                        new java.security.cert.Certificate[]{cert});
+            }
 
         }
-        ks.setKeyEntry("private-key", key.getPrivate(), "".toCharArray(),
-                new java.security.cert.Certificate[]{cert});
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory
                 .getDefaultAlgorithm());
         kmf.init(ks, "".toCharArray());
