@@ -5,9 +5,7 @@
 
 package com.aws.greengrass.testing.util;
 
-import com.aws.greengrass.testing.mqtt5.client.MqttLib;
-import org.bouncycastle.asn1.pkcs.EncryptedPrivateKeyInfo;
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import lombok.experimental.UtilityClass;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
@@ -17,104 +15,131 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.security.GeneralSecurityException;
-import java.security.KeyPair;
+import java.security.KeyFactory;
 import java.security.KeyStore;
+import java.security.PrivateKey;
 import java.security.Security;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.RSAPrivateCrtKeySpec;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
+@UtilityClass
 public final class SslUtil {
-    private SslUtil() {
-    }
+    private static final char[] PASSWORD = "".toCharArray();
 
-    /**
-     * generate SSL socket factory.
-     *
-     * @param connectionParams MQTT connection parameters
-     * @throws IOException on errors
-     * @throws GeneralSecurityException on errors
-     */
-    public static SSLSocketFactory getSocketFactory(MqttLib.ConnectionParams connectionParams)
-            throws IOException, GeneralSecurityException {
-        return getSocketFactory(connectionParams.getCa(), connectionParams.getCert(), connectionParams.getKey());
-    }
+    // PKCS#8 format
+    private static final String PEM_PRIVATE_START = "-----BEGIN PRIVATE KEY-----";
+    private static final String PEM_PRIVATE_END = "-----END PRIVATE KEY-----";
 
-    /**
-     * generate SSL socket factory.
-     *
-     * @param caCrtFile certificate authority
-     * @param crtFile certification
-     * @param keyFile private key
-     * @throws IOException on errors
-     * @throws GeneralSecurityException on errors
-     */
-    public static SSLSocketFactory getSocketFactory(final String caCrtFile, final String crtFile, final String keyFile)
-            throws IOException, GeneralSecurityException {
+    // PKCS#1 format
+    private static final String PEM_RSA_PRIVATE_START = "-----BEGIN RSA PRIVATE KEY-----";
+    private static final String PEM_RSA_PRIVATE_END = "-----END RSA PRIVATE KEY-----";
+
+
+    static {
         Security.addProvider(new BouncyCastleProvider());
+    }
 
-        // load CA certificate
-        X509Certificate caCert = null;
+    /**
+     * Generates SSL socket factory.
+     *
+     * @param caList the list of certificate authority
+     * @param crt the certificate
+     * @param key the private key
+     * @return instance of ssl socket factory with attached client credential and CA list
+     * @throws IOException on errors
+     * @throws GeneralSecurityException on errors
+     */
+    public static SSLSocketFactory getSocketFactory(final String caList, final String crt, final String key)
+            throws IOException, GeneralSecurityException {
 
-        InputStream bis = new ByteArrayInputStream(caCrtFile.getBytes());
-        CertificateFactory cf = CertificateFactory.getInstance("X.509");
 
-        while (bis.available() > 0) {
-            caCert = (X509Certificate) cf.generateCertificate(bis);
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("X509");
+
+        // CA certificates are used to authenticate server
+        KeyStore caKeyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        caKeyStore.load(null, null);
+
+        // load CA certificates
+        List<Certificate> caCertificates = getCerificates(caList);
+        int certNo = 0;
+        for (Certificate cert : caCertificates) {
+            caKeyStore.setCertificateEntry(String.format("ca-certificate-%d", ++certNo), cert);
         }
-
-        // load client certificate
-        bis = new ByteArrayInputStream(crtFile.getBytes());
-        X509Certificate cert = null;
-        while (bis.available() > 0) {
-            cert = (X509Certificate) cf.generateCertificate(bis);
-        }
-
-        // CA certificate is used to authenticate server
-        KeyStore caKs = KeyStore.getInstance(KeyStore.getDefaultType());
-        caKs.load(null, null);
-        caKs.setCertificateEntry("ca-certificate", caCert);
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance("X509");
-        tmf.init(caKs);
+        trustManagerFactory.init(caKeyStore);
 
         // client key and certificates are sent to server so it can authenticate
-        KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-        ks.load(null, null);
-        ks.setCertificateEntry("certificate", cert);
+        KeyStore credKeyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        credKeyStore.load(null, null);
+        certNo = 0;
+        List<Certificate> certificates = getCerificates(crt);
+        for (Certificate cert : caCertificates) {
+            credKeyStore.setCertificateEntry(String.format("certificate-%d", ++certNo), cert);
+        }
 
         // load client private key
-        Object object;
-        KeyPair key;
-        try (PEMParser pemParser = new PEMParser(new InputStreamReader(new ByteArrayInputStream(keyFile.getBytes())))) {
-            object = pemParser.readObject();
-            JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
+        PrivateKey privateKey = loadPrivateKey(key);
+        credKeyStore.setKeyEntry("private-key", privateKey, PASSWORD, certificates.toArray(new Certificate[0]));
 
-            if (object instanceof PrivateKeyInfo) {
-                PrivateKeyInfo keyInfo = (PrivateKeyInfo) object;
-                EncryptedPrivateKeyInfo privateKeyInfo =
-                        new EncryptedPrivateKeyInfo(keyInfo.getPrivateKeyAlgorithm(), keyInfo.getEncoded());
-                ks.setKeyEntry("private-key", privateKeyInfo.getEncoded(),
-                        new java.security.cert.Certificate[]{cert});
-            } else {
-                key = converter.getKeyPair((PEMKeyPair) object);
-                ks.setKeyEntry("private-key", key.getPrivate(), "".toCharArray(),
-                        new java.security.cert.Certificate[]{cert});
-            }
-
-        }
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory
-                .getDefaultAlgorithm());
-        kmf.init(ks, "".toCharArray());
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        keyManagerFactory.init(credKeyStore, PASSWORD);
 
         // finally, create SSL socket factory
-        SSLContext context = SSLContext.getInstance("TLSv1.2");
-        context.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+        // FIXME: probably that force to use only TLS 1.2
+        SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+        sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
 
-        return context.getSocketFactory();
+        return sslContext.getSocketFactory();
     }
 
+    private static List<Certificate> getCerificates(final String certificatesPem)
+            throws IOException, GeneralSecurityException {
+
+        List<Certificate> certificates = new ArrayList<>();
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+
+        try (InputStream bis = new ByteArrayInputStream(certificatesPem.getBytes())) {
+            while (bis.available() > 0) {
+                Certificate cert = certificateFactory.generateCertificate(bis);
+                certificates.add(cert);
+            }
+        }
+
+        return certificates;
+    }
+
+    private static PrivateKey loadPrivateKey(String privateKeyPem) throws GeneralSecurityException, IOException {
+        if (privateKeyPem.contains(PEM_PRIVATE_START)) {
+            // PKCS#8 format
+            privateKeyPem = privateKeyPem.replace(PEM_PRIVATE_START, "").replace(PEM_PRIVATE_END, "");
+            privateKeyPem = privateKeyPem.replaceAll("\\s", "");
+
+            byte[] pkcs8EncodedKey = Base64.getDecoder().decode(privateKeyPem);
+
+            KeyFactory factory = KeyFactory.getInstance("RSA");
+            return factory.generatePrivate(new PKCS8EncodedKeySpec(pkcs8EncodedKey));
+
+        } else if (privateKeyPem.contains(PEM_RSA_PRIVATE_START)) {
+            // PKCS#1 format
+            try (PEMParser pemParser = new PEMParser(
+                                        new InputStreamReader(
+                                         new ByteArrayInputStream(privateKeyPem.getBytes())))) {
+                Object object = pemParser.readObject();
+                JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
+                return converter.getKeyPair((PEMKeyPair) object).getPrivate();
+            }
+        }
+
+        throw new GeneralSecurityException("Not supported format of a private key");
+    }
 }

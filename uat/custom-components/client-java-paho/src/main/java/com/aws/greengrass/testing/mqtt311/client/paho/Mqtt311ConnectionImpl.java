@@ -206,8 +206,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
                 connectionParams.getCert() != null);
         connectionOptions.setServerURIs(new String[]{uri});
 
-        if (connectionParams.getKey() != null) {
-            SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
+        if (connectionParams.getCert() != null) {
+            SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(
+                connectionParams.getCa(), connectionParams.getCert(), connectionParams.getKey());
             connectionOptions.setSocketFactory(sslSocketFactory);
         }
 
