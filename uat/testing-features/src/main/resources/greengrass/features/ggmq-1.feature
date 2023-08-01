@@ -1875,9 +1875,10 @@ Feature: GGMQ-1
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
     And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
-    And I discover core device broker as "default_broker" from "publisher" in OTF
-    And I connect device "publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
-    And I connect device "subscriber" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    Then I discover core device broker as "localMqttBroker1" from "publisher" in OTF
+    Then I discover core device broker as "localMqttBroker2" from "subscriber" in OTF
+    And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
+    And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
 
     When I subscribe "subscriber" to "iot_data_0" with qos 1
     When I publish from "publisher" to "iot_data_0" with qos 1 and message "Test message" and expect status 0
@@ -1885,7 +1886,7 @@ Feature: GGMQ-1
     And I rename connection "publisher" to "publisher_old"
 
     # Reconnect publisher with the same device id
-    And I connect device "publisher" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
     When I publish from "publisher" to "iot_data_0" with qos 1 and message "Connect again" and expect status 0
     And message "Connect again" received on "subscriber" from "iot_data_0" topic within 5 seconds
 
