@@ -798,10 +798,10 @@ public class MqttControlSteps {
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
 
         // Add test id to new name
-        final String newConnectionNameWithTestId = getClientDeviceThingName(clientDeviceId);
+        final String newConnectionNameWithTestId = getClientDeviceThingName(newConnectionName);
         connectionControl.setConnectionName(newConnectionNameWithTestId);
 
-        log.info("Connection {string} was renamed to {string}",
+        log.info("Connection {} was renamed to {}",
                  clientDeviceThingName,
                  newConnectionNameWithTestId);
     }
