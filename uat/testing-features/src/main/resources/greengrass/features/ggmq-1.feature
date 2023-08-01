@@ -1887,6 +1887,7 @@ Feature: GGMQ-1
 
     # Reconnect publisher with the same device id
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
+    And I wait 5 seconds
     When I publish from "publisher" to "iot_data_0" with qos 1 and message "Connect again" and expect status 0
     And message "Connect again" received on "subscriber" from "iot_data_0" topic within 5 seconds
 
