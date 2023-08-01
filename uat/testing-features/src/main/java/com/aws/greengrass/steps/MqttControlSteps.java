@@ -786,6 +786,27 @@ public class MqttControlSteps {
     }
 
     /**
+     * Renames connection.
+     *
+     * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
+     * @param newConnectionName new name of the connection
+     * @throws RuntimeException throws in fail case
+     */
+    @And("I rename connection {string} to {string}")
+    public void renameConnection(String clientDeviceId, String newConnectionName) {
+        final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+        ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        // Add test id to new name
+        final String newConnectionNameWithTestId = getClientDeviceThingName(newConnectionName);
+        connectionControl.setConnectionName(newConnectionNameWithTestId);
+
+        log.info("Connection {} was renamed to {}",
+                 clientDeviceThingName,
+                 newConnectionNameWithTestId);
+    }
+
+    /**
      * Try to create MQTT connection to broker and ensure connection has been failed.
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
