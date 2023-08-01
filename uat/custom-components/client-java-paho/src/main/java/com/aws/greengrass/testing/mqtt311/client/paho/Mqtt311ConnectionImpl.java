@@ -24,6 +24,7 @@ import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -189,9 +190,9 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
      */
     private IMqttAsyncClient createAsyncClient(MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.client.mqttv3.MqttException {
-        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(),
-                connectionParams.getCert() != null);
-        return new MqttAsyncClient(uri, connectionParams.getClientId());
+        final boolean hasTls = connectionParams.getCert() != null;
+        final String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), hasTls);
+        return new MqttAsyncClient(uri, connectionParams.getClientId(), new MemoryPersistence());
     }
 
     private MqttConnectOptions convertParams(MqttLib.ConnectionParams connectionParams)

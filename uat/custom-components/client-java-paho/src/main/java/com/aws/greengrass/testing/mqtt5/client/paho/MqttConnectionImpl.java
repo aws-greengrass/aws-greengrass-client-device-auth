@@ -23,6 +23,7 @@ import org.eclipse.paho.mqttv5.client.MqttAsyncClient;
 import org.eclipse.paho.mqttv5.client.MqttCallback;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.client.MqttDisconnectResponse;
+import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
@@ -264,9 +265,10 @@ public class MqttConnectionImpl implements MqttConnection {
      */
     private IMqttAsyncClient createAsyncClient(MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.mqttv5.common.MqttException {
-        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(),
-                connectionParams.getCert() != null);
-        return new MqttAsyncClient(uri, connectionParams.getClientId());
+        final boolean hasTls = connectionParams.getCert() != null;
+        final String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), hasTls);
+
+        return new MqttAsyncClient(uri, connectionParams.getClientId(), new MemoryPersistence());
     }
 
     private void disconnectAndClose(long timeout, int reasonCode, List<Mqtt5Properties> userProperties)
