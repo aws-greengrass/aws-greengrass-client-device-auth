@@ -250,8 +250,8 @@ public class MqttConnectionImpl implements MqttConnection {
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     @Override
     public ConnectResult start(long timeout, int connectionId) throws MqttException {
-        this.connectionId = connectionId;
         boolean success = false;
+        this.connectionId = connectionId;
         client.start();
         try {
             OnConnectionDoneInfo onConnectionDoneInfo = lifecycleEvents.connectedFuture.get(timeout, TimeUnit.SECONDS);
@@ -277,23 +277,28 @@ public class MqttConnectionImpl implements MqttConnection {
         }
     }
 
-    @SuppressWarnings({"PMD.UseTryWithResources", "PMD.AvoidCatchingGenericException"})
+    @SuppressWarnings({"PMD.UseTryWithResources", "PMD.AvoidCatchingGenericException", "PMD.CognitiveComplexity"})
     @Override
     public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
 
         if (isClosing.compareAndSet(false, true)) {
-            final DisconnectPacket.DisconnectReasonCode disconnectReason
-                    = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
-            DisconnectPacket.DisconnectPacketBuilder builder = new DisconnectPacket.DisconnectPacketBuilder()
-                    .withReasonCode(disconnectReason);
+            if (isConnected.compareAndSet(true, false)) {
+                final DisconnectPacket.DisconnectReasonCode disconnectReason
+                        = DisconnectPacket.DisconnectReasonCode.getEnumValueFromInteger(reasonCode);
+                DisconnectPacket.DisconnectPacketBuilder builder = new DisconnectPacket.DisconnectPacketBuilder()
+                        .withReasonCode(disconnectReason);
 
-            if (userProperties != null && !userProperties.isEmpty()) {
-                builder.withUserProperties(convertToUserProperties(userProperties, "DISCONNECT"));
+                if (userProperties != null && !userProperties.isEmpty()) {
+                    builder.withUserProperties(convertToUserProperties(userProperties, "DISCONNECT"));
+                }
+
+                client.stop(builder.build());
+            } else {
+                logger.atWarn().log("DISCONNECT was not sent on the dead connection");
             }
 
-            client.stop(builder.build());
-
             try {
+                client.close();
                 final long deadline = System.nanoTime() + timeout * 1_000_000_000;
                 lifecycleEvents.stoppedFuture.get(timeout, TimeUnit.SECONDS);
 
@@ -312,8 +317,6 @@ public class MqttConnectionImpl implements MqttConnection {
             } catch (Exception ex) {
                 logger.atError().withThrowable(ex).log("Failed during disconnecting from MQTT broker");
                 throw new MqttException("Could not disconnect", ex);
-            } finally {
-                client.close();
             }
         }
     }

@@ -730,11 +730,11 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
 
             if message.response_topic is not None:
                 properties.ResponseTopic = message.response_topic
-                self.__logger.warning("Copied TX response topic '%s'", message.response_topic)
+                self.__logger.info("Copied TX response topic '%s'", message.response_topic)
 
             if message.correlation_data is not None:
                 properties.CorrelationData = message.correlation_data
-                self.__logger.warning("Copied TX correlation data '%s'", str(message.correlation_data))
+                self.__logger.info("Copied TX correlation data '%s'", str(message.correlation_data))
 
             properties.UserProperty = user_properties
 
@@ -802,6 +802,11 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         """
         props = mqtt_result.properties
         mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "CONNACK")
+
+        response_information = getattr(props, "ResponseInformation", None)
+        if response_information is not None:
+            self.__logger.info("CONNACK Rx response information: '%s'", response_information)
+
         conn_ack = Mqtt5ConnAck(
             sessionPresent=mqtt_result.flags["session present"],
             reasonCode=mqtt_result.reason_code,
@@ -816,7 +821,7 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             subscriptionIdentifiersAvailable=getattr(props, "SubscriptionIdentifierAvailable", None),
             sharedSubscriptionsAvailable=getattr(props, "SharedSubscriptionAvailable", None),
             serverKeepAlive=getattr(props, "ServerKeepAlive", None),
-            responseInformation=getattr(props, "ResponseInformation", None),
+            responseInformation=response_information,
             serverReference=getattr(props, "ServerReference", None),
             topicAliasMaximum=getattr(props, "TopicAliasMaximum", None),
             properties=mqtt_properties,

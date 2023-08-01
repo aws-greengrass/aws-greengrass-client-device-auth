@@ -35,6 +35,7 @@ import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
 import com.aws.greengrass.testing.resources.iot.IotLifecycle;
 import com.aws.greengrass.testing.resources.iot.IotPolicySpec;
 import com.aws.greengrass.testing.resources.iot.IotThingSpec;
+import com.aws.greengrass.utils.MqttBrokers;
 import com.google.protobuf.ByteString;
 import io.cucumber.guice.ScenarioScoped;
 import io.cucumber.java.After;
@@ -43,8 +44,6 @@ import io.cucumber.java.en.And;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.grpc.StatusRuntimeException;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import software.amazon.awssdk.crt.io.SocketOptions;
@@ -143,6 +142,7 @@ public class MqttControlSteps {
     private final IotSteps iotSteps;
     private final EngineControl engineControl;
     private final EventStorageImpl eventStorage;
+    private final MqttBrokers mqttBrokers;
 
     private final GreengrassV2Client greengrassClient;
 
@@ -221,7 +221,6 @@ public class MqttControlSteps {
     private String rxContentType = DEFAULT_CONTENT_TYPE;
 
 
-    private final Map<String, List<MqttBrokerConnectionInfo>> brokers = new HashMap<>();
     private final Map<String, MqttProtoVersion> mqttVersions = new HashMap<>();
 
     private final EngineControl.EngineEvents engineEvents = new EngineControl.EngineEvents() {
@@ -261,9 +260,11 @@ public class MqttControlSteps {
      * @param iotSteps the instance of IotSteps
      * @param engineControl the MQTT clients control
      * @param eventStorage the MQTT event storage
+     * @param mqttBrokers the connectivity info of brokers
      * @param greengrassClient the GreengrassV2Client instance
      * @throws IOException on IO errors
      */
+    @SuppressWarnings("PMD.ExcessiveParameterList")
     @Inject
     public MqttControlSteps(
             TestContext testContext,
@@ -274,6 +275,7 @@ public class MqttControlSteps {
             IotSteps iotSteps,
             EngineControl engineControl,
             EventStorageImpl eventStorage,
+            MqttBrokers mqttBrokers,
             GreengrassV2Client greengrassClient) throws IOException {
         this.testContext = testContext;
         this.scenarioContext = scenarioContext;
@@ -283,6 +285,7 @@ public class MqttControlSteps {
         this.iotSteps = iotSteps;
         this.engineControl = engineControl;
         this.eventStorage = eventStorage;
+        this.mqttBrokers = mqttBrokers;
         this.greengrassClient = greengrassClient;
 
         initMqttVersions();
@@ -719,7 +722,7 @@ public class MqttControlSteps {
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
      * @param componentId  the componentId of MQTT client
-     * @param brokerId the id of broker, before must be discovered or added by default
+     * @param brokerId the id of broker, before must be discovered or added
      */
     @And("I connect device {string} on {word} to {string}")
     public void connect(String clientDeviceId, String componentId, String brokerId) {
@@ -731,7 +734,7 @@ public class MqttControlSteps {
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
      * @param componentId  the componentId of MQTT client
-     * @param brokerId the id of broker, before must be discovered or added by default
+     * @param brokerId the id of broker, before must be discovered or added
      * @param mqttVersion the MQTT version string
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.UseObjectForClearerAPI"})
@@ -739,7 +742,7 @@ public class MqttControlSteps {
     public void connect(String clientDeviceId, String componentId, String brokerId, String mqttVersion) {
 
         // get address information about broker
-        final List<MqttBrokerConnectionInfo> bc = brokers.get(brokerId);
+        final List<MqttBrokers.ConnectivityInfo> bc = mqttBrokers.getConnectivityInfo(brokerId);
         if (CollectionUtils.isNullOrEmpty(bc)) {
             throw new RuntimeException("There is no address information about broker, "
                                         + "probably discovery step missing in scenario");
@@ -756,7 +759,7 @@ public class MqttControlSteps {
         MqttProtoVersion version = convertMqttVersion(mqttVersion);
 
         RuntimeException lastException = null;
-        for (final MqttBrokerConnectionInfo broker : bc) {
+        for (final MqttBrokers.ConnectivityInfo broker : bc) {
             final List<String> caList = broker.getCaList();
             final String host = broker.getHost();
             final Integer port = broker.getPort();
@@ -787,7 +790,7 @@ public class MqttControlSteps {
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
      * @param componentId  the componentId of MQTT client
-     * @param brokerId the id of broker, before must be discovered or added by default
+     * @param brokerId the id of broker, before must be discovered or added
      * @param mqttVersion the MQTT version string
      * @throws RuntimeException throws in fail case
      *
@@ -918,12 +921,32 @@ public class MqttControlSteps {
     }
 
     /**
+     * Publish the large MQTT message.
+     *
+     * @param clientDeviceId user defined client device id
+     * @param topicString the topic to publish message
+     * @param qos the value of MQTT QoS for publishing
+     * @param messageBeginning the content of message with beginning to publish
+     * @param messageLength the length of message
+     * @throws StatusRuntimeException on gRPC errors
+     * @throws IllegalArgumentException on invalid QoS argument
+     */
+    @When("I publish from {string} to {string} with qos {int} and large message with beginning of {string} "
+            + "with length {int}")
+    public void publishLargeMessage(String clientDeviceId, String topicString, int qos,
+                                    String messageBeginning, int messageLength) {
+        String longMessage = generateLongMessage(messageBeginning, messageLength);
+
+        publish(clientDeviceId, topicString, qos, longMessage, PublishReasonCode.SUCCESS.getValue());
+    }
+
+    /**
      * Publish the MQTT message.
      *
      * @param clientDeviceId user defined client device id
      * @param topicString the topic to publish message
      * @param qos the value of MQTT QoS for publishing
-     * @param message the the content of message to publish
+     * @param message the content of message to publish
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
      */
@@ -938,7 +961,7 @@ public class MqttControlSteps {
      * @param clientDeviceId user defined client device id
      * @param topicString the topic to publish message
      * @param qos the value of MQTT QoS for publishing
-     * @param message the the content of message to publish
+     * @param message the content of message to publish
      * @param expectedStatus the status of MQTT QoS for publish reply
      * @throws StatusRuntimeException on gRPC errors
      * @throws IllegalArgumentException on invalid QoS argument
@@ -1007,6 +1030,30 @@ public class MqttControlSteps {
     public void receivedMessage(String message, String clientDeviceId, String topicString, int value, String unit)
                             throws TimeoutException, InterruptedException {
         receive(message, clientDeviceId, topicString, value, unit, true);
+    }
+
+
+    /**
+     * Verify is MQTT message is received in limited duration of time.
+     *
+     * @param message beginning of long message to receive
+     * @param messageLength the length of long message
+     * @param clientDeviceId the user defined client device id
+     * @param topicString the topic (not a filter) which message has been sent
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @throws TimeoutException when matched message was not received in specified duration of time
+     * @throws RuntimeException on internal errors
+     * @throws InterruptedException then thread has been interrupted
+     */
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
+    @And("message beginning with {string} and with length {int} received on {string} "
+            + "from {string} topic within {int} {word}")
+    public void receivedMessageBeginning(String message, int messageLength, String clientDeviceId, String topicString,
+                                         int value, String unit)
+                            throws TimeoutException, InterruptedException {
+        String longMessage = generateLongMessage(message, messageLength);
+        receive(longMessage, clientDeviceId, topicString, value, unit, true);
     }
 
     /**
@@ -1157,13 +1204,13 @@ public class MqttControlSteps {
      * @param brokerId broker name in tests
      */
     @And("I label IoT Core broker as {string}")
-    public void addCoreDeviceBroker(String brokerId) {
+    public void addIoTCoreBroker(String brokerId) {
         final String endpoint = resources.lifecycle(IotLifecycle.class)
                                          .dataEndpoint();
         final String ca = registrationContext.rootCA();
-        MqttBrokerConnectionInfo broker = new MqttBrokerConnectionInfo(
+        MqttBrokers.ConnectivityInfo broker = new MqttBrokers.ConnectivityInfo(
                 endpoint, IOT_CORE_MQTT_PORT, Collections.singletonList(ca));
-        brokers.put(brokerId, Collections.singletonList(broker));
+        mqttBrokers.setConnectivityInfo(brokerId, Collections.singletonList(broker));
         log.info("Added IoT Core broker as {} with endpoint {}:{}", brokerId, endpoint, IOT_CORE_MQTT_PORT);
     }
 
@@ -1200,6 +1247,17 @@ public class MqttControlSteps {
                     + reason);
         }
         log.info("MQTT topics filter {} has been unsubscribed", filter);
+    }
+
+    private String generateLongMessage(String messageBeginning, int totalLength) {
+        StringBuilder longMessageBuilder = new StringBuilder();
+        int repeatedTimes = totalLength / messageBeginning.length() + 1;
+
+        for (int i = 0; i < repeatedTimes; i++) {
+            longMessageBuilder.append(messageBeginning);
+        }
+
+        return longMessageBuilder.substring(0, totalLength);
     }
 
     private IotPolicySpec createDefaultClientDevicePolicy(String policyNameOverride) throws IOException {
@@ -1291,20 +1349,20 @@ public class MqttControlSteps {
             });
         });
 
-        List<MqttBrokerConnectionInfo> mqttBrokerConnectionInfos = new ArrayList<>();
+        List<MqttBrokers.ConnectivityInfo> connectionInfos = new ArrayList<>();
         groups.forEach(group -> {
             group.getCores()
                  .stream()
                  .map(GGCore::getConnectivity)
                  .flatMap(Collection::stream)
-                 .map(ci -> new MqttBrokerConnectionInfo(
+                 .map(ci -> new MqttBrokers.ConnectivityInfo(
                     ci.getHostAddress(),
                     ci.getPortNumber(),
                     group.getCAs()))
-                 .collect(Collectors.toCollection(() -> mqttBrokerConnectionInfos));
+                 .collect(Collectors.toCollection(() -> connectionInfos));
         });
 
-        brokers.put(brokerId, mqttBrokerConnectionInfos);
+        mqttBrokers.setConnectivityInfo(brokerId, connectionInfos);
     }
 
     private String getAgentId(String componentName) {
@@ -1448,11 +1506,4 @@ public class MqttControlSteps {
         }
     }
 
-    @Data
-    @AllArgsConstructor
-    private class MqttBrokerConnectionInfo {
-        private String host;
-        private Integer port;
-        private List<String> caList;
-    }
 }

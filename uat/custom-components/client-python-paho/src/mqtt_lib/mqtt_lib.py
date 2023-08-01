@@ -51,8 +51,8 @@ class MQTTLib:
         Returns id of connection
         """
         while True:
-            connection_id = self.__connection_id_next
             self.__connection_id_next += 1
+            connection_id = self.__connection_id_next
 
             if connection_id not in self.__connections:
                 self.__connections[connection_id] = mqtt_connection

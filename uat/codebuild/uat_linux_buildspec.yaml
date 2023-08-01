@@ -4,6 +4,9 @@
 #
 
 version: 0.2
+env:
+  variables:
+    CUCUMBER_TAGS: '@GGMQ'
 phases:
   install:
     runtime-versions:
@@ -11,12 +14,13 @@ phases:
   build:
     commands:
       - curl -s https://d2s8p88vqu9w66.cloudfront.net/releases/greengrass-nucleus-latest.zip > /tmp/greengrass-nucleus-latest.zip
-      - mvn -U -DskipTests -ntp verify -f uat/pom.xml
-      - java -Dggc.archive=/tmp/greengrass-nucleus-latest.zip -Dtags=GGMQ -jar uat/testing-features/target/client-devices-auth-testing-features.jar
+      - mvn -U -DskipTests -ntp clean verify -f uat/pom.xml
+      - java -Dggc.archive=/tmp/greengrass-nucleus-latest.zip -Dtags="$CUCUMBER_TAGS" -jar uat/testing-features/target/client-devices-auth-testing-features.jar 2>&1 | tee build.log
 
 artifacts:
   files:
     - 'testResults/**/*'
+    - 'build.log'
   name: 'AuthUatLinuxLogs.zip'
 
 reports:
@@ -24,6 +28,10 @@ reports:
     files:
       - "TEST-greengrass-results.xml"
     file-format: "JUNITXML"
+  uat-cucumber-reports:
+    files:
+      - "testResults/cucumber.json"
+    file-format: "CUCUMBERJSON"
 
 cache:
   paths:

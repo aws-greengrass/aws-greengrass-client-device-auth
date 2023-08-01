@@ -10,7 +10,6 @@
 #include <memory>
 #include <future>
 
-
 #include <mosquitto.h>                          /* mosquitto_new() mosquitto_destroy() mosquitto_connect_bind_v5() ... */
 #include <mqtt_protocol.h>                      /* MQTT_RC_DISCONNECT_WITH_WILL_MSG */
 
@@ -101,8 +100,8 @@ MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::str
                                 const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
                                 const bool * rri)
     : m_mutex(), m_grpc_client(grpc_client), m_client_id(client_id), m_host(host), m_port(port), m_keepalive(keepalive),
-        m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_conn_properties(0),
-        m_request_response_information(0), m_mosq(0), m_requests() {
+        m_clean_session(clean_session), m_v5(v5), m_connection_id(0), m_is_closing(false), m_is_connected(false),
+        m_conn_properties(0), m_request_response_information(0), m_mosq(0), m_requests() {
 
     logd("Creating Mosquitto MQTT v%d connection for %s:%hu\n", m_v5 ? 5 : 3, m_host.c_str(), m_port);
 
@@ -127,7 +126,9 @@ MqttConnection::MqttConnection(GRPCDiscoveryClient & grpc_client, const std::str
 
 MqttConnection::~MqttConnection() {
     logd("Destroy Mosquitto MQTT connection\n");
-    disconnect(DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_DISCONNECT_REASON, NULL);
+    if (!m_is_closing.load()) {
+        disconnect(DEFAULT_DISCONNECT_TIMEOUT, DEFAULT_DISCONNECT_REASON, NULL);
+    }
 
     if (m_request_response_information) {
         delete m_request_response_information;
@@ -247,6 +248,8 @@ void MqttConnection::on_connect(struct mosquitto *, void * obj, int reason_code,
 }
 
 void MqttConnection::onConnect(int rc, int flags, const mosquitto_property * props) {
+    m_is_connected.store(true);
+
     logd("onConnect rc %d flags %d props %p\n", rc, flags, props);
 
     std::lock_guard<std::mutex> lk(m_mutex);
@@ -260,23 +263,33 @@ void MqttConnection::onConnect(int rc, int flags, const mosquitto_property * pro
 
 void MqttConnection::disconnect(unsigned timeout, unsigned char reason_code, const RepeatedPtrField<ClientControl::Mqtt5Properties> * user_properties) {
 
+    bool expected_is_closing = false;
+    if (!m_is_closing.compare_exchange_strong(expected_is_closing, true)) {
+        logw("Ignore secondary DISCONNECT request(s)\n");
+        return;
+    }
+
     PendingRequest * request = 0;
     mosquitto_property * properties = NULL;
     {
         std::lock_guard<std::mutex> lk(m_mutex);
 
         if (m_mosq) {
-            logd("Disconnect Mosquitto MQTT connection with reason code %d\n", (int)reason_code);
+            if (m_is_connected.load()) {
+                logd("Disconnect Mosquitto MQTT connection with reason code %d\n", (int)reason_code);
 
-            convertUserProperties(user_properties, &properties);
+                convertUserProperties(user_properties, &properties);
 
-            // FIXME: there isn't async disconnect()
-            int rc = mosquitto_disconnect_v5(m_mosq, reason_code, properties);
-            if (rc != MOSQ_ERR_SUCCESS) {
-                mosquitto_property_free_all(&properties);
-                throw MqttException("couldn't disconnect from MQTT broker", rc);
+                // FIXME: there isn't async disconnect()
+                int rc = mosquitto_disconnect_v5(m_mosq, reason_code, properties);
+                if (rc != MOSQ_ERR_SUCCESS) {
+                    mosquitto_property_free_all(&properties);
+                    throw MqttException("couldn't disconnect from MQTT broker", rc);
+                }
+                request = createPendingRequestLocked(DISCONNECT_REQUEST_ID);
             }
-            request = createPendingRequestLocked(DISCONNECT_REQUEST_ID);
+        } else {
+            logw("DISCONNECT was not sent on the dead connection\n");
         }
     }
 
@@ -300,6 +313,8 @@ void MqttConnection::on_disconnect(struct mosquitto *, void * obj, int rc, const
 }
 
 void MqttConnection::onDisconnect(int rc, const mosquitto_property * props) {
+    m_is_connected.store(false);
+
     logd("onDisconnect rc %d props %p\n", rc, props);
 
     ClientControl::Mqtt5Disconnect * disconnect = convertToDisconnect(rc, props);
@@ -319,7 +334,6 @@ void MqttConnection::subscribe(unsigned timeout, const int * subscription_id,
                                 bool no_local, bool retain_as_published,
                                 const RepeatedPtrField<ClientControl::Mqtt5Properties> & user_properties,
                                 ClientControl::MqttSubscribeReply * reply) {
-
     PendingRequest * request = 0;
     mosquitto_property * properties = NULL;
     int message_id = 0;
@@ -688,7 +702,11 @@ std::string MqttConnection::saveToTempFile(const std::string & content) {
 
 void MqttConnection::stateCheck() {
     if (!m_mosq) {
-        throw MqttException("MQTT client is not in connected state", -1);
+        throw MqttException("MQTT client connection was not created", -1);
+    }
+
+    if (!m_is_connected.load()) {
+        throw MqttException("MQTT client is not connected", -1);
     }
 }
 

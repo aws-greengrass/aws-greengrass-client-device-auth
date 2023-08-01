@@ -211,12 +211,17 @@ public class Mqtt311ConnectionImpl implements MqttConnection {
     public void disconnect(long timeout, int reasonCode, List<Mqtt5Properties> userProperties) throws MqttException {
 
         checkUserProperties(userProperties);
-        if (!isClosing.getAndSet(true)) {
-            CompletableFuture<Void> disconnnectFuture = connection.disconnect();
+
+        if (isClosing.compareAndSet(false, true)) {
             try {
                 final long deadline = System.nanoTime() + timeout * 1_000_000_000;
 
-                disconnnectFuture.get(timeout, TimeUnit.SECONDS);
+                if (isConnected.compareAndSet(true, false)) {
+                    CompletableFuture<Void> disconnnectFuture = connection.disconnect();
+                    disconnnectFuture.get(timeout, TimeUnit.SECONDS);
+                } else {
+                    logger.atWarn().log("DISCONNECT was not sent on the dead connection");
+                }
 
                 long remaining = deadline - System.nanoTime();
                 if (remaining < MIN_SHUTDOWN_NS) {

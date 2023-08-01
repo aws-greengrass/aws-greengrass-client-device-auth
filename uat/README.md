@@ -117,23 +117,67 @@ On Windows due to mosquitto-based client is not yet build on Windows use a littl
 java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ and not @SkipOnWindows" -jar testing-features/target/client-devices-auth-testing-features.jar
 ```
 
-Command arguments:
 
-Dggc.archive - path to the nucleus zip that was downloaded.  
-Dtest.log.path - path where you would like the test results to be stored.  
+### Command arguments:
+Dggc.archive - path to the nucleus zip that was downloaded.
+Dtest.log.path - path where you would like the test results to be stored.
 
+### Tags
+-Dtags can be extended if you would like to test exact scenarios or exclude some scenarios:
 
--Dtags can be extended, if you would like to test exact scenario, you can do as follows:
-
+@GGMQ - to start all GGMQ test scenarios run.\
+Example:
 ```bash
-java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ-1-T1 and @sdk-java and @mqtt3" -jar testing-features/target/client-devices-auth-testing-features.jar
+sudo -E java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ" -jar testing-features/target/client-devices-auth-testing-features.jar
 ```
 
+To choose running of specific tests using the following tags:
+
+@sdk-java, @mosquitto-c, @paho-java, @paho-python - to choose client to run test scenarios.\
+Example:
+```bash
+sudo -E java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ and @sdk-java" -jar testing-features/target/client-devices-auth-testing-features.jar
+```
+
+@mqtt3, @mqtt5 - to choose protocol version for test scenarios.\
+Example:
+```bash
+sudo -E java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ and @mqtt5" -jar testing-features/target/client-devices-auth-testing-features.jar
+```
+
+@GGMQ-1-T(scenario number) - to specify scenario number that should be run.\
+Example: 
+```bash
+sudo -E java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ-1-T1" -jar testing-features/target/client-devices-auth-testing-features.jar
+```
+
+@SkipOnWindows - to skip clients or tests that are not supported by Windows.\
+Example:
+```
+java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ and not @SkipOnWindows" -jar testing-features/target/client-devices-auth-testing-features.jar
+```
+
+@OffTheNetwork - scenarios with port 8883 blocked for some time
+
+To run tests matching ALL following criteria and all tags should be listed using "and" between tags
+```bash
+sudo -E java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ-1-T1 and @sdk-java and @mqtt5" -jar testing-features/target/client-devices-auth-testing-features.jar
+```
+
+
 ### Run scenarios on CodeBuild
-Because scenario usually requires upload/download artifacts to S3, create and delete roles, policies, do greengrass discoverty and so one please ensure codeBuild instance have enough AWS permissions to do that.
+Due to scenario usually requires upload/download artifacts to S3, create and delete roles, policies, do Greengrass discovery and so one please ensure CodeBuild instance has enough AWS permissions to do that.
 For more information please read [Create a CodeBuild service role](https://docs.aws.amazon.com/codebuild/latest/userguide/setting-up.html#setting-up-service-role)
+
+## Generate html-documentation from JavaDoc
+To generate html-documentation from JavaDoc, run the following command from the uat directory of the project:
+```bash
+mvn -ntp -U clean install
+mvn javadoc:javadoc
+```
+The main html-file will be located in each module by path **target/site/apidocs/index.html**
 
 ## Limitations
 MQTT clients based on IoT Device SDK for Java v2, mosquitto C, Paho Java, Paho Python do no provide API to get information from PUBREC/PUBREL/PUBCOMP packages used when messages published with QoS 2.
 
-Not all features of MQTT v5.0 has been implemented in clients and supported by gRPC proto and the control as was requested, it is not bugs it is a design requirement.
+Not all features of MQTT v5.0 have been implemented in clients and are supported by gRPC proto and the control as was requested, these are not bugs but designed by requirement.

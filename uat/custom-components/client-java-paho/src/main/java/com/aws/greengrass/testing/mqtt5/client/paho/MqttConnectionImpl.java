@@ -23,6 +23,7 @@ import org.eclipse.paho.mqttv5.client.MqttAsyncClient;
 import org.eclipse.paho.mqttv5.client.MqttCallback;
 import org.eclipse.paho.mqttv5.client.MqttConnectionOptions;
 import org.eclipse.paho.mqttv5.client.MqttDisconnectResponse;
+import org.eclipse.paho.mqttv5.client.persist.MemoryPersistence;
 import org.eclipse.paho.mqttv5.common.MqttMessage;
 import org.eclipse.paho.mqttv5.common.MqttSubscription;
 import org.eclipse.paho.mqttv5.common.packet.MqttProperties;
@@ -48,6 +49,7 @@ public class MqttConnectionImpl implements MqttConnection {
     private static final Logger logger = LogManager.getLogger(MqttConnectionImpl.class);
 
     private final AtomicBoolean isClosing = new AtomicBoolean();
+    private final AtomicBoolean isConnected = new AtomicBoolean();
     private final GRPCClient grpcClient;
     private final IMqttAsyncClient client;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -80,6 +82,7 @@ public class MqttConnectionImpl implements MqttConnection {
             client.setCallback(new MqttCallbackImpl());
             token.waitForCompletion(TimeUnit.SECONDS.toMillis(connectionParams.getConnectionTimeout()));
             success = true;
+            isConnected.set(true);
             return buildConnectResult(true, token, null);
         } catch (org.eclipse.paho.mqttv5.common.MqttException ex) {
             logger.atError().withThrowable(ex).log("Exception occurred during connect reason code {}",
@@ -101,7 +104,9 @@ public class MqttConnectionImpl implements MqttConnection {
 
     @Override
     public MqttSubscribeReply subscribe(long timeout, @NonNull List<Subscription> subscriptions,
-                                        List<Mqtt5Properties> userProperties) {
+                                        List<Mqtt5Properties> userProperties) throws MqttException {
+        stateCheck();
+
         MqttSubscription[] mqttSubscriptions = new MqttSubscription[subscriptions.size()];
         MqttMessageListener[] listeners = new MqttMessageListener[subscriptions.size()];
         for (int i = 0; i < subscriptions.size(); i++) {
@@ -142,8 +147,8 @@ public class MqttConnectionImpl implements MqttConnection {
                 }
             }
         } catch (org.eclipse.paho.mqttv5.common.MqttException e) {
-            builder.addReasonCodes(e.getReasonCode());
-            builder.setReasonString(e.getMessage());
+            logger.atError().withThrowable(e).log("Failed during subscribing");
+            throw new MqttException("Could not subscribe", e);
         }
         return builder.build();
     }
@@ -161,7 +166,9 @@ public class MqttConnectionImpl implements MqttConnection {
     }
 
     @Override
-    public MqttPublishReply publish(long timeout, @NonNull Message message) {
+    public MqttPublishReply publish(long timeout, @NonNull Message message) throws MqttException {
+        stateCheck();
+
         MqttMessage mqttMessage = new MqttMessage();
         mqttMessage.setQos(message.getQos());
         mqttMessage.setPayload(message.getPayload());
@@ -197,15 +204,16 @@ public class MqttConnectionImpl implements MqttConnection {
             logger.atError().withThrowable(ex)
                     .log("Failed during publishing message with reasonCode {} and reasonString {}",
                             ex.getReasonCode(), ex.getMessage());
-            builder.setReasonCode(ex.getReasonCode());
-            builder.setReasonString(ex.getMessage());
+            throw new MqttException("Could not publish", ex);
         }
         return builder.build();
     }
 
     @Override
     public MqttSubscribeReply unsubscribe(long timeout, @NonNull List<String> filters,
-                                          List<Mqtt5Properties> userProperties) {
+                                          List<Mqtt5Properties> userProperties) throws MqttException {
+        stateCheck();
+
         String[] filterArray = new String[filters.size()];
         for (int i = 0; i < filters.size(); i++) {
             filterArray[i] = filters.get(i);
@@ -245,8 +253,7 @@ public class MqttConnectionImpl implements MqttConnection {
             }
         } catch (org.eclipse.paho.mqttv5.common.MqttException e) {
             logger.atError().withThrowable(e).log("Failed during unsubscribe");
-            builder.addReasonCodes(e.getReasonCode());
-            builder.setReasonString(e.getMessage());
+            throw new MqttException("Could not unsubscribe", e);
         }
         return builder.build();
     }
@@ -258,21 +265,43 @@ public class MqttConnectionImpl implements MqttConnection {
      */
     private IMqttAsyncClient createAsyncClient(MqttLib.ConnectionParams connectionParams)
             throws org.eclipse.paho.mqttv5.common.MqttException {
-        String uri = createUri(connectionParams.getHost(), connectionParams.getPort(),
-                connectionParams.getCert() != null);
-        return new MqttAsyncClient(uri, connectionParams.getClientId());
+        final boolean hasTls = connectionParams.getCert() != null;
+        final String uri = createUri(connectionParams.getHost(), connectionParams.getPort(), hasTls);
+
+        return new MqttAsyncClient(uri, connectionParams.getClientId(), new MemoryPersistence());
     }
 
     private void disconnectAndClose(long timeout, int reasonCode, List<Mqtt5Properties> userProperties)
             throws org.eclipse.paho.mqttv5.common.MqttException {
         MqttProperties properties = new MqttProperties();
+
         if (userProperties != null && !userProperties.isEmpty()) {
             properties.setUserProperties(convertToUserProperties(userProperties));
             userProperties.forEach(p -> logger.atInfo()
                     .log("Disconnect MQTT userProperties: {}, {}", p.getKey(), p.getValue()));
         }
+
         try {
-            client.disconnectForcibly(QUIESCE_TIMEOUT, timeout, reasonCode, properties);
+            if (isConnected.compareAndSet(true, false)) {
+                client.disconnectForcibly(QUIESCE_TIMEOUT, timeout, reasonCode, properties);
+            } else {
+                logger.atWarn().log("DISCONNECT was not sent on the dead connection");
+            }
+
+            final long deadline = System.nanoTime() + timeout * 1_000_000_000;
+
+            long remaining = deadline - System.nanoTime();
+            if (remaining < MIN_SHUTDOWN_NS) {
+                remaining = MIN_SHUTDOWN_NS;
+            }
+
+            executorService.shutdown();
+            if (!executorService.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
         } finally {
             client.close();
         }
@@ -290,8 +319,9 @@ public class MqttConnectionImpl implements MqttConnection {
         connectionOptions.setServerURIs(new String[]{uri});
         connectionOptions.setConnectionTimeout(connectionParams.getConnectionTimeout());
 
-        if (connectionParams.getKey() != null) {
-            SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(connectionParams);
+        if (connectionParams.getCert() != null) {
+            SSLSocketFactory sslSocketFactory = SslUtil.getSocketFactory(
+                connectionParams.getCa(), connectionParams.getCert(), connectionParams.getKey());
             connectionOptions.setSocketFactory(sslSocketFactory);
         }
 
@@ -459,6 +489,7 @@ public class MqttConnectionImpl implements MqttConnection {
         @Override
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
         public void disconnected(MqttDisconnectResponse mqttDisconnectResponse) {
+            isConnected.set(false);
             GRPCClient.DisconnectInfo disconnectInfo = convertDisconnectPacket(mqttDisconnectResponse);
 
             final String errorString = mqttDisconnectResponse.getException() == null
@@ -586,5 +617,20 @@ public class MqttConnectionImpl implements MqttConnection {
                 response.getServerReference(),
                 userProperties
         );
+    }
+
+    /**
+     * Checks connection state.
+     *
+     * @throws MqttException when connection state is not allow opertation
+     */
+    private void stateCheck() throws MqttException {
+        if (!isConnected.get()) {
+            throw new MqttException("MQTT client is not in connected state");
+        }
+
+        if (isClosing.get()) {
+            throw new MqttException("MQTT connection is closing");
+        }
     }
 }
