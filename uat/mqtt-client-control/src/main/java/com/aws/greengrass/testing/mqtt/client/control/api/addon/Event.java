@@ -16,12 +16,12 @@ public interface Event {
         /** MQTT message is received. */
         EVENT_TYPE_MQTT_MESSAGE,
 
+        /** MQTT connection is disconnected. */
+        EVENT_TYPE_MQTT_DISCONNECTED,
+
         // TODO: implement other events
         // /** MQTT Connecttion established. */
         // EVENT_TYPE_MQTT_CONNECTED,
-
-        // /** MQTT connection is disconnected. */
-        // EVENT_TYPE_MQTT_DISCONNECTED,
 
         // /** Agent is registered and discovered. */
         // EVENT_TYPE_AGENT_DISCOVERED,
