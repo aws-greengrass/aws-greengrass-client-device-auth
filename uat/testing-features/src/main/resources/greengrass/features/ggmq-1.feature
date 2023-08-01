@@ -1829,6 +1829,8 @@ Feature: GGMQ-1
       | <agent>                                  | classpath:/local-store/recipes/<recipe> |
     And I create client device "publisher"
     And I create client device "subscriber"
+    When I associate "publisher" with ggc
+    When I associate "subscriber" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
@@ -1868,8 +1870,6 @@ Feature: GGMQ-1
     }
 }
     """
-    When I associate "publisher" with ggc
-    When I associate "subscriber" with ggc
 
     And I deploy the Greengrass deployment configuration
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
@@ -1881,13 +1881,13 @@ Feature: GGMQ-1
     And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
 
     When I subscribe "subscriber" to "iot_data_0" with qos 1
-    When I publish from "publisher" to "iot_data_0" with qos 1 and message "Test message" and expect status 0
+    When I publish from "publisher" to "iot_data_0" with qos 1 and message "Test message"
     And message "Test message" received on "subscriber" from "iot_data_0" topic within 5 seconds
     And I rename connection "publisher" to "publisher_old"
 
     # Reconnect publisher with the same device id
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
-    When I publish from "publisher" to "iot_data_0" with qos 1 and message "Connect again" and expect status 0
+    When I publish from "publisher" to "iot_data_0" with qos 1 and message "Connect again"
     And message "Connect again" received on "subscriber" from "iot_data_0" topic within 5 seconds
 
     # WARNING: Paho Java client does not work in this test because of "Untranslated MqttException - RC: 0"
