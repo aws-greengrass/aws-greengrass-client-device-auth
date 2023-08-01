@@ -157,7 +157,7 @@ Example:
 java -Dggc.archive=greengrass-nucleus-latest.zip -Dtest.log.path=logs -Dtags="@GGMQ and not @SkipOnWindows" -jar testing-features/target/client-devices-auth-testing-features.jar
 ```
 
-@OffTheNetwork - scenarios with port 8883 blocked for some time
+@OffTheNetwork - scenarios with port 8883 blocked for some time. These tests require OS level firewall should be activated on a machine there Nucleus is running: iptables on Linux and advfirewall on Windows.
 
 To run tests matching ALL following criteria and all tags should be listed using "and" between tags
 ```bash
