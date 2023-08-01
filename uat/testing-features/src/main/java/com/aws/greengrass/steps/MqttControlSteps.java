@@ -29,6 +29,7 @@ import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.PublishReasonCode;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.SubscribeReasonCode;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.EventStorageImpl;
+import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttDisconnectEvent;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttMessageEvent;
 import com.aws.greengrass.testing.resources.AWSResources;
 import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
@@ -1130,11 +1131,46 @@ public class MqttControlSteps {
         } catch (TimeoutException e) {
             if (isExpected) {
                 log.error("No matched MQTT messages have been received, ex: {}", e.getMessage());
-                throw new IllegalStateException(e);
+                throw new IllegalStateException("No matched MQTT messages have been received", e);
             }
         }
-        if (!isExpectedMessage && !events.isEmpty()) {
+
+        if (!isExpected && !events.isEmpty()) {
             throw new IllegalStateException("MQTT unexpected messages have been received");
+        }
+    }
+
+    /**
+     * Verify is connection disconnected in limited duration of time.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @throws TimeoutException when matched message was not received in specified duration of time
+     * @throws RuntimeException on internal errors
+     * @throws InterruptedException then thread has been interrupted
+     */
+    @And("device {string} will be disconnected within {int} {word}")
+    public void checkDisconnect(String clientDeviceId, int value, String unit) throws InterruptedException {
+        final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+        ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        // build filter
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_DISCONNECTED)
+                                        .withConnectionControl(connectionControl)
+                                        .build();
+        // convert time units
+        TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
+
+        // awaiting for message
+        log.info("Awaiting for disconnect on Thing '{}' for {} {}", clientDeviceThingName, value, unit);
+
+        try {
+            List<Event> events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
+        } catch (TimeoutException e) {
+            log.error("No matched MQTT messages have been received, ex: {}", e.getMessage());
+            throw new IllegalStateException("No matched disconnect events have been received", e);
         }
     }
 
