@@ -1890,8 +1890,6 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_0" with qos 1 and message "Connect again"
     And message "Connect again" received on "subscriber" from "iot_data_0" topic within 5 seconds
 
-    # WARNING: Paho Java client does not work in this test because of "Untranslated MqttException - RC: 0"
-    # Add this client here after this issue will be fixed
     @mqtt3 @sdk-java
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  |
@@ -1901,6 +1899,11 @@ Feature: GGMQ-1
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  |
       | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
+
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt3 @paho-python
     Examples:
@@ -1916,6 +1919,11 @@ Feature: GGMQ-1
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  |
       | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
 
     @mqtt5 @paho-python
     Examples:
