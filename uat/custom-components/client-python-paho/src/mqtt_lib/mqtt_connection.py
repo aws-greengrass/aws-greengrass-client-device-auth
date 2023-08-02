@@ -232,6 +232,9 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         self.__asyncio_helper = None  # pylint: disable=unused-private-member
         self.__loop = asyncio.get_running_loop()
 
+        self.__is_closing = False
+        self.__is_connected = False
+
     def set_connection_id(self, connection_id: int):
         """
         Connection id setter
@@ -302,26 +305,26 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
             result = await asyncio.wait_for(self.__on_connect_future, remaining_timeout)
             conn_ack_info = self.__convert_to_conn_ack(result)
 
-            connected = True
             if result.reason_code == mqtt.MQTT_ERR_SUCCESS:
+                self.__is_connected = True
                 self.__logger.info(
                     "MQTT connection ID %s connected, client id %s",
                     self.__connection_id,
                     self.__connection_params.client_id,
                 )
             else:
-                connected = False
+                self.__is_connected = False
                 self.__logger.info(
                     "MQTT connection ID %s failed with error: %s", self.__connection_id, result.error_string
                 )
 
-            return ConnectResult(connected=connected, conn_ack_info=conn_ack_info, error=result.error_string)
+            return ConnectResult(connected=self.__is_connected, conn_ack_info=conn_ack_info, error=result.error_string)
         except asyncio.TimeoutError:
             self.__logger.exception("Exception occurred during connect")
-            return ConnectResult(connected=False, conn_ack_info=None, error="Connect timeout error")
+            return ConnectResult(connected=self.__is_connected, conn_ack_info=None, error="Connect timeout error")
         except (PahoException, socket.timeout) as error:
             self.__logger.exception("Exception occurred during connect")
-            return ConnectResult(connected=False, conn_ack_info=None, error=str(error))
+            return ConnectResult(connected=self.__is_connected, conn_ack_info=None, error=str(error))
         except Exception as error:
             self.__logger.exception("Exception occurred during connect")
             raise MQTTException from error
@@ -361,32 +364,41 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         mqtt_properties - list of Mqtt5Properties
         reason - disconnect reason code
         """
-        self.__logger.info("Disconnect MQTT connection with reason code %i", reason)
-        self.__on_disconnect_future = self.__loop.create_future()
+        if not self.__is_closing:
+            self.__is_closing = True
+            self.__logger.info("Disconnect MQTT connection with reason code %i", reason)
+            self.__on_disconnect_future = self.__loop.create_future()
 
-        try:
-            user_properties = self.__convert_to_user_properties(mqtt_properties, "DISCONNECT")
-            if self.__protocol == mqtt.MQTTv5:
-                reason_code_obj = ReasonCodes(PacketTypes.DISCONNECT, identifier=reason)
-                properties = Properties(PacketTypes.DISCONNECT)
-                properties.UserProperty = user_properties
-                self.__client.disconnect(reasoncode=reason_code_obj, properties=properties)
-            else:
-                self.__client.disconnect()
+            try:
+                if self.__is_connected is True:
+                    self.__is_connected = False
+                    user_properties = self.__convert_to_user_properties(mqtt_properties, "DISCONNECT")
+                    if self.__protocol == mqtt.MQTTv5:
+                        reason_code_obj = ReasonCodes(PacketTypes.DISCONNECT, identifier=reason)
+                        properties = Properties(PacketTypes.DISCONNECT)
+                        properties.UserProperty = user_properties
+                        self.__client.disconnect(reasoncode=reason_code_obj, properties=properties)
+                    else:
+                        self.__client.disconnect()
 
-            result = await asyncio.wait_for(self.__on_disconnect_future, timeout)
-        except asyncio.TimeoutError as error:
-            raise MQTTException("Couldn't disconnect from MQTT broker") from error
-        finally:
-            self.__on_disconnect_future = None
+                    result = await asyncio.wait_for(self.__on_disconnect_future, timeout)
+                else:
+                    self.__logger.warning("DISCONNECT was not sent on the dead connection")
 
-        if result.reason_code != mqtt.MQTT_ERR_SUCCESS:
-            raise MQTTException(f"Couldn't disconnect from MQTT broker - rc {result.reason_code}")
+            except asyncio.TimeoutError as error:
+                raise MQTTException("Couldn't disconnect from MQTT broker") from error
+            finally:
+                self.__on_disconnect_future = None
+
+            if result.reason_code != mqtt.MQTT_ERR_SUCCESS:
+                raise MQTTException(f"Couldn't disconnect from MQTT broker - rc {result.reason_code}")
 
     def __on_disconnect(self, client, userdata, reason_code, properties=None):  # pylint: disable=unused-argument
         """
         Paho MQTT disconnect callback
         """
+        self.__is_connected = False
+
         mqtt_reason_code = reason_code
 
         if hasattr(reason_code, "value"):
@@ -395,13 +407,21 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         mqtt_result = MqttResult(reason_code=mqtt_reason_code, properties=properties)
 
         disconnect_info = self.__convert_to_disconnect(mqtt_result=mqtt_result)
-        self.__grpc_client.on_mqtt_disconnect(self.__connection_id, disconnect_info, None)
 
-        try:
-            if self.__on_disconnect_future is not None:
-                self.__on_disconnect_future.set_result(mqtt_result)
-        except asyncio.InvalidStateError:
-            pass
+        if self.__is_closing:
+            self.__logger.warning("DISCONNECT event ignored due to shutdown initiated")
+        else:
+            self.__grpc_client.on_mqtt_disconnect(self.__connection_id, disconnect_info, None)
+
+            try:
+                if self.__on_disconnect_future is not None:
+                    self.__on_disconnect_future.set_result(mqtt_result)
+            except asyncio.InvalidStateError:
+                pass
+
+        self.__logger.info(
+            "MQTT connectionId %i disconnected error '%s'", self.__connection_id, disconnect_info.reasonString
+        )
 
     async def publish(self, timeout: int, message: MqttPubMessage) -> MqttPublishReply:
         """
@@ -564,7 +584,11 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         """
         self.__logger.debug("onMessage message %s from topic '%s'", message.payload, message.topic)
         mqtt_message = self.__convert_to_mqtt_message(message=message)
-        self.__grpc_client.on_receive_mqtt_message(self.__connection_id, mqtt_message)
+
+        if self.__is_closing:
+            self.__logger.info("PUBLISH event is ignored due to shutdown initiated")
+        else:
+            self.__grpc_client.on_receive_mqtt_message(self.__connection_id, mqtt_message)
 
     async def unsubscribe(
         self, timeout: int, filters: List[str], mqtt_properties: List[Mqtt5Properties]
@@ -690,8 +714,11 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
 
     def state_check(self):
         """Check if MQTT is connected"""
-        if (self.__client is None) or not self.__client.is_connected():
+        if not self.__is_connected:
             raise MQTTException("MQTT client is not in connected state")
+
+        if self.__is_closing:
+            raise MQTTException("MQTT connection is closing")
 
     def __create_publish_properties(self, message: MqttPubMessage):
         """
