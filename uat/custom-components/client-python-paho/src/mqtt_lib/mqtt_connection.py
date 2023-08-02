@@ -382,6 +382,9 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
                         self.__client.disconnect()
 
                     result = await asyncio.wait_for(self.__on_disconnect_future, timeout)
+
+                    if result.reason_code != mqtt.MQTT_ERR_SUCCESS:
+                        raise MQTTException(f"Couldn't disconnect from MQTT broker - rc {result.reason_code}")
                 else:
                     self.__logger.warning("DISCONNECT was not sent on the dead connection")
 
@@ -389,9 +392,6 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
                 raise MQTTException("Couldn't disconnect from MQTT broker") from error
             finally:
                 self.__on_disconnect_future = None
-
-            if result.reason_code != mqtt.MQTT_ERR_SUCCESS:
-                raise MQTTException(f"Couldn't disconnect from MQTT broker - rc {result.reason_code}")
 
     def __on_disconnect(self, client, userdata, reason_code, properties=None):  # pylint: disable=unused-argument
         """
@@ -413,11 +413,11 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
         else:
             self.__grpc_client.on_mqtt_disconnect(self.__connection_id, disconnect_info, None)
 
-            try:
-                if self.__on_disconnect_future is not None:
-                    self.__on_disconnect_future.set_result(mqtt_result)
-            except asyncio.InvalidStateError:
-                pass
+        try:
+            if self.__on_disconnect_future is not None:
+                self.__on_disconnect_future.set_result(mqtt_result)
+        except asyncio.InvalidStateError:
+            pass
 
         self.__logger.info(
             "MQTT connectionId %i disconnected error '%s'", self.__connection_id, disconnect_info.reasonString
