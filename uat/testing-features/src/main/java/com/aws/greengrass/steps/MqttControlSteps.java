@@ -1018,7 +1018,7 @@ public class MqttControlSteps {
     }
 
     /**
-     * Verify is MQTT message is received in limited duration of time.
+     * Verify is MQTT message is received before and in limited duration of time.
      *
      * @param message content of message to receive
      * @param clientDeviceId the user defined client device id
@@ -1037,7 +1037,7 @@ public class MqttControlSteps {
     }
 
     /**
-     * Verify is MQTT message is received in limited duration of time.
+     * Verify is MQTT message is received before and in limited duration of time.
      *
      * @param message content of message to receive
      * @param clientDeviceId the user defined client device id
@@ -1057,7 +1057,7 @@ public class MqttControlSteps {
 
 
     /**
-     * Verify is MQTT message is received in limited duration of time.
+     * Verify is MQTT message is received before and in limited duration of time.
      *
      * @param message beginning of long message to receive
      * @param messageLength the length of long message
@@ -1080,7 +1080,7 @@ public class MqttControlSteps {
     }
 
     /**
-     * Verify is MQTT message is received in limited duration of time.
+     * Verify is MQTT message is received before in limited duration of time.
      *
      * @param message content of message to receive
      * @param clientDeviceId the user defined client device id
@@ -1088,9 +1088,9 @@ public class MqttControlSteps {
      * @param value the duration of time to wait for message
      * @param unit the time unit to wait
      * @param isExpected used for setting message expectation
-     * @throws TimeoutException when matched message was not received in specified duration of time
-     * @throws RuntimeException on internal errors
+     * @throws IllegalStateException when matched message was not received in specified duration of time
      * @throws InterruptedException then thread has been interrupted
+     * @throws RuntimeException on internal errors
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
     private void receive(String message, String clientDeviceId, String topicString, int value,
@@ -1141,7 +1141,7 @@ public class MqttControlSteps {
     }
 
     /**
-     * Verify is connection disconnected in limited duration of time.
+     * Verify is connection is not disconnected before and in limited duration of time.
      *
      * @param clientDeviceId the user defined client device id
      * @param value the duration of time to wait for message
@@ -1150,8 +1150,39 @@ public class MqttControlSteps {
      * @throws RuntimeException on internal errors
      * @throws InterruptedException then thread has been interrupted
      */
-    @And("device {string} will be disconnected within {int} {word}")
+    @And("device {string} is not disconnected within {int} {word}")
+    public void checkIsNotDisconnect(String clientDeviceId, int value, String unit) throws InterruptedException {
+        checkDisconnect(clientDeviceId, value, unit, false);
+    }
+
+    /**
+     * Verify is connection disconnected before and in limited duration of time.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @throws TimeoutException when matched message was not received in specified duration of time
+     * @throws RuntimeException on internal errors
+     * @throws InterruptedException then thread has been interrupted
+     */
+    @And("device {string} disconnected within {int} {word}")
     public void checkDisconnect(String clientDeviceId, int value, String unit) throws InterruptedException {
+        checkDisconnect(clientDeviceId, value, unit, true);
+    }
+
+    /**
+     * Verify is connection is [not] disconnected before and in limited duration of time.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @param isExpected used for setting disconnect expectation
+     * @throws IllegalStateException when matched message was not received in specified duration of time
+     * @throws InterruptedException then thread has been interrupted
+     * @throws RuntimeException on internal errors
+     */
+    private void checkDisconnect(String clientDeviceId, int value, String unit, boolean isExpected)
+            throws InterruptedException {
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
         ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
 
@@ -1166,29 +1197,36 @@ public class MqttControlSteps {
         // awaiting for message
         log.info("Awaiting for disconnect on Thing '{}' for {} {}", clientDeviceThingName, value, unit);
 
+        List<Event> events = new ArrayList<>();
         try {
-            List<Event> events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
+            events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
         } catch (TimeoutException e) {
-            log.error("No matched MQTT messages have been received, ex: {}", e.getMessage());
-            throw new IllegalStateException("No matched disconnect events have been received", e);
+            if (isExpected) {
+                log.error("No matched MQTT messages have been received, ex: {}", e.getMessage());
+                throw new IllegalStateException("No matched disconnect events have been received", e);
+            }
+        }
+
+        if (!isExpected && !events.isEmpty()) {
+            throw new IllegalStateException("Unexpected disconnect have been received");
         }
     }
 
     /**
-     * Clear message storage.
+     * Clear event storage.
      *
      */
-    @And("I clear message storage")
+    @And("I clear the event storage")
     public void clearStorage() {
         eventStorage.clear();
-        log.info("Storage was cleared");
+        log.info("Event storage was cleared");
     }
 
     /**
      * Clear message storage.
      *
      */
-    @And("I clear message storage and reset all MQTT settings to default")
+    @And("I clear the event storage and reset all MQTT settings to defaults")
     public void clearAnything() {
         clearStorage();
         setMqttTimeoutSec(DEFAULT_MQTT_TIMEOUT_SEC);

@@ -1881,14 +1881,130 @@ Feature: GGMQ-1
     And I connect device "subscriber" on <agent> to "localMqttBroker2" using mqtt "<mqtt-v>"
 
     When I subscribe "subscriber" to "iot_data_0" with qos 1
-    When I publish from "publisher" to "iot_data_0" with qos 1 and message "Test message"
-    And message "Test message" received on "subscriber" from "iot_data_0" topic within 5 seconds
+    When I publish from "publisher" to "iot_data_0" with qos 1 and message "Test message t25"
+    And message "Test message t25" received on "subscriber" from "iot_data_0" topic within 5 seconds
     And I rename connection "publisher" to "publisher_old"
 
     # Reconnect publisher with the same device id
     And I connect device "publisher" on <agent> to "localMqttBroker1" using mqtt "<mqtt-v>"
     When I publish from "publisher" to "iot_data_0" with qos 1 and message "Connect again"
     And message "Connect again" received on "subscriber" from "iot_data_0" topic within 5 seconds
+    And device "publisher_old" disconnected within 10 seconds
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
+
+    @mqtt3 @mosquitto-c @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
+
+    @mqtt3 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
+
+    @mqtt3 @paho-python
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
+
+    @mqtt5 @mosquitto-c @SkipOnWindows
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | mosquitto-c | aws.greengrass.client.MqttMosquittoClient   | client_mosquitto_c.yaml |
+
+    @mqtt5 @paho-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-java   | aws.greengrass.client.Mqtt5JavaPahoClient   | client_java_paho.yaml   |
+
+    @mqtt5 @paho-python
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml |
+
+
+  @GGMQ-1-T26
+  Scenario Outline: GGMQ-1-T26-<mqtt-v>-<name>: As a customer, my GGAD stays connected when CDA rotates cert in EMQX broker
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+    And I create client device "clientDeviceTest"
+    When I associate "clientDeviceTest" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${clientDeviceTest}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.IPDetector configuration to:
+    """
+{
+    "MERGE":{
+        "includeIPv4LoopbackAddrs": "true"
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+
+    And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
+    And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    Then I add IP address "127.0.0.2" to loopback interface
+    And I wait 60 seconds
+
+    When I retrieve the certificate of broker "default_broker" and store as "BROKER_CERTIFICATE"
+    Then I verify that the subject alternative names of certificate "BROKER_CERTIFICATE" contains endpoint "127.0.0.2"
+    And I verify the TLS accepted issuer list of certificate "BROKER_CERTIFICATE" is empty
+
+    Then device "clientDeviceTest" is not disconnected within 10 seconds
+
+    And I remove IP address "127.0.0.2" from loopback interface
 
     @mqtt3 @sdk-java
     Examples:
@@ -2189,7 +2305,7 @@ Feature: GGMQ-1
     And message "First retained message" is not received on "subscriber" from "receive_last_retain_message" topic within 5 seconds
     And message "Second retained message" received on "subscriber" from "receive_last_retain_message" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 2. test case when first published message has retain and second not
     And I set MQTT publish 'retain' flag to true
@@ -2203,7 +2319,7 @@ Feature: GGMQ-1
     And message "Second message without retain" is not received on "subscriber" from "receive_only_retain_message_on_subscribe" topic within 5 seconds
     And message "First message with retain" received on "subscriber" from "receive_only_retain_message_on_subscribe" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 3. test case when subscribe twice with 'retain send at subscription'
     And I set MQTT publish 'retain' flag to true
@@ -2214,11 +2330,11 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "subscribe_twice_with_send_at_subscription" with qos 0
     And message "Single message in case3" received on "subscriber" from "subscribe_twice_with_send_at_subscription" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
     When I subscribe "subscriber" to "subscribe_twice_with_send_at_subscription" with qos 0
     And message "Single message in case3" received on "subscriber" from "subscribe_twice_with_send_at_subscription" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 4. test case when subscribe twice with 'retain send at new subscription' when has retained message
     And I set MQTT publish 'retain' flag to true
@@ -2228,14 +2344,14 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "send_at_new_subscription" with qos 0
     And message "Single retained message in case4" received on "subscriber" from "send_at_new_subscription" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
     When I subscribe "subscriber" to "send_at_new_subscription" with qos 0
     And message "Single retained message in case4" is not received on "subscriber" from "send_at_new_subscription" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 5. test case when has retained message and subscribe with 'do not send and subscription'
-    And I clear message storage
+    And I clear the event storage
     And I set MQTT publish 'retain' flag to true
     And I set MQTT subscribe 'retain handling' property to "MQTT5_RETAIN_DO_NOT_SEND_AT_SUBSCRIPTION"
 
@@ -2243,7 +2359,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "do_not_send_at_subscription" with qos 0
     And message "Single retained message in case5" is not received on "subscriber" from "do_not_send_at_subscription" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 6. test case when has no retained messages and subscribed with 'send at subscription'
     And I set MQTT publish 'retain' flag to false
@@ -2253,7 +2369,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "t102_case6" with qos 0
     And message "Single not retained message in case6" is not received on "subscriber" from "t102_case6" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 7. test case when no retained messages and subscribed with 'send at new subscription'
     And I set MQTT publish 'retain' flag to false
@@ -2263,7 +2379,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "t102_case7" with qos 0
     And message "Single not retained message in case7" is not received on "subscriber" from "t102_case7" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 8. test case when no retaine messages and subscribed with 'do not send at subscription'
     And I set MQTT publish 'retain' flag to false
@@ -2273,7 +2389,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "t102_case8" with qos 0
     And message "Single not retained message in case8" is not received on "subscriber" from "t102_case8" topic within 5 seconds
 
-    And I clear message storage and reset all MQTT settings to default
+    And I clear the event storage and reset all MQTT settings to default
 
     # C. SUBSCRIBE 'retain as published' tests
 
@@ -2311,7 +2427,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_1" with qos 0 and message "Hello world4"
     And message "Hello world4" received on "subscriber" from "iot_data_1" topic within 5 seconds
 
-    And I clear message storage and reset all MQTT settings to default
+    And I clear the event storage and reset all MQTT settings to defaults
 
     # D. PUBLISH 'user properties' tests
 
@@ -2326,7 +2442,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_2" with qos 0 and message "Expected userProperties are received"
     And message "Expected userProperties are received" received on "subscriber" from "iot_data_2" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 12. test case when publish 'user properties' are empty.
     #  In that case 'user properties' on receive should not be equal to 'user properties' value on publish.
@@ -2339,7 +2455,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_2" with qos 0 and message "Expected userProperties are not received"
     And message "Expected userProperties are not received" is not received on "subscriber" from "iot_data_2" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 13. test case when publish 'user properties' are empty.
     #  In that case 'user properties' on receive should ignore 'user properties' value on publish.
@@ -2351,7 +2467,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_3" with qos 0 and message "Ignore userProperties"
     And message "Ignore userProperties" received on "subscriber" from "iot_data_3" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 14. test case when publish 'user properties' are empty.
     #  In that case 'user properties' on receive should be equal to 'user properties' value on publish.
@@ -2362,7 +2478,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "iot_data_4" with qos 0 and message "Without userProperties"
     And message "Without userProperties" received on "subscriber" from "iot_data_4" topic within 5 seconds
 
-    And I clear message storage and reset all MQTT settings to default
+    And I clear the event storage and reset all MQTT settings to defaults
 
     # E. 'payload format indicator' tests
 
@@ -2373,7 +2489,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "payload_format_indicator_false_false" with qos 0 and message "Payload format indicators false/false"
     And message "Payload format indicators false/false" received on "subscriber" from "payload_format_indicator_false_false" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 16. test case when both tx/rx payload format indicators set to 1
     And I set MQTT publish 'payload format indicator' flag to true
@@ -2382,7 +2498,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "payload_format_indicator_true_true" with qos 0 and message "Payload format indicators true/true"
     And message "Payload format indicators true/true" received on "subscriber" from "payload_format_indicator_true_true" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 17. test case when tx payload format indicator set to 1 and rx to 0
     And I set MQTT publish 'payload format indicator' flag to true
@@ -2391,7 +2507,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "payload_format_indicator_true_false" with qos 0 and message "Payload format indicators true/false"
     And message "Payload format indicators true/false" is not received on "subscriber" from "payload_format_indicator_true_false" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 18. test case when tx payload format indicator set to 0 and rx to 1
     And I set MQTT publish 'payload format indicator' flag to false
@@ -2400,7 +2516,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "payload_format_indicator_false_true" with qos 0 and message "Payload format indicators false/true"
     And message "Payload format indicators false/true" is not received on "subscriber" from "payload_format_indicator_false_true" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 19. test case when tx payload format indicator set to 1 and rx is unset
     And I set MQTT publish 'payload format indicator' flag to true
@@ -2409,7 +2525,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "payload_format_indicator_true_null" with qos 0 and message "Payload format indicators true/null"
     And message "Payload format indicators true/null" received on "subscriber" from "payload_format_indicator_true_null" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 20. test case when tx payload format indicator set to 0 and rx is unset
     And I set MQTT publish 'payload format indicator' flag to false
@@ -2418,7 +2534,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "payload_format_indicator_false_null" with qos 0 and message "Payload format indicators false/null"
     And message "Payload format indicators false/null" received on "subscriber" from "payload_format_indicator_false_null" topic within 5 seconds
 
-    And I clear message storage and reset all MQTT settings to default
+    And I clear the event storage and reset all MQTT settings to defaults
 
     # F. subscribe 'no local' tests
 
@@ -2429,7 +2545,7 @@ Feature: GGMQ-1
     When I publish from "subscriber" to "no_local_true" with qos 0 and message "First message no local true test"
     Then message "First message no local true test" is not received on "subscriber" from "no_local_true" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 22. test case when  subscribe 'no local' set to false
     And I set MQTT subscribe 'no local' flag to false
@@ -2438,7 +2554,7 @@ Feature: GGMQ-1
     When I publish from "subscriber" to "no_local_false" with qos 0 and message "First message no local false test"
     Then message "First message no local false test" received on "subscriber" from "no_local_false" topic within 5 seconds
 
-    And I clear message storage and reset all MQTT settings to default
+    And I clear the event storage and reset all MQTT settings to defaults
 
     # G. publish/subscribe 'content type' tests
 
@@ -2449,7 +2565,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "content_types_the_same" with qos 0 and message "Content types not null/not null"
     And message "Content types not null/not null" received on "subscriber" from "content_types_the_same" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 24. test case when tx content type set another value then rx
     And I set MQTT publish 'content type' to "another content type value"
@@ -2458,7 +2574,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "content_type_not_the_same" with qos 0 and message "Different values of content types"
     And message "Different values of content type" is not received on "subscriber" from "content_type_not_the_same" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 25. test case when tx content type is null
     And I reset MQTT publish 'content type'
@@ -2467,7 +2583,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "content_type_null_not_null" with qos 0 and message "Content types null/not null"
     And message "Content types null/not null" is not received on "subscriber" from "content_type_null_not_null" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 26. test case when rx content type is null
     And I set MQTT publish 'content type' to "text/plain; charset=utf-8"
@@ -2476,7 +2592,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "content_type_not_null_null" with qos 0 and message "Content types not null/null"
     And message "Content types not null/null" received on "subscriber" from "content_type_not_null_null" topic within 5 seconds
 
-    And I clear message storage and reset all MQTT settings to default
+    And I clear the event storage and reset all MQTT settings to defaults
 
     # H. test 'message expiry interval' feature
 
@@ -2488,7 +2604,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "message_expire_interval_50" with qos 0 and message "Message expiry interval was 50"
     And message "Message expiry interval was 50" received on "subscriber" from "message_expire_interval_50" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 28. test case when send message expiry interval 100 make 5 seconds pause and receive 95
     And I set MQTT publish 'retain' flag to true
@@ -2499,7 +2615,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "message_expire_interval_100" with qos 0
     And message "Message expiry interval was 100" received on "subscriber" from "message_expire_interval_100" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 29. test case when send message expiry interval 1 make 5 seconds pause and message do not forward by broker
     And I set MQTT publish 'retain' flag to true
@@ -2510,7 +2626,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "message_expire_interval_1" with qos 0
     And message "Message expiry interval was 1" is not received on "subscriber" from "message_expire_interval_1" topic within 10 seconds
 
-    And I clear message storage and reset all MQTT settings to default
+    And I clear the event storage and reset all MQTT settings to defaults
 
     # I. test 'response topic' feature
 
@@ -2522,7 +2638,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "response_topic_test_case_1" with qos 0 and message "Message with response topic 1"
     And message "Message with response topic 1" received on "subscriber" from "response_topic_test_case_1" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 31. test case when publish message with response topic set but expected response topic is not set
     And I set MQTT publish 'response topic' to "response_topic_2"
@@ -2532,7 +2648,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "response_topic_test_case_2" with qos 0 and message "Message with response topic 2"
     And message "Message with response topic 2" received on "subscriber" from "response_topic_test_case_2" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 32. test case when response topic in publish is not set but expected in received message
     And I reset MQTT publish 'response topic'
@@ -2542,7 +2658,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "response_topic_test_case_3" with qos 0 and message "Message without response topic 3"
     And message "Message without response topic 3" is not received on "subscriber" from "response_topic_test_case_3" topic within 10 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 33. test case when response topic in pulish and receive are not the same
     And I set MQTT publish 'response topic' to "response_topic_4"
@@ -2552,7 +2668,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "response_topic_test_case_4" with qos 0 and message "Message with response topic 4"
     And message "Message with response topic 4" is not received on "subscriber" from "response_topic_test_case_4" topic within 10 seconds
 
-    And I clear message storage and reset all MQTT settings to default
+    And I clear the event storage and reset all MQTT settings to defaults
 
     # J. test 'correlation data' feature
 
@@ -2572,7 +2688,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "correlation_data_test_case_2" with qos 0 and message "Message with correlation data 2"
     And message "Message with correlation data 2" received on "subscriber" from "correlation_data_test_case_2" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 36. test case when correlation data in publish is not set but expected in received message
     And I reset MQTT publish 'correlation data'
@@ -2582,7 +2698,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "correlation_data_test_case_3" with qos 0 and message "Message without correlation data 3"
     And message "Message without correlation data 3" is not received on "subscriber" from "correlation_data_test_case_3" topic within 10 seconds
 
-    And I clear message storage
+    And I clear the event storage
 
     # 37. test case when correlation data in pulish and receive are not the same
     And I set MQTT publish 'correlation data' to "correlation_data_4"
@@ -2592,7 +2708,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "correlation_data_test_case_4" with qos 0 and message "Message with correlation data 4"
     And message "Message with correlation data 4" is not received on "subscriber" from "correlation_data_test_case_4" topic within 10 seconds
 
-    And I clear message storage and reset all MQTT settings to default
+    And I clear the event storage and reset all MQTT settings to defaults
 
     # request response information is a CONNECT packet property
     And I disconnect device "publisher" with reason code 0
@@ -2608,7 +2724,7 @@ Feature: GGMQ-1
     When I publish from "publisher" to "topic_request_response_information_is_set_true" with qos 0 and message "Message when request response information is true"
     And message "Message when request response information is true" received on "subscriber" from "topic_request_response_information_is_set_true" topic within 5 seconds
 
-    And I clear message storage
+    And I clear the event storage
     And I disconnect device "publisher" with reason code 0
 
     # 39. test case when connect with 'request response information' flag set to false
