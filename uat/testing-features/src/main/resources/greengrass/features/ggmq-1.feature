@@ -1933,7 +1933,7 @@ Feature: GGMQ-1
 
 
   @GGMQ-1-T26
-  Scenario Outline: GGMQ-1-T26-<mqtt-v>-<name>: As a customer, my GGAD stays connected when CDA rotates cert in EMQX broker
+  Scenario Outline: GGMQ-1-T26-<mqtt-v>-<name>: As a customer, my GGAD stays connected when CDA rotates cert for EMQX broker
     When I create a Greengrass deployment with components
       | aws.greengrass.clientdevices.Auth        | LATEST                                  |
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |

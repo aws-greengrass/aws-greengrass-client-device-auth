@@ -85,16 +85,8 @@ public class BrokerCertificateSteps {
      */
     @Then("I verify the certificate {string} equals the certificate {string}")
     public void verifyCertsAreEqual(String certNameA, String certNameB) {
-        CertificateInfo certInfoA = certificateInfos.get(certNameA);
-        if (certInfoA == null) {
-            throw new IllegalStateException(String.format("Certificate %s not found.", certNameA));
-        }
-
-        CertificateInfo certInfoB = certificateInfos.get(certNameB);
-        if (certInfoB == null) {
-            throw new IllegalStateException(String.format("Certificate %s not found.", certNameB));
-        }
-
+        CertificateInfo certInfoA = getCertificateInfo(certNameA);
+        CertificateInfo certInfoB = getCertificateInfo(certNameB);
         if (!certInfoA.getCertificate().equals(certInfoB.getCertificate())) {
             throw new IllegalStateException("Certificates are differ");
         }
@@ -111,11 +103,7 @@ public class BrokerCertificateSteps {
     @Then("I verify that the subject alternative names of certificate {string} contains endpoint {string}")
     public void verifyBrokerCertificateContainsEndpoint(String certName, String endpoint)
             throws CertificateParsingException {
-        CertificateInfo certInfo = certificateInfos.get(certName);
-        if (certInfo == null) {
-            throw new IllegalStateException(String.format("Certificate %s not found.", certName));
-        }
-
+        CertificateInfo certInfo = getCertificateInfo(certName);
         Collection<List<?>> altNames = certInfo.getCertificate().getSubjectAlternativeNames();
         if (altNames == null) {
             throw new IllegalStateException("Missing Subject alternatiuve names of certificate");
@@ -140,11 +128,7 @@ public class BrokerCertificateSteps {
      */
     @Then("I verify the TLS accepted issuer list of certificate {string} is empty")
     public void verifyAcceptedIssuerListEmpty(String certName) {
-        CertificateInfo certInfo = certificateInfos.get(certName);
-        if (certInfo == null) {
-            throw new IllegalStateException(String.format("Certificate %s not found.", certName));
-        }
-
+        CertificateInfo certInfo = getCertificateInfo(certName);
         Principal[] clientCertIssuers = certInfo.getPrincinals();
         if (clientCertIssuers != null && clientCertIssuers.length > 0) {
             throw new IllegalStateException("Accepted issuer list is not empty");
@@ -296,5 +280,21 @@ public class BrokerCertificateSteps {
             }
             return new CertificateFutures(serverCertsFut, clientCertIssuersFut);
         }
+    }
+
+    /**
+     * Get information of certificate by name.
+     *
+     * @param certName the name of certificate
+     * @return certificate information
+     * @throws IllegalStateException on errors
+     */
+    private CertificateInfo getCertificateInfo(String certName) {
+        CertificateInfo certInfo = certificateInfos.get(certName);
+        if (certInfo == null) {
+            throw new IllegalStateException(String.format("Certificate %s not found.", certName));
+        }
+
+        return certInfo;
     }
 }
