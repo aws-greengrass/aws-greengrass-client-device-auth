@@ -24,8 +24,10 @@ import java.net.Socket;
 import java.net.URI;
 import java.security.Principal;
 import java.security.PrivateKey;
+import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,10 +45,18 @@ import javax.net.ssl.X509TrustManager;
 @ScenarioScoped
 public class BrokerCertificateSteps {
     private static final int GET_CERTIFICATE_TIMEOUT_SEC = 5;
+    private static final int GET_PRINCIPALS_TIMEOUT_SEC = 5;
 
     private final MqttBrokers mqttBrokers;
 
-    private final Map<String, X509Certificate> certificates = new HashMap<>();
+    private final Map<String, CertificateInfo> certificateInfos = new HashMap<>();
+
+    @AllArgsConstructor
+    @Getter
+    private static class CertificateInfo {
+        X509Certificate certificate;                    // TODO: can be list/array
+        Principal[] princinals;
+    }
 
     @AllArgsConstructor
     @Getter
@@ -75,18 +85,53 @@ public class BrokerCertificateSteps {
      */
     @Then("I verify the certificate {string} equals the certificate {string}")
     public void verifyCertsAreEqual(String certNameA, String certNameB) {
-        X509Certificate certA = certificates.get(certNameA);
-        if (certA == null) {
-            throw new IllegalStateException(String.format("Certificate %s not found.", certNameA));
-        }
-
-        X509Certificate certB = certificates.get(certNameB);
-        if (certB == null) {
-            throw new IllegalStateException(String.format("Certificate %s not found.", certNameB));
-        }
-
-        if (!certA.equals(certB)) {
+        CertificateInfo certInfoA = getCertificateInfo(certNameA);
+        CertificateInfo certInfoB = getCertificateInfo(certNameB);
+        if (!certInfoA.getCertificate().equals(certInfoB.getCertificate())) {
             throw new IllegalStateException("Certificates are differ");
+        }
+    }
+
+    /**
+     * Checks is certificate contains endpoint in ubject alternative names extension.
+     *
+     * @param certName the name of certificate
+     * @param endpoint the name of endpoint or IP address
+     * @throws CertificateParsingException when could not extract subject alternative names from certificate
+     * @throws IllegalStateException on errors
+     */
+    @Then("I verify that the subject alternative names of certificate {string} contains endpoint {string}")
+    public void verifyBrokerCertificateContainsEndpoint(String certName, String endpoint)
+            throws CertificateParsingException {
+        CertificateInfo certInfo = getCertificateInfo(certName);
+        Collection<List<?>> altNames = certInfo.getCertificate().getSubjectAlternativeNames();
+        if (altNames == null) {
+            throw new IllegalStateException("Missing Subject alternatiuve names of certificate");
+        }
+
+        for (List<?> alt : altNames) {
+            Object altName = alt.get(1);
+            log.info("Cert alt name {}", altName);
+            if (endpoint.equals(altName)) {
+                return;
+            }
+        }
+
+        throw new IllegalStateException("Endpoint not found in the subject alternative names of certificate");
+    }
+
+    /**
+     * Checks is certificate's accepted issuer list is missing or empty.
+     *
+     * @param certName the name of certificate
+     * @throws IllegalStateException on errors
+     */
+    @Then("I verify the TLS accepted issuer list of certificate {string} is empty")
+    public void verifyAcceptedIssuerListEmpty(String certName) {
+        CertificateInfo certInfo = getCertificateInfo(certName);
+        Principal[] clientCertIssuers = certInfo.getPrincinals();
+        if (clientCertIssuers != null && clientCertIssuers.length > 0) {
+            throw new IllegalStateException("Accepted issuer list is not empty");
         }
     }
 
@@ -129,9 +174,13 @@ public class BrokerCertificateSteps {
                     throw new IllegalStateException("Certificate array is empty");
                 }
 
+                Principal[] principal = futures.getPrincinal().get(GET_PRINCIPALS_TIMEOUT_SEC,
+                                                                            TimeUnit.SECONDS);
+
+                // FIXME: strictly speaking we can have a array of certificates here
                 X509Certificate cert = serverCerts[0];
-                certificates.put(certName, cert);
-                log.info("Saved broker's '{}' certificate '{}'", brokerId, cert);
+                certificateInfos.put(certName, new CertificateInfo(cert, principal));
+                log.info("Saved broker's '{}' certificate info '{}'", brokerId, cert);
                 return;
             } catch (IllegalStateException | ExecutionException | TimeoutException ex) {
                 lastException = ex;
@@ -231,5 +280,21 @@ public class BrokerCertificateSteps {
             }
             return new CertificateFutures(serverCertsFut, clientCertIssuersFut);
         }
+    }
+
+    /**
+     * Get information of certificate by name.
+     *
+     * @param certName the name of certificate
+     * @return certificate information
+     * @throws IllegalStateException on errors
+     */
+    private CertificateInfo getCertificateInfo(String certName) {
+        CertificateInfo certInfo = certificateInfos.get(certName);
+        if (certInfo == null) {
+            throw new IllegalStateException(String.format("Certificate %s not found.", certName));
+        }
+
+        return certInfo;
     }
 }

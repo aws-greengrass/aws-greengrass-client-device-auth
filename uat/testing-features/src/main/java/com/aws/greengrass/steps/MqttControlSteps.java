@@ -29,6 +29,7 @@ import com.aws.greengrass.testing.mqtt.client.control.api.addon.EventFilter;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.PublishReasonCode;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.SubscribeReasonCode;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.EventStorageImpl;
+import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttDisconnectEvent;
 import com.aws.greengrass.testing.mqtt.client.control.implementation.addon.MqttMessageEvent;
 import com.aws.greengrass.testing.resources.AWSResources;
 import com.aws.greengrass.testing.resources.iot.IotCertificateSpec;
@@ -245,6 +246,7 @@ public class MqttControlSteps {
         @Override
         public void onMqttDisconnect(ConnectionControl connectionControl, Mqtt5Disconnect disconnect, String error) {
             // TODO: also add to eventStore
+            eventStorage.addEvent(new MqttDisconnectEvent(connectionControl, disconnect, error));
             log.info("MQTT client disconnected. Error: {}", error);
         }
     };
@@ -744,7 +746,7 @@ public class MqttControlSteps {
         // get address information about broker
         final List<MqttBrokers.ConnectivityInfo> bc = mqttBrokers.getConnectivityInfo(brokerId);
         if (CollectionUtils.isNullOrEmpty(bc)) {
-            throw new RuntimeException("There is no address information about broker, "
+            throw new IllegalStateException("There is no address information about broker, "
                                         + "probably discovery step missing in scenario");
         }
 
@@ -780,7 +782,7 @@ public class MqttControlSteps {
         }
 
         if (lastException == null) {
-            throw new RuntimeException("No addresses to connect");
+            throw new IllegalStateException("No addresses to connect");
         }
         throw lastException;
     }
@@ -826,7 +828,7 @@ public class MqttControlSteps {
             return;
         }
         log.error("It was expected that there would be no connection, but connected");
-        throw new RuntimeException("It was expected that there would be no connection, but connected");
+        throw new IllegalStateException("It was expected that there would be no connection, but connected");
     }
 
     /**
@@ -913,16 +915,16 @@ public class MqttControlSteps {
         MqttSubscribeReply mqttSubscribeReply = connectionControl.subscribeMqtt(DEFAULT_SUBSCRIPTION_ID,
                                                                                 txUserProperties, mqtt5Subscription);
         if (mqttSubscribeReply == null) {
-            throw new RuntimeException("Do not receive reply to MQTT subscribe request");
+            throw new IllegalStateException("Do not receive reply to MQTT subscribe request");
         }
 
         List<Integer> reasons = mqttSubscribeReply.getReasonCodesList();
         if (reasons == null) {
-            throw new RuntimeException("Receive reply to MQTT subscribe request with missing reason codes");
+            throw new IllegalStateException("Receive reply to MQTT subscribe request with missing reason codes");
         }
 
         if (reasons.size() != 1 || reasons.get(0) == null) {
-            throw new RuntimeException("Receive reply to MQTT subscribe request with unexpected number "
+            throw new IllegalStateException("Receive reply to MQTT subscribe request with unexpected number "
                     + "of reason codes should be 1 but has " + reasons.size());
         }
 
@@ -937,7 +939,7 @@ public class MqttControlSteps {
                 log.error("MQTT subscription has on topics filter {} been failed. Unexpected reason code {}", filter,
                           reason);
             }
-            throw new RuntimeException("Receive reply to MQTT subscribe request with missing reason codes");
+            throw new IllegalStateException("Receive reply to MQTT subscribe request with missing reason codes");
         }
     }
 
@@ -1004,19 +1006,19 @@ public class MqttControlSteps {
         Mqtt5Message mqtt5Message = buildMqtt5Message(qos, topic, message);
         MqttPublishReply mqttPublishReply = connectionControl.publishMqtt(mqtt5Message);
         if (mqttPublishReply == null) {
-            throw new RuntimeException("Do not receive reply to MQTT publish request");
+            throw new IllegalStateException("Do not receive reply to MQTT publish request");
         }
 
         final int reasonCode = mqttPublishReply.getReasonCode();
         if (reasonCode != expectedStatus) {
-            throw new RuntimeException("MQTT publish completed with negative reason code " + reasonCode);
+            throw new IllegalStateException("MQTT publish completed with negative reason code " + reasonCode);
         }
 
         log.info("MQTT message '{}' has been succesfully published", message);
     }
 
     /**
-     * Verify is MQTT message is received in limited duration of time.
+     * Verify is MQTT message is received before and in limited duration of time.
      *
      * @param message content of message to receive
      * @param clientDeviceId the user defined client device id
@@ -1035,7 +1037,7 @@ public class MqttControlSteps {
     }
 
     /**
-     * Verify is MQTT message is received in limited duration of time.
+     * Verify is MQTT message is received before and in limited duration of time.
      *
      * @param message content of message to receive
      * @param clientDeviceId the user defined client device id
@@ -1055,7 +1057,7 @@ public class MqttControlSteps {
 
 
     /**
-     * Verify is MQTT message is received in limited duration of time.
+     * Verify is MQTT message is received before and in limited duration of time.
      *
      * @param message beginning of long message to receive
      * @param messageLength the length of long message
@@ -1078,21 +1080,21 @@ public class MqttControlSteps {
     }
 
     /**
-     * Verify is MQTT message is received in limited duration of time.
+     * Verify is MQTT message is received before in limited duration of time.
      *
      * @param message content of message to receive
      * @param clientDeviceId the user defined client device id
      * @param topicString the topic (not a filter) which message has been sent
      * @param value the duration of time to wait for message
      * @param unit the time unit to wait
-     * @param isExpectedMessage used for setting message expectation
-     * @throws TimeoutException when matched message was not received in specified duration of time
-     * @throws RuntimeException on internal errors
+     * @param isExpected used for setting message expectation
+     * @throws IllegalStateException when matched message was not received in specified duration of time
      * @throws InterruptedException then thread has been interrupted
+     * @throws RuntimeException on internal errors
      */
     @SuppressWarnings("PMD.UseObjectForClearerAPI")
-    public void receive(String message, String clientDeviceId, String topicString, int value,
-                        String unit, boolean isExpectedMessage)
+    private void receive(String message, String clientDeviceId, String topicString, int value,
+                        String unit, boolean isExpected)
                             throws TimeoutException, InterruptedException {
         // getting connectionControl by clientDeviceId
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
@@ -1127,31 +1129,104 @@ public class MqttControlSteps {
         try {
             events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
         } catch (TimeoutException e) {
-            if (isExpectedMessage) {
+            if (isExpected) {
                 log.error("No matched MQTT messages have been received, ex: {}", e.getMessage());
-                throw new RuntimeException(e);
+                throw new IllegalStateException("No matched MQTT messages have been received", e);
             }
         }
-        if (!isExpectedMessage && !events.isEmpty()) {
-            throw new RuntimeException("MQTT unexpected messages have been received");
+
+        if (!isExpected && !events.isEmpty()) {
+            throw new IllegalStateException("MQTT unexpected messages have been received");
         }
     }
 
     /**
-     * Clear message storage.
+     * Verify is connection is not disconnected before and in limited duration of time.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @throws TimeoutException when matched message was not received in specified duration of time
+     * @throws RuntimeException on internal errors
+     * @throws InterruptedException then thread has been interrupted
+     */
+    @And("device {string} is not disconnected within {int} {word}")
+    public void checkIsNotDisconnect(String clientDeviceId, int value, String unit) throws InterruptedException {
+        checkDisconnect(clientDeviceId, value, unit, false);
+    }
+
+    /**
+     * Verify is connection disconnected before and in limited duration of time.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @throws TimeoutException when matched message was not received in specified duration of time
+     * @throws RuntimeException on internal errors
+     * @throws InterruptedException then thread has been interrupted
+     */
+    @And("device {string} disconnected within {int} {word}")
+    public void checkDisconnect(String clientDeviceId, int value, String unit) throws InterruptedException {
+        checkDisconnect(clientDeviceId, value, unit, true);
+    }
+
+    /**
+     * Verify is connection is [not] disconnected before and in limited duration of time.
+     *
+     * @param clientDeviceId the user defined client device id
+     * @param value the duration of time to wait for message
+     * @param unit the time unit to wait
+     * @param isExpected used for setting disconnect expectation
+     * @throws IllegalStateException when matched message was not received in specified duration of time
+     * @throws InterruptedException then thread has been interrupted
+     * @throws RuntimeException on internal errors
+     */
+    private void checkDisconnect(String clientDeviceId, int value, String unit, boolean isExpected)
+            throws InterruptedException {
+        final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+        ConnectionControl connectionControl = getConnectionControl(clientDeviceThingName);
+
+        // build filter
+        EventFilter eventFilter = new EventFilter.Builder()
+                                        .withType(Event.Type.EVENT_TYPE_MQTT_DISCONNECTED)
+                                        .withConnectionControl(connectionControl)
+                                        .build();
+        // convert time units
+        TimeUnit timeUnit = TimeUnit.valueOf(unit.toUpperCase());
+
+        // awaiting for message
+        log.info("Awaiting for disconnect on Thing '{}' for {} {}", clientDeviceThingName, value, unit);
+
+        List<Event> events = new ArrayList<>();
+        try {
+            events = eventStorage.awaitEvents(eventFilter, value, timeUnit);
+        } catch (TimeoutException e) {
+            if (isExpected) {
+                log.error("No matched MQTT messages have been received, ex: {}", e.getMessage());
+                throw new IllegalStateException("No matched disconnect events have been received", e);
+            }
+        }
+
+        if (!isExpected && !events.isEmpty()) {
+            throw new IllegalStateException("Unexpected disconnect have been received");
+        }
+    }
+
+    /**
+     * Clear event storage.
      *
      */
-    @And("I clear message storage")
+    @And("I clear the event storage")
     public void clearStorage() {
         eventStorage.clear();
-        log.info("Storage was cleared");
+        log.info("Event storage was cleared");
     }
 
     /**
      * Clear message storage.
      *
      */
-    @And("I clear message storage and reset all MQTT settings to default")
+    @And("I clear the event storage and reset all MQTT settings to defaults")
     public void clearAnything() {
         clearStorage();
         setMqttTimeoutSec(DEFAULT_MQTT_TIMEOUT_SEC);
@@ -1254,17 +1329,17 @@ public class MqttControlSteps {
 
         List<Integer> reasons = mqttUnsubscribeReply.getReasonCodesList();
         if (reasons == null) {
-            throw new RuntimeException("Receive reply to MQTT unsubscribe request with missing reason codes");
+            throw new IllegalStateException("Receive reply to MQTT unsubscribe request with missing reason codes");
         }
 
         if (reasons.size() != 1 || reasons.get(0) == null) {
-            throw new RuntimeException("Receive reply to MQTT unsubscribe request with unexpected number "
+            throw new IllegalStateException("Receive reply to MQTT unsubscribe request with unexpected number "
                     + "of reason codes should be 1 but has " + reasons.size());
         }
 
         int reason = reasons.get(0);
         if (reason != PublishReasonCode.SUCCESS.getValue()) {
-            throw new RuntimeException("Receive reply to MQTT unsubscribe request with unsuccessful reason code "
+            throw new IllegalStateException("Receive reply to MQTT unsubscribe request with unsuccessful reason code "
                     + reason);
         }
         log.info("MQTT topics filter {} has been unsubscribed", filter);
@@ -1329,7 +1404,7 @@ public class MqttControlSteps {
         return resources.trackingSpecs(IotThingSpec.class)
                         .filter(t -> clientDeviceThingName.equals(t.resource().thingName()))
                         .findFirst()
-                        .orElseThrow(() -> new RuntimeException("Thing spec is not found"));
+                        .orElseThrow(() -> new IllegalStateException("Thing spec is not found"));
     }
 
     private TLSSettings buildTlsSettings(IotThingSpec thingSpec, List<String> caList) {
