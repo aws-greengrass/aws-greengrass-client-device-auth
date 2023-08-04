@@ -53,6 +53,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
+@SuppressWarnings("PMD.AvoidCatchingGenericException")
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
 class PolicyWildcardTest {
 
