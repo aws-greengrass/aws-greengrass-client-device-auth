@@ -11,16 +11,18 @@ phases:
   install:
     runtime-versions:
       java: corretto11
+    commands:
+      - apt-get update
+      - apt-get -y install iproute2
   build:
     commands:
       - curl -s https://d2s8p88vqu9w66.cloudfront.net/releases/greengrass-nucleus-latest.zip > /tmp/greengrass-nucleus-latest.zip
       - mvn -DskipTests=false -U -ntp clean verify -f uat/pom.xml
-      - java -Dggc.archive=/tmp/greengrass-nucleus-latest.zip -Dtags="$CUCUMBER_TAGS" -jar uat/testing-features/target/client-devices-auth-testing-features.jar 2>&1 | tee build.log
+      - java -Dggc.archive=/tmp/greengrass-nucleus-latest.zip -Dtags="$CUCUMBER_TAGS" -jar uat/testing-features/target/client-devices-auth-testing-features.jar
 
 artifacts:
   files:
     - 'testResults/**/*'
-    - 'build.log'
   name: 'AuthUatLinuxLogs.zip'
 
 reports:
