@@ -11,6 +11,11 @@
 
 class GRPCLink;
 
+/**
+ * GRPCLib class.
+ *
+ * Represent gRPC resources on whole process level.
+ */
 class GRPCLib {
 public:
 

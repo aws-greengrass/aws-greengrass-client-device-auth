@@ -13,6 +13,11 @@ class MqttLib;
 class GRPCDiscoveryClient;
 class GRPCControlServer;
 
+/**
+ * GRPCLink class.
+ *
+ * Represent bi-directinal gRPC communication channel with control.
+ */
 class GRPCLink {
 public:
     /**
@@ -28,8 +33,9 @@ public:
 
     /**
      * Handle gRPC requests.
-     * @param MqttLib MQTT library handler
-     * @return shutdown reason
+     *
+     * @param mqtt MQTT library handler
+     * @return the reason of shutdown
      */
     std::string handleRequests(MqttLib & mqtt) const;
 
