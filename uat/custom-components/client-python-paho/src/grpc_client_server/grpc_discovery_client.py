@@ -24,10 +24,9 @@ class GRPCDiscoveryClient:
     def __init__(self, agent_id: str, address: str):
         """
         Construct GRPCDiscoveryClient
-        Parameters
-        ----------
-        agentId - id of agent to identify control channel by gRPC server
-        address - address of gRPC service, including port
+        Args:
+            agentId: id of agent to identify control channel by gRPC server
+            address: address of gRPC service, including port
         """
         self.__logger = GRPCDiscoveryClient.logger
         self.__agent_id = agent_id
@@ -42,10 +41,9 @@ class GRPCDiscoveryClient:
     def discovery_agent(self, address: str, port: int):
         """
         Discover the agent.
-        Parameters
-        ----------
-        address - host of local gRPC service
-        port of local gRPC service
+        Args:
+            address: host of local gRPC service
+            port: port of local gRPC service
         """
         request = mqtt_client_control_pb2.DiscoveryRequest(agentId=self.__agent_id, address=address, port=port)
 
@@ -58,9 +56,8 @@ class GRPCDiscoveryClient:
     def register_agent(self) -> str:
         """
         Register the agent.
-        Parameters
-        ----------
-        Returns IP address of client as visible by server
+        Returns:
+            IP address of client as visible by server
         """
         request = mqtt_client_control_pb2.RegisterRequest(agentId=self.__agent_id)
         reply = None
@@ -76,9 +73,8 @@ class GRPCDiscoveryClient:
     def unregister_agent(self, reason: str):
         """
         Unregister the agent.
-        Parameters
-        ----------
-        reason - reason of unregistering
+        Args:
+            reason: reason of unregistering
         """
         request = mqtt_client_control_pb2.UnregisterRequest(agentId=self.__agent_id, reason=reason)
         try:
@@ -91,10 +87,9 @@ class GRPCDiscoveryClient:
         """
         Called when MQTT message is receive my MQTT client
         and deliver information from it to gRPC server.
-        Parameters
-        ----------
-        connection_id - ID of connection, which received the message
-        mqtt_message - received message
+        Args:
+            connection_id: ID of connection, which received the message
+            mqtt_message: received message
         """
         mqtt_connection_id = MqttConnectionId(connectionId=connection_id)
         request = mqtt_client_control_pb2.OnReceiveMessageRequest(
@@ -119,11 +114,10 @@ class GRPCDiscoveryClient:
         """
         Called when MQTT connection has been
         disconnected by client or server side.
-        Parameters
-        ----------
-        connection_id - ID of disconnected connection
-        disconnect_info - disconnect information
-        error_string - specific error information
+        Args:
+            connection_id: ID of disconnected connection
+            disconnect_info: disconnect information
+            error_string: specific error information
         """
         mqtt_connection_id = MqttConnectionId(connectionId=connection_id)
         request = mqtt_client_control_pb2.OnMqttDisconnectRequest(

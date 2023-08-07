@@ -21,10 +21,9 @@ class ClientConnectResult:  # pylint: disable=too-few-public-methods
     def __init__(self, client: GRPCDiscoveryClient, local_ip: str):
         """
         Construct ClientConnectResult
-        Parameters
-        ----------
-        client - Discovery client object
-        local_ip - local client IP address
+        Args:
+            client: Discovery client object
+            local_ip: local client IP address
         """
         self.client = client
         self.local_ip = local_ip
@@ -38,11 +37,10 @@ class GRPCLink:
     def __init__(self, agent_id: str, hosts: List[str], port: int):
         """
         Construct GRPCLink.
-        Parameters
-        ----------
-        agent_id - id of agent to identify control channel by server
-        hosts - host names/IPs to connect to testing framework
-        port - TCP port to connect to
+        Args:
+            agent_id: id of agent to identify control channel by server
+            hosts: host names/IPs to connect to testing framework
+            port: TCP port to connect to
         """
         self.__logger = GRPCLink.logger
 
@@ -66,9 +64,10 @@ class GRPCLink:
     async def handle_requests(self, mqtt_lib: MQTTLib) -> str:
         """
         Handle gRPC requests.
-        Parameters
-        ----------
-        Returns shutdown reason
+        Args:
+            mqtt_lib: MQTTLib object
+        Returns:
+            shutdown reason
         """
         self.__logger.info("Handle gRPC requests")
         await self.__server.wait(mqtt_lib)
@@ -77,9 +76,8 @@ class GRPCLink:
     def shutdown(self, reason: str):
         """
         Unregister MQTT client control in testing framework.
-        Parameters
-        ----------
-        reason - reason of shutdown
+        Args:
+            reason: reason of shutdown
         """
         self.__logger.info("Shutdown gPRC link")
         self.__client.unregister_agent(reason)
@@ -90,21 +88,19 @@ class GRPCLink:
     def build_address(host: str, port: int) -> str:
         """
         Build full address from name/IP and port.
-        Parameters
-        ----------
-        host - host name/IP to connect to testing framework
-        port - TCP port to connect to
+        Args:
+            host: host name/IP to connect to testing framework
+            port: TCP port to connect to
         """
         return host + ":" + str(port)
 
     def __make_clients_connection(self, agent_id: str, hosts: List[str], port: int):
         """
         Search for the available host.
-        Parameters
-        ----------
-        agent_id - id of agent to identify control channel by server
-        hosts - host names/IPs to connect to testing framework
-        port - TCP port to connect to
+        Args:
+            agent_id: id of agent to identify control channel by server
+            hosts: host names/IPs to connect to testing framework
+            port: TCP port to connect to
         """
         last_exception = None
         try:

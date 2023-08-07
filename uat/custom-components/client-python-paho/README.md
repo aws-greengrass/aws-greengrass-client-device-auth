@@ -132,3 +132,18 @@ Python Paho MQTT does not provide the API to set the Subscription ID in SUBSCRIB
 
 3. Unsubscription
 In Python Paho on_unsubscribe() callback does not provide reason codes for MQTTv3, instead zero code will be returned on success.
+
+## Generate documentation
+
+Install pdoc
+
+```cmd
+pip install pdoc3
+```
+
+Run command
+```cmd
+python -m pdoc --html --config show_source_code=False src
+```
+
+Directory "html" with the documentation will be generated.

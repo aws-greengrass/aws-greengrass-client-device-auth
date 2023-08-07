@@ -142,7 +142,12 @@ class AsyncioHelper:
     logger = logging.getLogger("AsyncioHelper")
 
     def __init__(self, loop, client):
-        """Construct AsyncioHelper"""
+        """
+        Construct AsyncioHelper
+        Args:
+            loop: async loop
+            client: mqtt client
+        """
         self.__logger = AsyncioHelper.logger
         self.misc = None
         self.loop = loop
@@ -153,7 +158,7 @@ class AsyncioHelper:
         self.client.on_socket_unregister_write = self.on_socket_unregister_write
 
     def on_socket_open(self, client, userdata, sock):  # pylint: disable=unused-argument
-        """Client socket open callback"""
+        """Client socket open callback callback"""
 
         def callback():
             """Loop Reader callback"""
@@ -164,13 +169,13 @@ class AsyncioHelper:
         self.misc = self.loop.create_task(self.misc_loop())
 
     def on_socket_close(self, client, userdata, sock):  # pylint: disable=unused-argument
-        """Client socket close callback"""
+        """Client socket close callback callback"""
         self.__logger.debug("On socket close")
         self.loop.remove_reader(sock)
         self.misc.cancel()
 
     def on_socket_register_write(self, client, userdata, sock):  # pylint: disable=unused-argument
-        """Client socket register write"""
+        """Client socket register write callback"""
         self.__logger.debug("On socket register write")
 
         def callback():
@@ -179,7 +184,7 @@ class AsyncioHelper:
         self.loop.add_writer(sock, callback)
 
     def on_socket_unregister_write(self, client, userdata, sock):  # pylint: disable=unused-argument
-        """Client socket unregister write"""
+        """Client socket unregister write callback"""
         self.__logger.debug("On socket unregister write")
         self.loop.remove_writer(sock)
 
@@ -205,10 +210,9 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     ):
         """
         Construct MQTTConnection
-        Parameters
-        ----------
-        connection_params - the connection parameters
-        grpc_client - the consumer of received messages and disconnect events
+        Args:
+            connection_params: the connection parameters
+            grpc_client: the consumer of received messages and disconnect events
         """
         super().__init__()
         self.__logger = MqttConnection.logger
@@ -238,9 +242,8 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     def set_connection_id(self, connection_id: int):
         """
         Connection id setter
-        Parameters
-        ----------
-        connection_id - connection id as assigned by MQTT library
+        Args:
+            connection_id: connection id as assigned by MQTT library
         """
         self.__connection_id = connection_id
 
@@ -255,10 +258,10 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     async def start(self, timeout: int) -> ConnectResult:
         """
         Starts MQTT connection.
-        Parameters
-        ----------
-        timeout - connect operation timeout in seconds
-        Returns connection result
+        Args:
+            timeout: connect operation timeout in seconds
+        Returns:
+            connection result
         """
         self.__asyncio_helper = AsyncioHelper(self.__loop, self.__client)  # pylint: disable=unused-private-member
 
@@ -358,11 +361,10 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     async def disconnect(self, timeout: int, reason: int, mqtt_properties: List[Mqtt5Properties]):
         """
         Closes MQTT connection.
-        Parameters
-        ----------
-        timeout - disconnect operation timeout in seconds
-        mqtt_properties - list of Mqtt5Properties
-        reason - disconnect reason code
+        Args:
+            timeout: disconnect operation timeout in seconds
+            mqtt_properties: list of Mqtt5Properties
+            reason: disconnect reason code
         """
         if not self.__is_closing:
             self.__is_closing = True
@@ -426,11 +428,11 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     async def publish(self, timeout: int, message: MqttPubMessage) -> MqttPublishReply:
         """
         Publish MQTT message.
-        Parameters
-        ----------
-        timeout - publish operation timeout in seconds
-        message - Mqtt message info and payload
-        Returns MqttPublishReply object
+        Args:
+            timeout: publish operation timeout in seconds
+            message: Mqtt message info and payload
+        Returns:
+            MqttPublishReply object
         """
         self.state_check()
         self.__on_publish_future = self.__loop.create_future()
@@ -486,12 +488,12 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     ) -> MqttSubscribeReply:
         """
         Subscribe on MQTT topics.
-        Parameters
-        ----------
-        timeout - subscribe operation timeout in seconds
-        subscriptions - Subscriptions information
-        mqtt_properties - list of Mqtt5Properties
-        Returns MqttSubscribeReply object
+        Args:
+            timeout: subscribe operation timeout in seconds
+            subscriptions: Subscriptions information
+            mqtt_properties: list of Mqtt5Properties
+        Returns:
+            MqttSubscribeReply object
         """
         self.state_check()
 
@@ -595,12 +597,12 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     ) -> MqttSubscribeReply:
         """
         Unsubscribe from MQTT topics.
-        Parameters
-        ----------
-        timeout - subscribe operation timeout in seconds
-        filters - Topics to unsubscribe
-        mqtt_properties - list of Mqtt5Properties
-        Returns MqttSubscribeReply object
+        Args:
+            timeout: subscribe operation timeout in seconds
+            filters: Topics to unsubscribe
+            mqtt_properties: list of Mqtt5Properties
+        Returns:
+            MqttSubscribeReply object
         """
         self.state_check()
 
@@ -668,10 +670,10 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     def __create_client(self, connection_params: ConnectionParams) -> mqtt.Client:
         """
         Create async PAHO MQTT 5 Client
-        Parameters
-        ----------
-        connection_params - the connection parameters
-        Returns async PAHO MQTT 5 Client
+        Args:
+            connection_params: the connection parameters
+        Returns:
+            async PAHO MQTT 5 Client
         """
 
         client = None
@@ -723,10 +725,10 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     def __create_publish_properties(self, message: MqttPubMessage):
         """
         Create MQTT5 properties
-        Parameters
-        ----------
-        message - MqttPubMessage
-        Returns MQTT5 properties
+        Args:
+            message: MqttPubMessage
+        Returns:
+            MQTT5 properties
         """
         properties = Properties(PacketTypes.PUBLISH)
         user_properties = self.__convert_to_user_properties(message.mqtt_properties, "PUBLISH")
@@ -776,11 +778,11 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     ) -> List[Tuple[str, str]]:
         """
         Convert Mqtt5Properties into to User properties list
-        Parameters
-        ----------
-        mqtt_properties - mqtt_properties
-        message_type - message type
-        Returns User properties list
+        Args:
+            mqtt_properties: mqtt_properties
+            message_type: message type
+        Returns:
+            User properties list
         """
         user_properties = []
 
@@ -801,11 +803,11 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     ) -> List[Mqtt5Properties]:
         """
         Convert User properties list into to Mqtt5Properties
-        Parameters
-        ----------
-        user_properties - User properties list
-        message_type - message type
-        Returns Mqtt5Properties
+        Args:
+            user_properties: User properties list
+            message_type: message type
+        Returns:
+            Mqtt5Properties
         """
         if user_properties:
             mqtt_properties = []
@@ -822,10 +824,10 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     def __convert_to_conn_ack(self, mqtt_result: MqttResult) -> Mqtt5ConnAck:
         """
         Convert MqttResult into to Mqtt5ConnAck
-        Parameters
-        ----------
-        mqtt_result - MqttResult object
-        Returns Mqtt5ConnAck object
+        Args:
+            mqtt_result: MqttResult object
+        Returns:
+            Mqtt5ConnAck object
         """
         props = mqtt_result.properties
         mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "CONNACK")
@@ -859,10 +861,10 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     def __convert_to_disconnect(self, mqtt_result: MqttResult) -> Mqtt5Disconnect:
         """
         Convert MqttResult into to Mqtt5Disconnect
-        Parameters
-        ----------
-        mqtt_result - MqttResult object
-        Returns Mqtt5Disconnect object
+        Args:
+            mqtt_result: MqttResult object
+        Returns:
+            Mqtt5Disconnect object
         """
         props = mqtt_result.properties
         mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "DISCONNECT")
@@ -878,10 +880,10 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     def __convert_to_pub_reply(self, pub_info: mqtt.MQTTMessageInfo) -> MqttPublishReply:
         """
         Build MQTT publish reply
-        Parameters
-        ----------
-        pub_info - published message info
-        Returns MqttPublishReply object
+        Args:
+            pub_info: published message info
+        Returns:
+            MqttPublishReply object
         """
         # Python Paho MQTT does not support recieving any properties for the pusblished messages
         return MqttPublishReply(reasonCode=pub_info.rc)
@@ -889,10 +891,10 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     def __convert_to_sub_reply(self, mqtt_result: SubscribesResult) -> MqttSubscribeReply:
         """
         Build MQTT subscribe reply
-        Parameters
-        ----------
-        mqtt_result - subscribe info
-        Returns MqttSubscribeReply object
+        Args:
+            mqtt_result: subscribe info
+        Returns:
+            MqttSubscribeReply object
         """
         props = mqtt_result.properties
         mqtt_properties = self.__convert_to_mqtt5_properties(getattr(props, "UserProperty", None), "SUBACK")
@@ -907,10 +909,10 @@ class MqttConnection:  # pylint: disable=too-many-instance-attributes
     def __convert_to_mqtt_message(self, message: mqtt.MQTTMessage) -> Mqtt5Message:
         """
         Convert MQTTMessage into to Mqtt5Message
-        Parameters
-        ----------
-        message - MQTTMessage object
-        Returns Mqtt5Message object
+        Args:
+            message: MQTTMessage object
+        Returns:
+            Mqtt5Message object
         """
         props = getattr(message, "properties", None)
 
