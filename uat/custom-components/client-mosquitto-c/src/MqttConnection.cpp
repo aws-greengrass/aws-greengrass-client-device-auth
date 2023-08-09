@@ -26,21 +26,58 @@
 #define CONNECT_REQUEST_ID              (1024*64 + 1)
 #define DISCONNECT_REQUEST_ID           (1024*64 + 2)
 
+/**
+ * AsyncResult class represent response to asynchronous request.
+ */
 class AsyncResult {
 public:
-    int rc;                                     // all
-    int flags;                                  // connect
-    mosquitto_property * props;                 // all
-    int mid;                                    // subscribe / publish / unsubscribe
-    std::vector<int> granted_qos;               // subscribe
+    /**
+     * Reason code. Used by all requests.
+     */
+    int rc;
 
-    // subscribe
+    /**
+     * Flags. Used only by CONNECT request.
+     */
+    int flags;
+
+    /**
+     * Properties of ACK. Used by all requests.
+     */
+    mosquitto_property * props;
+
+    /**
+     * Message id. Used by SUBSCRIBE PUBLISH and UNSUBSCRIBE requests.
+     */
+    int mid;
+
+    /**
+     * Vector of granted QoS from SUBACK.
+     * Used only for SUBSCRIBE request.
+     */
+    std::vector<int> granted_qos;
+
+    /**
+     * Constructor of AsyncResult used for SUBSCRIBE.
+     *
+     * @param mid_ the message id of broker's response
+     * @param qos_count the count of granted QoS items of SUBACK
+     * @param granted_qos_arr the array of granted QoS items of SUBACK
+     * @param props_ the SUBACK properties
+     */
     AsyncResult(int mid_, int qos_count, const int * granted_qos_arr, const mosquitto_property * props_)
         : rc(MOSQ_ERR_SUCCESS), flags(0), props(NULL), mid(mid_), granted_qos(granted_qos_arr, granted_qos_arr + qos_count) {
         mosquitto_property_copy_all(&props, props_);
     }
 
-    // connect / disconnect / unsubscribe / publish
+    /**
+     * Constructor of AsyncResult used for connect / disconnect / unsubscribe / publish.
+     *
+     * @param rc_ the reason code of CONNACK UNSUBACK or PUBACK
+     * @param props_ the properties of CONNACK UNSUBACK or PUBACK
+     * @param flags_ response flags
+     * @param mid_ the message id of broker's response
+     */
     AsyncResult(int rc_, const mosquitto_property * props_, int flags_ = 0, int mid_ = 0)
         :  rc(rc_), flags(flags_), props(NULL), mid(mid_), granted_qos() {
         mosquitto_property_copy_all(&props, props_);
@@ -49,6 +86,9 @@ public:
     AsyncResult(const AsyncResult &) = delete;
     AsyncResult & operator=(const AsyncResult &) = delete;
 
+    /**
+     * Destructor of AsyncResult.
+     */
     ~AsyncResult() {
         if (props) {
             mosquitto_property_free_all(&props);
@@ -56,10 +96,22 @@ public:
     }
 };
 
+
+/**
+ * PendingRequest class represent pending asynchronous request.
+ */
 class PendingRequest {
 public:
+    /**
+     * Constructor of PendingRequest.
+     */
     PendingRequest() : m_valid(true) {}
 
+    /**
+     * Waiting until request completed.
+     *
+     * @param timeout the value in second how many time wait to request completes
+     */
     std::shared_ptr<AsyncResult> waitForResult(unsigned timeout) {
         std::chrono::seconds duration(timeout);
         auto future = m_promise.get_future();
@@ -79,11 +131,22 @@ public:
         }
     }
 
+    /**
+     * Submit result of request.
+     * In addition invalidates request.
+     *
+     * @param result the result of request
+     */
     void submitResult(const std::shared_ptr<AsyncResult> & result) {
         m_promise.set_value(result);
         m_valid = false;
     }
 
+    /**
+     * Check request is valid.
+     *
+     * @return true when request is still valid
+     */
     bool isValid() const {
         return m_valid;
     }

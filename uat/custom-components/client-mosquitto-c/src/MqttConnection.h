@@ -61,6 +61,11 @@ public:
     ~MqttConnection();
 
 
+    /**
+     * Sets connection id.
+     *
+     * @param connection_id the connection id to set
+     */
     void setConnectionId(int connection_id) {
         m_connection_id = connection_id;
     }

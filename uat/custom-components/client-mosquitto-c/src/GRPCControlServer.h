@@ -41,6 +41,14 @@ class MqttConnection;
  */
 class GRPCControlServer final : public MqttClientControl::Service {
 public:
+
+    /**
+     * Constructor of GRPCControlServer.
+     *
+     * @param client the reference to client part of bi-directional gRPC link
+     * @param host address to listen
+     * @param port port to listen
+     */
     GRPCControlServer(GRPCDiscoveryClient & client, const char * host, unsigned short port);
 
     /**
@@ -48,7 +56,13 @@ public:
      */
     unsigned short getPort() const { return m_choosen_port; }
 
+    /**
+     * Gets reason of shutdown received from the control.
+     *
+     * @return reason of shutdown received from the control
+     */
     const std::string & getShutdownReason() const { return m_shutdown_reason; }
+
     /**
      * Handle incoming gRPC requests.
      * @return shutdown reason
@@ -56,6 +70,9 @@ public:
     void wait(MqttLib & mqtt);
 
 
+    /**
+     * Break waiting for new requests.
+     */
     void unblockWait() { m_exit_requested.set_value(); }
 
     /**
@@ -63,13 +80,65 @@ public:
      */
     static std::string buildAddress(const char * host, unsigned short port);
 
+    /**
+     * Handles ShutdownAgent gRPC request.
+     *
+     * @param context the gRPC context.
+     * @param request the shutdown gRPC request
+     * @param reply the pointer to reply to fill
+     * @return status of gRPC request
+     */
     Status ShutdownAgent(ServerContext * context, const ShutdownRequest * request, Empty * reply) override;
-    Status CreateMqttConnection(ServerContext * context, const MqttConnectRequest * request, MqttConnectReply * reply) override;
-    Status CloseMqttConnection(ServerContext * context, const MqttCloseRequest * request, Empty * reply) override;
-    Status SubscribeMqtt(ServerContext * context, const MqttSubscribeRequest * request, MqttSubscribeReply * reply) override;
-    Status UnsubscribeMqtt(ServerContext * context, const MqttUnsubscribeRequest * request, MqttSubscribeReply * reply) override;
-    Status PublishMqtt(ServerContext * context, const MqttPublishRequest * request, MqttPublishReply * reply) override;
 
+    /**
+     * Handles CreateMqttConnection gRPC request.
+     *
+     * @param context the gRPC context.
+     * @param request the connect gRPC request
+     * @param reply the pointer to reply to fill
+     * @return status of gRPC request
+     */
+    Status CreateMqttConnection(ServerContext * context, const MqttConnectRequest * request, MqttConnectReply * reply) override;
+
+    /**
+     * Handles CloseMqttConnection gRPC request.
+     *
+     * @param context the gRPC context.
+     * @param request the close gRPC request
+     * @param reply the pointer to reply to fill
+     * @return status of gRPC request
+     */
+    Status CloseMqttConnection(ServerContext * context, const MqttCloseRequest * request, Empty * reply) override;
+
+    /**
+     * Handles SubscribeMqtt gRPC request.
+     *
+     * @param context the gRPC context.
+     * @param request the subscribe gRPC request
+     * @param reply the pointer to reply to fill
+     * @return status of gRPC request
+     */
+    Status SubscribeMqtt(ServerContext * context, const MqttSubscribeRequest * request, MqttSubscribeReply * reply) override;
+
+    /**
+     * Handles UnsubscribeMqtt gRPC request.
+     *
+     * @param context the gRPC context.
+     * @param request the unsubscribe gRPC request
+     * @param reply the pointer to reply to fill
+     * @return status of gRPC request
+     */
+    Status UnsubscribeMqtt(ServerContext * context, const MqttUnsubscribeRequest * request, MqttSubscribeReply * reply) override;
+
+    /**
+     * Handles PublishMqtt gRPC request.
+     *
+     * @param context the gRPC context.
+     * @param request the publish gRPC request
+     * @param reply the pointer to reply to fill
+     * @return status of gRPC request
+     */
+    Status PublishMqtt(ServerContext * context, const MqttPublishRequest * request, MqttPublishReply * reply) override;
 
 private:
     std::string getJoinedCA(const TLSSettings & tls_settings);

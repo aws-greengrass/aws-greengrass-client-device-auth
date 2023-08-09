@@ -24,12 +24,36 @@ class Status;
  */
 class GRPCDiscoveryClient {
 public:
+    /**
+     * Constructor of GRPCDiscoveryClient.
+     *
+     * @param agent_id the id of agent
+     * @param channel gRPC communication channel
+     */
     GRPCDiscoveryClient(const std::string & agent_id, std::shared_ptr<Channel> channel)
         : m_agent_id(agent_id), m_stub(MqttAgentDiscovery::NewStub(channel)) {
     }
 
+    /**
+     * Handles RegisterAgent gRPC request.
+     *
+     * @param local_ip the local IP of agent as seen by control
+     */
     bool RegisterAgent(std::string & local_ip);
+
+    /**
+     * Handles DiscoveryAgent gRPC request.
+     *
+     * @param address the address of gRPC server of the control
+     * @param port the port of gRPC server of the control
+     */
     bool DiscoveryAgent(const char * address, unsigned short port);
+
+    /**
+     * Handles UnregisterAgent gRPC request.
+     *
+     * @param reason the reason of unregistration
+     */
     bool UnregisterAgent(const std::string & reason);
 
     /**

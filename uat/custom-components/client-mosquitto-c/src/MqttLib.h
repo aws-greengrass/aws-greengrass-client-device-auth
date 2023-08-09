@@ -54,8 +54,30 @@ public:
                                         const bool * request_response_information);
 
 
+    /**
+     * Registers connection by adding to list of all connections.
+     *
+     * @param connection the connection to register
+     * @return connection id
+     */
     int registerConnection(MqttConnection * connection);
+
+
+    /**
+     * Gets connection by connection id.
+     *
+     * @param connection_id the connection id to search for connection
+     * @return the connection with that connection id
+     */
     MqttConnection * getConnection(int connection_id);
+
+
+    /**
+     * Unregisters connection by remove from list of all connections.
+     *
+     * @param connection_id the connection id to remove
+     * @return the connection with that connection id
+     */
     MqttConnection * unregisterConnection(int connection_id);
 
 private:

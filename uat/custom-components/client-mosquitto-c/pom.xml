@@ -75,6 +75,7 @@
                             <excludes>
                                 <exclude>*</exclude>
                                 <exclude>build/**</exclude>
+                                <exclude>docs/**</exclude>
                             </excludes>
                         </licenseSet>
                     </licenseSets>

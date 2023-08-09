@@ -10,12 +10,18 @@
 
 
 /**
- * MqttException class.
+ * GRPCException class represent gRPC side exceptions.
  */
 class GRPCException : public ClientException {
 public:
+    /**
+     * Constructor of GRPCException.
+     *
+     * @param message the message of exception
+     * @param code the error code
+     */
     GRPCException(const char * message, int code = 0)
-        :ClientException(message, code) {}
+        : ClientException(message, code) {}
     ~GRPCException() {}
 };
 
