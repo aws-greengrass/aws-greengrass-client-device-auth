@@ -22,12 +22,12 @@ class GRPCLib:  # pylint: disable=too-few-public-methods
     async def make_link(self, agent_id: str, hosts: List[str], port: int) -> GRPCLink:
         """
         Creates and returns GRPCLink object.
-        Parameters
-        ----------
-        agent_id - id of agent to identify control channel by server
-        hosts - host names/IPs to connect to testing framework
-        port - TCP port to connect to
-        Returns GRPCLink object
+        Args:
+            agent_id: id of agent to identify control channel by server
+            hosts: host names/IPs to connect to testing framework
+            port: TCP port to connect to
+        Returns:
+            GRPCLink object
         """
         grpc_link = GRPCLink(agent_id, hosts, port)
         await grpc_link.start_server()

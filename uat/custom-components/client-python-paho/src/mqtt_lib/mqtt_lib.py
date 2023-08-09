@@ -19,9 +19,8 @@ class MQTTLib:
     def __init__(self, temp_files_manager: TempFilesManager):
         """
         Construct MQTTLib
-        Parameters
-        ----------
-        temp_files_manager - Temp files manager
+        Args:
+            temp_files_manager: Temp files manager
         """
         self.__logger = MQTTLib.logger
         self.__logger.info("Initialize Paho MQTT library")
@@ -34,21 +33,21 @@ class MQTTLib:
     ) -> MqttConnection:
         """
         Create MQTTConnection object
-        Parameters
-        ----------
-        connection_params - the connection parameters
-        grpc_client - the consumer of received messages and disconnect events
-        Returns MQTTConnection object
+        Args:
+            connection_params: the connection parameters
+            grpc_client: the consumer of received messages and disconnect events
+        Returns:
+            MQTTConnection object
         """
         return MqttConnection(connection_params, grpc_client, self.__temp_files_manager)
 
     def register_connection(self, mqtt_connection: MqttConnection) -> int:
         """
         Register the MQTT connection.
-        Parameters
-        ----------
-        mqtt_connection - connection to register
-        Returns id of connection
+        Args:
+            mqtt_connection: connection to register
+        Returns:
+            id of connection
         """
         while True:
             self.__connection_id_next += 1
@@ -62,19 +61,19 @@ class MQTTLib:
     def get_connection(self, connection_id: int) -> MqttConnection:
         """
         Get the MQTT connection.
-        Parameters
-        ----------
-        connection_id - id of connection
-        Returns MqttConnection on success or None when connection does not found
+        Args:
+            connection_id: id of connection
+        Returns:
+            MqttConnection on success or None when connection does not found
         """
         return self.__connections.get(connection_id)
 
     def unregister_connection(self, connection_id: int) -> MqttConnection:
         """
         Unregister the MQTT connection.
-        Parameters
-        ----------
-        connection_id - id of connection
-        Returns MqttConnection on success or None when connection does not found
+        Args:
+            connection_id: id of connection
+        Returns:
+            MqttConnection on success or None when connection does not found
         """
         return self.__connections.pop(connection_id, None)

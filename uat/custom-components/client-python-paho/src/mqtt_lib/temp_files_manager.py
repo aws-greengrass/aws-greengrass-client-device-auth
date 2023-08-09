@@ -19,9 +19,10 @@ class TempFilesManager:
     def create_new_temp_file(self, data: str) -> str:
         """
         Create new temp file
-        Parameters:
-        ----------
-        Returns new temp file path in system
+        Args:
+            data: data to save in temp file
+        Returns:
+            new temp file path in system
         """
         new_file = tempfile.NamedTemporaryFile(mode="wt", delete=False)  # pylint: disable=consider-using-with
 

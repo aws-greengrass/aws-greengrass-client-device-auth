@@ -30,11 +30,10 @@ class Arguments:  # pylint: disable=too-few-public-methods
     def __init__(self, agent_id: str, hosts: List[str], port: int):
         """
         Construct Arguments
-        Parameters
-        ----------
-        agent_id - id of agent to identify control channel by server
-        hosts - host names/IPs to connect to testing framework
-        port - TCP port to connect to
+        Args:
+            agent_id: id of agent to identify control channel by server
+            hosts: host names/IPs to connect to testing framework
+            port: TCP port to connect to
         """
         self.agent_id = agent_id
         self.hosts = hosts
@@ -52,9 +51,8 @@ class Main:
     def parse_args(self) -> Arguments:
         """
         Setup and run.
-        Parameters
-        ----------
-        Returns parsed arguments
+        Returns:
+            parsed arguments
         """
         parser = argparse.ArgumentParser()
         parser.add_argument(
@@ -90,9 +88,8 @@ class Main:
     async def do_all(self, temp_files_manager: TempFilesManager):
         """
         Run program.
-        Parameters
-        ----------
-        temp_files_manager - Temp files manager
+        Args:
+            temp_files_manager: Temp files manager
         """
         arguments = self.parse_args()
         grpc_lib = GRPCLib()
@@ -109,7 +106,8 @@ class Main:
     async def main(self) -> int:
         """
         Setup and run.
-        Returns response code, which shows the shutdown reason
+        Returns:
+            response code, which shows the shutdown reason
         """
 
         exit_code = 0

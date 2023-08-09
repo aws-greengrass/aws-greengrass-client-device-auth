@@ -56,10 +56,9 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
     def __init__(self, client: GRPCDiscoveryClient, address: str):
         """
         Construct GRPCControlServer
-        Parameters
-        ----------
-        client - GRPCDiscoveryClient object
-        address - local gRPC service address
+        Args:
+            client: GRPCDiscoveryClient object
+            address: local gRPC service address
         """
         self.__logger = GRPCControlServer.logger
         self.__shutdown_reason = ""
@@ -89,9 +88,8 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
     async def wait(self, mqtt_lib: MQTTLib):
         """
         Wait until incoming shutdown request
-        Parameters
-        ----------
-        mqtt_lib - MQTT side of the client to handler incoming requests
+        Args:
+            mqtt_lib: MQTT side of the client to handler incoming requests
         """
         self.__mqtt_lib = mqtt_lib
         self.__logger.info("Server awaiting termination")
@@ -115,11 +113,11 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         """
         override
         Handler of ShutdownAgent gRPC call.
-        Parameters
-        ----------
-        request - incoming request
-        context - request context
-        Returns Empty object
+        Args:
+            request: incoming request
+            context: request context
+        Returns:
+            Empty object
         """
         self.__shutdown_reason = request.reason
         self.__logger.info("shutdownAgent: reason %s", self.__shutdown_reason)
@@ -132,11 +130,11 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         """
         override
         Handler of CreateMqttConnection gRPC call.
-        Parameters
-        ----------
-        request - incoming request
-        context - request context
-        Returns MqttConnectReply object
+        Args:
+            request: incoming request
+            context: request context
+        Returns:
+            MqttConnectReply object
         """
         await self.__check_connect_request(request, context)
 
@@ -216,11 +214,11 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         """
         override
         Handler of PublishMqtt gRPC call.
-        Parameters
-        ----------
-        request - incoming request
-        context - request context
-        Returns MqttPublishReply object
+        Args:
+            request: incoming request
+            context: request context
+        Returns:
+            MqttPublishReply object
         """
         if not request.HasField("msg"):
             self.__logger.warning("PublishMqtt: message is missing")
@@ -308,11 +306,11 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         """
         override
         Handler of CloseMqttConnection gRPC call.
-        Parameters
-        ----------
-        request - incoming request
-        context - request context
-        Returns Empty object
+        Args:
+            request: incoming request
+            context: request context
+        Returns:
+            Empty object
         """
         timeout = request.timeout
         if timeout < TIMEOUT_MIN:
@@ -351,11 +349,11 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         """
         override
         Handler of SubscribeMqtt gRPC call.
-        Parameters
-        ----------
-        request - incoming request
-        context - request context
-        Returns MqttSubscribeReply object
+        Args:
+            request: incoming request
+            context: request context
+        Returns:
+            MqttSubscribeReply object
         """
         timeout = request.timeout
         if timeout < TIMEOUT_MIN:
@@ -440,11 +438,11 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
         """
         override
         Handler of UnsubscribeMqtt gRPC call.
-        Parameters
-        ----------
-        request - incoming request
-        context - request context
-        Returns MqttSubscribeReply object
+        Args:
+            request: incoming request
+            context: request context
+        Returns:
+            MqttSubscribeReply object
         """
 
         timeout = request.timeout
@@ -485,11 +483,11 @@ class GRPCControlServer(mqtt_client_control_pb2_grpc.MqttClientControlServicer):
     async def __check_connect_request(self, request: MqttConnectRequest, context: grpc.aio.ServicerContext):
         """
         Check that mqtt connect request is correct.
-        Parameters
-        ----------
-        request - incoming request
-        context - request context
-        Returns MqttConnectReply object
+        Args:
+            request: incoming request
+            context: request context
+        Returns:
+            MqttConnectReply object
         """
         if not request.clientId:
             self.__logger.warning("CreateMqttConnection: clientId can't be empty")
