@@ -138,6 +138,9 @@ service MqttClientControl {
 
     // publish MQTT message
     rpc PublishMqtt(MqttPublishRequest) returns (MqttPublishReply) {}
+
+    // do Core device discovery
+    rpc DiscoverCoreDevice(CoreDeviceDiscoverRequest) returns (CoreDeviceDiscoverReply) {}
 }
 
 // Versions of MQTT protocol, used for compatibility, only MQTT_PROTOCOL_V50 actually supported
@@ -276,6 +279,34 @@ message MqttPublishReply {
     optional int32 reasonCode = 1;                      // MQTT v5.0 PUBACK reason code
     optional string reasonString = 2;                   // MQTT v5.0 PUBACK reason string
     repeated Mqtt5Properties properties = 3;            // MQTT v5.0 PUBACK user's properties
+}
+
+
+// Request to discover Core device broker
+message CoreDeviceDiscoverRequest {
+    int32 timeout = 1;                                  // request timeout in seconds
+    string ca = 2;                                      // PEM formatted CA to verify IoT Core
+    string cert = 3;                                    // client's certificate, PEM formatted
+    string key = 4;                                     // client's private key
+    string thingName = 5;                               // client's thing name
+    string region = 6;                                  // AWS region
+}
+
+// Connectivity information of Core device broker
+message CoreDeviceConnectivityInfo {
+    string host = 1;                                    // host name or IP address of the broker
+    int32 port = 2;                                     // port number of the broker
+}
+
+// Connectivity information of Core device group
+message CoreDeviceGroup {
+    repeated string caList = 1;                         // group's CA list
+    repeated CoreDeviceConnectivityInfo connectivityInfoList = 2;     // connectivity information of Core Device broker
+}
+
+// Response to discover request
+message CoreDeviceDiscoverReply {
+    repeated CoreDeviceGroup groupList = 1;             // device groups
 }
 
 // end of MQTT client contol part

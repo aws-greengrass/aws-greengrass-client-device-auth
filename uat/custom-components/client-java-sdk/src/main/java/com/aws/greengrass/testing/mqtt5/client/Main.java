@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client;
 
+import com.aws.greengrass.testing.mqtt5.client.discover.DiscoverClientImpl;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.ClientException;
 import com.aws.greengrass.testing.mqtt5.client.grpc.GRPCLibImpl;
 import com.aws.greengrass.testing.mqtt5.client.sdkmqtt.MqttLibImpl;
@@ -107,7 +108,7 @@ public class Main {
         GRPCLink link = gprcLib.makeLink(arguments.getAgentId(), arguments.getHosts(), arguments.getPort());
 
         try (MqttLib mqttLib = new MqttLibImpl()) {
-            String reason = link.handleRequests(mqttLib);
+            String reason = link.handleRequests(mqttLib, new DiscoverClientImpl());
             link.shutdown(reason);
         }
     }

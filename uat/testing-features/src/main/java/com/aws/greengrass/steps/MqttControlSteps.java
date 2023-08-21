@@ -1438,7 +1438,7 @@ public class MqttControlSteps {
                 log.info("Core with thing Arn {}", core.getThingArn());
                 core.getConnectivity().stream().forEach(ci -> {
                     log.info("Connectivity info: id {} host {} port {}",
-                                ci. getId(),
+                                ci.getId(),
                                 ci.getHostAddress(),
                                 ci.getPortNumber());
                 });

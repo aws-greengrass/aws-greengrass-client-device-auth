@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.testing.mqtt5.client.grpc;
 
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoverReply;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoverRequest;
 import com.aws.greengrass.testing.mqtt.client.Empty;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
@@ -23,9 +25,11 @@ import com.aws.greengrass.testing.mqtt.client.MqttSubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttUnsubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.ShutdownRequest;
 import com.aws.greengrass.testing.mqtt.client.TLSSettings;
+import com.aws.greengrass.testing.mqtt5.client.DiscoverClient;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
+import com.aws.greengrass.testing.mqtt5.client.exceptions.DiscoverException;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import io.grpc.Grpc;
 import io.grpc.InsecureServerCredentials;
@@ -77,6 +81,7 @@ class GRPCControlServer {
     private final int boundPort;
 
     private MqttLib mqttLib;
+    private DiscoverClient discoverClient;
     private String shutdownReason;
 
 
@@ -589,6 +594,82 @@ class GRPCControlServer {
             responseObserver.onNext(builder.build());
             responseObserver.onCompleted();
         }
+
+        /**
+         * Handler of DiscoverCoreDevice gRPC call.
+         *
+         * @param request incoming request
+         * @param responseObserver response control
+         */
+        @Override
+        public void discoverCoreDevice(CoreDeviceDiscoverRequest request,
+                                            StreamObserver<CoreDeviceDiscoverReply> responseObserver) {
+            int timeout = request.getTimeout();
+            if (timeout < TIMEOUT_MIN) {
+                logger.atWarn().log("invalid unsubscribe timeout {}, must be >= {}", timeout, TIMEOUT_MIN);
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                                            .withDescription("invalid unsubscribe timeout, must be >= 1")
+                                            .asRuntimeException());
+                return;
+            }
+
+            final String ca = request.getCa();
+            if (ca == null || ca.isEmpty()) {
+                logger.atWarn().log("empty CA");
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                                            .withDescription("empty CA")
+                                            .asRuntimeException());
+                return;
+            }
+
+            final String cert = request.getCert();
+            if (cert == null || cert.isEmpty()) {
+                logger.atWarn().log("empty certificate");
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                                            .withDescription("empty certificate")
+                                            .asRuntimeException());
+                return;
+            }
+
+            final String key = request.getKey();
+            if (key == null || key.isEmpty()) {
+                logger.atWarn().log("empty private key");
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                                            .withDescription("empty private key")
+                                            .asRuntimeException());
+                return;
+            }
+
+            final String thingName = request.getThingName();
+            if (thingName == null || thingName.isEmpty()) {
+                logger.atWarn().log("empty thing name");
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                                            .withDescription("empty thing name")
+                                            .asRuntimeException());
+                return;
+            }
+
+            final String region = request.getRegion();
+            if (region == null || region.isEmpty()) {
+                logger.atWarn().log("empty region");
+                responseObserver.onError(Status.INVALID_ARGUMENT
+                                            .withDescription("empty region")
+                                            .asRuntimeException());
+                return;
+            }
+
+            CoreDeviceDiscoverReply reply;
+            try {
+                reply = discoverClient.discoverCoreDevice(request);
+            } catch (DiscoverException ex) {
+                logger.atError().withThrowable(ex).log("exception during discover");
+                responseObserver.onError(ex);
+                return;
+            }
+
+            responseObserver.onNext(reply);
+            responseObserver.onCompleted();
+        }
     }
 
     /**
@@ -636,8 +717,9 @@ class GRPCControlServer {
      *
      * @param mqttLib reference to MQTT side of the client to handler incoming requests
      */
-    public void waiting(MqttLib mqttLib) throws InterruptedException {
+    public void waiting(MqttLib mqttLib, DiscoverClient discoverClient) throws InterruptedException {
         this.mqttLib = mqttLib;
+        this.discoverClient = discoverClient;
         logger.atInfo().log("Server awaitTermination");
         server.awaitTermination();
         logger.atInfo().log("Server awaitTermination done");
