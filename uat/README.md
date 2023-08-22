@@ -181,3 +181,5 @@ The main html-file will be located in each module by path **target/site/apidocs/
 MQTT clients based on IoT Device SDK for Java v2, mosquitto C, Paho Java, Paho Python do no provide API to get information from PUBREC/PUBREL/PUBCOMP packages used when messages published with QoS 2.
 
 Not all features of MQTT v5.0 have been implemented in clients and are supported by gRPC proto and the control as was requested, these are not bugs but designed by requirement.
+
+Discover of Core device broker feature is implemented only in the client based on AWS IoT device SDK library.
