@@ -184,4 +184,4 @@ MQTT clients based on IoT Device SDK for Java v2, mosquitto C, Paho Java, Paho P
 
 Not all features of MQTT v5.0 have been implemented in clients and are supported by gRPC proto and the control as was requested, these are not bugs but designed by requirement.
 
-Discover of Core device broker feature is implemented only in the client based on AWS IoT device SDK library.
+Discovery of Core device broker feature is implemented only in the client based on AWS IoT device SDK library.

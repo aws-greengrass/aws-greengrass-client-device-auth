@@ -5,8 +5,8 @@
 
 package com.aws.greengrass.testing.mqtt.client.control.implementation;
 
-import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoverReply;
-import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoverRequest;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryReply;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryRequest;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
@@ -203,9 +203,9 @@ public class AgentControlImpl implements AgentControl {
     }
 
     @Override
-    public CoreDeviceDiscoverReply discoverCoreDevice(@NonNull CoreDeviceDiscoverRequest discoverRequest) {
-        CoreDeviceDiscoverReply reply = blockingStub.discoverCoreDevice(discoverRequest);
-        logger.atInfo().log("discoverCoreDevice: found {} groups", reply.getGroupListCount());
+    public CoreDeviceDiscoveryReply discoveryCoreDevice(@NonNull CoreDeviceDiscoveryRequest discoveryRequest) {
+        CoreDeviceDiscoveryReply reply = blockingStub.discoveryCoreDevice(discoveryRequest);
+        logger.atInfo().log("discoveryCoreDevice: found {} groups", reply.getGroupListCount());
         return reply;
     }
 

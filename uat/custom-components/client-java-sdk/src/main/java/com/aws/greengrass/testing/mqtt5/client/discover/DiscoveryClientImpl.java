@@ -6,11 +6,10 @@
 package com.aws.greengrass.testing.mqtt5.client.discover;
 
 import com.aws.greengrass.testing.mqtt.client.CoreDeviceConnectivityInfo;
-import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoverReply;
-import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoverRequest;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryReply;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryRequest;
 import com.aws.greengrass.testing.mqtt.client.CoreDeviceGroup;
-import com.aws.greengrass.testing.mqtt5.client.DiscoverClient;
-import com.aws.greengrass.testing.mqtt5.client.exceptions.DiscoverException;
+import com.aws.greengrass.testing.mqtt5.client.exceptions.DiscoveryException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import software.amazon.awssdk.crt.io.SocketOptions;
@@ -29,14 +28,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Implementation of discover client.
+ * Implementation of discovery client.
  */
-public class DiscoverClientImpl implements DiscoverClient {
-    private static final Logger logger = LogManager.getLogger(DiscoverClientImpl.class);
+public class DiscoveryClientImpl implements com.aws.greengrass.testing.mqtt5.client.DiscoveryClient {
+    private static final Logger logger = LogManager.getLogger(DiscoveryClientImpl.class);
 
     @Override
-    public CoreDeviceDiscoverReply discoverCoreDevice(CoreDeviceDiscoverRequest request)
-            throws DiscoverException {
+    public CoreDeviceDiscoveryReply discoveryCoreDevice(CoreDeviceDiscoveryRequest request)
+            throws DiscoveryException {
         try (SocketOptions socketOptions = new SocketOptions();
                 TlsContextOptions tlsOptions = TlsContextOptions.createWithMtls(request.getCert(), request.getKey())
                                                              .withCertificateAuthority(request.getCa())
@@ -50,23 +49,23 @@ public class DiscoverClientImpl implements DiscoverClient {
                 return convertResponseToReply(response);
             } catch (InterruptedException | ExecutionException | TimeoutException ex) {
                 logger.atError().withThrowable(ex).log("Failed during discover");
-                throw new DiscoverException("Could not do discover", ex);
+                throw new DiscoveryException("Could not do discovery", ex);
             }
         }
     }
 
-    private CoreDeviceDiscoverReply convertResponseToReply(final DiscoverResponse response)
-            throws DiscoverException {
+    private CoreDeviceDiscoveryReply convertResponseToReply(final DiscoverResponse response)
+            throws DiscoveryException {
         if (response == null) {
-            throw new DiscoverException("Discovery response is missing");
+            throw new DiscoveryException("Discovery response is missing");
         }
 
         final List<GGGroup> groups = response.getGGGroups();
         if (groups == null || groups.isEmpty() || groups.get(0) == null) {
-            throw new DiscoverException("Groups are missing in discovery response");
+            throw new DiscoveryException("Groups are missing in discovery response");
         }
 
-        CoreDeviceDiscoverReply.Builder builder = CoreDeviceDiscoverReply.newBuilder();
+        CoreDeviceDiscoveryReply.Builder builder = CoreDeviceDiscoveryReply.newBuilder();
         for (final GGGroup group : groups) {
             List<String> ca = group.getCAs();
             logger.atInfo().log("Discovered groupId {} with {} CA", group.getGGGroupId(), ca.size());

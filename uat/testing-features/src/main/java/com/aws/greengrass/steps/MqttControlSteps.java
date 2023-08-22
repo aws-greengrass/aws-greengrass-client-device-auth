@@ -11,8 +11,8 @@ import com.aws.greengrass.testing.model.ScenarioContext;
 import com.aws.greengrass.testing.model.TestContext;
 import com.aws.greengrass.testing.modules.model.AWSResourcesContext;
 import com.aws.greengrass.testing.mqtt.client.CoreDeviceConnectivityInfo;
-import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoverReply;
-import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoverRequest;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryReply;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryRequest;
 import com.aws.greengrass.testing.mqtt.client.CoreDeviceGroup;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
@@ -86,7 +86,7 @@ public class MqttControlSteps {
     private static final String DEFAULT_CLIENT_DEVICE_POLICY_CONFIG = "/configs/iot/basic_client_device_policy.yaml";
 
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
-    private static final int DEFAULT_DISCOVER_TIMEOUT_SEC = 30;
+    private static final int DEFAULT_DISCOVERY_TIMEOUT_SEC = 30;
 
     private static final String MQTT_VERSION_311 = "v3";
     private static final String MQTT_VERSION_50 = "v5";
@@ -1298,7 +1298,7 @@ public class MqttControlSteps {
                 DiscoveryClientConfig config = new DiscoveryClientConfig(tlsOptions, socketOptions, region, 1, null);
                 DiscoveryClient client = new DiscoveryClient(config)) {
             CompletableFuture<DiscoverResponse> discoverFuture = client.discover(clientDeviceThingName);
-            processDiscoveryResponse(brokerId, discoverFuture.get(DEFAULT_DISCOVER_TIMEOUT_SEC, TimeUnit.SECONDS));
+            processDiscoveryResponse(brokerId, discoverFuture.get(DEFAULT_DISCOVERY_TIMEOUT_SEC, TimeUnit.SECONDS));
         }
     }
 
@@ -1328,8 +1328,8 @@ public class MqttControlSteps {
         final String region = resourcesContext.region().toString();
         final String ca = registrationContext.rootCA();
 
-        CoreDeviceDiscoverRequest request = CoreDeviceDiscoverRequest.newBuilder()
-                                                .setTimeout(DEFAULT_DISCOVER_TIMEOUT_SEC)
+        CoreDeviceDiscoveryRequest request = CoreDeviceDiscoveryRequest.newBuilder()
+                                                .setTimeout(DEFAULT_DISCOVERY_TIMEOUT_SEC)
                                                 .setCa(ca)
                                                 .setCert(cert)
                                                 .setKey(key)
@@ -1340,8 +1340,8 @@ public class MqttControlSteps {
         // get agent control by componentId
         AgentControl agentControl = getAgentControl(componentId);
 
-        // do discover on the agent
-        CoreDeviceDiscoverReply reply = agentControl.discoverCoreDevice(request);
+        // do discovery on the agent
+        CoreDeviceDiscoveryReply reply = agentControl.discoveryCoreDevice(request);
         processDiscoveryReply(brokerId, reply);
     }
 
@@ -1512,7 +1512,7 @@ public class MqttControlSteps {
         mqttBrokers.setConnectivityInfo(brokerId, connectionInfos);
     }
 
-    private void processDiscoveryReply(String brokerId, CoreDeviceDiscoverReply reply) {
+    private void processDiscoveryReply(String brokerId, CoreDeviceDiscoveryReply reply) {
         if (reply == null) {
             throw new IllegalStateException("Discovery reply is missing");
         }

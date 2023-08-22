@@ -140,7 +140,7 @@ service MqttClientControl {
     rpc PublishMqtt(MqttPublishRequest) returns (MqttPublishReply) {}
 
     // do Core device discovery
-    rpc DiscoverCoreDevice(CoreDeviceDiscoverRequest) returns (CoreDeviceDiscoverReply) {}
+    rpc DiscoveryCoreDevice(CoreDeviceDiscoveryRequest) returns (CoreDeviceDiscoveryReply) {}
 }
 
 // Versions of MQTT protocol, used for compatibility, only MQTT_PROTOCOL_V50 actually supported
@@ -282,8 +282,8 @@ message MqttPublishReply {
 }
 
 
-// Request to discover Core device broker
-message CoreDeviceDiscoverRequest {
+// Request to discovery Core device broker
+message CoreDeviceDiscoveryRequest {
     int32 timeout = 1;                                  // request timeout in seconds
     string ca = 2;                                      // PEM formatted CA to verify IoT Core
     string cert = 3;                                    // client's certificate, PEM formatted
@@ -304,8 +304,8 @@ message CoreDeviceGroup {
     repeated CoreDeviceConnectivityInfo connectivityInfoList = 2;     // connectivity information of Core Device broker
 }
 
-// Response to discover request
-message CoreDeviceDiscoverReply {
+// Response to discovery request
+message CoreDeviceDiscoveryReply {
     repeated CoreDeviceGroup groupList = 1;             // device groups
 }
 

@@ -6,28 +6,28 @@
 package com.aws.greengrass.testing.mqtt5.client.exceptions;
 
 /**
- * Client's exception related to discover parts.
+ * Client's exception related to discovery parts.
  */
-public class DiscoverException extends ClientException {
+public class DiscoveryException extends ClientException {
     private static final long serialVersionUID = -2081564070408021325L;
 
-    public DiscoverException() {
+    public DiscoveryException() {
         super();
     }
 
-    public DiscoverException(String message) {
+    public DiscoveryException(String message) {
         super(message);
     }
 
-    public DiscoverException(String message, Throwable cause) {
+    public DiscoveryException(String message, Throwable cause) {
         super(message, cause);
     }
 
-    public DiscoverException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+    public DiscoveryException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
     }
 
-    public DiscoverException(Throwable cause) {
+    public DiscoveryException(Throwable cause) {
         super(cause);
     }
 }

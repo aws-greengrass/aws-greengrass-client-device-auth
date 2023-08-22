@@ -5,8 +5,8 @@
 
 package com.aws.greengrass.testing.mqtt5.client.grpc;
 
-import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoverReply;
-import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoverRequest;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryReply;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryRequest;
 import com.aws.greengrass.testing.mqtt.client.Empty;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5ConnAck;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
@@ -25,11 +25,11 @@ import com.aws.greengrass.testing.mqtt.client.MqttSubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.MqttUnsubscribeRequest;
 import com.aws.greengrass.testing.mqtt.client.ShutdownRequest;
 import com.aws.greengrass.testing.mqtt.client.TLSSettings;
-import com.aws.greengrass.testing.mqtt5.client.DiscoverClient;
+import com.aws.greengrass.testing.mqtt5.client.DiscoveryClient;
 import com.aws.greengrass.testing.mqtt5.client.GRPCClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttConnection;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
-import com.aws.greengrass.testing.mqtt5.client.exceptions.DiscoverException;
+import com.aws.greengrass.testing.mqtt5.client.exceptions.DiscoveryException;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.MqttException;
 import io.grpc.Grpc;
 import io.grpc.InsecureServerCredentials;
@@ -83,7 +83,7 @@ class GRPCControlServer {
     private final int boundPort;
 
     private MqttLib mqttLib;
-    private DiscoverClient discoverClient;
+    private DiscoveryClient discoveryClient;
     private String shutdownReason;
 
 
@@ -598,14 +598,14 @@ class GRPCControlServer {
         }
 
         /**
-         * Handler of DiscoverCoreDevice gRPC call.
+         * Handler of DiscoveryCoreDevice gRPC call.
          *
          * @param request incoming request
          * @param responseObserver response control
          */
         @Override
-        public void discoverCoreDevice(CoreDeviceDiscoverRequest request,
-                                            StreamObserver<CoreDeviceDiscoverReply> responseObserver) {
+        public void discoveryCoreDevice(CoreDeviceDiscoveryRequest request,
+                                            StreamObserver<CoreDeviceDiscoveryReply> responseObserver) {
             int timeout = request.getTimeout();
             if (timeout < TIMEOUT_MIN) {
                 logger.atWarn().log("invalid unsubscribe timeout {}, must be >= {}", timeout, TIMEOUT_MIN);
@@ -660,11 +660,11 @@ class GRPCControlServer {
                 return;
             }
 
-            CoreDeviceDiscoverReply reply;
+            CoreDeviceDiscoveryReply reply;
             try {
-                reply = discoverClient.discoverCoreDevice(request);
-            } catch (DiscoverException ex) {
-                logger.atError().withThrowable(ex).log("exception during discover");
+                reply = discoveryClient.discoveryCoreDevice(request);
+            } catch (DiscoveryException ex) {
+                logger.atError().withThrowable(ex).log("exception during discovery");
                 responseObserver.onError(ex);
                 return;
             }
@@ -719,9 +719,9 @@ class GRPCControlServer {
      *
      * @param mqttLib reference to MQTT side of the client to handler incoming requests
      */
-    public void waiting(MqttLib mqttLib, DiscoverClient discoverClient) throws InterruptedException {
+    public void waiting(MqttLib mqttLib, DiscoveryClient discoveryClient) throws InterruptedException {
         this.mqttLib = mqttLib;
-        this.discoverClient = discoverClient;
+        this.discoveryClient = discoveryClient;
         logger.atInfo().log("Server awaitTermination");
         server.awaitTermination();
         logger.atInfo().log("Server awaitTermination done");

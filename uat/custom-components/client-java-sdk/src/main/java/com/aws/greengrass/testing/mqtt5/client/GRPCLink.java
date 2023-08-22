@@ -16,12 +16,12 @@ public interface GRPCLink {
      * Handle all gRPC requests received from control.
      *
      * @param mqttLib MQTT library
-     * @param discoverClient the discover client
+     * @param discoveryClient the discovery client
      * @return shutdown reason as received from control or null
      * @throws GRPCException on errors
      * @throws InterruptedException when thread has been interrupted
      */
-    String handleRequests(@NonNull MqttLib mqttLib, @NonNull DiscoverClient discoverClient)
+    String handleRequests(@NonNull MqttLib mqttLib, @NonNull DiscoveryClient discoveryClient)
             throws GRPCException, InterruptedException;
 
     /**
