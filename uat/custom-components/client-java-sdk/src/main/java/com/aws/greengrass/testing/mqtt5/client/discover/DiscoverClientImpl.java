@@ -68,11 +68,17 @@ public class DiscoverClientImpl implements DiscoverClient {
 
         CoreDeviceDiscoverReply.Builder builder = CoreDeviceDiscoverReply.newBuilder();
         for (final GGGroup group : groups) {
+            List<String> ca = group.getCAs();
+            logger.atInfo().log("Discovered groupId {} with {} CA", group.getGGGroupId(), ca.size());
             CoreDeviceGroup.Builder groupBuiler = CoreDeviceGroup.newBuilder();
-            groupBuiler.addAllCaList(group.getCAs());
+            groupBuiler.addAllCaList(ca);
 
             for (final GGCore core : group.getCores()) {
+                logger.atInfo().log("Discovered Core with thing Arn {}", core.getThingArn());
                 for (final ConnectivityInfo ci : core.getConnectivity()) {
+                    logger.atInfo().log("Discovered connectivity info: id {} host {} port {}", ci.getId(),
+                                        ci.getHostAddress(), ci.getPortNumber());
+
                     CoreDeviceConnectivityInfo cdc = CoreDeviceConnectivityInfo.newBuilder()
                                                         .setHost(ci.getHostAddress())
                                                         .setPort(ci.getPortNumber())
