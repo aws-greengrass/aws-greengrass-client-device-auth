@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client.grpc;
 
+import com.aws.greengrass.testing.mqtt5.client.DiscoveryClient;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,13 +69,14 @@ class GRPCLinkImplTest {
         when(server.getShutdownReason()).thenReturn(reason);
 
         final MqttLib mqttLib = mock(MqttLib.class);
+        final DiscoveryClient discoveryClient = mock(DiscoveryClient.class);
 
         // WHEN
-        String shutdownReason = gRPCLinkImpl.handleRequests(mqttLib);
+        String shutdownReason = gRPCLinkImpl.handleRequests(mqttLib, discoveryClient);
 
         // THEN
         assertEquals(expectedShutdownReason, shutdownReason);
-        verify(server).waiting(eq(mqttLib));
+        verify(server).waiting(eq(mqttLib), eq(discoveryClient));
     }
 
     @Test

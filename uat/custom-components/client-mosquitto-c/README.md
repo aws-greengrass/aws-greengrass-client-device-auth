@@ -4,7 +4,7 @@ MQTT 3.1.1/5.0 client for tests based on C mosquitto library
 
 ## Install requirements for native build
 ```bash
-sudo apt-get install -y build-essential gcc cmake git autoconf libtool pkg-config libmosquitto-dev
+sudo apt-get install -y build-essential gcc cmake git autoconf libtool pkg-config libmosquitto-dev doxygen
 ```
 Note: required version 2.0 or above of mosquitto
 
@@ -68,3 +68,19 @@ In Mosquitto API mosquitto_unsubscribe_v5_callback_set() callback does not provi
 
 4. Windows implementation
 mosquitto library can build on Windows but miss threaded interface and can works only in synchronous mode. That brokes logic of gRPC requests and client control.
+
+
+## Generate documentation
+
+Install doxygen
+
+```bash
+apt-get install -y doxygen
+```
+
+Run command
+```bash
+doxygen
+```
+
+Directory "docs" with the html and latex documentation will be generated.

@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.testing.mqtt5.client.grpc;
 
+import com.aws.greengrass.testing.mqtt5.client.DiscoveryClient;
 import com.aws.greengrass.testing.mqtt5.client.GRPCLink;
 import com.aws.greengrass.testing.mqtt5.client.MqttLib;
 import com.aws.greengrass.testing.mqtt5.client.exceptions.GRPCException;
@@ -92,9 +93,10 @@ public class GRPCLinkImpl implements GRPCLink {
     }
 
     @Override
-    public String handleRequests(@NonNull MqttLib mqttLib) throws GRPCException, InterruptedException {
+    public String handleRequests(@NonNull MqttLib mqttLib, @NonNull DiscoveryClient discoveryClient)
+            throws GRPCException, InterruptedException {
         logger.atInfo().log("Handle gRPC requests");
-        server.waiting(mqttLib);
+        server.waiting(mqttLib, discoveryClient);
         return  "Agent shutdown by OTF request '" + server.getShutdownReason() + "'";
     }
 

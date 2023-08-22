@@ -5,6 +5,8 @@
 
 package com.aws.greengrass.testing.mqtt.client.control.api;
 
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryReply;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryRequest;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.MqttConnectRequest;
@@ -94,4 +96,14 @@ public interface AgentControl {
      * @throws StatusRuntimeException on errors
      */
     void shutdownAgent(String reason);
+
+
+    /**
+     * Do discovery of Core device broker.
+     *
+     * @param discoveryRequest the request with clients name and credentials
+     * @return the reply with connectivity information of IoT Core device broker
+     * @throws StatusRuntimeException on errors
+     */
+    CoreDeviceDiscoveryReply discoveryCoreDevice(@NonNull CoreDeviceDiscoveryRequest discoveryRequest);
 }

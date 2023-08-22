@@ -10,6 +10,10 @@ import com.aws.greengrass.testing.model.RegistrationContext;
 import com.aws.greengrass.testing.model.ScenarioContext;
 import com.aws.greengrass.testing.model.TestContext;
 import com.aws.greengrass.testing.modules.model.AWSResourcesContext;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceConnectivityInfo;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryReply;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceDiscoveryRequest;
+import com.aws.greengrass.testing.mqtt.client.CoreDeviceGroup;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Disconnect;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Message;
 import com.aws.greengrass.testing.mqtt.client.Mqtt5Properties;
@@ -65,6 +69,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -81,6 +86,7 @@ public class MqttControlSteps {
     private static final String DEFAULT_CLIENT_DEVICE_POLICY_CONFIG = "/configs/iot/basic_client_device_policy.yaml";
 
     private static final int DEFAULT_MQTT_TIMEOUT_SEC = 30;
+    private static final int DEFAULT_DISCOVERY_TIMEOUT_SEC = 30;
 
     private static final String MQTT_VERSION_311 = "v3";
     private static final String MQTT_VERSION_50 = "v5";
@@ -723,7 +729,7 @@ public class MqttControlSteps {
      * Creates MQTT connection.
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
-     * @param componentId  the componentId of MQTT client
+     * @param componentId  the componentId of MQTT agent
      * @param brokerId the id of broker, before must be discovered or added
      */
     @And("I connect device {string} on {word} to {string}")
@@ -735,7 +741,7 @@ public class MqttControlSteps {
      * Creates MQTT connection.
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
-     * @param componentId  the componentId of MQTT client
+     * @param componentId  the componentId of MQTT agent
      * @param brokerId the id of broker, before must be discovered or added
      * @param mqttVersion the MQTT version string
      */
@@ -812,7 +818,7 @@ public class MqttControlSteps {
      * Try to create MQTT connection to broker and ensure connection has been failed.
      *
      * @param clientDeviceId the id of the device (thing name) as defined by user in scenario
-     * @param componentId  the componentId of MQTT client
+     * @param componentId  the componentId of MQTT agent
      * @param brokerId the id of broker, before must be discovered or added
      * @param mqttVersion the MQTT version string
      * @throws RuntimeException throws in fail case
@@ -1268,14 +1274,15 @@ public class MqttControlSteps {
      * @param clientDeviceId user defined client device id
      * @throws ExecutionException   thrown when future completed exceptionally
      * @throws InterruptedException thrown when the current thread was interrupted while waiting
+     * @throws TimeoutException     thrown when request is not finished in time limit
      */
     @And("I discover core device broker as {string} from {string} in OTF")
     public void discoverCoreDeviceBroker(String brokerId, String clientDeviceId)
-            throws ExecutionException, InterruptedException {
+            throws ExecutionException, InterruptedException, TimeoutException {
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
 
         final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceThingName);
-        final String crt = thingSpec.resource()
+        final String cert = thingSpec.resource()
                                     .certificate()
                                     .certificatePem();
         final String key = thingSpec.resource()
@@ -1285,13 +1292,57 @@ public class MqttControlSteps {
         final String region = resourcesContext.region().toString();
         final String ca = registrationContext.rootCA();
         try (SocketOptions socketOptions = new SocketOptions();
-                TlsContextOptions tlsOptions = TlsContextOptions.createWithMtls(crt, key)
+                TlsContextOptions tlsOptions = TlsContextOptions.createWithMtls(cert, key)
                                                                  .withCertificateAuthority(ca)
                                                                  .withAlpnList(TLS_EXT_ALPN);
                 DiscoveryClientConfig config = new DiscoveryClientConfig(tlsOptions, socketOptions, region, 1, null);
                 DiscoveryClient client = new DiscoveryClient(config)) {
-            processDiscoveryResponse(brokerId, client.discover(clientDeviceThingName).get());
+            CompletableFuture<DiscoverResponse> discoverFuture = client.discover(clientDeviceThingName);
+            processDiscoveryResponse(brokerId, discoverFuture.get(DEFAULT_DISCOVERY_TIMEOUT_SEC, TimeUnit.SECONDS));
         }
+    }
+
+    /**
+     * Discover IoT core device broker on device.
+     * Note: That feature available only in SDK-based client
+     *
+     * @param brokerId       the broker name in tests
+     * @param clientDeviceId the user defined client device id
+     * @param componentId    the componentId of MQTT agent
+     * @throws ExecutionException   thrown when future completed exceptionally
+     * @throws InterruptedException thrown when the current thread was interrupted while waiting
+     */
+    @And("I discover core device broker as {string} from {string} on {string}")
+    public void discoverCoreDeviceBrokerOnDevice(String brokerId, String clientDeviceId, String componentId)
+            throws ExecutionException, InterruptedException {
+        final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
+
+        final IotThingSpec thingSpec = getClientDeviceThingSpec(clientDeviceThingName);
+        final String cert = thingSpec.resource()
+                                    .certificate()
+                                    .certificatePem();
+        final String key = thingSpec.resource()
+                                    .certificate()
+                                    .keyPair()
+                                    .privateKey();
+        final String region = resourcesContext.region().toString();
+        final String ca = registrationContext.rootCA();
+
+        CoreDeviceDiscoveryRequest request = CoreDeviceDiscoveryRequest.newBuilder()
+                                                .setTimeout(DEFAULT_DISCOVERY_TIMEOUT_SEC)
+                                                .setCa(ca)
+                                                .setCert(cert)
+                                                .setKey(key)
+                                                .setThingName(clientDeviceThingName)
+                                                .setRegion(region)
+                                                .build();
+
+        // get agent control by componentId
+        AgentControl agentControl = getAgentControl(componentId);
+
+        // do discovery on the agent
+        CoreDeviceDiscoveryReply reply = agentControl.discoveryCoreDevice(request);
+        processDiscoveryReply(brokerId, reply);
     }
 
     /**
@@ -1438,7 +1489,7 @@ public class MqttControlSteps {
                 log.info("Core with thing Arn {}", core.getThingArn());
                 core.getConnectivity().stream().forEach(ci -> {
                     log.info("Connectivity info: id {} host {} port {}",
-                                ci. getId(),
+                                ci.getId(),
                                 ci.getHostAddress(),
                                 ci.getPortNumber());
                 });
@@ -1457,6 +1508,31 @@ public class MqttControlSteps {
                     group.getCAs()))
                  .collect(Collectors.toCollection(() -> connectionInfos));
         });
+
+        mqttBrokers.setConnectivityInfo(brokerId, connectionInfos);
+    }
+
+    private void processDiscoveryReply(String brokerId, CoreDeviceDiscoveryReply reply) {
+        if (reply == null) {
+            throw new IllegalStateException("Discovery reply is missing");
+        }
+
+        if (reply.getGroupListCount() < 1) {
+            throw new IllegalStateException("Groups are missing in discovery reply");
+        }
+
+        List<MqttBrokers.ConnectivityInfo> connectionInfos = new ArrayList<>();
+        for (CoreDeviceGroup group : reply.getGroupListList()) {
+            log.info("group with {} CA", group.getCaListCount());
+            for (CoreDeviceConnectivityInfo ci : group.getConnectivityInfoListList()) {
+                log.info("Connectivity info: host {} port {}", ci.getHost(), ci.getPort());
+                connectionInfos.add(new MqttBrokers.ConnectivityInfo(
+                    ci.getHost(),
+                    ci.getPort(),
+                    group.getCaListList()
+                ));
+            }
+        }
 
         mqttBrokers.setConnectivityInfo(brokerId, connectionInfos);
     }

@@ -2754,3 +2754,73 @@ Feature: GGMQ-1
     Examples:
       | mqtt-v | name        | agent                                       | recipe                  | publish-status-nms |
       | v5     | paho-python | aws.greengrass.client.Mqtt5PythonPahoClient | client_python_paho.yaml | 0                  |
+
+
+  @GGMQ-1-T103
+  Scenario Outline: GGMQ-1-T103-<mqtt-v>-<name>: As a customer, I can discover Core device broker in AWS IoT device SDK-based client
+    When I create a Greengrass deployment with components
+      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+    And I create client device "clientDeviceTest"
+    When I associate "clientDeviceTest" with ggc
+    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
+    """
+{
+    "MERGE":{
+        "deviceGroups":{
+            "formatVersion":"2021-03-05",
+            "definitions":{
+                "MyPermissiveDeviceGroup":{
+                    "selectionRule":"thingName: ${clientDeviceTest}",
+                    "policyName":"MyPermissivePolicy"
+                }
+            },
+            "policies":{
+                "MyPermissivePolicy":{
+                    "AllowAll":{
+                        "statementDescription":"Allow client devices to perform all actions.",
+                        "operations":[
+                            "*"
+                        ],
+                        "resources":[
+                            "*"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+    """
+    And I update my Greengrass deployment configuration, setting the component <agent> configuration to:
+    """
+{
+    "MERGE":{
+        "controlAddresses":"${mqttControlAddresses}",
+        "controlPort":"${mqttControlPort}"
+    }
+}
+    """
+
+    And I deploy the Greengrass deployment configuration
+    Then the Greengrass deployment is COMPLETED on the device after 5 minutes
+    And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
+
+    And I discover core device broker as "default_broker" from "clientDeviceTest" on "<agent>"
+    And I connect device "clientDeviceTest" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+
+    When I subscribe "clientDeviceTest" to "iot_data_0" with qos 0 and expect status "GRANTED_QOS_0"
+    When I publish from "clientDeviceTest" to "iot_data_0" with qos 0 and message "Test message0"
+    And message "Test message0" received on "clientDeviceTest" from "iot_data_0" topic within 10 seconds
+
+    @mqtt3 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v3     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
+
+    @mqtt5 @sdk-java
+    Examples:
+      | mqtt-v | name        | agent                                       | recipe                  |
+      | v5     | sdk-java    | aws.greengrass.client.Mqtt5JavaSdkClient    | client_java_sdk.yaml    |
