@@ -177,6 +177,8 @@ mvn javadoc:javadoc
 ```
 The main html-file will be located in each module by path **target/site/apidocs/index.html**
 
+See individual README.md files for Python and C clients.
+
 ## Limitations
 MQTT clients based on IoT Device SDK for Java v2, mosquitto C, Paho Java, Paho Python do no provide API to get information from PUBREC/PUBREL/PUBCOMP packages used when messages published with QoS 2.
 
