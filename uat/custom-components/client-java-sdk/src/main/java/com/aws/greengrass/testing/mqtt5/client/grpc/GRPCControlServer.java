@@ -53,6 +53,8 @@ class GRPCControlServer {
 
     private static final String CONNECTION_WITH_DOES_NOT_FOUND = "connection with id {} doesn't found";
     private static final String CONNECTION_DOES_NOT_FOUND = "connection doesn't found";
+    private static final String EMPTY_CERTIFICATE = "empty certificate";
+    private static final String EMPTY_PRIVATE_KEY = "empty private key";
 
     private static final int TIMEOUT_MIN = 1;
 
@@ -206,18 +208,18 @@ class GRPCControlServer {
 
                 String cert = tls.getCert();
                 if (cert == null || cert.isEmpty()) {
-                    logger.atWarn().log("empty certificate");
+                    logger.atWarn().log(EMPTY_CERTIFICATE);
                     responseObserver.onError(Status.INVALID_ARGUMENT
-                                                .withDescription("empty certificate")
+                                                .withDescription(EMPTY_CERTIFICATE)
                                                 .asRuntimeException());
                     return;
                 }
 
                 String key = tls.getKey();
                 if (key == null || key.isEmpty()) {
-                    logger.atWarn().log("empty private key");
+                    logger.atWarn().log(EMPTY_PRIVATE_KEY);
                     responseObserver.onError(Status.INVALID_ARGUMENT
-                                                .withDescription("empty private key")
+                                                .withDescription(EMPTY_PRIVATE_KEY)
                                                 .asRuntimeException());
                     return;
                 }
@@ -624,18 +626,18 @@ class GRPCControlServer {
 
             final String cert = request.getCert();
             if (cert == null || cert.isEmpty()) {
-                logger.atWarn().log("empty certificate");
+                logger.atWarn().log(EMPTY_CERTIFICATE);
                 responseObserver.onError(Status.INVALID_ARGUMENT
-                                            .withDescription("empty certificate")
+                                            .withDescription(EMPTY_CERTIFICATE)
                                             .asRuntimeException());
                 return;
             }
 
             final String key = request.getKey();
             if (key == null || key.isEmpty()) {
-                logger.atWarn().log("empty private key");
+                logger.atWarn().log(EMPTY_PRIVATE_KEY);
                 responseObserver.onError(Status.INVALID_ARGUMENT
-                                            .withDescription("empty private key")
+                                            .withDescription(EMPTY_PRIVATE_KEY)
                                             .asRuntimeException());
                 return;
             }
