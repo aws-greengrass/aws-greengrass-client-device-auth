@@ -1319,6 +1319,7 @@ Feature: GGMQ-1
       | aws.greengrass.clientdevices.Auth        | LATEST                                  |
       | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
       | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
+      | aws.greengrass.Cli                       | LATEST                                  |
       | <agent>                                  | classpath:/local-store/recipes/<recipe> |
     And I create client device "basic_connect"
     And I create client device "basic_connect_2"
@@ -1366,9 +1367,16 @@ Feature: GGMQ-1
     """
 {
     "MERGE":{
-        "emqx": {
-            "listener.ssl.external": "9000"
-        }
+        "emqxConfig": {
+            "listeners": {
+                "ssl": {
+                    "default": {
+                        "bind": 9000
+                    }
+                }
+            }
+        },
+        "dockerOptions": "-p 9000:9000"
     }
 }
     """
@@ -1385,16 +1393,11 @@ Feature: GGMQ-1
     Then the Greengrass deployment is COMPLETED on the device after 5 minutes
     And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
-    And I discover core device broker as "default_broker" from "basic_connect" in OTF
-    And I connect device "basic_connect" on <agent> to "default_broker" using mqtt "<mqtt-v>"
+    And I discover core device broker as "broker1" from "basic_connect" in OTF
+    And I connect device "basic_connect" on <agent> to "broker1" using mqtt "<mqtt-v>"
     And I disconnect device "basic_connect" with reason code 0
 
-    When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST |
-      | <agent>                                  | LATEST |
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.IPDetector configuration to:
+    And I update my local deployment configuration, setting the component aws.greengrass.clientdevices.IPDetector configuration to:
     """
 {
     "MERGE":{
@@ -1402,32 +1405,34 @@ Feature: GGMQ-1
     }
 }
     """
-    And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 299 seconds
+    Then the local Greengrass deployment is SUCCEEDED on the device after 60 seconds
     Then I wait 60 seconds
-    And I discover core device broker as "second_attempt_discovery" from "basic_connect_2" in OTF
-    And I can not connect device "basic_connect_2" on <agent> to "second_attempt_discovery" using mqtt "<mqtt-v>"
 
-    When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST |
-      | <agent>                                  | LATEST |
-    And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.EMQX configuration to:
+    And I discover core device broker as "broker2" from "basic_connect_2" in OTF
+    And I can not connect device "basic_connect_2" on <agent> to "broker2" using mqtt "<mqtt-v>"
+
+    And I update my local deployment configuration, setting the component aws.greengrass.clientdevices.mqtt.EMQX configuration to:
     """
 {
     "MERGE":{
-        "emqx": {
-            "listener.ssl.external": "9001"
-        }
+        "emqxConfig": {
+            "listeners": {
+                "ssl": {
+                    "default": {
+                        "bind": 9001
+                    }
+                }
+            }
+        },
+        "dockerOptions": "-p 9001:9001"
     }
 }
     """
-    And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 299 seconds
+    Then the local Greengrass deployment is SUCCEEDED on the device after 60 seconds
     Then I wait 60 seconds
-    And I discover core device broker as "third_attempt_discovery" from "basic_connect_2" in OTF
-    And I connect device "basic_connect_2" on <agent> to "third_attempt_discovery" using mqtt "<mqtt-v>"
+
+    And I discover core device broker as "broker3" from "basic_connect_2" in OTF
+    And I connect device "basic_connect_2" on <agent> to "broker3" using mqtt "<mqtt-v>"
 
     @mqtt3 @sdk-java
     Examples:
