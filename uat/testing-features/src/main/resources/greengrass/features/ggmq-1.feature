@@ -11,10 +11,10 @@ Feature: GGMQ-1
   @GGMQ-1-T1
   Scenario Outline: GGMQ-1-T1-<mqtt-v>-<name>: As a customer, I can connect, subscribe/publish at QoS 0 and 1 and receive using client application to MQTT topic
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
-      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
     And I create client device "clientDeviceTest"
     When I associate "clientDeviceTest" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
@@ -189,10 +189,10 @@ Feature: GGMQ-1
     And I disconnect device "clientDeviceTest" with reason code 0
 
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth       | LATEST |
-      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST |
-      | aws.greengrass.clientdevices.IPDetector | LATEST |
-      | <agent>                                 | LATEST |
+      | aws.greengrass.clientdevices.Auth       | LATEST  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST  |
+      | <agent>                                 | CURRENT |
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
 {
@@ -223,7 +223,7 @@ Feature: GGMQ-1
 }
     """
     And I deploy the Greengrass deployment configuration
-    Then the Greengrass deployment is COMPLETED on the device after 2 minutes
+    Then the Greengrass deployment is COMPLETED on the device after 299 seconds
     And the aws.greengrass.clientdevices.mqtt.EMQX log on the device contains the line "is running now!." within 1 minutes
 
     And I discover core device broker as "default_broker" from "clientDeviceTest" in OTF
@@ -577,10 +577,10 @@ Feature: GGMQ-1
   @GGMQ-1-T13
   Scenario Outline: GGMQ-1-T13-<mqtt-v>-<name>: As a customer, I can connect two GGADs and send message from one GGAD to the other based on CDA configuration
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
-      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
 
     And I create client device "publisher"
     And I create client device "subscriber"
@@ -656,10 +656,10 @@ Feature: GGMQ-1
     And I disconnect device "publisher" with reason code 0
 
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST |
-      | <agent>                                  | LATEST |
+      | aws.greengrass.clientdevices.Auth       | LATEST  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST  |
+      | <agent>                                 | CURRENT |
 
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
     """
@@ -1316,11 +1316,11 @@ Feature: GGMQ-1
   @GGMQ-1-T20
   Scenario Outline: GGMQ-1-T20-<mqtt-v>-<name>: As a customer, I can associate and connect GGADs with GGC over custom port
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
-      | aws.greengrass.Cli                       | LATEST                                  |
-      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | aws.greengrass.Cli                      | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
     And I create client device "basic_connect"
     And I create client device "basic_connect_2"
     When I associate "basic_connect" with ggc
@@ -1478,10 +1478,10 @@ Feature: GGMQ-1
   @GGMQ-1-T21
   Scenario Outline: GGMQ-1-T21-<mqtt-v>-<name>: As a customer, I change the connectivity ip address and GGADs are able to connect via IPD
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
-      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
     And I create client device "basic_connect"
     When I associate "basic_connect" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
@@ -1673,11 +1673,11 @@ Feature: GGMQ-1
   @GGMQ-1-T24
   Scenario Outline: GGMQ-1-T24-<mqtt-v>-<name>: As a customer, I can reset CDA config and update it and CDA will use the new config
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
-      | aws.greengrass.Cli                       | LATEST                                  |
-      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | aws.greengrass.Cli                      | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
     And I create client device "publisher"
     And I create client device "subscriber"
 
@@ -1828,10 +1828,10 @@ Feature: GGMQ-1
   @GGMQ-1-T25
   Scenario Outline: GGMQ-1-T25-<mqtt-v>-<name>: As a customer, I connect with same client id twice (not reconnect) and be able to publish and subscribe to messages.
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
-      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
     And I create client device "publisher"
     And I create client device "subscriber"
     When I associate "publisher" with ggc
@@ -1940,10 +1940,10 @@ Feature: GGMQ-1
   @GGMQ-1-T26
   Scenario Outline: GGMQ-1-T26-<mqtt-v>-<name>: As a customer, my GGAD stays connected when CDA rotates cert for EMQX broker
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
-      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
     And I create client device "clientDeviceTest"
     When I associate "clientDeviceTest" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
@@ -2055,10 +2055,10 @@ Feature: GGMQ-1
   @GGMQ-1-T27 @OffTheNetwork
   Scenario Outline: GGMQ-1-T27-<mqtt-v>-<name>: As a customer, my Greengrass-issued certificate does not rotate when mqtt reconnects
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
-      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
     And I create client device "clientDeviceTest"
     When I associate "clientDeviceTest" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.Nucleus configuration to:
@@ -2764,10 +2764,10 @@ Feature: GGMQ-1
   @GGMQ-1-T103
   Scenario Outline: GGMQ-1-T103-<mqtt-v>-<name>: As a customer, I can discover Core device broker in AWS IoT device SDK-based client
     When I create a Greengrass deployment with components
-      | aws.greengrass.clientdevices.Auth        | LATEST                                  |
-      | aws.greengrass.clientdevices.mqtt.EMQX   | LATEST                                  |
-      | aws.greengrass.clientdevices.IPDetector  | LATEST                                  |
-      | <agent>                                  | classpath:/local-store/recipes/<recipe> |
+      | aws.greengrass.clientdevices.Auth       | LATEST                                  |
+      | aws.greengrass.clientdevices.mqtt.EMQX  | LATEST                                  |
+      | aws.greengrass.clientdevices.IPDetector | LATEST                                  |
+      | <agent>                                 | classpath:/local-store/recipes/<recipe> |
     And I create client device "clientDeviceTest"
     When I associate "clientDeviceTest" with ggc
     And I update my Greengrass deployment configuration, setting the component aws.greengrass.clientdevices.Auth configuration to:
