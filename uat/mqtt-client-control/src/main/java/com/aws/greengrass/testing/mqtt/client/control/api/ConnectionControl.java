@@ -74,7 +74,7 @@ public interface ConnectionControl {
      * @param subscriptionId optional subscription id
      * @param subscriptions MQTT subscriptions
      * @return reply to subscribe
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     default MqttSubscribeReply subscribeMqtt(Integer subscriptionId, @NonNull Mqtt5Subscription... subscriptions) {
         final List<Mqtt5Properties> userProperties = null;
@@ -88,7 +88,7 @@ public interface ConnectionControl {
      * @param userProperties optional MQTT v5.0 user properties
      * @param subscriptions MQTT subscriptions
      * @return reply to subscribe
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     MqttSubscribeReply subscribeMqtt(Integer subscriptionId, List<Mqtt5Properties> userProperties,
                                      @NonNull Mqtt5Subscription... subscriptions);
@@ -98,7 +98,7 @@ public interface ConnectionControl {
      *
      * @param message message to publish
      * @return publish's response
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     MqttPublishReply publishMqtt(@NonNull Mqtt5Message message);
 
@@ -108,7 +108,7 @@ public interface ConnectionControl {
      *
      * @param filters topic filters to unsubscribe
      * @return reply to unsubscribe
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     default MqttSubscribeReply unsubscribeMqtt(@NonNull String... filters) {
         final List<Mqtt5Properties> userProperties = null;
@@ -121,7 +121,7 @@ public interface ConnectionControl {
      * @param userProperties optional MQTT v5.0 user properties
      * @param filters topic filters to unsubscribe
      * @return reply to unsubscribe
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     MqttSubscribeReply unsubscribeMqtt(List<Mqtt5Properties> userProperties, @NonNull String... filters);
 
@@ -129,7 +129,7 @@ public interface ConnectionControl {
      * Close MQTT connection to the broker.
      *
      * @param reason reason code of disconnection as specified by MQTT v5.0 in DISCONNECT packet
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     default void closeMqttConnection(int reason) {
         closeMqttConnection(reason, null);
@@ -140,7 +140,7 @@ public interface ConnectionControl {
      *
      * @param reason reason code of disconnection as specified by MQTT v5.0 in DISCONNECT packet
      * @param userProperties optional MQTT v5.0 user properties
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     void closeMqttConnection(int reason, List<Mqtt5Properties> userProperties);
 }

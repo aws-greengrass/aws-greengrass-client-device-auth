@@ -93,7 +93,7 @@ public interface AgentControl {
      * Shutdown whole agent.
      *
      * @param reason shutdown reason
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     void shutdownAgent(String reason);
 
@@ -103,7 +103,7 @@ public interface AgentControl {
      *
      * @param discoveryRequest the request with clients name and credentials
      * @return the reply with connectivity information of IoT Core device broker
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     CoreDeviceDiscoveryReply discoveryCoreDevice(@NonNull CoreDeviceDiscoveryRequest discoveryRequest);
 }
