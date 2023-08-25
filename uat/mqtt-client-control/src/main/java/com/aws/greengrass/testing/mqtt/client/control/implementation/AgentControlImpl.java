@@ -225,7 +225,7 @@ public class AgentControlImpl implements AgentControl {
      *
      * @param subscribeRequest subscribe request
      * @return reply to subscribe
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     MqttSubscribeReply subscribeMqtt(@NonNull MqttSubscribeRequest subscribeRequest) {
         int connectionId = subscribeRequest.getConnectionId().getConnectionId();
@@ -238,7 +238,7 @@ public class AgentControlImpl implements AgentControl {
      *
      * @param unsubscribeRequest unsubscribe request
      * @return reply to unsubscribe
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     MqttSubscribeReply unsubscribeMqtt(@NonNull MqttUnsubscribeRequest unsubscribeRequest) {
         int connectionId = unsubscribeRequest.getConnectionId().getConnectionId();
@@ -251,7 +251,7 @@ public class AgentControlImpl implements AgentControl {
      *
      * @param publishRequest publish request
      * @return reply to publish
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     MqttPublishReply publishMqtt(@NonNull MqttPublishRequest publishRequest) {
         int connectionId = publishRequest.getConnectionId().getConnectionId();
@@ -264,7 +264,7 @@ public class AgentControlImpl implements AgentControl {
      * Close MQTT connection to the broker.
      *
      * @param closeRequest parameters of MQTT disconnect
-     * @throws StatusRuntimeException on errors
+     * @throws io.grpc.StatusRuntimeException on errors
      */
     void closeMqttConnection(@NonNull MqttCloseRequest closeRequest) {
         blockingStub.closeMqttConnection(closeRequest);

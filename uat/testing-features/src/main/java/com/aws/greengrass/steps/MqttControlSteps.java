@@ -304,6 +304,7 @@ public class MqttControlSteps {
      * Convert boolean string to value.
      *
      * @param value the string value of boolean
+     * @return boolean object of value
      */
     @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
     @ParameterType(value = "true|True|TRUE|false|False|FALSE")
@@ -315,6 +316,7 @@ public class MqttControlSteps {
      * Convert boolean or null string to nullable value.
      *
      * @param value the string value of boolean or null
+     * @return boolean object of value or null
      */
     @SuppressWarnings("PMD.UnnecessaryAnnotationValueElement")
     @ParameterType(value = "true|True|TRUE|false|False|FALSE|null|NULL")
@@ -1152,7 +1154,6 @@ public class MqttControlSteps {
      * @param clientDeviceId the user defined client device id
      * @param value the duration of time to wait for message
      * @param unit the time unit to wait
-     * @throws TimeoutException when matched message was not received in specified duration of time
      * @throws RuntimeException on internal errors
      * @throws InterruptedException then thread has been interrupted
      */
@@ -1167,7 +1168,6 @@ public class MqttControlSteps {
      * @param clientDeviceId the user defined client device id
      * @param value the duration of time to wait for message
      * @param unit the time unit to wait
-     * @throws TimeoutException when matched message was not received in specified duration of time
      * @throws RuntimeException on internal errors
      * @throws InterruptedException then thread has been interrupted
      */
