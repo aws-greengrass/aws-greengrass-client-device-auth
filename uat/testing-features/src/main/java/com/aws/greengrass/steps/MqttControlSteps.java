@@ -759,9 +759,6 @@ public class MqttControlSteps {
         }
 
 
-        // get agent control by componentId
-        AgentControl agentControl = getAgentControl(componentId);
-
         // request for new MQTT connection
         final String clientDeviceThingName = getClientDeviceThingName(clientDeviceId);
 
@@ -777,6 +774,9 @@ public class MqttControlSteps {
                      brokerId, host, port, clientDeviceThingName, componentId, mqttVersion);
             MqttConnectRequest request = buildMqttConnectRequest(
                     clientDeviceThingName, caList, host, port, version);
+            // get agent control by componentId as late as possible to reduce race probability
+            AgentControl agentControl = getAgentControl(componentId);
+
             try {
                 ConnectionControl connectionControl
                         = agentControl.createMqttConnection(request, connectionEvents);

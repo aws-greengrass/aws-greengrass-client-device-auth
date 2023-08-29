@@ -178,9 +178,10 @@ public class EngineControlImpl implements EngineControl, DiscoveryEvents {
             } else {
                 logger.atInfo().log("Agent {} relocated to {}:{}", agentId, address, port);
                 agents.remove(agentId);
-                stopAgent(agentId, agentControl, false);
-                // recursion
+                // recursion just to add new relocated agent
                 onDiscoveryAgent(agentId, address, port);
+                // stop can take long time (about 2 seconds)
+                stopAgent(agentId, agentControl, false);
             }
         }
     }
