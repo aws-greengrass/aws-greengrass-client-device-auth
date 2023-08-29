@@ -2394,7 +2394,7 @@ Feature: GGMQ-1
     When I subscribe "subscriber" to "t102_case8" with qos 0
     And message "Single not retained message in case8" is not received on "subscriber" from "t102_case8" topic within 5 seconds
 
-    And I clear the event storage and reset all MQTT settings to default
+    And I clear the event storage and reset all MQTT settings to defaults
 
     # C. SUBSCRIBE 'retain as published' tests
 
