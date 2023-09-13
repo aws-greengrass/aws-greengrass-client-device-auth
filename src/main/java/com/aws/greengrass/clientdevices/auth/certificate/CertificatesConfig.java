@@ -15,7 +15,7 @@ public class CertificatesConfig {
     private static final Logger LOGGER = LogManager.getLogger(CertificatesConfig.class);
 
     static final int MAX_SERVER_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 10; // 10 days
-    static final int MIN_SERVER_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 2; // 2 days
+    static final int MIN_SERVER_CERT_EXPIRY_SECONDS = 60; // 1 minute
     static final int DEFAULT_SERVER_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
     static final int DEFAULT_CLIENT_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
     static final boolean DEFAULT_DISABLE_CERTIFICATE_ROTATION = false;

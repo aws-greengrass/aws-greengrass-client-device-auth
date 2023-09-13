@@ -53,7 +53,7 @@ public class CertificatesConfigTest {
 
     @Test
     public void GIVEN_smallServerCertValidity_WHEN_getServerCertValiditySeconds_THEN_returnsMinExpiry() {
-        configurationTopics.lookup(CertificatesConfig.PATH_SERVER_CERT_EXPIRY_SECONDS).withValue(60 * 60 * 24); // 1 day
+        configurationTopics.lookup(CertificatesConfig.PATH_SERVER_CERT_EXPIRY_SECONDS).withValue(30);
         assertThat(certificatesConfig.getServerCertValiditySeconds(),
                 is(equalTo(CertificatesConfig.MIN_SERVER_CERT_EXPIRY_SECONDS)));
     }
