@@ -150,6 +150,35 @@ public final class CertificateHelper {
     }
 
     /**
+     * Generate a certificate with both service and client auth key usage. For cluster usage.
+     *
+     * @param caCert                CA Certificate
+     * @param caPrivateKey          CA Private Key
+     * @param subject               server's subject
+     * @param publicKey             server's public key
+     * @param connectivityInfoItems GGC's connectivity info
+     * @param notBefore             Certificate notBefore Date
+     * @param notAfter              Certificate notAfter Date
+     * @param providerType          Type of provider
+     * @return X509 certificate
+     * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
+     * @throws OperatorCreationException OperatorCreationException
+     * @throws CertificateException      CertificateException
+     * @throws IOException               IOException
+     */
+    public static X509Certificate issueClusterCertificate(@NonNull X509Certificate caCert,
+                                                         @NonNull PrivateKey caPrivateKey, @NonNull X500Name subject,
+                                                         @NonNull PublicKey publicKey,
+                                                         @NonNull List<String> connectivityInfoItems,
+                                                         @NonNull Date notBefore, @NonNull Date notAfter,
+                                                         @NonNull ProviderType providerType)
+            throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+        return issueCertificate(caCert, caPrivateKey, subject, publicKey, connectivityInfoItems, notBefore, notAfter,
+                new ExtendedKeyUsage(new KeyPurposeId[]{KeyPurposeId.id_kp_serverAuth, KeyPurposeId.id_kp_clientAuth}),
+                providerType);
+    }
+
+    /**
      * Generate server certificate.
      *
      * @param caCert                CA Certificate

@@ -14,6 +14,9 @@ public class GetCertificateRequestOptions {
     private CertificateType certificateType;
 
     public enum CertificateType {
-        SERVER, CLIENT
+        SERVER,
+        CLIENT,
+        // Used for Cluster Controller component - extended key usage Server + Client
+        CLUSTER
     }
 }

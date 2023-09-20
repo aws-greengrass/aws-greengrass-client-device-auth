@@ -20,6 +20,7 @@ public class CertificatesConfig {
     static final int MIN_CLIENT_CERT_EXPIRY_SECONDS = 60; // 1 minute
     static final int DEFAULT_SERVER_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
     static final int DEFAULT_CLIENT_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 7; // 7 days
+    static final int DEFAULT_CLUSTER_CERT_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 10; // 10 years
     static final boolean DEFAULT_DISABLE_CERTIFICATE_ROTATION = false;
 
     private static final String CERTIFICATES_CONFIGURATION = "certificates";
@@ -60,6 +61,16 @@ public class CertificatesConfig {
             return MIN_SERVER_CERT_EXPIRY_SECONDS;
         }
         return configuredValidityPeriod;
+    }
+
+    /**
+     * Get cluster certificate validity period.
+     *
+     * @return Cluster certificate validity in seconds
+     */
+    public int getClusterCertValiditySeconds() {
+        // TODO: Make cluster validity period configurable.
+        return DEFAULT_CLUSTER_CERT_EXPIRY_SECONDS;
     }
 
     /**

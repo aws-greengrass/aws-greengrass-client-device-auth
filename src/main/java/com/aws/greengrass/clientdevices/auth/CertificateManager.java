@@ -15,6 +15,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
 import com.aws.greengrass.clientdevices.auth.certificate.ClientCertificateGenerator;
+import com.aws.greengrass.clientdevices.auth.certificate.ClusterCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.ServerCertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.events.CertificateSubscriptionEvent;
 import com.aws.greengrass.clientdevices.auth.certificate.handlers.CertificateRotationHandler;
@@ -58,6 +59,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import javax.inject.Inject;
 
 public class CertificateManager {
@@ -173,23 +175,30 @@ public class CertificateManager {
             // TODO: Should be configurable
             KeyPair keyPair = CertificateStore.newRSAKeyPair(4096);
 
-            if (certificateType.equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
-                BiConsumer<X509Certificate, X509Certificate[]> consumer = (serverCert, caCertificates) -> {
-                    CertificateUpdateEvent certificateUpdateEvent =
-                            new CertificateUpdateEvent(keyPair, serverCert, caCertificates);
-                    getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
-                };
-                subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
-                logger.atDebug().log("Successfully subscribed to certificate update");
-                domainEvent.emit(new CertificateSubscriptionEvent(certificateType,
-                        CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS));
-            } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
-                BiConsumer<X509Certificate, X509Certificate[]> consumer = (clientCert, caCertificates) -> {
-                    CertificateUpdateEvent certificateUpdateEvent =
-                            new CertificateUpdateEvent(keyPair, clientCert, caCertificates);
-                    getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
-                };
-                subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
+            BiConsumer<X509Certificate, X509Certificate[]> consumer = (cert, caCertificates) -> {
+                CertificateUpdateEvent certificateUpdateEvent =
+                        new CertificateUpdateEvent(keyPair, cert, caCertificates);
+                getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
+            };
+
+            switch (certificateType) {
+                case SERVER:
+                    subscribeToCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer,
+                            GetCertificateRequestOptions.CertificateType.SERVER);
+                    logger.atDebug().log("Successfully subscribed to certificate update");
+                    domainEvent.emit(new CertificateSubscriptionEvent(certificateType,
+                            CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS));
+                    break;
+                case CLIENT:
+                    subscribeToCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer,
+                            GetCertificateRequestOptions.CertificateType.CLIENT);
+                    break;
+                case CLUSTER:
+                    subscribeToCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer,
+                            GetCertificateRequestOptions.CertificateType.CLUSTER);
+                    break;
+                default:
+                    throw new CertificateGenerationException("Unsupported certificate type: " + certificateType);
             }
         } catch (NoSuchAlgorithmException e) {
             domainEvent.emit(new CertificateSubscriptionEvent(getCertificateRequest.getCertificateRequestOptions()
@@ -197,6 +206,67 @@ public class CertificateManager {
             throw new CertificateGenerationException(e);
         }
     }
+
+    private void subscribeToCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
+                                                    @NonNull PublicKey publicKey,
+                                                    @NonNull BiConsumer<X509Certificate, X509Certificate[]> cb,
+                                                    GetCertificateRequestOptions.CertificateType type)
+            throws CertificateGenerationException {
+
+        CertificateGenerator certificateGenerator =
+                createCertificateGeneratorByType(certificateRequest, publicKey, cb, type);
+
+        // Add certificate generator to monitors
+        addCertificateGeneratorToMonitors(certificateGenerator, type);
+
+        if (certificateStore.isReady()) {
+            String reason = "initialization of " + type.toString().toLowerCase() + " cert subscription";
+            certificateGenerator.generateCertificate(getAddressProvider(type), reason);
+        }
+
+        certSubscriptions.compute(certificateRequest, (k, v) -> {
+            if (v != null) {
+                removeCGFromMonitors(v);
+            }
+            return certificateGenerator;
+        });
+    }
+
+    private CertificateGenerator createCertificateGeneratorByType(GetCertificateRequest request, PublicKey publicKey,
+                                                                  BiConsumer<X509Certificate, X509Certificate[]> cb,
+                                                                  GetCertificateRequestOptions.CertificateType type) {
+        switch (type) {
+            case SERVER:
+                return new ServerCertificateGenerator(CertificateHelper.getX500Name(request.getServiceName()),
+                        publicKey, cb, certificateStore, certificatesConfig, clock);
+            case CLUSTER:
+                return new ClusterCertificateGenerator(CertificateHelper.getX500Name(request.getServiceName()),
+                        publicKey, cb, certificateStore, certificatesConfig, clock);
+            case CLIENT:
+            default:
+                return new ClientCertificateGenerator(CertificateHelper.getX500Name(request.getServiceName()),
+                        publicKey, cb, certificateStore, certificatesConfig, clock);
+        }
+    }
+
+    private void addCertificateGeneratorToMonitors(CertificateGenerator generator,
+                                                   GetCertificateRequestOptions.CertificateType type) {
+        certExpiryMonitor.addToMonitor(generator);
+        caConfigurationMonitor.addToMonitor(generator);
+
+        if (type == GetCertificateRequestOptions.CertificateType.SERVER
+                || type == GetCertificateRequestOptions.CertificateType.CLUSTER) {
+            cisShadowMonitor.addToMonitor(generator);
+        }
+    }
+
+    private Supplier<List<String>> getAddressProvider(GetCertificateRequestOptions.CertificateType type) {
+        if (type == GetCertificateRequestOptions.CertificateType.CLIENT) {
+            return Collections::emptyList;
+        }
+        return connectivityInformation::getCachedHostAddresses;
+    }
+
 
     /**
      * Unsubscribe from certificate updates.
@@ -208,59 +278,6 @@ public class CertificateManager {
         if (certGen != null) {
             removeCGFromMonitors(certGen);
         }
-    }
-
-    private void subscribeToServerCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
-                                                          @NonNull PublicKey publicKey,
-                                                          @NonNull BiConsumer<X509Certificate, X509Certificate[]> cb)
-            throws CertificateGenerationException {
-        CertificateGenerator certificateGenerator =
-                new ServerCertificateGenerator(CertificateHelper.getX500Name(certificateRequest.getServiceName()),
-                        publicKey, cb, certificateStore, certificatesConfig, clock);
-
-        // Add certificate generator to monitors first in order to avoid missing events
-        // that happen while the initial certificate is being generated.
-        certExpiryMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.addToMonitor(certificateGenerator);
-        caConfigurationMonitor.addToMonitor(certificateGenerator);
-
-        if (certificateStore.isReady()) {
-            certificateGenerator.generateCertificate(connectivityInformation::getCachedHostAddresses,
-                    "initialization of server cert subscription");
-        }
-
-        certSubscriptions.compute(certificateRequest, (k, v) -> {
-            // A subscription already exists, we will replace it so that a new certificate is generated immediately
-            if (v != null) {
-                removeCGFromMonitors(v);
-            }
-            return certificateGenerator;
-        });
-    }
-
-    private void subscribeToClientCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
-                                                          @NonNull PublicKey publicKey,
-                                                          @NonNull BiConsumer<X509Certificate, X509Certificate[]> cb)
-            throws CertificateGenerationException {
-        CertificateGenerator certificateGenerator =
-                new ClientCertificateGenerator(CertificateHelper.getX500Name(certificateRequest.getServiceName()),
-                        publicKey, cb, certificateStore, certificatesConfig, clock);
-
-        caConfigurationMonitor.addToMonitor(certificateGenerator);
-        certExpiryMonitor.addToMonitor(certificateGenerator);
-
-        if (certificateStore.isReady()) {
-            certificateGenerator.generateCertificate(Collections::emptyList,
-                    "initialization of client cert subscription");
-        }
-
-        certSubscriptions.compute(certificateRequest, (k, v) -> {
-            // A subscription already exists, we will replace it so that a new certificate is generated immediately
-            if (v != null) {
-                removeCGFromMonitors(v);
-            }
-            return certificateGenerator;
-        });
     }
 
     private void removeCGFromMonitors(CertificateGenerator gen) {
