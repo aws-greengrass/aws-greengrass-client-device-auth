@@ -63,6 +63,8 @@ import java.util.function.Supplier;
 import javax.inject.Inject;
 
 public class CertificateManager {
+    private static final Logger logger = LogManager.getLogger(CertificateManager.class);
+    private static final String pkcs11Scheme = "pkcs11";
     private final CertificateStore certificateStore;
     private final ConnectivityInformation connectivityInformation;
     private final CertificateExpiryMonitor certExpiryMonitor;
@@ -74,9 +76,8 @@ public class CertificateManager {
     private final GreengrassServiceClientFactory clientFactory;
     private final SecurityService securityService;
     private final DomainEvents domainEvent;
+    @Getter
     private CertificatesConfig certificatesConfig;
-    private static final Logger logger = LogManager.getLogger(CertificateManager.class);
-    private static final String pkcs11Scheme = "pkcs11";
 
     /**
      * Construct a new CertificateManager.
@@ -268,7 +269,6 @@ public class CertificateManager {
         }
     }
 
-
     private void removeCGFromMonitors(CertificateGenerator gen) {
         certExpiryMonitor.removeFromMonitor(gen);
         cisShadowMonitor.removeFromMonitor(gen);
@@ -276,8 +276,8 @@ public class CertificateManager {
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private X509Certificate[] getCertificateChainFromConfiguration(CAConfiguration configuration) throws
-            CertificateChainLoadingException {
+    private X509Certificate[] getCertificateChainFromConfiguration(CAConfiguration configuration)
+            throws CertificateChainLoadingException {
         try {
             Optional<URI> certificateChainUri = configuration.getCertificateChainUri();
 
