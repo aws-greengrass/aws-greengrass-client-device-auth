@@ -14,6 +14,6 @@ public class GetCertificateRequestOptions {
     private CertificateType certificateType;
 
     public enum CertificateType {
-        SERVER, CLIENT
+        SERVER, CLIENT, CUSTOM
     }
 }

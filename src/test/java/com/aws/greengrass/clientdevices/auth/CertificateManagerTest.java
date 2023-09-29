@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
+import com.aws.greengrass.clientdevices.auth.api.CustomGeneratorCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
@@ -65,6 +66,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME;
@@ -77,9 +79,12 @@ import static com.aws.greengrass.clientdevices.auth.configuration.CAConfiguratio
 import static com.aws.greengrass.componentmanager.KernelConfigResolver.CONFIGURATION_CONFIG_KEY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -401,6 +406,33 @@ public class CertificateManagerTest {
         assertEquals(CertificateHelper.toPem(caB), CertificateHelper.toPem(eventRef.get().getCaCertificates()[0]));
     }
 
+    @Test
+    void GIVEN_customCertRequestWithGenerator_WHEN_subscribeToCertificateUpdates_THEN_issueCert()
+            throws CertificateGenerationException, KeyStoreException {
+        CertificateGenerator certificateGenerator = mock(CertificateGenerator.class);
+
+        GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
+        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CUSTOM);
+        GetCertificateRequest certificateRequest = new CustomGeneratorCertificateRequest("testService",
+                requestOptions, null, certificateGenerator);
+
+        certificateManager.generateCA("", CertificateStore.CAType.RSA_2048);
+        certificateManager.subscribeToCertificateUpdates(certificateRequest);
+
+        verify(certificateGenerator, times(1)).generateCertificate(any(), any());
+    }
+
+    @Test
+    void GIVEN_customCertRequestWithoutGenerator_WHEN_subscribeToCertificateUpdates_THEN_throws() throws KeyStoreException {
+        GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
+        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CUSTOM);
+        GetCertificateRequest certificateRequest = new GetCertificateRequest("testService",
+                requestOptions, null);
+
+        certificateManager.generateCA("", CertificateStore.CAType.RSA_2048);
+        Assertions.assertThrows(CertificateGenerationException.class,
+                () -> certificateManager.subscribeToCertificateUpdates(certificateRequest));
+    }
 
     @Test
     void GIVEN_nullRequest_WHEN_subscribeToCertificateUpdates_THEN_throwsNPE() throws KeyStoreException {
