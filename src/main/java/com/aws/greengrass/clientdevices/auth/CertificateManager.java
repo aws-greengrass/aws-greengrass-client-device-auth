@@ -178,7 +178,7 @@ public class CertificateManager {
                     createCertificateGenerator(getCertificateRequest, certificateType);
             subscribeToCertificateUpdatesNoCSR(certificateGenerator, getCertificateRequest, certificateType);
 
-            if (certificateType.equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
+            if (GetCertificateRequestOptions.CertificateType.SERVER.equals(certificateType)) {
                 logger.atDebug().log("Successfully subscribed to certificate update");
                 domainEvent.emit(new CertificateSubscriptionEvent(certificateType,
                         CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS));
@@ -205,7 +205,7 @@ public class CertificateManager {
                             new CertificateUpdateEvent(keyPair, cert, caCertificates);
                     request.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
                 };
-                if (type.equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
+                if (GetCertificateRequestOptions.CertificateType.SERVER.equals(type)) {
                     return new ServerCertificateGenerator(CertificateHelper.getX500Name(request.getServiceName()),
                             keyPair.getPublic(), consumer, certificateStore, certificatesConfig, clock);
                 } else {
