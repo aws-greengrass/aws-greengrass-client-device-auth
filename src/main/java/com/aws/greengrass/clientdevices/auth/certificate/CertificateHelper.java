@@ -202,7 +202,27 @@ public final class CertificateHelper {
                 new ExtendedKeyUsage(KeyPurposeId.id_kp_clientAuth), providerType);
     }
 
-    private static X509Certificate issueCertificate(@NonNull X509Certificate caCert, @NonNull PrivateKey caPrivateKey,
+    /**
+     * Issues a new X509 certificate with the provided details, signed by the provided CA certificate.
+     *
+     * @param caCert                The CA certificate used to sign the new certificate.
+     * @param caPrivateKey          The private key of the CA used to sign the new certificate.
+     * @param subject               The X500Name subject of the certificate being issued.
+     * @param publicKey             The public key of the certificate being issued.
+     * @param connectivityInfoItems Connectivity info items to be added as SANs in the certificate.
+     * @param notBefore             The date from which the certificate is valid.
+     * @param notAfter              The date after which the certificate is no longer valid.
+     * @param keyUsage              The extended key usage of the certificate.
+     * @param providerType          The type of the security provider to be used (e.g., BouncyCastle, etc.).
+     *
+     * @return X509Certificate.
+     *
+     * @throws NoSuchAlgorithmException  NoSuchAlgorithmException
+     * @throws OperatorCreationException OperatorCreationException
+     * @throws CertificateException      CertificateException
+     * @throws IOException               IOException
+     */
+    public static X509Certificate issueCertificate(@NonNull X509Certificate caCert, @NonNull PrivateKey caPrivateKey,
                                                     @NonNull X500Name subject, @NonNull PublicKey publicKey,
                                                     List<String> connectivityInfoItems, @NonNull Date notBefore,
                                                     @NonNull Date notAfter, @NonNull ExtendedKeyUsage keyUsage,

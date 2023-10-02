@@ -24,7 +24,7 @@ public abstract class CertificateGenerator {
     protected final CertificateStore certificateStore;
     protected final CertificatesConfig certificatesConfig;
 
-    @Getter(AccessLevel.PACKAGE)
+    @Getter
     protected X509Certificate certificate;
     @Setter(AccessLevel.PACKAGE) // for unit tests
     protected Clock clock;
