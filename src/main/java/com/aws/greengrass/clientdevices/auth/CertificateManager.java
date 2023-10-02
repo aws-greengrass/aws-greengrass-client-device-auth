@@ -6,10 +6,10 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
-import com.aws.greengrass.clientdevices.auth.api.CustomGeneratorCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
+import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestWithGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
@@ -212,12 +212,12 @@ public class CertificateManager {
                     return new ClientCertificateGenerator(CertificateHelper.getX500Name(request.getServiceName()),
                             keyPair.getPublic(), consumer, certificateStore, certificatesConfig, clock);
                 }
-            case CUSTOM:
-                // the customer certificate generator is responsible for getting the certificate store and clock
-                if (request instanceof CustomGeneratorCertificateRequest) {
-                    return ((CustomGeneratorCertificateRequest) request).getCertificateGenerator();
+            case CLIENT_AND_SERVER:
+                // the attached certificate generator is responsible for getting the certificate store and clock
+                if (request instanceof GetCertificateRequestWithGenerator) {
+                    return ((GetCertificateRequestWithGenerator) request).getCertificateGenerator();
                 }
-                throw new CertificateGenerationException("Invalid custom certificate request");
+                throw new CertificateGenerationException("Invalid certificate request for type " + type);
             default:
                 throw new CertificateGenerationException("Unsupported certificate type: " + type);
         }
@@ -232,7 +232,7 @@ public class CertificateManager {
         caConfigurationMonitor.addToMonitor(certificateGenerator);
 
         if (type == GetCertificateRequestOptions.CertificateType.SERVER
-                || type == GetCertificateRequestOptions.CertificateType.CUSTOM) {
+                || type == GetCertificateRequestOptions.CertificateType.CLIENT_AND_SERVER) {
             // monitor connectivity info changes from cloud
             cisShadowMonitor.addToMonitor(certificateGenerator);
         }

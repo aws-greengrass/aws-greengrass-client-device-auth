@@ -12,13 +12,13 @@ import lombok.NonNull;
 import java.util.function.Consumer;
 
 @Getter
-public class CustomGeneratorCertificateRequest extends GetCertificateRequest {
+public class GetCertificateRequestWithGenerator extends GetCertificateRequest {
     CertificateGenerator certificateGenerator;
 
-    public CustomGeneratorCertificateRequest(String serviceName,
-                                             GetCertificateRequestOptions certificateRequestOptions,
-                                             Consumer<CertificateUpdateEvent> certificateUpdateConsumer,
-                                             @NonNull CertificateGenerator certificateGenerator) {
+    public GetCertificateRequestWithGenerator(String serviceName,
+                                              GetCertificateRequestOptions certificateRequestOptions,
+                                              Consumer<CertificateUpdateEvent> certificateUpdateConsumer,
+                                              @NonNull CertificateGenerator certificateGenerator) {
         super(serviceName, certificateRequestOptions, certificateUpdateConsumer);
         this.certificateGenerator = certificateGenerator;
     }

@@ -6,7 +6,7 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
-import com.aws.greengrass.clientdevices.auth.api.CustomGeneratorCertificateRequest;
+import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestWithGenerator;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
@@ -406,13 +406,13 @@ public class CertificateManagerTest {
     }
 
     @Test
-    void GIVEN_customCertRequestWithGenerator_WHEN_subscribeToCertificateUpdates_THEN_issueCert()
+    void GIVEN_certRequestWithGenerator_WHEN_subscribeToCertificateUpdates_THEN_issueCert()
             throws CertificateGenerationException, KeyStoreException {
         CertificateGenerator certificateGenerator = mock(CertificateGenerator.class);
 
         GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
-        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CUSTOM);
-        GetCertificateRequest certificateRequest = new CustomGeneratorCertificateRequest("testService",
+        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CLIENT_AND_SERVER);
+        GetCertificateRequest certificateRequest = new GetCertificateRequestWithGenerator("testService",
                 requestOptions, null, certificateGenerator);
 
         certificateManager.generateCA("", CertificateStore.CAType.RSA_2048);
@@ -422,9 +422,9 @@ public class CertificateManagerTest {
     }
 
     @Test
-    void GIVEN_customCertRequestWithoutGenerator_WHEN_subscribeToCertificateUpdates_THEN_throws() throws KeyStoreException {
+    void GIVEN_certRequestWithoutGenerator_WHEN_subscribeToCertificateUpdates_THEN_throws() throws KeyStoreException {
         GetCertificateRequestOptions requestOptions = new GetCertificateRequestOptions();
-        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CUSTOM);
+        requestOptions.setCertificateType(GetCertificateRequestOptions.CertificateType.CLIENT_AND_SERVER);
         GetCertificateRequest certificateRequest = new GetCertificateRequest("testService",
                 requestOptions, null);
 
