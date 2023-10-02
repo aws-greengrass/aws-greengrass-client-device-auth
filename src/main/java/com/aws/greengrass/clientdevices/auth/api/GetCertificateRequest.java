@@ -5,12 +5,13 @@
 
 package com.aws.greengrass.clientdevices.auth.api;
 
-import lombok.Value;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 import java.util.function.Consumer;
 
-
-@Value
+@Getter
+@AllArgsConstructor
 public class GetCertificateRequest {
     private String serviceName;
     private GetCertificateRequestOptions certificateRequestOptions;
