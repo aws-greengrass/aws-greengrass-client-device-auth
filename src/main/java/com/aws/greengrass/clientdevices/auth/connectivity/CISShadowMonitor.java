@@ -160,6 +160,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      * Stop shadow monitor.
      */
     public void stopMonitor() {
+        subscribed.set(false);
         cancelFetchCISShadow();
     }
 
