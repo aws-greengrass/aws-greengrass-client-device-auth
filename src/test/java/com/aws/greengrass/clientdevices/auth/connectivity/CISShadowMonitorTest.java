@@ -42,6 +42,7 @@ import software.amazon.awssdk.services.greengrassv2data.model.ValidationExceptio
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -53,11 +54,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -81,7 +82,6 @@ class CISShadowMonitorTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String SHADOW_NAME = "testThing-gci";
     private static final String UPDATE_SHADOW_TOPIC = String.format("$aws/things/%s/shadow/update", SHADOW_NAME);
-    private static final String GET_SHADOW_TOPIC = String.format("$aws/things/%s/shadow/get", SHADOW_NAME);
     private final FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
     private final MqttClientConnection shadowClientConnection = shadowClient.getConnection();
     private final ExecutorService executor = Executors.newCachedThreadPool();
@@ -101,6 +101,8 @@ class CISShadowMonitorTest {
                 SHADOW_NAME,
                 connectivityInfoProvider
         );
+        // avoid unnecessary waiting
+        cisShadowMonitor.setMqttOperationTimeoutSeconds(1L);
     }
 
     @AfterEach
@@ -133,10 +135,9 @@ class CISShadowMonitorTest {
         int numShadowUpdatePublishFailures;
 
         /**
-         * Amount of times to fail monitor's attempts
-         * to get the CIS shadow.
+         * If present, shadow will be created after the monitor starts.
          */
-        int numGetRequestFailures;
+        Duration createShadowAfterDelay;
 
         /**
          * If true, simulate monitor receiving duplicate
@@ -164,7 +165,7 @@ class CISShadowMonitorTest {
                 // when monitor can't get shadow on startup,
                 // it'll recover on subsequent shadow updates
                 Arguments.of(Scenario.builder()
-                        .numGetRequestFailures(1)
+                        .createShadowAfterDelay(Duration.ofSeconds(2L))
                         .serialShadowUpdates(true)
                         .build()),
                 // if shadow is never updated,
@@ -172,15 +173,14 @@ class CISShadowMonitorTest {
                 Arguments.of(Scenario.builder()
                         .numShadowUpdates(0)
                         .build()),
-                // TODO add support in CISShadowMonitor
                 // if shadow is never updated,
                 // monitor still works because it fetches shadow on startup.
                 // if shadow fetching fails, it will be retried
-//                Arguments.of(Scenario.builder()
-//                        .numShadowUpdates(0)
-//                        .numGetRequestFailures(1)
-//                        .serialShadowUpdates(true)
-//                        .build()),
+                Arguments.of(Scenario.builder()
+                        .numShadowUpdates(0)
+                        .createShadowAfterDelay(Duration.ofSeconds(2L))
+                        .serialShadowUpdates(true)
+                        .build()),
                 Arguments.of(Scenario.builder()
                         .numShadowUpdatePublishFailures(1)
                         .serialShadowUpdates(true)
@@ -208,6 +208,7 @@ class CISShadowMonitorTest {
     void GIVEN_monitor_WHEN_cis_shadow_changes_THEN_monitor_updates_certificates(Scenario scenario, ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, ValidationException.class);
         ignoreExceptionOfType(context, RuntimeException.class);
+        ignoreExceptionOfType(context, TimeoutException.class);
 
         connectivityInfoProvider.setMode(scenario.getConnectivityProviderMode());
 
@@ -216,26 +217,40 @@ class CISShadowMonitorTest {
         // and is used by this test to (optionally) feed messages to the monitor serially
         AtomicReference<CountDownLatch> updateProcessedByMonitor = updateProcessedByMonitor();
 
-        // set initial shadow state.
-        // the shadow delta triggered by this update will be ignored
-        // since the monitor is not listening at this point
-        // TODO handle case where shadow doesn't exist on startup
-        updateShadowDesiredState(
+        Runnable putInitialShadowState = () -> updateShadowDesiredState(
                 Utils.immutableMap("version", "-1"),
                 scenario.isReceiveDuplicateShadowDeltaUpdates()
         );
 
-        shadowClient.failOnGet(GET_SHADOW_TOPIC, scenario.getNumGetRequestFailures());
+        // optional, handle case where shadow exists before monitor starts up
+        if (scenario.getCreateShadowAfterDelay() == null) {
+            putInitialShadowState.run();
+        }
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.startMonitor();
+
+        // optional, handle case where shadow is created AFTER monitor is started
+        if (scenario.getCreateShadowAfterDelay() != null) {
+            if (!scenario.isSerialShadowUpdates()) {
+                fail("initializing shadow after monitor startup "
+                        + "only supported when shadow updates are serialized, otherwise there's no point");
+            }
+            executor.submit(() -> {
+                try {
+                    Thread.sleep(scenario.getCreateShadowAfterDelay().toMillis());
+                } catch (InterruptedException e) {
+                    return;
+                }
+                putInitialShadowState.run();
+            });
+        }
 
         // on startup, the monitor directly requests a shadow and processes it.
         // optionally wait for the monitor to process the get shadow response.
         if (scenario.isSerialShadowUpdates()) {
             boolean monitorExpectedToUpdateReportedState =
-                    scenario.getConnectivityProviderMode() != FakeConnectivityInformation.Mode.FAIL_ONCE
-                    && scenario.getNumGetRequestFailures() == 0;
+                    scenario.getConnectivityProviderMode() != FakeConnectivityInformation.Mode.FAIL_ONCE;
             waitForMonitorToProcessUpdate(updateProcessedByMonitor, monitorExpectedToUpdateReportedState);
         }
 
@@ -286,7 +301,7 @@ class CISShadowMonitorTest {
             if (monitorExpectedToUpdateReportedState) {
                 // wait for monitor to update shadow state, which
                 // means that it has finished processing that particular shadow version
-                assertTrue(updateProcessedByMonitor.get().await(5L, TimeUnit.SECONDS));
+                assertTrue(updateProcessedByMonitor.get().await(15L, TimeUnit.SECONDS));
             } else {
                 // monitor will not update the shadow state,
                 // so we don't have a way to know when the monitor has completed its work
@@ -320,7 +335,7 @@ class CISShadowMonitorTest {
      */
     private void verifyCertsRotatedWhenConnectivityChanges() throws CertificateGenerationException {
         verify(certificateGenerator,
-                times(connectivityInfoProvider.getNumUniqueConnectivityInfoResponses())).generateCertificate(any(),
+                times(connectivityInfoProvider.getNumConnectivityInfoChanges())).generateCertificate(any(),
                 any());
     }
 
@@ -599,7 +614,10 @@ class CISShadowMonitorTest {
 
         private final AtomicReference<List<ConnectivityInfo>> CONNECTIVITY_INFO_SAMPLE =
                 new AtomicReference<>(Collections.singletonList(connectivityInfoWithRandomHost()));
-        private final Set<Integer> responseHashes = new CopyOnWriteArraySet<>();
+
+        @Getter
+        private int numConnectivityInfoChanges;
+        private Set<HostAddress> prevAddresses;
         private final AtomicReference<Mode> mode = new AtomicReference<>(Mode.RANDOM);
         private final AtomicBoolean failed = new AtomicBoolean();
 
@@ -631,15 +649,6 @@ class CISShadowMonitorTest {
             this.mode.set(mode);
         }
 
-        /**
-         * Get the number of unique responses to getConnectivityInfo provided by this fake.
-         *
-         * @return number of unique connectivity info responses generated by this fake
-         */
-        int getNumUniqueConnectivityInfoResponses() {
-            return responseHashes.size();
-        }
-
         @Override
         public Optional<List<ConnectivityInfo>> getConnectivityInfo() {
             List<ConnectivityInfo> connectivityInfo = doGetConnectivityInfo();
@@ -648,7 +657,11 @@ class CISShadowMonitorTest {
                         .map(HostAddress::of)
                         .collect(Collectors.toSet());
                 getConnectivityInfoCache().put("source", addresses);
-                responseHashes.add(addresses.hashCode());
+                Set<HostAddress> prevAddresses = this.prevAddresses;
+                this.prevAddresses = addresses;
+                if (!Objects.equals(addresses, prevAddresses)) {
+                    numConnectivityInfoChanges++;
+                }
             }
             return Optional.ofNullable(connectivityInfo);
         }
