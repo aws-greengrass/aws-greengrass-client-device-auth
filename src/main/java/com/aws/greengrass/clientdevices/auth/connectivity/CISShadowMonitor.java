@@ -82,28 +82,12 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     // we only need to subscribe to shadow topics once across the lifetime of this monitor
     private final AtomicBoolean subscribed = new AtomicBoolean();
 
-    // we don't need to unsubscribe, because mqtt client reconnects with clean session on startup.
-    // instead, we can cancel current operations and block new ones on shutdown.
-    private final AtomicBoolean stopped = new AtomicBoolean();
-    private final Consumer<ShadowDeltaUpdatedEvent> onShadowDeltaUpdated = event -> {
-        if (stopped.get()) {
-            return;
-        }
-        processCISShadow(event);
-    };
+    private final Consumer<ShadowDeltaUpdatedEvent> onShadowDeltaUpdated = this::processCISShadow;
     private final Consumer<GetShadowResponse> onGetShadowAccepted = resp -> {
-        if (stopped.get()) {
-            return;
-        }
         signalShadowResponseReceived();
         processCISShadow(resp);
     };
-    private final Consumer<ErrorResponse> onGetShadowRejected = err -> {
-        if (stopped.get()) {
-            return;
-        }
-        signalShadowResponseReceived();
-    };
+    private final Consumer<ErrorResponse> onGetShadowRejected = err -> signalShadowResponseReceived();
 
     private final Object getShadowLock = new Object();
     private Future<?> getShadowTask;
@@ -169,7 +153,6 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      */
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void startMonitor() {
-        stopped.set(false);
         fetchCISShadowAsync();
     }
 
@@ -177,7 +160,6 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      * Stop shadow monitor.
      */
     public void stopMonitor() {
-        stopped.set(true);
         cancelFetchCISShadow();
     }
 
