@@ -52,6 +52,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
@@ -88,11 +89,12 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     private Future<?> getShadowTask;
     AtomicReference<CompletableFuture<?>> shadowGetResponseReceived = new AtomicReference<>();
 
-    private MqttClient mqttClient;
+    private final Supplier<Integer> mqttOperationTimeoutMillis;
     private MqttClientConnection connection;
     private IotShadowClient iotShadowClient;
     private String lastVersion;
     private Future<?> subscribeTaskFuture;
+    private final NetworkStateProvider networkStateProvider;
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
     private final String shadowName;
@@ -102,27 +104,44 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      * Constructor.
      *
      * @param mqttClient              IoT MQTT client
+     * @param networkStateProvider    Network State Provider
      * @param executorService         Executor service
      * @param deviceConfiguration     Device configuration
      * @param connectivityInformation Connectivity Info Provider
      */
     @Inject
-    public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
-                            DeviceConfiguration deviceConfiguration, ConnectivityInformation connectivityInformation) {
-        this(null, null, executorService, Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX,
-                connectivityInformation);
-        this.mqttClient = mqttClient;
+    public CISShadowMonitor(MqttClient mqttClient,
+                            NetworkStateProvider networkStateProvider,
+                            ExecutorService executorService,
+                            DeviceConfiguration deviceConfiguration,
+                            ConnectivityInformation connectivityInformation) {
+        this(
+                networkStateProvider,
+                null,
+                null,
+                executorService,
+                Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX,
+                connectivityInformation,
+                mqttClient::getMqttOperationTimeoutMillis
+        );
         this.connection = new WrapperMqttClientConnection(mqttClient);
         this.iotShadowClient = new IotShadowClient(this.connection);
     }
 
-    CISShadowMonitor(MqttClientConnection connection, IotShadowClient iotShadowClient, ExecutorService executorService,
-                     String shadowName, ConnectivityInformation connectivityInformation) {
+    CISShadowMonitor(NetworkStateProvider networkStateProvider,
+                     MqttClientConnection connection,
+                     IotShadowClient iotShadowClient,
+                     ExecutorService executorService,
+                     String shadowName,
+                     ConnectivityInformation connectivityInformation,
+                     Supplier<Integer> mqttOperationTimeoutMillis) {
+        this.networkStateProvider = networkStateProvider;
         this.connection = connection;
         this.iotShadowClient = iotShadowClient;
         this.executorService = executorService;
         this.shadowName = shadowName;
         this.connectivityInformation = connectivityInformation;
+        this.mqttOperationTimeoutMillis = mqttOperationTimeoutMillis;
     }
 
     /**
@@ -358,7 +377,8 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
     private void fetchCISShadowWithRetriesAsync() {
-        if (!mqttClient.getMqttOnline().get()) {
+        if (networkStateProvider.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_DOWN) {
+            // will be retried when online again
             return;
         }
         synchronized (getShadowLock) {
@@ -375,8 +395,11 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                                 this.shadowGetResponseReceived.set(shadowGetResponseReceived);
                                 publishToGetCISShadowTopic().get();
                                 // await shadow get accepted, rejected
-                                shadowGetResponseReceived.get(
-                                        mqttClient.getMqttOperationTimeoutMillis() + 5L, TimeUnit.MILLISECONDS);
+                                long waitForGetResponseTimeout =
+                                        Duration.ofMillis(mqttOperationTimeoutMillis.get())
+                                                .plusSeconds(5L) // buffer
+                                                .toMillis();
+                                shadowGetResponseReceived.get(waitForGetResponseTimeout, TimeUnit.MILLISECONDS);
                                 return null;
                             },
                             "get-cis-shadow",
@@ -390,7 +413,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         }
     }
 
-    private void cancelGetCISShadow() {
+    private void cancelFetchCISShadow() {
         synchronized (getShadowLock) {
             if (getShadowTask != null) {
                 getShadowTask.cancel(true);
@@ -425,7 +448,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         if (state == NetworkStateProvider.ConnectionState.NETWORK_UP) {
             fetchCISShadowWithRetriesAsync();
         } else if (state == NetworkStateProvider.ConnectionState.NETWORK_DOWN) {
-            cancelGetCISShadow();
+            cancelFetchCISShadow();
         }
     }
 }

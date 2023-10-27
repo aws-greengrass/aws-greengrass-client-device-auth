@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.connectivity;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.helpers.TestHelpers;
+import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.Utils;
@@ -90,16 +91,20 @@ class CISShadowMonitorTest {
     @Mock
     CertificateGenerator certificateGenerator;
 
+    NetworkStateFake networkStateProvider = new NetworkStateFake();
+
     CISShadowMonitor cisShadowMonitor;
 
     @BeforeEach
     void setup() {
         cisShadowMonitor = new CISShadowMonitor(
+                networkStateProvider,
                 shadowClientConnection,
                 shadowClient,
                 executor,
                 SHADOW_NAME,
-                connectivityInfoProvider
+                connectivityInfoProvider,
+                () -> 100
         );
     }
 
@@ -224,6 +229,9 @@ class CISShadowMonitorTest {
         if (scenario.getCreateShadowAfterDelay() == null) {
             putInitialShadowState.run();
         }
+
+        // TODO offline scenario
+        networkStateProvider.goOnline();
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.startMonitor();
