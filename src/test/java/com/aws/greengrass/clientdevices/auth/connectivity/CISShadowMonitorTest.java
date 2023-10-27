@@ -292,7 +292,9 @@ class CISShadowMonitorTest {
         // optionally wait for the monitor to process the get shadow response.
         if (scenario.isSerialShadowUpdates()) {
             boolean monitorExpectedToUpdateReportedState =
-                    scenario.getConnectivityProviderMode() != FakeConnectivityInformation.Mode.FAIL_ONCE;
+                    scenario.getConnectivityProviderMode() != FakeConnectivityInformation.Mode.FAIL_ONCE
+                            && scenario.getNumShadowUpdatePublishFailures() == 0;
+            waitForSubscriptions();
             waitForMonitorToProcessUpdate(updateProcessedByMonitor, monitorExpectedToUpdateReportedState);
         }
 
@@ -357,6 +359,10 @@ class CISShadowMonitorTest {
         } catch (InterruptedException e) {
             fail(e);
         }
+    }
+
+    private void waitForSubscriptions() throws InterruptedException {
+        TestHelpers.eventuallyTrue(() -> shadowClient.subscriptions.size() == 3);
     }
 
     private void updateShadowDesiredState(Map<String, Object> reported, boolean publishDuplicateMessage) {
