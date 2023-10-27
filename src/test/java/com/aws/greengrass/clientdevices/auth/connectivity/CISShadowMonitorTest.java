@@ -101,8 +101,6 @@ class CISShadowMonitorTest {
                 SHADOW_NAME,
                 connectivityInfoProvider
         );
-        // avoid unnecessary waiting
-        cisShadowMonitor.setMqttOperationTimeoutSeconds(1L);
     }
 
     @AfterEach
