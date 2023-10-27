@@ -189,7 +189,6 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     /**
      * Start shadow monitor.
      */
-    @SuppressWarnings("PMD.AvoidCatchingGenericException")
     public void startMonitor() {
         fetchCISShadowAsync();
     }
