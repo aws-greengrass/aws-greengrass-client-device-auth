@@ -219,7 +219,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                         (e) -> LOGGER.atError()
                                 .log("Error processing shadowDeltaUpdatedSubscription Response", e))
                 .get();
-        LOGGER.atInfo().log("Subscribed to shadow update delta topic");
+        LOGGER.atDebug().log("Subscribed to shadow update delta topic");
 
         GetShadowSubscriptionRequest getShadowSubscriptionRequest = new GetShadowSubscriptionRequest();
         getShadowSubscriptionRequest.thingName = shadowName;
@@ -229,7 +229,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                         onGetShadowAccepted,
                         (e) -> LOGGER.atError().log("Error processing getShadowSubscription Response", e))
                 .get();
-        LOGGER.atInfo().log("Subscribed to shadow get accepted topic");
+        LOGGER.atDebug().log("Subscribed to shadow get accepted topic");
 
         GetShadowSubscriptionRequest getShadowRejectedSubscriptionRequest = new GetShadowSubscriptionRequest();
         getShadowRejectedSubscriptionRequest.thingName = shadowName;
@@ -239,7 +239,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                         onGetShadowRejected,
                         (e) -> LOGGER.atError().log("Error processing get shadow rejected response", e))
                 .get();
-        LOGGER.atInfo().log("Subscribed to shadow get rejected topic");
+        LOGGER.atDebug().log("Subscribed to shadow get rejected topic");
     }
 
     private void processCISShadow(GetShadowResponse response) {
