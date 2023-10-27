@@ -95,14 +95,14 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         if (stopped.get()) {
             return;
         }
-        reportShadowReceived();
+        signalShadowResponseReceived();
         processCISShadow(resp);
     };
     private final Consumer<ErrorResponse> onGetShadowRejected = err -> {
         if (stopped.get()) {
             return;
         }
-        reportShadowReceived();
+        signalShadowResponseReceived();
     };
 
     private final Object getShadowLock = new Object();
@@ -409,7 +409,10 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         subscribed.set(true);
     }
 
-    private void reportShadowReceived() {
+    /**
+     * Called when a shadow response, either accepted or rejected, is received.
+     */
+    private void signalShadowResponseReceived() {
         CompletableFuture<?> shadowReceived = this.getShadowResponseReceived.get();
         if (shadowReceived != null) {
             shadowReceived.complete(null);
