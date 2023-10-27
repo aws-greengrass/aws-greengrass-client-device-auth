@@ -79,6 +79,9 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                     .retryableExceptions(Collections.singletonList(Exception.class))
                     .build();
 
+    // we only need to subscribe to shadow topics once across the lifetime of this monitor
+    private final AtomicBoolean subscribed = new AtomicBoolean();
+
     // we don't need to unsubscribe, because mqtt client reconnects with clean session on startup.
     // instead, we can cancel current operations and block new ones on shutdown.
     private final AtomicBoolean stopped = new AtomicBoolean();
@@ -104,13 +107,13 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
 
     private final Object getShadowLock = new Object();
     private Future<?> getShadowTask;
-    AtomicReference<CompletableFuture<?>> shadowGetResponseReceived = new AtomicReference<>();
+    AtomicReference<CompletableFuture<?>> getShadowResponseReceived = new AtomicReference<>();
+
+    private String lastVersion;
 
     private final Supplier<Integer> mqttOperationTimeoutMillis;
     private MqttClientConnection connection;
     private IotShadowClient iotShadowClient;
-    private String lastVersion;
-    private final AtomicBoolean subscribed = new AtomicBoolean();
     private final NetworkStateProvider networkStateProvider;
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
@@ -337,7 +340,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                             GET_CIS_SHADOW_RETRY_CONFIG,
                             () -> {
                                 CompletableFuture<?> shadowGetResponseReceived = new CompletableFuture<>();
-                                this.shadowGetResponseReceived.set(shadowGetResponseReceived);
+                                this.getShadowResponseReceived.set(shadowGetResponseReceived);
                                 publishToGetCISShadowTopic().get();
                                 // await shadow get accepted, rejected
                                 long waitForGetResponseTimeout =
@@ -407,7 +410,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     }
 
     private void reportShadowReceived() {
-        CompletableFuture<?> shadowReceived = this.shadowGetResponseReceived.get();
+        CompletableFuture<?> shadowReceived = this.getShadowResponseReceived.get();
         if (shadowReceived != null) {
             shadowReceived.complete(null);
         }
