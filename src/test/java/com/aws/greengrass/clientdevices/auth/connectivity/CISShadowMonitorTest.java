@@ -8,6 +8,7 @@ package com.aws.greengrass.clientdevices.auth.connectivity;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
 import com.aws.greengrass.clientdevices.auth.helpers.TestHelpers;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.Pair;
@@ -56,8 +57,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -83,16 +86,15 @@ class CISShadowMonitorTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String SHADOW_NAME = "testThing-gci";
     private static final String UPDATE_SHADOW_TOPIC = String.format("$aws/things/%s/shadow/update", SHADOW_NAME);
-    private final FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
+    private final NetworkStateFake networkStateProvider = new NetworkStateFake();
+    private final FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient(networkStateProvider));
     private final MqttClientConnection shadowClientConnection = shadowClient.getConnection();
     private final ExecutorService executor = Executors.newCachedThreadPool();
+    private final ScheduledExecutorService ses = Executors.newScheduledThreadPool(0);
     private final FakeConnectivityInformation connectivityInfoProvider = new FakeConnectivityInformation();
 
     @Mock
     CertificateGenerator certificateGenerator;
-
-    NetworkStateFake networkStateProvider = new NetworkStateFake();
-
     CISShadowMonitor cisShadowMonitor;
 
     @BeforeEach
@@ -106,12 +108,14 @@ class CISShadowMonitorTest {
                 connectivityInfoProvider,
                 () -> 100
         );
+        networkStateProvider.registerHandler(cisShadowMonitor);
     }
 
     @AfterEach
     void tearDown() {
         cisShadowMonitor.stopMonitor();
         executor.shutdownNow();
+        ses.shutdownNow();
     }
 
     @Data
@@ -124,6 +128,11 @@ class CISShadowMonitorTest {
          */
         @Builder.Default
         int numShadowUpdates = 5;
+
+        /**
+         * Delay between each subsequent shadow update publish.
+         */
+        Duration delayBetweenShadowUpdates;
 
         /**
          * Controls if each of the {@link CISShadowMonitorTest.Scenario#numShadowUpdates} updates
@@ -141,6 +150,16 @@ class CISShadowMonitorTest {
          * If present, shadow will be created after the monitor starts.
          */
         Duration createShadowAfterDelay;
+
+        /**
+         * If present, CDA will go online after the monitor starts.
+         */
+        Duration goOnlineAfterDelay;
+
+        /**
+         * If present, CDA will go offline after the monitor starts.
+         */
+        Duration goOfflineAfterDelay;
 
         /**
          * If true, simulate monitor receiving duplicate
@@ -164,6 +183,18 @@ class CISShadowMonitorTest {
                         .build()),
                 Arguments.of(Scenario.builder()
                         .receiveDuplicateShadowDeltaUpdates(true)
+                        .build()),
+                // when monitor starts while cda is offline,
+                // shadow will update after online
+                Arguments.of(Scenario.builder()
+                        .goOnlineAfterDelay(Duration.ofSeconds(2L))
+                        .build()),
+                // test that monitor recovers after being offline during operation
+                Arguments.of(Scenario.builder()
+                        .numShadowUpdates(5)
+                        .delayBetweenShadowUpdates(Duration.ofSeconds(1))
+                        .goOfflineAfterDelay(Duration.ofSeconds(2L))
+                        .goOnlineAfterDelay(Duration.ofSeconds(6L))
                         .build()),
                 // when monitor can't get shadow on startup,
                 // it'll recover on subsequent shadow updates
@@ -212,6 +243,8 @@ class CISShadowMonitorTest {
         ignoreExceptionOfType(context, ValidationException.class);
         ignoreExceptionOfType(context, RuntimeException.class);
         ignoreExceptionOfType(context, TimeoutException.class);
+        ignoreExceptionOfType(context, ExecutionException.class);
+        ignoreExceptionOfType(context, InterruptedException.class);
 
         connectivityInfoProvider.setMode(scenario.getConnectivityProviderMode());
 
@@ -230,8 +263,10 @@ class CISShadowMonitorTest {
             putInitialShadowState.run();
         }
 
-        // TODO offline scenario
-        networkStateProvider.goOnline();
+        // by default, start online
+        if (scenario.getGoOnlineAfterDelay() == null || scenario.getGoOfflineAfterDelay() != null) {
+            networkStateProvider.goOnline();
+        }
 
         cisShadowMonitor.addToMonitor(certificateGenerator);
         cisShadowMonitor.startMonitor();
@@ -242,14 +277,15 @@ class CISShadowMonitorTest {
                 fail("initializing shadow after monitor startup "
                         + "only supported when shadow updates are serialized, otherwise there's no point");
             }
-            executor.submit(() -> {
-                try {
-                    Thread.sleep(scenario.getCreateShadowAfterDelay().toMillis());
-                } catch (InterruptedException e) {
-                    return;
-                }
-                putInitialShadowState.run();
-            });
+            ses.schedule(putInitialShadowState, scenario.getCreateShadowAfterDelay().toMillis(), TimeUnit.MILLISECONDS);
+        }
+        // optional, trigger network up after a delay
+        if (scenario.getGoOnlineAfterDelay() != null) {
+            ses.schedule(networkStateProvider::goOnline, scenario.getGoOnlineAfterDelay().toMillis(), TimeUnit.MILLISECONDS);
+        }
+        // optional, trigger network down after a delay
+        if (scenario.getGoOfflineAfterDelay() != null) {
+            ses.schedule(networkStateProvider::goOffline, scenario.getGoOfflineAfterDelay().toMillis(), TimeUnit.MILLISECONDS);
         }
 
         // on startup, the monitor directly requests a shadow and processes it.
@@ -275,6 +311,9 @@ class CISShadowMonitorTest {
             // optionally wait for monitor to process the update
             if (scenario.isSerialShadowUpdates()) {
                 waitForMonitorToProcessUpdate(updateProcessedByMonitor, monitorExpectedToUpdateReportedState);
+            }
+            if (scenario.getDelayBetweenShadowUpdates() != null) {
+                Thread.sleep(scenario.getDelayBetweenShadowUpdates().toMillis());
             }
         }
 
@@ -312,8 +351,8 @@ class CISShadowMonitorTest {
                 // monitor will not update the shadow state,
                 // so we don't have a way to know when the monitor has completed its work
                 // without cracking into monitor internals.
-                // sleeping is inefficient but it'll work good enough.
-                Thread.sleep(500L);
+                // sleeping is inefficient but it'll work well enough.
+                Thread.sleep(1000L);
             }
         } catch (InterruptedException e) {
             fail(e);
@@ -378,21 +417,30 @@ class CISShadowMonitorTest {
 
         @Getter(AccessLevel.PACKAGE)
         private final MqttClientConnection connection;
+        private final NetworkStateProvider networkStateProvider;
 
-        FakeIotShadowClient() {
-            this(mock(MqttClientConnection.class));
+        FakeIotShadowClient(NetworkStateProvider networkStateProvider) {
+            this(mock(MqttClientConnection.class), networkStateProvider);
         }
 
-        private FakeIotShadowClient(MqttClientConnection connection) {
+        private FakeIotShadowClient(MqttClientConnection connection,
+                                    NetworkStateProvider networkStateProvider) {
             super(connection);
+            this.networkStateProvider = networkStateProvider;
             this.connection = connection;
             when(this.connection.subscribe(any(), any(), any())).thenAnswer(invocation -> {
+                if (isOffline()) {
+                    return offlineResult();
+                }
                 String topic = invocation.getArgument(0, String.class);
                 Consumer<MqttMessage> callback = invocation.getArgument(2);
                 subscriptions.put(topic, callback);
                 return DUMMY_PACKET_ID;
             });
             when(this.connection.publish(any(), any(), anyBoolean())).thenAnswer(invocation -> {
+                if (isOffline()) {
+                    return offlineResult();
+                }
                 MqttMessage message = invocation.getArgument(0, MqttMessage.class);
                 String topic = message.getTopic();
 
@@ -411,13 +459,30 @@ class CISShadowMonitorTest {
                 return DUMMY_PACKET_ID;
             });
             when(this.connection.unsubscribe(any())).thenAnswer(invocation -> {
+                if (isOffline()) {
+                    return offlineResult();
+                }
                 String topic = invocation.getArgument(0, String.class);
                 subscriptions.remove(topic);
                 return DUMMY_PACKET_ID;
             });
         }
 
+        private boolean isOffline() {
+            return networkStateProvider.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_DOWN;
+        }
+
+        private static CompletableFuture<?> offlineResult() {
+            CompletableFuture<?> f = new CompletableFuture<>();
+            f.completeExceptionally(new RuntimeException("offline"));
+            return f;
+        }
+
         private void handleShadowGetRequest(MqttMessage message) {
+            if (isOffline()) { // client not connected, don't fire subscriptions
+                return;
+            }
+
             String thingName = extractThingName(message.getTopic());
             Shadow shadow = shadowsByThingName.get(thingName);
             if (shadow == null) {
@@ -470,6 +535,7 @@ class CISShadowMonitorTest {
             updateShadow(thingName, desired, reported, false);
         }
 
+        @SuppressWarnings("PMD.PrematureDeclaration")
         void updateShadow(String thingName, Map<String, Object> desired, Map<String, Object> reported, boolean sendDuplicate) {
             Shadow updatedShadow = shadowsByThingName.compute(thingName, (k, v) -> {
                 Shadow shadow = new Shadow(v);
@@ -483,6 +549,11 @@ class CISShadowMonitorTest {
                 shadow.recalculateDelta();
                 return shadow;
             });
+
+            if (isOffline()) { // client not connected, don't fire subscriptions
+                return;
+            }
+
             String shadowDeltaTopic = updateDeltaTopic(thingName);
             Consumer<MqttMessage> subscription = subscriptions.get(shadowDeltaTopic);
             if (subscription != null && !updatedShadow.getDelta().isEmpty()) {
