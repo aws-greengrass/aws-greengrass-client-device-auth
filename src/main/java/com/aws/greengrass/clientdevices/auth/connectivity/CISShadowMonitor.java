@@ -14,7 +14,9 @@ import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.mqttclient.WrapperMqttClientConnection;
 import com.aws.greengrass.util.Coerce;
+import com.aws.greengrass.util.CrashableSupplier;
 import com.aws.greengrass.util.RetryUtils;
+import lombok.NonNull;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import software.amazon.awssdk.iot.iotshadow.IotShadowClient;
@@ -43,11 +45,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -79,9 +79,6 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                     .retryableExceptions(Collections.singletonList(Exception.class))
                     .build();
 
-    // we only need to subscribe to shadow topics once across the lifetime of this monitor
-    private final AtomicBoolean subscribed = new AtomicBoolean();
-
     private final Consumer<ShadowDeltaUpdatedEvent> onShadowDeltaUpdated = this::processCISShadow;
     private final Consumer<GetShadowResponse> onGetShadowAccepted = resp -> {
         signalShadowResponseReceived();
@@ -101,8 +98,49 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     private final NetworkStateProvider networkStateProvider;
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
-    private final String shadowName;
+    private final AtomicReference<String> shadowName = new AtomicReference<>();
     private final ConnectivityInformation connectivityInformation;
+
+    private final SucceedOnceOperation subscribeToShadowUpdateDelta = new SucceedOnceOperation(() -> {
+        ShadowDeltaUpdatedSubscriptionRequest shadowDeltaUpdatedSubscriptionRequest =
+                new ShadowDeltaUpdatedSubscriptionRequest();
+        shadowDeltaUpdatedSubscriptionRequest.thingName = shadowName.get();
+        iotShadowClient.SubscribeToShadowDeltaUpdatedEvents(
+                        shadowDeltaUpdatedSubscriptionRequest,
+                        QualityOfService.AT_LEAST_ONCE,
+                        onShadowDeltaUpdated,
+                        (e) -> LOGGER.atError()
+                                .log("Error processing shadowDeltaUpdatedSubscription Response", e))
+                .get();
+        LOGGER.atDebug().log("Subscribed to shadow update delta topic");
+        return null;
+    });
+
+    private final SucceedOnceOperation subscribeToShadowGetAccepted = new SucceedOnceOperation(() -> {
+        GetShadowSubscriptionRequest getShadowSubscriptionRequest = new GetShadowSubscriptionRequest();
+        getShadowSubscriptionRequest.thingName = shadowName.get();
+        iotShadowClient.SubscribeToGetShadowAccepted(
+                        getShadowSubscriptionRequest,
+                        QualityOfService.AT_LEAST_ONCE,
+                        onGetShadowAccepted,
+                        (e) -> LOGGER.atError().log("Error processing getShadowSubscription Response", e))
+                .get();
+        LOGGER.atDebug().log("Subscribed to shadow get accepted topic");
+        return null;
+    });
+
+    private final SucceedOnceOperation subscribeToShadowGetRejected = new SucceedOnceOperation(() -> {
+        GetShadowSubscriptionRequest getShadowRejectedSubscriptionRequest = new GetShadowSubscriptionRequest();
+        getShadowRejectedSubscriptionRequest.thingName = shadowName.get();
+        iotShadowClient.SubscribeToGetShadowRejected(
+                        getShadowRejectedSubscriptionRequest,
+                        QualityOfService.AT_LEAST_ONCE,
+                        onGetShadowRejected,
+                        (e) -> LOGGER.atError().log("Error processing get shadow rejected response", e))
+                .get();
+        LOGGER.atDebug().log("Subscribed to shadow get rejected topic");
+        return null;
+    });
 
     /**
      * Constructor.
@@ -143,7 +181,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         this.connection = connection;
         this.iotShadowClient = iotShadowClient;
         this.executorService = executorService;
-        this.shadowName = shadowName;
+        this.shadowName.set(shadowName);
         this.connectivityInformation = connectivityInformation;
         this.mqttOperationTimeoutMillis = mqttOperationTimeoutMillis;
     }
@@ -160,7 +198,6 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      * Stop shadow monitor.
      */
     public void stopMonitor() {
-        subscribed.set(false);
         cancelFetchCISShadow();
     }
 
@@ -352,44 +389,11 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         }
     }
 
-    private void subscribeToShadowTopics() throws InterruptedException, ExecutionException {
-        if (subscribed.get()) {
-            // mqtt client is in charge of resubscribing, we only need to subscribe once
-            return;
-        }
-
-        ShadowDeltaUpdatedSubscriptionRequest shadowDeltaUpdatedSubscriptionRequest =
-                new ShadowDeltaUpdatedSubscriptionRequest();
-        shadowDeltaUpdatedSubscriptionRequest.thingName = shadowName;
-        iotShadowClient.SubscribeToShadowDeltaUpdatedEvents(
-                        shadowDeltaUpdatedSubscriptionRequest,
-                        QualityOfService.AT_LEAST_ONCE,
-                        onShadowDeltaUpdated,
-                        (e) -> LOGGER.atError()
-                                .log("Error processing shadowDeltaUpdatedSubscription Response", e))
-                .get();
-        LOGGER.atDebug().log("Subscribed to shadow update delta topic");
-
-        GetShadowSubscriptionRequest getShadowSubscriptionRequest = new GetShadowSubscriptionRequest();
-        getShadowSubscriptionRequest.thingName = shadowName;
-        iotShadowClient.SubscribeToGetShadowAccepted(
-                        getShadowSubscriptionRequest,
-                        QualityOfService.AT_LEAST_ONCE,
-                        onGetShadowAccepted,
-                        (e) -> LOGGER.atError().log("Error processing getShadowSubscription Response", e))
-                .get();
-        LOGGER.atDebug().log("Subscribed to shadow get accepted topic");
-
-        GetShadowSubscriptionRequest getShadowRejectedSubscriptionRequest = new GetShadowSubscriptionRequest();
-        getShadowRejectedSubscriptionRequest.thingName = shadowName;
-        iotShadowClient.SubscribeToGetShadowRejected(
-                        getShadowRejectedSubscriptionRequest,
-                        QualityOfService.AT_LEAST_ONCE,
-                        onGetShadowRejected,
-                        (e) -> LOGGER.atError().log("Error processing get shadow rejected response", e))
-                .get();
-        LOGGER.atDebug().log("Subscribed to shadow get rejected topic");
-        subscribed.set(true);
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
+    private void subscribeToShadowTopics() throws Exception {
+        subscribeToShadowUpdateDelta.apply();
+        subscribeToShadowGetAccepted.apply();
+        subscribeToShadowGetRejected.apply();
     }
 
     /**
@@ -405,7 +409,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     private CompletableFuture<Integer> publishToGetCISShadowTopic() {
         LOGGER.atDebug().log("Publishing to get shadow topic");
         GetShadowRequest getShadowRequest = new GetShadowRequest();
-        getShadowRequest.thingName = shadowName;
+        getShadowRequest.thingName = shadowName.get();
         return iotShadowClient.PublishGetShadow(getShadowRequest, QualityOfService.AT_MOST_ONCE)
                 .exceptionally(e -> {
                     LOGGER.atWarn().cause(e).log("Unable to retrieve CIS shadow");
@@ -420,7 +424,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      */
     private void updateCISShadowReportedState(Map<String, Object> reportedState) {
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
-        updateShadowRequest.thingName = shadowName;
+        updateShadowRequest.thingName = shadowName.get();
         updateShadowRequest.state = new ShadowState();
         updateShadowRequest.state.reported = reportedState == null ? null : new HashMap<>(reportedState);
         iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE).exceptionally(e -> {
@@ -435,6 +439,31 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
             fetchCISShadowAsync();
         } else if (state == NetworkStateProvider.ConnectionState.NETWORK_DOWN) {
             cancelFetchCISShadow();
+        }
+    }
+
+    static class SucceedOnceOperation implements CrashableSupplier<Void, Exception> {
+        private boolean succeededOnce;
+        private final CrashableSupplier<Void, Exception> operation;
+
+        SucceedOnceOperation(@NonNull CrashableSupplier<Void, Exception> operation) {
+            this.operation = operation;
+        }
+
+        /**
+         * Perform the operation if it has not yet succeeded once already.
+         *
+         * @return nothing
+         * @throws Exception on failure
+         */
+        @Override
+        public Void apply() throws Exception {
+            if (succeededOnce) {
+                return null;
+            }
+            operation.apply();
+            succeededOnce = true;
+            return null;
         }
     }
 }
