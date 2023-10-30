@@ -14,11 +14,13 @@ import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.mqttclient.MqttClient;
 import com.aws.greengrass.mqttclient.WrapperMqttClientConnection;
 import com.aws.greengrass.util.Coerce;
+import com.aws.greengrass.util.CrashableSupplier;
 import com.aws.greengrass.util.RetryUtils;
+import lombok.NonNull;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
-import software.amazon.awssdk.crt.mqtt.MqttException;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
 import software.amazon.awssdk.iot.iotshadow.IotShadowClient;
+import software.amazon.awssdk.iot.iotshadow.model.ErrorResponse;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowRequest;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowResponse;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowSubscriptionRequest;
@@ -33,22 +35,22 @@ import software.amazon.awssdk.services.greengrassv2data.model.ThrottlingExceptio
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
@@ -56,79 +58,139 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     private static final Logger LOGGER = LogManager.getLogger(CISShadowMonitor.class);
     private static final String CIS_SHADOW_SUFFIX = "-gci";
     private static final String VERSION = "version";
-    private static final long TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS = Duration.ofMinutes(1).getSeconds();
-    private static final long WAIT_TIME_TO_SUBSCRIBE_AGAIN_IN_MS = Duration.ofMinutes(2).toMillis();
-    private static final Random JITTER = new Random();
-    static final String SHADOW_UPDATE_DELTA_TOPIC = "$aws/things/%s/shadow/update/delta";
-    static final String SHADOW_GET_ACCEPTED_TOPIC = "$aws/things/%s/shadow/get/accepted";
 
     private static final RetryUtils.RetryConfig GET_CONNECTIVITY_RETRY_CONFIG =
             RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofMinutes(1L))
                     .maxRetryInterval(Duration.ofMinutes(30L)).maxAttempt(Integer.MAX_VALUE)
                     .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
                     .build();
+    private static final RetryUtils.RetryConfig ALWAYS_RETRY_CONFIG =
+            RetryUtils.RetryConfig.builder()
+                    .initialRetryInterval(Duration.ofSeconds(1L))
+                    .maxRetryInterval(Duration.ofSeconds(30L))
+                    .maxAttempt(Integer.MAX_VALUE)
+                    .retryableExceptions(Collections.singletonList(Exception.class))
+                    .build();
 
+    private final Consumer<ShadowDeltaUpdatedEvent> onShadowDeltaUpdated = this::processCISShadow;
+    private final Consumer<GetShadowResponse> onGetShadowAccepted = resp -> {
+        signalShadowResponseReceived();
+        processCISShadow(resp);
+    };
+    private final Consumer<ErrorResponse> onGetShadowRejected = err -> signalShadowResponseReceived();
+
+    private final Object getShadowLock = new Object();
+    private Future<?> getShadowTask;
+    AtomicReference<CompletableFuture<?>> getShadowResponseReceived = new AtomicReference<>();
+
+    private String lastVersion;
+
+    private final Supplier<Integer> mqttOperationTimeoutMillis;
     private MqttClientConnection connection;
     private IotShadowClient iotShadowClient;
-    private String lastVersion;
-    private Future<?> subscribeTaskFuture;
+    private final NetworkStateProvider networkStateProvider;
     private final List<CertificateGenerator> monitoredCertificateGenerators = new CopyOnWriteArrayList<>();
     private final ExecutorService executorService;
-    private final String shadowName;
+    private final AtomicReference<String> shadowName = new AtomicReference<>();
     private final ConnectivityInformation connectivityInformation;
+
+    private final SucceedOnceOperation subscribeToShadowUpdateDelta = new SucceedOnceOperation(() -> {
+        ShadowDeltaUpdatedSubscriptionRequest shadowDeltaUpdatedSubscriptionRequest =
+                new ShadowDeltaUpdatedSubscriptionRequest();
+        shadowDeltaUpdatedSubscriptionRequest.thingName = shadowName.get();
+        iotShadowClient.SubscribeToShadowDeltaUpdatedEvents(
+                        shadowDeltaUpdatedSubscriptionRequest,
+                        QualityOfService.AT_LEAST_ONCE,
+                        onShadowDeltaUpdated,
+                        (e) -> LOGGER.atError()
+                                .log("Error processing shadowDeltaUpdatedSubscription Response", e))
+                .get();
+        LOGGER.atDebug().log("Subscribed to shadow update delta topic");
+        return null;
+    });
+
+    private final SucceedOnceOperation subscribeToShadowGetAccepted = new SucceedOnceOperation(() -> {
+        GetShadowSubscriptionRequest getShadowSubscriptionRequest = new GetShadowSubscriptionRequest();
+        getShadowSubscriptionRequest.thingName = shadowName.get();
+        iotShadowClient.SubscribeToGetShadowAccepted(
+                        getShadowSubscriptionRequest,
+                        QualityOfService.AT_LEAST_ONCE,
+                        onGetShadowAccepted,
+                        (e) -> LOGGER.atError().log("Error processing getShadowSubscription Response", e))
+                .get();
+        LOGGER.atDebug().log("Subscribed to shadow get accepted topic");
+        return null;
+    });
+
+    private final SucceedOnceOperation subscribeToShadowGetRejected = new SucceedOnceOperation(() -> {
+        GetShadowSubscriptionRequest getShadowRejectedSubscriptionRequest = new GetShadowSubscriptionRequest();
+        getShadowRejectedSubscriptionRequest.thingName = shadowName.get();
+        iotShadowClient.SubscribeToGetShadowRejected(
+                        getShadowRejectedSubscriptionRequest,
+                        QualityOfService.AT_LEAST_ONCE,
+                        onGetShadowRejected,
+                        (e) -> LOGGER.atError().log("Error processing get shadow rejected response", e))
+                .get();
+        LOGGER.atDebug().log("Subscribed to shadow get rejected topic");
+        return null;
+    });
 
     /**
      * Constructor.
      *
      * @param mqttClient              IoT MQTT client
+     * @param networkStateProvider    Network State Provider
      * @param executorService         Executor service
      * @param deviceConfiguration     Device configuration
      * @param connectivityInformation Connectivity Info Provider
      */
     @Inject
-    public CISShadowMonitor(MqttClient mqttClient, ExecutorService executorService,
-                            DeviceConfiguration deviceConfiguration, ConnectivityInformation connectivityInformation) {
-        this(null, null, executorService, Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX,
-                connectivityInformation);
+    public CISShadowMonitor(MqttClient mqttClient,
+                            NetworkStateProvider networkStateProvider,
+                            ExecutorService executorService,
+                            DeviceConfiguration deviceConfiguration,
+                            ConnectivityInformation connectivityInformation) {
+        this(
+                networkStateProvider,
+                null,
+                null,
+                executorService,
+                Coerce.toString(deviceConfiguration.getThingName()) + CIS_SHADOW_SUFFIX,
+                connectivityInformation,
+                mqttClient::getMqttOperationTimeoutMillis
+        );
         this.connection = new WrapperMqttClientConnection(mqttClient);
         this.iotShadowClient = new IotShadowClient(this.connection);
     }
 
-    CISShadowMonitor(MqttClientConnection connection, IotShadowClient iotShadowClient, ExecutorService executorService,
-                     String shadowName, ConnectivityInformation connectivityInformation) {
+    CISShadowMonitor(NetworkStateProvider networkStateProvider,
+                     MqttClientConnection connection,
+                     IotShadowClient iotShadowClient,
+                     ExecutorService executorService,
+                     String shadowName,
+                     ConnectivityInformation connectivityInformation,
+                     Supplier<Integer> mqttOperationTimeoutMillis) {
+        this.networkStateProvider = networkStateProvider;
         this.connection = connection;
         this.iotShadowClient = iotShadowClient;
         this.executorService = executorService;
-        this.shadowName = shadowName;
+        this.shadowName.set(shadowName);
         this.connectivityInformation = connectivityInformation;
+        this.mqttOperationTimeoutMillis = mqttOperationTimeoutMillis;
     }
 
     /**
      * Start shadow monitor.
      */
     public void startMonitor() {
-        if (subscribeTaskFuture != null) {
-            subscribeTaskFuture.cancel(true);
-        }
-        subscribeTaskFuture = executorService.submit(() -> {
-            try {
-                subscribeToShadowTopics();
-                publishToGetCISShadowTopic();
-            } catch (InterruptedException e) {
-                LOGGER.atWarn().cause(e).log("Interrupted while subscribing to CIS shadow topics");
-                Thread.currentThread().interrupt();
-            }
-        });
+        fetchCISShadowAsync();
     }
 
     /**
      * Stop shadow monitor.
      */
     public void stopMonitor() {
-        if (subscribeTaskFuture != null) {
-            subscribeTaskFuture.cancel(true);
-        }
-        unsubscribeFromShadowTopics();
+        cancelFetchCISShadow();
     }
 
     /**
@@ -147,51 +209,6 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      */
     public void removeFromMonitor(CertificateGenerator certificateGenerator) {
         monitoredCertificateGenerators.remove(certificateGenerator);
-    }
-
-    private void subscribeToShadowTopics() throws InterruptedException {
-        while (true) {
-            if (Thread.currentThread().isInterrupted()) {
-                throw new InterruptedException("Interrupted while subscribing to CIS shadow topics");
-            }
-            try {
-                ShadowDeltaUpdatedSubscriptionRequest shadowDeltaUpdatedSubscriptionRequest =
-                        new ShadowDeltaUpdatedSubscriptionRequest();
-                shadowDeltaUpdatedSubscriptionRequest.thingName = shadowName;
-                iotShadowClient.SubscribeToShadowDeltaUpdatedEvents(shadowDeltaUpdatedSubscriptionRequest,
-                                QualityOfService.AT_LEAST_ONCE,
-                                this::processCISShadow,
-                                (e) -> LOGGER.atError()
-                                        .log("Error processing shadowDeltaUpdatedSubscription Response", e))
-                        .get(TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS, TimeUnit.SECONDS);
-                LOGGER.info("Subscribed to shadow update delta topic");
-
-                GetShadowSubscriptionRequest getShadowSubscriptionRequest = new GetShadowSubscriptionRequest();
-                getShadowSubscriptionRequest.thingName = shadowName;
-                iotShadowClient.SubscribeToGetShadowAccepted(getShadowSubscriptionRequest,
-                                QualityOfService.AT_LEAST_ONCE, this::processCISShadow,
-                                (e) -> LOGGER.atError().log("Error processing getShadowSubscription Response", e))
-                        .get(TIMEOUT_FOR_SUBSCRIBING_TO_TOPICS_SECONDS, TimeUnit.SECONDS);
-                LOGGER.info("Subscribed to shadow get accepted topic");
-                return;
-
-            } catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof MqttException || cause instanceof TimeoutException) {
-                    LOGGER.atWarn().setCause(cause)
-                            .log("Caught exception while subscribing to shadow topics, will retry shortly");
-                } else if (cause instanceof InterruptedException) {
-                    throw (InterruptedException) cause;
-                } else {
-                    LOGGER.atError().setCause(e)
-                            .log("Caught exception while subscribing to shadow topics, will retry shortly");
-                }
-            } catch (TimeoutException e) {
-                LOGGER.atWarn().setCause(e).log("Subscribe to shadow topics timed out, will retry shortly");
-            }
-            // Wait for sometime and then try to subscribe again
-            Thread.sleep(WAIT_TIME_TO_SUBSCRIBE_AGAIN_IN_MS + JITTER.nextInt(10_000));
-        }
     }
 
     private void processCISShadow(GetShadowResponse response) {
@@ -219,6 +236,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
 
         LOGGER.atInfo().log("New CIS version: {}", version);
 
+        // TODO make this cancellable
         // NOTE: This method executes in an MQTT CRT thread. Since certificate generation is a compute intensive
         // operation (particularly on low end devices) it is imperative that we process this event asynchronously
         // to avoid blocking other MQTT subscribers in the Nucleus
@@ -281,6 +299,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
                 for (CertificateGenerator cg : monitoredCertificateGenerators) {
                     cg.generateCertificate(() -> new ArrayList<>(cachedHostAddresses), "connectivity info was updated");
                 }
+                LOGGER.atDebug().log("certificates rotated");
             } catch (CertificateGenerationException e) {
                 LOGGER.atError().kv(VERSION, version).cause(e).log("Failed to generate new certificates");
                 return;
@@ -299,6 +318,97 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         });
     }
 
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private void fetchCISShadowAsync() {
+        if (networkStateProvider.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_DOWN) {
+            // will be retried when online again
+            return;
+        }
+        synchronized (getShadowLock) {
+            if (getShadowTask != null && !getShadowTask.isDone()) {
+                // operation already in progress
+                return;
+            }
+            getShadowTask = executorService.submit(() -> {
+                try {
+                    RetryUtils.runWithRetry(
+                            ALWAYS_RETRY_CONFIG,
+                            () -> {
+                                subscribeToShadowTopics();
+                                return null;
+                            },
+                            "subscribe-to-cis-topics",
+                            LOGGER);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                } catch (Exception e) {
+                    LOGGER.atError().cause(e).log("Unexpected failure when subscribing to shadow topics");
+                    return;
+                }
+
+                try {
+                    RetryUtils.runWithRetry(
+                            ALWAYS_RETRY_CONFIG,
+                            () -> {
+                                CompletableFuture<?> shadowGetResponseReceived = new CompletableFuture<>();
+                                this.getShadowResponseReceived.set(shadowGetResponseReceived);
+                                publishToGetCISShadowTopic().get();
+                                // await shadow get accepted, rejected
+                                long waitForGetResponseTimeout =
+                                        Duration.ofMillis(mqttOperationTimeoutMillis.get())
+                                                .plusSeconds(5L) // buffer
+                                                .toMillis();
+                                shadowGetResponseReceived.get(waitForGetResponseTimeout, TimeUnit.MILLISECONDS);
+                                return null;
+                            },
+                            "get-cis-shadow",
+                            LOGGER);
+                } catch (InterruptedException ignore) {
+                    Thread.currentThread().interrupt();
+                } catch (Exception e) {
+                    LOGGER.atError().cause(e).log("unable to get CIS shadow");
+                }
+            });
+        }
+    }
+
+    private void cancelFetchCISShadow() {
+        synchronized (getShadowLock) {
+            if (getShadowTask != null) {
+                getShadowTask.cancel(true);
+            }
+        }
+    }
+
+    @SuppressWarnings("PMD.SignatureDeclareThrowsException")
+    private void subscribeToShadowTopics() throws Exception {
+        subscribeToShadowUpdateDelta.apply();
+        subscribeToShadowGetAccepted.apply();
+        subscribeToShadowGetRejected.apply();
+    }
+
+    /**
+     * Called when a shadow response, either accepted or rejected, is received.
+     */
+    private void signalShadowResponseReceived() {
+        CompletableFuture<?> shadowReceived = this.getShadowResponseReceived.get();
+        if (shadowReceived != null) {
+            shadowReceived.complete(null);
+        }
+    }
+
+    private CompletableFuture<Integer> publishToGetCISShadowTopic() {
+        LOGGER.atDebug().log("Publishing to get shadow topic");
+        GetShadowRequest getShadowRequest = new GetShadowRequest();
+        getShadowRequest.thingName = shadowName.get();
+        return iotShadowClient.PublishGetShadow(getShadowRequest, QualityOfService.AT_MOST_ONCE)
+                .exceptionally(e -> {
+                    LOGGER.atWarn().cause(e).log("Unable to retrieve CIS shadow");
+                    return null;
+                });
+    }
+
     /**
      * Asynchronously update the CIS shadow's reported state for the given shadow version.
      *
@@ -306,7 +416,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
      */
     private void updateCISShadowReportedState(Map<String, Object> reportedState) {
         UpdateShadowRequest updateShadowRequest = new UpdateShadowRequest();
-        updateShadowRequest.thingName = shadowName;
+        updateShadowRequest.thingName = shadowName.get();
         updateShadowRequest.state = new ShadowState();
         updateShadowRequest.state.reported = reportedState == null ? null : new HashMap<>(reportedState);
         iotShadowClient.PublishUpdateShadow(updateShadowRequest, QualityOfService.AT_LEAST_ONCE).exceptionally(e -> {
@@ -315,31 +425,37 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
         });
     }
 
-    private void publishToGetCISShadowTopic() {
-        LOGGER.atDebug().log("Publishing to get shadow topic");
-        GetShadowRequest getShadowRequest = new GetShadowRequest();
-        getShadowRequest.thingName = shadowName;
-        iotShadowClient.PublishGetShadow(getShadowRequest, QualityOfService.AT_LEAST_ONCE).exceptionally(e -> {
-            LOGGER.atWarn().cause(e).log("Unable to retrieve CIS shadow");
-            return null;
-        });
-    }
-
-    private void unsubscribeFromShadowTopics() {
-        if (connection != null) {
-            LOGGER.atDebug().log("Unsubscribing from CIS shadow topics");
-            String topic = String.format(SHADOW_UPDATE_DELTA_TOPIC, shadowName);
-            connection.unsubscribe(topic);
-
-            topic = String.format(SHADOW_GET_ACCEPTED_TOPIC, shadowName);
-            connection.unsubscribe(topic);
-        }
-    }
-
     @Override
     public void accept(NetworkStateProvider.ConnectionState state) {
         if (state == NetworkStateProvider.ConnectionState.NETWORK_UP) {
-            publishToGetCISShadowTopic();
+            fetchCISShadowAsync();
+        } else if (state == NetworkStateProvider.ConnectionState.NETWORK_DOWN) {
+            cancelFetchCISShadow();
+        }
+    }
+
+    static class SucceedOnceOperation implements CrashableSupplier<Void, Exception> {
+        private boolean succeededOnce;
+        private final CrashableSupplier<Void, Exception> operation;
+
+        SucceedOnceOperation(@NonNull CrashableSupplier<Void, Exception> operation) {
+            this.operation = operation;
+        }
+
+        /**
+         * Perform the operation if it has not yet succeeded once already.
+         *
+         * @return nothing
+         * @throws Exception on failure
+         */
+        @Override
+        public Void apply() throws Exception {
+            if (succeededOnce) {
+                return null;
+            }
+            operation.apply();
+            succeededOnce = true;
+            return null;
         }
     }
 }
