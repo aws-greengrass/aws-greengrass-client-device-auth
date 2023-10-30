@@ -59,19 +59,12 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     private static final String CIS_SHADOW_SUFFIX = "-gci";
     private static final String VERSION = "version";
 
-    private static final RetryUtils.RetryConfig SUBSCRIBE_TO_TOPICS_RETRY_CONFIG =
-            RetryUtils.RetryConfig.builder()
-                    .initialRetryInterval(Duration.ofSeconds(1L))
-                    .maxRetryInterval(Duration.ofSeconds(30L))
-                    .maxAttempt(Integer.MAX_VALUE)
-                    .retryableExceptions(Collections.singletonList(Exception.class))
-                    .build();
     private static final RetryUtils.RetryConfig GET_CONNECTIVITY_RETRY_CONFIG =
             RetryUtils.RetryConfig.builder().initialRetryInterval(Duration.ofMinutes(1L))
                     .maxRetryInterval(Duration.ofMinutes(30L)).maxAttempt(Integer.MAX_VALUE)
                     .retryableExceptions(Arrays.asList(ThrottlingException.class, InternalServerException.class))
                     .build();
-    private static final RetryUtils.RetryConfig GET_CIS_SHADOW_RETRY_CONFIG =
+    private static final RetryUtils.RetryConfig ALWAYS_RETRY_CONFIG =
             RetryUtils.RetryConfig.builder()
                     .initialRetryInterval(Duration.ofSeconds(1L))
                     .maxRetryInterval(Duration.ofSeconds(30L))
@@ -339,7 +332,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
             getShadowTask = executorService.submit(() -> {
                 try {
                     RetryUtils.runWithRetry(
-                            SUBSCRIBE_TO_TOPICS_RETRY_CONFIG,
+                            ALWAYS_RETRY_CONFIG,
                             () -> {
                                 subscribeToShadowTopics();
                                 return null;
@@ -356,7 +349,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
 
                 try {
                     RetryUtils.runWithRetry(
-                            GET_CIS_SHADOW_RETRY_CONFIG,
+                            ALWAYS_RETRY_CONFIG,
                             () -> {
                                 CompletableFuture<?> shadowGetResponseReceived = new CompletableFuture<>();
                                 this.getShadowResponseReceived.set(shadowGetResponseReceived);
