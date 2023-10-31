@@ -155,7 +155,7 @@ public class Certificate implements AttributeProvider {
         metadataTrustDurationMinutes.set(newTrustDuration);
     }
 
-    private boolean isStatusTrusted() {
+    public boolean isStatusTrusted() {
         Instant validTill = statusLastUpdated.plus(metadataTrustDurationMinutes.get(), ChronoUnit.MINUTES);
         return validTill.isAfter(Instant.now());
     }

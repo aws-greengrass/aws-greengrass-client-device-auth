@@ -7,7 +7,6 @@ package com.aws.greengrass.clientdevices.auth.iot.usecases;
 
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
-import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
@@ -20,7 +19,6 @@ import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
-import java.util.Optional;
 import javax.inject.Inject;
 
 public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSessionDTO> {
@@ -53,37 +51,44 @@ public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSe
      */
     @Override
     public Session apply(CreateSessionDTO dto) throws AuthenticationException {
-        String certificatePem = dto.getCertificatePem();
+        Certificate certificate = getActiveCertificateFromRegistry(dto);
         String thingName = dto.getThingName();
-        Optional<Certificate> certificate;
+        Thing thing = thingRegistry.getOrCreateThing(thingName);
 
-        try {
-            certificate = certificateRegistry.getCertificateFromPem(certificatePem);
+        VerifyThingAttachedToCertificate.Result result =
+                useCases.get(VerifyThingAttachedToCertificate.class)
+                        .apply(new VerifyThingAttachedToCertificateDTO(thingName, certificate.getCertificateId()));
 
-            if (!certificate.isPresent() || !certificate.get().isActive()) {
-                throw new AuthenticationException("Certificate isn't active");
-            }
+        logger.atDebug()
+                .kv("thingName", thingName)
+                .kv("thingHasValidAttachment", result.isThingHasValidAttachmentToCertificate())
+                .kv("lastAttachedOn", result.getLastAttached())
+                .kv("attachmentExpiration", result.getAttachmentExpiration())
+                .kv("source", result.getVerificationSource())
+                .log("Attachment verification result");
 
-            Thing thing = thingRegistry.getOrCreateThing(thingName);
-
-            VerifyThingAttachedToCertificate verify = useCases.get(VerifyThingAttachedToCertificate.class);
-            VerifyThingAttachedToCertificate.Result result = verify.apply(
-                    new VerifyThingAttachedToCertificateDTO(thingName, certificate.get().getCertificateId()));
-
-            logger.atDebug()
-                    .kv("thingHasValidAttachment", result.isThingHasValidAttachmentToCertificate())
-                    .kv("lastAttachedOn", result.getLastAttached())
-                    .kv("attachmentExpiration", result.getAttachmentExpiration())
-                    .kv("source", result.getVerificationSource())
-                    .log("Attachment verification result");
-
-            if (result.isThingHasValidAttachmentToCertificate()) {
-                return new SessionImpl(certificate.get(), thing);
-            }
-        } catch (CloudServiceInteractionException | InvalidCertificateException e) {
-            throw new AuthenticationException("Failed to verify certificate with cloud", e);
+        if (result.isThingHasValidAttachmentToCertificate()) {
+            return new SessionImpl(certificate, thing);
         }
 
         throw new AuthenticationException("Failed to verify certificate attached to thing");
+    }
+
+    private Certificate getActiveCertificateFromRegistry(CreateSessionDTO dto) throws AuthenticationException {
+        Certificate certificate;
+        try {
+            certificate = certificateRegistry.getCertificateFromPem(dto.getCertificatePem())
+                    .orElseThrow(() -> new AuthenticationException("Certificate not in local registry"));
+        } catch (InvalidCertificateException e) {
+            throw new AuthenticationException("Certificate is invalid", e);
+        }
+        if (certificate.isActive()) {
+            return certificate;
+        }
+        if (certificate.isStatusTrusted()) {
+            throw new AuthenticationException("Certificate is not active");
+        } else {
+            throw new AuthenticationException("Certificate is not trusted");
+        }
     }
 }

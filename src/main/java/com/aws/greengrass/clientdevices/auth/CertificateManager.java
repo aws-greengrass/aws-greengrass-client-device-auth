@@ -348,14 +348,16 @@ public class CertificateManager {
      *
      * @param thingName   Core device name
      * @param certificate the CA to upload to IoT core. Which will be provided by cloud discovery
-     * @throws CertificateEncodingException If unable to get certificate encoding
-     * @throws KeyStoreException            If unable to retrieve the certificate
-     * @throws IOException                  If unable to read certificate
-     * @throws DeviceConfigurationException If unable to retrieve Greengrass V2 Data client
+     * @throws CertificateEncodingException     If unable to get certificate encoding
+     * @throws KeyStoreException                If unable to retrieve the certificate
+     * @throws IOException                      If unable to read certificate
+     * @throws DeviceConfigurationException     If unable to retrieve Greengrass V2 Data client
+     * @throws CloudServiceInteractionException If cloud call fails
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidRethrowingException"})
     public void uploadCoreDeviceCAs(String thingName, X509Certificate certificate)
-            throws CertificateEncodingException, KeyStoreException, IOException, DeviceConfigurationException {
+            throws CertificateEncodingException, KeyStoreException, IOException,
+            DeviceConfigurationException, CloudServiceInteractionException {
         String certificatePem = CertificateHelper.toPem(certificate);
 
         List<Class> retryAbleExceptions =
