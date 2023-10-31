@@ -70,7 +70,7 @@ public class IotAuthClientTest {
     }
 
     @Test
-    void GIVEN_certificatePem_and_cloudProperResponse_WHEN_getActiveCertificateId_THEN_certificateIdReturned() {
+    void GIVEN_certificatePem_and_cloudProperResponse_WHEN_getActiveCertificateId_THEN_certificateIdReturned() throws CloudServiceInteractionException {
         VerifyClientDeviceIdentityResponse response =
                 VerifyClientDeviceIdentityResponse.builder().clientDeviceCertificateId("certificateId").build();
         when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class))).thenReturn(response);
@@ -83,7 +83,7 @@ public class IotAuthClientTest {
     }
 
     @Test
-    void GIVEN_cloudThrowValidationException_WHEN_getActiveCertificateId_THEN_returnNull(ExtensionContext context) {
+    void GIVEN_cloudThrowValidationException_WHEN_getActiveCertificateId_THEN_returnNull(ExtensionContext context) throws CloudServiceInteractionException {
         ignoreExceptionOfType(context, ValidationException.class);
         when(client.verifyClientDeviceIdentity(any(VerifyClientDeviceIdentityRequest.class))).thenThrow(
                 ValidationException.class);
@@ -130,7 +130,7 @@ public class IotAuthClientTest {
     }
 
     @Test
-    void GIVEN_certificateAndThing_and_cloudVerificationSuccess_WHEN_isThingAttachedToCertificate_THEN_returnTrue() {
+    void GIVEN_certificateAndThing_and_cloudVerificationSuccess_WHEN_isThingAttachedToCertificate_THEN_returnTrue() throws CloudServiceInteractionException {
         when(thing.getThingName()).thenReturn("thingName");
         when(certificate.getCertificateId()).thenReturn("certificateId");
         when(client.verifyClientDeviceIoTCertificateAssociation(
@@ -145,8 +145,7 @@ public class IotAuthClientTest {
     }
 
     @Test
-    void GIVEN_cloudThrowValidationException_WHEN_isThingAttachedToCertificate_THEN_returnFalse(
-            ExtensionContext context) {
+    void GIVEN_cloudThrowValidationException_WHEN_isThingAttachedToCertificate_THEN_returnFalse(ExtensionContext context) throws CloudServiceInteractionException{
         ignoreExceptionOfType(context, ValidationException.class);
         when(thing.getThingName()).thenReturn("thingName");
         when(certificate.getCertificateId()).thenReturn("certificateId");
