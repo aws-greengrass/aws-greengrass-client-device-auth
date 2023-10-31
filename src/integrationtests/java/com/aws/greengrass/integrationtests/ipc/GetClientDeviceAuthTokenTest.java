@@ -254,13 +254,13 @@ class GetClientDeviceAuthTokenTest {
     void GIVEN_brokerWithValidCredentials_WHEN_GetClientDeviceAuthTokenFails_THEN_throwServiceError(
             ExtensionContext context) throws Exception {
         kernel.getContext().put(SessionManager.class, sessionManager);
-        ignoreExceptionOfType(context, CloudServiceInteractionException.class);
+        ignoreExceptionOfType(context, AuthenticationException.class);
         startNucleusWithConfig("cda.yaml");
         Map<String, String> mqttCredentialMap =
                 ImmutableMap.of("clientId", "some-client-id", "username", null, "password", null, "certificatePem",
                         "-----BEGIN CERTIFICATE-----" + System.lineSeparator() + "PEM=" + System.lineSeparator()
                                 + "-----END CERTIFICATE-----" + System.lineSeparator());
-        when(sessionManager.createSession("mqtt", mqttCredentialMap)).thenThrow(CloudServiceInteractionException.class);
+        when(sessionManager.createSession("mqtt", mqttCredentialMap)).thenThrow(AuthenticationException.class);
 
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerWithGetClientDeviceAuthTokenPermission")) {
@@ -273,7 +273,7 @@ class GetClientDeviceAuthTokenTest {
             Exception err = assertThrows(Exception.class, () -> {
                 clientDeviceAuthToken(ipcClient, request, null);
             });
-            assertEquals(err.getCause().getClass(), ServiceError.class);
+            assertEquals(InvalidCredentialError.class, err.getCause().getClass());
         }
     }
 
