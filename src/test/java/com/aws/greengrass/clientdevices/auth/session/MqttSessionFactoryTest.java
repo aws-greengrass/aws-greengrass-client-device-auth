@@ -82,7 +82,7 @@ public class MqttSessionFactoryTest {
 
     @Test
     void GIVEN_credentialsWithUnknownClientId_WHEN_createSession_THEN_throwsAuthenticationException()
-            throws InvalidCertificateException {
+            throws InvalidCertificateException, CloudServiceInteractionException {
         when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockCertificateRegistry.getCertificateFromPem(any())).thenReturn(
                 Optional.of(CertificateFake.activeCertificate()));
@@ -102,7 +102,7 @@ public class MqttSessionFactoryTest {
 
     @Test
     void GIVEN_credentialsWithCertificate_WHEN_createSession_AND_cloudError_THEN_throwsAuthenticationException()
-            throws InvalidCertificateException {
+            throws InvalidCertificateException, CloudServiceInteractionException {
         when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockCertificateRegistry.getCertificateFromPem(any())).thenReturn(
                 Optional.of(CertificateFake.activeCertificate()));
@@ -115,7 +115,7 @@ public class MqttSessionFactoryTest {
 
     @Test
     void GIVEN_credentialsWithValidClientId_WHEN_createSession_THEN_returnsSession()
-            throws AuthenticationException, InvalidCertificateException {
+            throws AuthenticationException, InvalidCertificateException, CloudServiceInteractionException {
         when(mockNetworkState.getConnectionState()).thenReturn(NetworkStateProvider.ConnectionState.NETWORK_UP);
         when(mockThingRegistry.getOrCreateThing("clientId")).thenReturn(Thing.of("clientId"));
         when(mockThingRegistry.getThing(any())).thenReturn(Thing.of("clientId"));

@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.exception;
 
-public class CloudServiceInteractionException extends RuntimeException {
+public class CloudServiceInteractionException extends Exception {
 
     private static final long serialVersionUID = -1L;
 
