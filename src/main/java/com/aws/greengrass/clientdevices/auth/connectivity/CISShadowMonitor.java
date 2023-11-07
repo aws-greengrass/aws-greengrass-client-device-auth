@@ -455,6 +455,12 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
             if (Objects.equals(task1, task2)) {
                 return 0;
             }
+            if (task1 == null) {
+                return -1;
+            }
+            if (task2 == null) {
+                return 1;
+            }
 
             // previous or duplicate shadow version
             if (task1.shadowVersion <= task2.shadowVersion) {
@@ -485,7 +491,7 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
 
         private boolean isNewTask(ProcessCISShadowTask task) {
             return Stream.of(this.tasks.peekLast(), lastProcessedTask)
-                    .allMatch(t -> t == null || taskComparator.compare(task, t) > 0);
+                    .allMatch(t -> taskComparator.compare(task, t) > 0);
         }
 
         synchronized void removeProcessedTask(ProcessCISShadowTask task) {
