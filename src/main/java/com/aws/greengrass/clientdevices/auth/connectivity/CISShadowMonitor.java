@@ -56,6 +56,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 @SuppressWarnings("PMD.ImmutableField")
@@ -73,13 +74,25 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     private final CISShadowTaskExecutor taskExecutor = new CISShadowTaskExecutor();
     private final CISShadowTaskQueue taskQueue = new CISShadowTaskQueue();
 
-    private final Consumer<ShadowDeltaUpdatedEvent> onShadowDeltaUpdated = resp ->
-            taskQueue.offer(new ProcessCISShadowTask(
-                    resp.version, Coerce.toString(resp.state.get("version")), resp.state));
+    private final Consumer<ShadowDeltaUpdatedEvent> onShadowDeltaUpdated = resp -> {
+        if (resp.version == null) { // should never happen in practice
+            LOGGER.atError().log("Malformed ShadowDeltaUpdatedEvent, shadow version is missing");
+            return;
+        }
+        String cisVersion = resp.state == null ? null : Coerce.toString(resp.state.get("version"));
+        taskQueue.offer(new ProcessCISShadowTask(resp.version, cisVersion, resp.state));
+    };
     private final Consumer<GetShadowResponse> onGetShadowAccepted = resp -> {
         signalShadowResponseReceived();
-        taskQueue.offer(new ProcessCISShadowTask(
-                resp.version, Coerce.toString(resp.state.desired.get("version")), resp.state.desired));
+        if (resp.version == null) { // should never happen in practice
+            LOGGER.atError().log("Malformed GetShadowResponse, shadow version is missing");
+            return;
+        }
+        String cisVersion = resp.state == null || resp.state.desired == null
+                ? null : Coerce.toString(resp.state.desired.get("version"));
+        Map<String, Object> desiredState = resp.state == null
+                ? null : resp.state.desired;
+        taskQueue.offer(new ProcessCISShadowTask(resp.version, cisVersion, desiredState));
     };
     private final Consumer<ErrorResponse> onGetShadowRejected = err -> signalShadowResponseReceived();
 
@@ -314,8 +327,10 @@ public class CISShadowMonitor implements Consumer<NetworkStateProvider.Connectio
     @EqualsAndHashCode
     @RequiredArgsConstructor
     class ProcessCISShadowTask implements Callable<Void> {
-        private final long shadowVersion;
+        private final int shadowVersion;
+        @Nullable
         private final String cisVersion;
+        @Nullable
         private final Map<String, Object> desiredState;
 
         @Override
