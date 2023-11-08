@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -55,7 +56,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -75,6 +75,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -83,6 +84,13 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class CISShadowMonitorTest {
+    private static final List<Class<? extends Exception>> IGNORED_EXCEPTIONS = Arrays.asList(
+            ValidationException.class,
+            RuntimeException.class,
+            TimeoutException.class,
+            ExecutionException.class,
+            InterruptedException.class
+    );
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String SHADOW_NAME = "testThing-gci";
     private static final String UPDATE_SHADOW_TOPIC = String.format("$aws/things/%s/shadow/update", SHADOW_NAME);
@@ -162,6 +170,11 @@ class CISShadowMonitorTest {
         Duration goOfflineAfterDelay;
 
         /**
+         * How long it takes to generate a certificate
+         */
+        Duration certGenDuration;
+
+        /**
          * If true, simulate monitor receiving duplicate
          * shadow delta update messages from IoT Core.
          *
@@ -232,6 +245,11 @@ class CISShadowMonitorTest {
                 Arguments.of(Scenario.builder()
                         .connectivityProviderMode(FakeConnectivityInformation.Mode.FAIL_ONCE)
                         .serialShadowUpdates(true)
+                        .build()),
+                Arguments.of(Scenario.builder()
+                        // force situation where request is received while another is in progress
+                        .certGenDuration(Duration.ofSeconds(3))
+                        .receiveDuplicateShadowDeltaUpdates(true)
                         .build())
         );
     }
@@ -240,11 +258,14 @@ class CISShadowMonitorTest {
     @MethodSource("cisShadowMonitorScenarios")
     @SuppressWarnings("PMD.NullAssignment")
     void GIVEN_monitor_WHEN_cis_shadow_changes_THEN_monitor_updates_certificates(Scenario scenario, ExtensionContext context) throws Exception {
-        ignoreExceptionOfType(context, ValidationException.class);
-        ignoreExceptionOfType(context, RuntimeException.class);
-        ignoreExceptionOfType(context, TimeoutException.class);
-        ignoreExceptionOfType(context, ExecutionException.class);
-        ignoreExceptionOfType(context, InterruptedException.class);
+        IGNORED_EXCEPTIONS.forEach(e -> ignoreExceptionOfType(context, e));
+
+        if (scenario.certGenDuration != null) {
+            doAnswer(invocation -> {
+                Thread.sleep(scenario.certGenDuration.toMillis());
+                return null;
+            }).when(certificateGenerator).generateCertificate(any(), any());
+        }
 
         connectivityInfoProvider.setMode(scenario.getConnectivityProviderMode());
 
@@ -375,8 +396,10 @@ class CISShadowMonitorTest {
     }
 
     private void assertShadowEventuallyEquals(Map<String, Object> desired, Map<String, Object> reported) throws InterruptedException {
-        TestHelpers.eventuallyTrue(() -> Objects.equals(shadowClient.getShadow(SHADOW_NAME).getLeft(), desired));
-        TestHelpers.eventuallyTrue(() -> Objects.equals(shadowClient.getShadow(SHADOW_NAME).getRight(), reported));
+        TestHelpers.eventuallyTrue(() ->
+                Objects.equals(shadowClient.getShadow(SHADOW_NAME).getLeft(), desired) &&
+                        Objects.equals(shadowClient.getShadow(SHADOW_NAME).getRight(), reported)
+        );
     }
 
     /**
@@ -415,8 +438,8 @@ class CISShadowMonitorTest {
 
     static class FakeIotShadowClient extends IotShadowClient {
         private static final CompletableFuture<Integer> DUMMY_PACKET_ID = CompletableFuture.completedFuture(0);
-        private final Map<String, Shadow> shadowsByThingName = new ConcurrentHashMap<>();
-        private final Map<String, Consumer<MqttMessage>> subscriptions = new ConcurrentHashMap<>();
+        private final Map<String, Shadow> shadowsByThingName = Collections.synchronizedMap(new HashMap<>());
+        private final Map<String, Consumer<MqttMessage>> subscriptions = Collections.synchronizedMap(new HashMap<>());
         private final AtomicReference<String> failOnPublish = new AtomicReference<>();
         private final AtomicReference<Pair<String, AtomicInteger>> failOnGet = new AtomicReference<>();
         private final List<Consumer<MqttMessage>> onPublish = new ArrayList<>();
