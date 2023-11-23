@@ -95,6 +95,30 @@ public class BasicRuleExpressionTest {
     void GIVEN_wildcardAsThingName_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
         expectValidExpression("thingName: *");
     }
+    @Test
+    void GIVEN_thingNameWithLeadingWildcard_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
+        expectValidExpression("thingName: *Thing");
+    }
+
+    @Test
+    void GIVEN_thingNameWithTrailingWildcard_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
+        expectValidExpression("thingName: Thing*");
+    }
+
+    @Test
+    void GIVEN_thingNameWithLeadingAndTrailingWildcard_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
+        expectValidExpression("thingName: *Thing*");
+    }
+
+    @Test
+    void GIVEN_LogicalORExpressionWithWildcards_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
+        expectValidExpression("thingName: Thing* OR thingName: *Thing");
+    }
+
+    @Test
+    void GIVEN_LogicalANDExpressionWithWildcard_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
+        expectValidExpression("thingName: Thing* AND thingName: *Thing");
+    }
 
     @Test
     void GIVEN_basicLogicalORExpression_WHEN_RuleExpression_THEN_ruleIsParsed() throws ParseException {
@@ -128,7 +152,6 @@ public class BasicRuleExpressionTest {
 
     @Test
     void GIVEN_thingNameWithNonTrailingWildcard_WHEN_RuleExpression_THEN_exceptionIsThrown() {
-        expectParseException("thingName: *thing");
         expectParseException("thingName: thing*2");
     }
 }
