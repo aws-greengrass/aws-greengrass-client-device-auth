@@ -16,7 +16,7 @@ public class WildcardSuffixAttribute implements DeviceAttribute {
 
     @Override
     public boolean matches(@NonNull String expr) {
-        if ( expr.length() > 1 &&  expr.startsWith("*") && expr.endsWith("*")) {
+        if (expr.length() > 1 && expr.startsWith("*") && expr.endsWith("*")) {
             return value.contains(expr.substring(1, expr.length() -1));
         } else if (expr.startsWith("*")) {
             return value.endsWith(expr.substring(1));
