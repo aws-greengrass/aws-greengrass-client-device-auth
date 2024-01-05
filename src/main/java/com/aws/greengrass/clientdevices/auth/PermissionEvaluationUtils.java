@@ -43,9 +43,6 @@ public final class PermissionEvaluationUtils {
 
     private static final String THING_NAME_VARIABLE = "Connection.Thing.ThingName";
 
-    public PermissionEvaluationUtils() {
-    }
-
     /**
      * utility method of authorizing operation to resource.
      *
