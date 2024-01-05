@@ -47,9 +47,10 @@ public class DeviceAuthClient {
     /**
      * Constructor.
      *
-     * @param sessionManager   Session manager
-     * @param groupManager     Group manager
-     * @param certificateStore Certificate store
+     * @param sessionManager            Session manager
+     * @param groupManager              Group manager
+     * @param certificateStore          Certificate store
+     * @param permissionEvaluationUtils Permission Evaluation Utils
      */
     @Inject
     public DeviceAuthClient(SessionManager sessionManager, GroupManager groupManager,
