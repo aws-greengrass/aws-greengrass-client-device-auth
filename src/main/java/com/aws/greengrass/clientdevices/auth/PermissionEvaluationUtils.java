@@ -43,7 +43,7 @@ public final class PermissionEvaluationUtils {
 
     private static final String THING_NAME_VARIABLE = "Connection.Thing.ThingName";
 
-    private PermissionEvaluationUtils() {
+    public PermissionEvaluationUtils() {
     }
 
     /**
@@ -54,7 +54,7 @@ public final class PermissionEvaluationUtils {
      * @param groupToPermissionsMap device matching group to permissions map
      * @return whether operation to resource in authorized
      */
-    public static boolean isAuthorized(String operation, String resource,
+    public boolean isAuthorized(String operation, String resource,
                                        Map<String, Set<Permission>> groupToPermissionsMap) {
         Operation op = parseOperation(operation);
         Resource rsc = parseResource(resource);
@@ -105,7 +105,7 @@ public final class PermissionEvaluationUtils {
      * @param groupToPermissionsMap set of permissions for each device group
      * @return permission map with updated resources
      */
-    public static Map<String, Set<Permission>> transformGroupPermissionsWithVariableValue(
+    public Map<String, Set<Permission>> transformGroupPermissionsWithVariableValue(
             @NonNull Session session, Map<String, Set<Permission>> groupToPermissionsMap) {
         return groupToPermissionsMap.entrySet().stream()
                 .filter(entry -> !Utils.isEmpty(entry.getValue()))
@@ -117,7 +117,7 @@ public final class PermissionEvaluationUtils {
                 ));
     }
 
-    private static boolean comparePrincipal(String requestPrincipal, String policyPrincipal) {
+    private boolean comparePrincipal(String requestPrincipal, String policyPrincipal) {
         if (requestPrincipal.equals(policyPrincipal)) {
             return true;
         }
@@ -125,7 +125,7 @@ public final class PermissionEvaluationUtils {
         return ANY_REGEX.equals(policyPrincipal);
     }
 
-    private static boolean compareOperation(Operation requestOperation, String policyOperation) {
+    private boolean compareOperation(Operation requestOperation, String policyOperation) {
         if (requestOperation.toString().equals(policyOperation)) {
             return true;
         }
@@ -135,7 +135,7 @@ public final class PermissionEvaluationUtils {
         return ANY_REGEX.equals(policyOperation);
     }
 
-    private static boolean compareResource(Resource requestResource, String policyResource) {
+    private boolean compareResource(Resource requestResource, String policyResource) {
         if (requestResource.toString().equals(policyResource)) {
             return true;
         }
@@ -148,7 +148,7 @@ public final class PermissionEvaluationUtils {
         return ANY_REGEX.equals(policyResource);
     }
 
-    private static Operation parseOperation(String operationStr) {
+    private Operation parseOperation(String operationStr) {
         if (Utils.isEmpty(operationStr)) {
             throw new IllegalArgumentException("Operation can't be empty");
         }
@@ -161,7 +161,7 @@ public final class PermissionEvaluationUtils {
                 SERVICE_OPERATION_PATTERN.pattern()));
     }
 
-    private static Resource parseResource(String resourceStr) {
+    private Resource parseResource(String resourceStr) {
         if (Utils.isEmpty(resourceStr)) {
             throw new IllegalArgumentException("Resource can't be empty");
         }
@@ -185,7 +185,7 @@ public final class PermissionEvaluationUtils {
      * @param permission permission to parse
      * @return updated permission
      */
-    static Permission replaceResourcePolicyVariable(@NonNull Session session, @NonNull Permission permission) {
+    Permission replaceResourcePolicyVariable(@NonNull Session session, @NonNull Permission permission) {
 
         String resource = permission.getResource();
 

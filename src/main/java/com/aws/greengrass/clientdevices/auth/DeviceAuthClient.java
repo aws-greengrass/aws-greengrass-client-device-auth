@@ -42,6 +42,7 @@ public class DeviceAuthClient {
     private final SessionManager sessionManager;
     private final GroupManager groupManager;
     private final CertificateStore certificateStore;
+    private final PermissionEvaluationUtils permissionEvaluationUtils;
 
     /**
      * Constructor.
@@ -52,10 +53,11 @@ public class DeviceAuthClient {
      */
     @Inject
     public DeviceAuthClient(SessionManager sessionManager, GroupManager groupManager,
-                            CertificateStore certificateStore) {
+                            CertificateStore certificateStore, PermissionEvaluationUtils permissionEvaluationUtils) {
         this.sessionManager = sessionManager;
         this.groupManager = groupManager;
         this.certificateStore = certificateStore;
+        this.permissionEvaluationUtils = permissionEvaluationUtils;
     }
 
     /**
@@ -141,8 +143,8 @@ public class DeviceAuthClient {
             return true;
         }
 
-        return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
-                PermissionEvaluationUtils.transformGroupPermissionsWithVariableValue(session,
+        return permissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
+                permissionEvaluationUtils.transformGroupPermissionsWithVariableValue(session,
                         groupManager.getApplicablePolicyPermissions(session)));
     }
 }
