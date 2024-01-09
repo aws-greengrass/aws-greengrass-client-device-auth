@@ -25,26 +25,21 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class DeviceAuthClientTest {
 
     private static final String SESSION_ID = "sessionId";
-    @InjectMocks
     private DeviceAuthClient authClient;
 
     @Mock
@@ -53,11 +48,9 @@ public class DeviceAuthClientTest {
     @Mock
     private GroupManager groupManager;
 
-    @Mock
     private PermissionEvaluationUtils permissionEvaluationUtils;
 
     @Mock
-    @SuppressWarnings("PMD.UnusedPrivateField") // Required for injecting into DeviceAuthClient
     private CertificateStore certificateStore;
 
     private Topics configurationTopics;
@@ -65,6 +58,8 @@ public class DeviceAuthClientTest {
     @BeforeEach
     void beforeEach() {
         configurationTopics = Topics.of(new Context(), KernelConfigResolver.CONFIGURATION_CONFIG_KEY, null);
+        permissionEvaluationUtils = new PermissionEvaluationUtils(groupManager);
+        authClient = new DeviceAuthClient(sessionManager, certificateStore, permissionEvaluationUtils);
     }
 
     @AfterEach
@@ -97,12 +92,6 @@ public class DeviceAuthClientTest {
                 Collections.singleton(
                         Permission.builder().operation("mqtt:publish").resource("mqtt:topic:foo").principal("group1")
                                 .build())));
-        when(permissionEvaluationUtils.isAuthorized(any(AuthorizationRequest.class), any(Session.class)))
-                .thenCallRealMethod();
-        when(permissionEvaluationUtils.transformGroupPermissionsWithVariableValue(any(Session.class), anyMap()))
-                .thenCallRealMethod();
-        when(permissionEvaluationUtils.replaceResourcePolicyVariable(any(Session.class), any(Permission.class)))
-                .thenCallRealMethod();
 
         boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());
 
@@ -121,12 +110,6 @@ public class DeviceAuthClientTest {
                 Collections.singleton(Permission.builder().operation("mqtt:publish")
                                 .resource("mqtt:topic:${iot:Connection.Thing.ThingName}").principal("group1")
                                 .build())));
-        when(permissionEvaluationUtils.isAuthorized(any(AuthorizationRequest.class), any(Session.class)))
-                .thenCallRealMethod();
-        when(permissionEvaluationUtils.transformGroupPermissionsWithVariableValue(any(Session.class), anyMap()))
-                .thenCallRealMethod();
-        when(permissionEvaluationUtils.replaceResourcePolicyVariable(any(Session.class), any(Permission.class)))
-                .thenCallRealMethod();
 
         boolean authorized = authClient.canDevicePerform(constructPolicyVariableAuthorizationRequest(thingName));
 
