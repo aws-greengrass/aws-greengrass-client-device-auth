@@ -49,7 +49,7 @@ public final class PermissionEvaluationUtils {
     private Map<String, Set<Permission>> transformedPermissionsMap;
 
     /**
-     * Constructor for PermissionEvaluationUtils
+     * Constructor for PermissionEvaluationUtils.
      *
      * @param groupManager  Group Manager
      */
