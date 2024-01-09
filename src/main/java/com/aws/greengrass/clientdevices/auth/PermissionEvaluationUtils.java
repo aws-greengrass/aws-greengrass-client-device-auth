@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
+import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.logging.api.Logger;
@@ -20,6 +21,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
 
 public final class PermissionEvaluationUtils {
     private static final Logger logger = LogManager.getLogger(PermissionEvaluationUtils.class);
@@ -42,32 +44,51 @@ public final class PermissionEvaluationUtils {
     private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile(POLICY_VARIABLE_FORMAT);
 
     private static final String THING_NAME_VARIABLE = "Connection.Thing.ThingName";
+    private final GroupManager groupManager;
+    private Map<String, Set<Permission>> savedPermissionsMap;
+    private Map<String, Set<Permission>> transformedPermissionsMap;
+
+    /**
+     * Constructor for PermissionEvaluationUtils
+     *
+     * @param groupManager  Group Manager
+     */
+    @Inject
+    public PermissionEvaluationUtils(GroupManager groupManager) {
+        this.groupManager = groupManager;
+    }
 
     /**
      * utility method of authorizing operation to resource.
      *
-     * @param operation             operation in the form of 'service:action'
-     * @param resource              resource in the form of 'service:resourceType:resourceName'
-     * @param groupToPermissionsMap device matching group to permissions map
-     * @return whether operation to resource in authorized
+     * @param request   Authorization Request
+     * @param session   Session
+     *
+     * @return boolean indicating if the operation requested is authorized
      */
-    public boolean isAuthorized(String operation, String resource,
-                                       Map<String, Set<Permission>> groupToPermissionsMap) {
-        Operation op = parseOperation(operation);
-        Resource rsc = parseResource(resource);
+    public boolean isAuthorized(AuthorizationRequest request, Session session) {
+        Operation op = parseOperation(request.getOperation());
+        Resource rsc = parseResource(request.getResource());
+        Map<String, Set<Permission>> groupToPermissionsMap = groupManager.getApplicablePolicyPermissions(session);
+
+        // only transform if this is a new set of permissions
+        if (savedPermissionsMap == null || !savedPermissionsMap.equals(groupToPermissionsMap)) {
+            savedPermissionsMap = groupToPermissionsMap;
+            transformedPermissionsMap = transformGroupPermissionsWithVariableValue(session, groupToPermissionsMap);
+        }
+
         if (!rsc.getService().equals(op.getService())) {
             throw new IllegalArgumentException(
                     String.format("Operation %s service is not same as resource %s service", op, rsc));
 
         }
-        if (groupToPermissionsMap == null || groupToPermissionsMap.isEmpty()) {
-            logger.atDebug().kv("operation", operation).kv("resource", resource)
+        if (transformedPermissionsMap == null || transformedPermissionsMap.isEmpty()) {
+            logger.atDebug().kv("operation", request.getOperation()).kv("resource", request.getResource())
                     .log("No authorization group matches, " + "deny the request");
             return false;
         }
 
-        for (Map.Entry<String, Set<Permission>> entry :
-                groupToPermissionsMap.entrySet()) {
+        for (Map.Entry<String, Set<Permission>> entry : transformedPermissionsMap.entrySet()) {
             String principal = entry.getKey();
             Set<Permission> permissions = entry.getValue();
             if (Utils.isEmpty(permissions)) {

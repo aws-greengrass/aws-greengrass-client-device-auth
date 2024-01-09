@@ -31,15 +31,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class DeviceAuthClientTest {
 
+    private static final String SESSION_ID = "sessionId";
     @InjectMocks
     private DeviceAuthClient authClient;
 
@@ -48,6 +52,9 @@ public class DeviceAuthClientTest {
 
     @Mock
     private GroupManager groupManager;
+
+    @Mock
+    private PermissionEvaluationUtils permissionEvaluationUtils;
 
     @Mock
     @SuppressWarnings("PMD.UnusedPrivateField") // Required for injecting into DeviceAuthClient
@@ -67,31 +74,35 @@ public class DeviceAuthClientTest {
 
     @Test
     void GIVEN_invalidSessionId_WHEN_canDevicePerform_THEN_authorizationExceptionThrown() {
-        String sessionId = "FAKE_SESSION";
-        when(sessionManager.findSession(sessionId)).thenReturn(null);
+        when(sessionManager.findSession(SESSION_ID)).thenReturn(null);
         AuthorizationRequest authorizationRequest =
-                new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId);
+                new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", SESSION_ID);
         assertThrows(AuthorizationException.class, () -> authClient.canDevicePerform(authorizationRequest));
     }
 
     @Test
     void GIVEN_missingDevicePermission_WHEN_canDevicePerform_THEN_authorizationReturnFalse() throws Exception {
-        String sessionId = "FAKE_SESSION";
         Session session = new SessionImpl();
-        when(sessionManager.findSession(sessionId)).thenReturn(session);
+        when(sessionManager.findSession(SESSION_ID)).thenReturn(session);
         AuthorizationRequest authorizationRequest =
-                new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", sessionId);
+                new AuthorizationRequest("mqtt:connect", "mqtt:clientId:clientId", SESSION_ID);
         assertThat(authClient.canDevicePerform(authorizationRequest), is(false));
     }
 
     @Test
     void GIVEN_sessionHasPermission_WHEN_canDevicePerform_THEN_authorizationReturnTrue() throws Exception {
         Session session = new SessionImpl();
-        when(sessionManager.findSession("sessionId")).thenReturn(session);
+        when(sessionManager.findSession(SESSION_ID)).thenReturn(session);
         when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
                 Collections.singleton(
                         Permission.builder().operation("mqtt:publish").resource("mqtt:topic:foo").principal("group1")
                                 .build())));
+        when(permissionEvaluationUtils.isAuthorized(any(AuthorizationRequest.class), any(Session.class)))
+                .thenCallRealMethod();
+        when(permissionEvaluationUtils.transformGroupPermissionsWithVariableValue(any(Session.class), anyMap()))
+                .thenCallRealMethod();
+        when(permissionEvaluationUtils.replaceResourcePolicyVariable(any(Session.class), any(Permission.class)))
+                .thenCallRealMethod();
 
         boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());
 
@@ -103,13 +114,19 @@ public class DeviceAuthClientTest {
         Certificate cert = CertificateFake.of("FAKE_CERT_ID");
         Thing thing = Thing.of("b");
         Session session = new SessionImpl(cert, thing);
-        when(sessionManager.findSession("sessionId")).thenReturn(session);
+        when(sessionManager.findSession(SESSION_ID)).thenReturn(session);
 
         String thingName = Coerce.toString(session.getSessionAttribute("Thing", "ThingName"));
         when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
-                Collections.singleton(
-                        Permission.builder().operation("mqtt:publish").resource("mqtt:topic:${iot:Connection.Thing.ThingName}").principal("group1")
+                Collections.singleton(Permission.builder().operation("mqtt:publish")
+                                .resource("mqtt:topic:${iot:Connection.Thing.ThingName}").principal("group1")
                                 .build())));
+        when(permissionEvaluationUtils.isAuthorized(any(AuthorizationRequest.class), any(Session.class)))
+                .thenCallRealMethod();
+        when(permissionEvaluationUtils.transformGroupPermissionsWithVariableValue(any(Session.class), anyMap()))
+                .thenCallRealMethod();
+        when(permissionEvaluationUtils.replaceResourcePolicyVariable(any(Session.class), any(Permission.class)))
+                .thenCallRealMethod();
 
         boolean authorized = authClient.canDevicePerform(constructPolicyVariableAuthorizationRequest(thingName));
 
@@ -119,7 +136,7 @@ public class DeviceAuthClientTest {
     @Test
     void GIVEN_internalClientSession_WHEN_canDevicePerform_THEN_authorizationReturnTrue() throws Exception {
         Session session = new SessionImpl(new Component());
-        when(sessionManager.findSession("sessionId")).thenReturn(session);
+        when(sessionManager.findSession(SESSION_ID)).thenReturn(session);
 
         boolean authorized = authClient.canDevicePerform(constructAuthorizationRequest());
 
@@ -127,12 +144,12 @@ public class DeviceAuthClientTest {
     }
 
     private AuthorizationRequest constructAuthorizationRequest() {
-        return AuthorizationRequest.builder().sessionId("sessionId").operation("mqtt:publish")
+        return AuthorizationRequest.builder().sessionId(SESSION_ID).operation("mqtt:publish")
                 .resource("mqtt:topic:foo").build();
     }
 
     private AuthorizationRequest constructPolicyVariableAuthorizationRequest(String thingName) {
-        return AuthorizationRequest.builder().sessionId("sessionId").operation("mqtt:publish")
+        return AuthorizationRequest.builder().sessionId(SESSION_ID).operation("mqtt:publish")
                 .resource(String.format("mqtt:topic:%s", thingName)).build();
     }
 }

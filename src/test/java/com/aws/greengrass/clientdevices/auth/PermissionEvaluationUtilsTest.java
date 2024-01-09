@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
+import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
@@ -16,6 +17,7 @@ import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Arrays;
@@ -26,23 +28,32 @@ import java.util.Set;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class PermissionEvaluationUtilsTest {
 
     private static final String FAKE_CERT_ID = "FAKE_CERT_ID";
     private static final String THING_NAME = "b";
+    private static final String SESSION_ID = "sessionId";
     private Certificate cert;
     private Thing thing;
     private Session session;
     private PermissionEvaluationUtils permissionEvaluationUtils;
+    @Mock
+    private GroupManager groupManager;
 
     @BeforeEach
     void beforeEach() throws InvalidCertificateException {
         cert = CertificateFake.of(FAKE_CERT_ID);
         thing = Thing.of(THING_NAME);
         session = new SessionImpl(cert, thing);
-        permissionEvaluationUtils = new PermissionEvaluationUtils();
+        permissionEvaluationUtils = new PermissionEvaluationUtils(groupManager);
     }
 
     @Test
@@ -132,67 +143,142 @@ class PermissionEvaluationUtilsTest {
 
     @Test
     void GIVEN_single_group_permission_with_variable_WHEN_evaluate_operation_permission_THEN_return_decision() {
+        when(groupManager.getApplicablePolicyPermissions(any(Session.class)))
+                .thenReturn(prepareGroupVariablePermissionsData());
 
-        Map<String, Set<Permission>> groupPermissions =
-                permissionEvaluationUtils.transformGroupPermissionsWithVariableValue(session,
-                        prepareGroupVariablePermissionsData());
-
-        boolean authorized = permissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:a", groupPermissions);
+        AuthorizationRequest request = AuthorizationRequest.builder().operation("mqtt:publish")
+                .resource("mqtt:topic:a").sessionId(SESSION_ID).build();
+        boolean authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:b", groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:b")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:b", groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:topic:b")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:connect", "mqtt:broker:localBroker",
-                groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:connect").resource("mqtt:broker:localBroker")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized(
-                "mqtt:subscribe", "mqtt:topic:device:${iot:Connection.FakeThing.ThingName}", groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:subscribe")
+                .resource("mqtt:topic:device:${iot:Connection.FakeThing.ThingName}").sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:d", groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:d")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(false));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:message:a", groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:message:a")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(false));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:device:b", groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:topic:device:b")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(false));
     }
 
     @Test
     void GIVEN_single_group_permission_WHEN_evaluate_operation_permission_THEN_return_decision() {
-        Map<String, Set<Permission>> groupPermissions = prepareGroupPermissionsData();
-        boolean authorized = permissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:a", groupPermissions);
+        when(groupManager.getApplicablePolicyPermissions(any(Session.class))).thenReturn(prepareGroupPermissionsData());
+
+        AuthorizationRequest request = AuthorizationRequest.builder().operation("mqtt:publish")
+                .resource("mqtt:topic:a").sessionId(SESSION_ID).build();
+        boolean authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:b", groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:b")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:b", groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:topic:b")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:$foo/bar/+/baz",
-                groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:topic:$foo/bar/+/baz")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:topic:$foo .10bar/導À-baz/#",
-                groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:subscribe")
+                .resource("mqtt:topic:$foo .10bar/導À-baz/#").sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:connect", "mqtt:broker:localBroker",
-                groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:connect").resource("mqtt:broker:localBroker")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(true));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:publish", "mqtt:topic:d", groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:d")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(false));
 
-        authorized = permissionEvaluationUtils.isAuthorized("mqtt:subscribe", "mqtt:message:a", groupPermissions);
+        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:message:a")
+                .sessionId(SESSION_ID).build();
+        authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(false));
+    }
+
+    @Test
+    void GIVEN_group_permissions_WHEN_permission_unchanged_THEN_not_transformed() {
+        when(groupManager.getApplicablePolicyPermissions(any(Session.class)))
+                .thenReturn(prepareGroupVariablePermissionsData());
+        PermissionEvaluationUtils permissionEvaluationUtilsSpy = spy(permissionEvaluationUtils);
+
+        AuthorizationRequest request = AuthorizationRequest.builder().operation("mqtt:publish")
+                .resource("mqtt:topic:a").sessionId(SESSION_ID).build();
+        permissionEvaluationUtilsSpy.isAuthorized(request, session);
+
+        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:b")
+                .sessionId(SESSION_ID).build();
+        permissionEvaluationUtilsSpy.isAuthorized(request, session);
+
+        // verify permission set only transformed once despite being evaluated twice
+        verify(permissionEvaluationUtilsSpy, times(1)).transformGroupPermissionsWithVariableValue(any(Session.class),
+                anyMap());
+    }
+
+    @Test
+    void GIVEN_group_permissions_WHEN_permissions_changed_THEN_new_permissions_transformed() {
+        when(groupManager.getApplicablePolicyPermissions(any(Session.class)))
+                .thenReturn(prepareGroupVariablePermissionsData());
+        PermissionEvaluationUtils permissionEvaluationUtilsSpy = spy(permissionEvaluationUtils);
+
+        AuthorizationRequest request = AuthorizationRequest.builder().operation("mqtt:publish")
+                .resource("mqtt:topic:a").sessionId(SESSION_ID).build();
+        permissionEvaluationUtilsSpy.isAuthorized(request, session);
+
+        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:b")
+                .sessionId(SESSION_ID).build();
+        permissionEvaluationUtilsSpy.isAuthorized(request, session);
+
+        // change permission set used
+        when(groupManager.getApplicablePolicyPermissions(any(Session.class))).thenReturn(prepareGroupPermissionsData());
+
+        request = AuthorizationRequest.builder().operation("mqtt:publish")
+                .resource("mqtt:topic:a").sessionId(SESSION_ID).build();
+        permissionEvaluationUtilsSpy.isAuthorized(request, session);
+
+        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:b")
+                .sessionId(SESSION_ID).build();
+        permissionEvaluationUtilsSpy.isAuthorized(request, session);
+
+        // verify permission set transformed only twice
+        verify(permissionEvaluationUtilsSpy, times(2)).transformGroupPermissionsWithVariableValue(any(Session.class),
+                anyMap());
     }
 
     private Map<String, Set<Permission>> prepareGroupPermissionsData() {
