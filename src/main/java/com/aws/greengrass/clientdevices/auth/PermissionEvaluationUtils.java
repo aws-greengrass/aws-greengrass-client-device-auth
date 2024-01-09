@@ -45,8 +45,6 @@ public final class PermissionEvaluationUtils {
 
     private static final String THING_NAME_VARIABLE = "Connection.Thing.ThingName";
     private final GroupManager groupManager;
-    private Map<String, Set<Permission>> savedPermissionsMap;
-    private Map<String, Set<Permission>> transformedPermissionsMap;
 
     /**
      * Constructor for PermissionEvaluationUtils.
@@ -69,26 +67,21 @@ public final class PermissionEvaluationUtils {
     public boolean isAuthorized(AuthorizationRequest request, Session session) {
         Operation op = parseOperation(request.getOperation());
         Resource rsc = parseResource(request.getResource());
-        Map<String, Set<Permission>> groupToPermissionsMap = groupManager.getApplicablePolicyPermissions(session);
-
-        // only transform if this is a new set of permissions
-        if (savedPermissionsMap == null || !savedPermissionsMap.equals(groupToPermissionsMap)) {
-            savedPermissionsMap = groupToPermissionsMap;
-            transformedPermissionsMap = transformGroupPermissionsWithVariableValue(session, groupToPermissionsMap);
-        }
+        Map<String, Set<Permission>> groupToPermissionsMap = transformGroupPermissionsWithVariableValue(session,
+                groupManager.getApplicablePolicyPermissions(session));
 
         if (!rsc.getService().equals(op.getService())) {
             throw new IllegalArgumentException(
                     String.format("Operation %s service is not same as resource %s service", op, rsc));
 
         }
-        if (transformedPermissionsMap == null || transformedPermissionsMap.isEmpty()) {
+        if (groupToPermissionsMap == null || groupToPermissionsMap.isEmpty()) {
             logger.atDebug().kv("operation", request.getOperation()).kv("resource", request.getResource())
                     .log("No authorization group matches, " + "deny the request");
             return false;
         }
 
-        for (Map.Entry<String, Set<Permission>> entry : transformedPermissionsMap.entrySet()) {
+        for (Map.Entry<String, Set<Permission>> entry : groupToPermissionsMap.entrySet()) {
             String principal = entry.getKey();
             Set<Permission> permissions = entry.getValue();
             if (Utils.isEmpty(permissions)) {

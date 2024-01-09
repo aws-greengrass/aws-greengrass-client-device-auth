@@ -29,10 +29,6 @@ import java.util.Set;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
@@ -230,55 +226,6 @@ class PermissionEvaluationUtilsTest {
                 .sessionId(SESSION_ID).build();
         authorized = permissionEvaluationUtils.isAuthorized(request, session);
         assertThat(authorized, is(false));
-    }
-
-    @Test
-    void GIVEN_group_permissions_WHEN_permission_unchanged_THEN_not_transformed() {
-        when(groupManager.getApplicablePolicyPermissions(any(Session.class)))
-                .thenReturn(prepareGroupVariablePermissionsData());
-        PermissionEvaluationUtils permissionEvaluationUtilsSpy = spy(permissionEvaluationUtils);
-
-        AuthorizationRequest request = AuthorizationRequest.builder().operation("mqtt:publish")
-                .resource("mqtt:topic:a").sessionId(SESSION_ID).build();
-        permissionEvaluationUtilsSpy.isAuthorized(request, session);
-
-        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:b")
-                .sessionId(SESSION_ID).build();
-        permissionEvaluationUtilsSpy.isAuthorized(request, session);
-
-        // verify permission set only transformed once despite being evaluated twice
-        verify(permissionEvaluationUtilsSpy, times(1)).transformGroupPermissionsWithVariableValue(any(Session.class),
-                anyMap());
-    }
-
-    @Test
-    void GIVEN_group_permissions_WHEN_permissions_changed_THEN_new_permissions_transformed() {
-        when(groupManager.getApplicablePolicyPermissions(any(Session.class)))
-                .thenReturn(prepareGroupVariablePermissionsData());
-        PermissionEvaluationUtils permissionEvaluationUtilsSpy = spy(permissionEvaluationUtils);
-
-        AuthorizationRequest request = AuthorizationRequest.builder().operation("mqtt:publish")
-                .resource("mqtt:topic:a").sessionId(SESSION_ID).build();
-        permissionEvaluationUtilsSpy.isAuthorized(request, session);
-
-        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:b")
-                .sessionId(SESSION_ID).build();
-        permissionEvaluationUtilsSpy.isAuthorized(request, session);
-
-        // change permission set used
-        when(groupManager.getApplicablePolicyPermissions(any(Session.class))).thenReturn(prepareGroupPermissionsData());
-
-        request = AuthorizationRequest.builder().operation("mqtt:publish")
-                .resource("mqtt:topic:a").sessionId(SESSION_ID).build();
-        permissionEvaluationUtilsSpy.isAuthorized(request, session);
-
-        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:b")
-                .sessionId(SESSION_ID).build();
-        permissionEvaluationUtilsSpy.isAuthorized(request, session);
-
-        // verify permission set transformed only twice
-        verify(permissionEvaluationUtilsSpy, times(2)).transformGroupPermissionsWithVariableValue(any(Session.class),
-                anyMap());
     }
 
     private Map<String, Set<Permission>> prepareGroupPermissionsData() {
