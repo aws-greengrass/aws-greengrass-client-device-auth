@@ -30,15 +30,17 @@ replaceComment = async (github, context, prefix, body) => {
 
     const comment = listResp.data.find(comment => comment.body?.startsWith(prefix));
     if (comment) {
-        console.log(`calling deleteComment(${comment.id}, ${context.repo.owner}, ${context.repo.repo})}`);
-        let deleteResp = await github.rest.issues.deleteComment({
-            comment_id: comment.id,
+        console.log(`calling updateComment(${context.repo.owner}, ${context.repo.repo}, ${comment.id}, ${body})`);
+        let updateResp = await github.rest.issues.updateComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
+            comment_id: comment.id,
+            body: body,
         });
-        console.log(`deleteComment resp: ${JSON.stringify(deleteResp)}`);
+        console.log(`updateComment resp: ${JSON.stringify(updateResp)}`);
+        return;
     } else {
-        console.log(`no existing comment found with prefix: ${prefix}`)
+        console.log(`no existing comment found with prefix: ${prefix}, creating new one...`)
     }
 
     console.log(`calling createComment(${context.issue.number}, ${context.repo.owner}, ${context.repo.repo}, ${body})}`);
