@@ -24,12 +24,17 @@ import com.aws.greengrass.logging.impl.config.LogConfig;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.UniqueRootPathExtension;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.aws.greengrass.AuthorizeClientDeviceActionResponseHandler;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCClient;
@@ -46,6 +51,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -91,85 +97,42 @@ class PolicyWildcardTest {
         kernel.shutdown();
     }
 
-    @Test
-    void GIVEN_policy_with_inline_wildcards_WHEN_publish_authz_THEN_authorized() throws Exception {
+    private static Stream<Arguments> authzRequests () {
+        return Stream.of(
+                // valid requests
+                Arguments.of("mqtt:connect", "mqtt:myThing:foo", true),
+                Arguments.of("mqtt:publish", "mqtt:topic:myThing", true),
+                Arguments.of("mqtt:publish", "mqtt:topic:mying", true),
+                Arguments.of("mqtt:publish", "mqtt:topic:mymying", true),
+                Arguments.of("mqtt:subscribe", "mqtt:topic:FOOmyThingBAR", true),
+                // invalid requests
+                Arguments.of("mqtt:publish", "mqtt:topic:my", false),
+                Arguments.of("mqtt:publish", "mqtt:topic:ing", false),
+                Arguments.of("mqtt:publish", "mqtt:topic:myThing2", false),
+                Arguments.of("mqtt:publish", "mqtt:topic:*", false),
+                Arguments.of("mqtt:subscribe", "mqtt:topic:asdf", false) // bad policy variable
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("authzRequests")
+    void GIVEN_policy_with_inline_wildcards_WHEN_publish_authz_THEN_authorized(String operation, String resource,
+                                                                               Boolean result) throws Exception {
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel, "main")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
 
             String deviceToken = getClientDeviceSessionAuthToken("myThing", clientPem);
 
-            Map<AuthorizeClientDeviceActionRequest, Boolean> testCases = new HashMap<>();
-            // valid requests
-            testCases.put(
-                    new AuthorizeClientDeviceActionRequest()
-                            .withOperation("mqtt:connect")
-                            .withResource("mqtt:myThing:foo")
-                            .withClientDeviceAuthToken(deviceToken),
-                    true);
-            testCases.put(
-                    new AuthorizeClientDeviceActionRequest()
-                            .withOperation("mqtt:publish")
-                            .withResource("mqtt:topic:myThing")
-                            .withClientDeviceAuthToken(deviceToken),
-                    true);
-            testCases.put(
-                    new AuthorizeClientDeviceActionRequest()
-                            .withOperation("mqtt:publish")
-                            .withResource("mqtt:topic:mying")
-                            .withClientDeviceAuthToken(deviceToken),
-                    true);
-            testCases.put(
-                    new AuthorizeClientDeviceActionRequest()
-                            .withOperation("mqtt:publish")
-                            .withResource("mqtt:topic:mymying")
-                            .withClientDeviceAuthToken(deviceToken),
-                    true);
-            testCases.put(
-                    new AuthorizeClientDeviceActionRequest()
-                            .withOperation("mqtt:subscribe")
-                            .withResource("mqtt:topic:FOOmyThingBAR")
-                            .withClientDeviceAuthToken(deviceToken),
-                    true);
-            // invalid requests
-            testCases.put(
-                    new AuthorizeClientDeviceActionRequest()
-                            .withOperation("mqtt:publish")
-                            .withResource("mqtt:topic:my")
-                            .withClientDeviceAuthToken(deviceToken),
-                    false);
-            testCases.put(
-                    new AuthorizeClientDeviceActionRequest()
-                            .withOperation("mqtt:publish")
-                            .withResource("mqtt:topic:ing")
-                            .withClientDeviceAuthToken(deviceToken),
-                    false);
-            testCases.put(
-                    new AuthorizeClientDeviceActionRequest()
-                            .withOperation("mqtt:publish")
-                            .withResource("mqtt:topic:myThing2")
-                            .withClientDeviceAuthToken(deviceToken),
-                    false);
-            testCases.put(
-                    new AuthorizeClientDeviceActionRequest()
-                            .withOperation("mqtt:publish")
-                            .withResource("mqtt:topic:*")
-                            .withClientDeviceAuthToken(deviceToken),
-                    false);
-            testCases.put(
-                    new AuthorizeClientDeviceActionRequest()
-                            .withOperation("mqtt:subscribe")
-                            .withResource("mqtt:topic:asdf")
-                            .withClientDeviceAuthToken(deviceToken),
-                    false); // bad policy variable
+            AuthorizeClientDeviceActionRequest request = new AuthorizeClientDeviceActionRequest()
+                    .withOperation(operation)
+                    .withResource(resource)
+                    .withClientDeviceAuthToken(deviceToken);
 
-
-            testCases.forEach((request, result) -> {
-                try {
-                    authzClientDeviceAction(ipcClient, request, result);
-                } catch (Exception e) {
-                    fail(String.format("Request failed: %s", requestAsString(request)), e);
-                }
-            });
+            try {
+                authzClientDeviceAction(ipcClient, request, result);
+            } catch (Exception e) {
+                fail(String.format("Request failed: %s", requestAsString(request)), e);
+            }
         }
     }
 
