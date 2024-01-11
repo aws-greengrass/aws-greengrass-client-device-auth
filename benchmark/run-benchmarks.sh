@@ -8,11 +8,11 @@ set -e
 
 # install CDA locally
 cd ./..
-mvn clean install -DskipTests
+mvn -B -ntp clean install -DskipTests
 cd -
 
 # build benchmark project
-mvn clean package
+mvn -B -ntp clean package
 
 # run all benchmarks
-java -jar target/benchmarks.jar
+java -jar target/benchmarks.jar -rf json
