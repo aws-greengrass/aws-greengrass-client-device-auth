@@ -61,7 +61,7 @@ public class VerifyThingAttachedToCertificate
                 .build();
     }
 
-    private Result verifyFromCloud(Thing thing, String certificateId) {
+    private Result verifyFromCloud(Thing thing, String certificateId) throws CloudServiceInteractionException {
         logger.atDebug().kv("thing", thing.getThingName()).kv("certificate", certificateId)
                 .log("Network up, verifying thing attached to certificate from cloud");
 
@@ -111,7 +111,6 @@ public class VerifyThingAttachedToCertificate
             if (isNetworkUp()) {
                 return verifyFromCloud(thing, dto.getCertificateId());
             }
-
             return verifyLocally(thing, dto.getCertificateId());
         } catch (CloudServiceInteractionException e) {
             return verifyLocally(thing, dto.getCertificateId());

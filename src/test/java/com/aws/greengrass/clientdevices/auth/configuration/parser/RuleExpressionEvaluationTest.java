@@ -84,13 +84,24 @@ public class RuleExpressionEvaluationTest {
     }
 
     @Test
-    void GIVEN_unaryExpressionWithWildcard_WHEN_RuleExpressionEvaluated_THEN_EvaluatesTrue() throws ParseException {
+    void GIVEN_unaryExpressionWithTrailingWildcard_WHEN_RuleExpressionEvaluated_THEN_EvaluatesTrue() throws ParseException {
         ASTStart tree = getTree("thingName: Thing*");
         Session session = getSessionWithThing("Thing1");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
         Assertions.assertTrue((Boolean) visitor.visit(tree, session));
 
         session = getSessionWithThing("ThingTwo");
+        Assertions.assertTrue((Boolean) visitor.visit(tree, session));
+    }
+
+    @Test
+    void GIVEN_unaryExpressionWithLeadingWildcard_WHEN_RuleExpressionEvaluated_THEN_EvaluatesTrue() throws ParseException {
+        ASTStart tree = getTree("thingName: *Thing");
+        Session session = getSessionWithThing("FirstThing");
+        RuleExpressionVisitor visitor = new ExpressionVisitor();
+        Assertions.assertTrue((Boolean) visitor.visit(tree, session));
+
+        session = getSessionWithThing("SecondThing");
         Assertions.assertTrue((Boolean) visitor.visit(tree, session));
     }
 
@@ -106,10 +117,45 @@ public class RuleExpressionEvaluationTest {
     }
 
     @Test
-    void GIVEN_unaryExpressionWithWildcard_WHEN_RuleExpressionEvaluatedWithSessionNotContainingThing_THEN_EvaluatesFalse() throws ParseException {
+    void GIVEN_unaryExpressionWithTrailingWildcard_WHEN_RuleExpressionEvaluatedWithSessionNotContainingThing_THEN_EvaluatesFalse() throws ParseException {
         ASTStart tree = getTree("thingName: Thing*");
         Session session = getSessionWithThing("FirstThing");
         RuleExpressionVisitor visitor = new ExpressionVisitor();
+        Assertions.assertFalse((Boolean) visitor.visit(tree, session));
+    }
+
+    @Test
+    void GIVEN_unaryExpressionWithLeadingWildcard_WHEN_RuleExpressionEvaluatedWithSessionNotContainingThing_THEN_EvaluatesFalse() throws ParseException {
+        ASTStart tree = getTree("thingName: *Thing");
+        Session session = getSessionWithThing("ThingExample");
+        RuleExpressionVisitor visitor = new ExpressionVisitor();
+        Assertions.assertFalse((Boolean) visitor.visit(tree, session));
+    }
+    @Test
+    void GIVEN_unaryExpressionWithMultipleWildcards_WHEN_RuleExpressionEvaluatedWithSessionContainingThing_THEN_EvaluatesFalse() throws ParseException {
+        ASTStart tree = getTree("thingName: *Thing*");
+        Session session = getSessionWithThing("FirstThingExample");
+        RuleExpressionVisitor visitor = new ExpressionVisitor();
+        Assertions.assertTrue((Boolean) visitor.visit(tree, session));
+
+        session = getSessionWithThing("FirstThing");
+        Assertions.assertTrue((Boolean) visitor.visit(tree, session));
+
+        session = getSessionWithThing("ThingTwo");
+        Assertions.assertTrue((Boolean) visitor.visit(tree, session));
+
+        session = getSessionWithThing("FirstOrSecondThingTwo");
+        Assertions.assertTrue((Boolean) visitor.visit(tree, session));
+    }
+
+    @Test
+    void GIVEN_unaryExpressionWithMultipleWildcards_WHEN_RuleExpressionEvaluatedWithSessionNotContainingThing_THEN_EvaluatesFalse() throws ParseException {
+        ASTStart tree = getTree("thingName: *Thing*");
+        Session session = getSessionWithThing("FirstExample");
+        RuleExpressionVisitor visitor = new ExpressionVisitor();
+        Assertions.assertFalse((Boolean) visitor.visit(tree, session));
+
+        session = getSessionWithThing("FirstThBreakingThwo");
         Assertions.assertFalse((Boolean) visitor.visit(tree, session));
     }
 }

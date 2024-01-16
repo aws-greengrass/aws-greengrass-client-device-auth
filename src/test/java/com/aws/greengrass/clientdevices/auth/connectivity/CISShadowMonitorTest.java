@@ -7,31 +7,33 @@ package com.aws.greengrass.clientdevices.auth.connectivity;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.helpers.TestHelpers;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
+import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
-import com.aws.greengrass.testcommons.testutilities.TestUtils;
+import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
 import lombok.Builder;
+import lombok.Data;
 import lombok.Getter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatcher;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.stubbing.Answer;
 import software.amazon.awssdk.crt.mqtt.MqttClientConnection;
 import software.amazon.awssdk.crt.mqtt.MqttMessage;
 import software.amazon.awssdk.crt.mqtt.QualityOfService;
+import software.amazon.awssdk.iot.Timestamp;
 import software.amazon.awssdk.iot.iotshadow.IotShadowClient;
-import software.amazon.awssdk.iot.iotshadow.model.GetShadowRequest;
+import software.amazon.awssdk.iot.iotshadow.model.ErrorResponse;
 import software.amazon.awssdk.iot.iotshadow.model.GetShadowResponse;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowDeltaUpdatedEvent;
 import software.amazon.awssdk.iot.iotshadow.model.ShadowStateWithDelta;
@@ -42,7 +44,11 @@ import software.amazon.awssdk.services.greengrassv2data.model.ValidationExceptio
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,26 +56,26 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -77,443 +83,323 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
-public class CISShadowMonitorTest {
-
-    private static final String SHADOW_NAME = "testThing-gci";
+class CISShadowMonitorTest {
+    private static final List<Class<? extends Exception>> IGNORED_EXCEPTIONS = Arrays.asList(
+            ValidationException.class,
+            RuntimeException.class,
+            TimeoutException.class,
+            ExecutionException.class,
+            InterruptedException.class
+    );
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final CompletableFuture<Integer> DUMMY_PACKET_ID = CompletableFuture.completedFuture(0);
-    private static final String SHADOW_ACCEPTED_TOPIC =
-            String.format("$aws/things/%s/shadow/get/accepted", SHADOW_NAME);
-    private static final String SHADOW_DELTA_UPDATED_TOPIC =
-            String.format("$aws/things/%s/shadow/update/delta", SHADOW_NAME);
-    private static final String GET_SHADOW_TOPIC = String.format("$aws/things/%s/shadow/get", SHADOW_NAME);
+    private static final String SHADOW_NAME = "testThing-gci";
     private static final String UPDATE_SHADOW_TOPIC = String.format("$aws/things/%s/shadow/update", SHADOW_NAME);
-
-    private final FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient());
+    private final NetworkStateFake networkStateProvider = new NetworkStateFake();
+    private final FakeIotShadowClient shadowClient = spy(new FakeIotShadowClient(networkStateProvider));
     private final MqttClientConnection shadowClientConnection = shadowClient.getConnection();
-    private final ExecutorService executor = TestUtils.synchronousExecutorService();
+    private final ExecutorService executor = Executors.newCachedThreadPool();
+    private final ScheduledExecutorService ses = Executors.newScheduledThreadPool(0);
     private final FakeConnectivityInformation connectivityInfoProvider = new FakeConnectivityInformation();
 
     @Mock
     CertificateGenerator certificateGenerator;
-
     CISShadowMonitor cisShadowMonitor;
 
     @BeforeEach
     void setup() {
-        cisShadowMonitor = new CISShadowMonitor(shadowClientConnection, shadowClient, executor, SHADOW_NAME,
-                connectivityInfoProvider);
+        cisShadowMonitor = new CISShadowMonitor(
+                networkStateProvider,
+                shadowClientConnection,
+                shadowClient,
+                executor,
+                SHADOW_NAME,
+                connectivityInfoProvider,
+                () -> 100
+        );
+        networkStateProvider.registerHandler(cisShadowMonitor);
     }
 
     @AfterEach
     void tearDown() {
         cisShadowMonitor.stopMonitor();
+        executor.shutdownNow();
+        ses.shutdownNow();
     }
 
-    @Test
-    void GIVEN_CISShadowMonitor_WHEN_connectivity_call_fails_THEN_cert_not_rotated(ExtensionContext context) throws Exception {
-        ignoreExceptionOfType(context, ValidationException.class);
-        connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.THROW_VALIDATION_EXCEPTION);
+    @Data
+    @Builder
+    static class Scenario {
+        /**
+         * Amount of times to update the CIS shadow's desired state,
+         * which will trigger a delta update that will be picked up
+         * by the monitor.
+         */
+        @Builder.Default
+        int numShadowUpdates = 5;
 
-        // capture the subscription callback for shadow delta update
-        ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
-        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+        /**
+         * Delay between each subsequent shadow update publish.
+         */
+        Duration delayBetweenShadowUpdates;
 
-        // generated list of deltas to feed to the shadow monitor
-        List<Map<String, Object>> deltas =
-                IntStream.range(0, 5).mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
-                        .collect(Collectors.toList());
-        Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
+        /**
+         * Controls if each of the {@link CISShadowMonitorTest.Scenario#numShadowUpdates} updates
+         * happens serially or if they can overlap.
+         */
+        boolean serialShadowUpdates;
 
-        // notify when last shadow update is published
-        WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
-                .expectedReportedState(lastDelta) // reported state updated to desired state
-                .expectedDesiredState(null) // desired state isn't modified
-                .build();
-        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean())).thenAnswer(
-                whenUpdateIsPublished);
+        /**
+         * Amount of times to fail the monitor's attempt to
+         * publish CIS shadow reported state.
+         */
+        int numShadowUpdatePublishFailures;
 
-        cisShadowMonitor.startMonitor();
-        cisShadowMonitor.addToMonitor(certificateGenerator);
+        /**
+         * If present, shadow will be created after the monitor starts.
+         */
+        Duration createShadowAfterDelay;
 
-        // trigger update delta subscription callbacks
-        AtomicInteger version = new AtomicInteger(1);
-        deltas.forEach(delta -> {
-            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-            deltaUpdatedEvent.version = version.getAndIncrement();
-            deltaUpdatedEvent.state = new HashMap<>(delta);
+        /**
+         * If present, CDA will go online after the monitor starts.
+         */
+        Duration goOnlineAfterDelay;
 
-            // original message
-            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(
-                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
-        });
+        /**
+         * If present, CDA will go offline after the monitor starts.
+         */
+        Duration goOfflineAfterDelay;
 
-        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
-        verifyCertsRotatedWhenConnectivityChanges();
+        /**
+         * How long it takes to generate a certificate
+         */
+        Duration certGenDuration;
+
+        /**
+         * If true, simulate monitor receiving duplicate
+         * shadow delta update messages from IoT Core.
+         *
+         * <p> This is useful for testing if the monitor properly de-duplicates
+         * update requests.
+         */
+        boolean receiveDuplicateShadowDeltaUpdates;
+
+        /**
+         * Simulate how monitor interacts with Greengrass cloud when fetching connectivity information.
+         */
+        @Builder.Default
+        FakeConnectivityInformation.Mode connectivityProviderMode = FakeConnectivityInformation.Mode.RANDOM;
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void GIVEN_CISShadowMonitor_WHEN_start_monitor_OR_reconnect_THEN_get_shadow_is_processed() throws Exception {
-        // make connectivity call yield the same response each time.
-        // so for this scenario, the monitor starts up (we process get shadow response) and we
-        // simulate a reconnection (process another get shadow response);
-        // no extra rotations should occur.
-        connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.CONSTANT);
-
-        int shadowInitialVersion = 1;
-        Map<String, Object> shadowInitialDesiredState = Utils.immutableMap("version", "value");
-        Map<String, Object> shadowInitialReportedState = Collections.emptyMap();
-        Map<String, Object> shadowInitialDelta = Utils.immutableMap("version", "value");
-
-        // capture the subscription callback for get shadow operation.
-        ArgumentCaptor<Consumer<MqttMessage>> getShadowCallback = ArgumentCaptor.forClass(Consumer.class);
-        when(shadowClientConnection.subscribe(eq(SHADOW_ACCEPTED_TOPIC), any(),
-                getShadowCallback.capture())).thenReturn(DUMMY_PACKET_ID);
-
-        // when get shadow request is published, send a response to the subscription callback
-        when(shadowClientConnection.publish(argThat(new GetShadowRequestMatcher()), any(), anyBoolean())).thenAnswer(
-                invocation -> {
-                    GetShadowResponse response = new GetShadowResponse();
-                    response.version = shadowInitialVersion;
-                    response.state = new ShadowStateWithDelta();
-                    response.state.desired = new HashMap<>(shadowInitialDesiredState);
-                    response.state.reported = new HashMap<>(shadowInitialReportedState);
-                    response.state.delta = new HashMap<>(shadowInitialDelta);
-
-                    wrapInMessage(SHADOW_ACCEPTED_TOPIC, response, false).ifPresent(
-                            resp -> getShadowCallback.getValue().accept(resp));
-
-                    return DUMMY_PACKET_ID;
-                });
-
-        // notify when shadow update is published
-        WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
-                .expectedReportedState(shadowInitialDesiredState) // reported state updated to desired state
-                .expectedDesiredState(null) // desired state isn't modified
-                .build();
-        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean())).thenAnswer(
-                whenUpdateIsPublished);
-
-        cisShadowMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.startMonitor();
-
-        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
-
-        // simulate a reconnect
-        cisShadowMonitor.accept(NetworkStateProvider.ConnectionState.NETWORK_UP);
-
-        verifyCertsRotatedWhenConnectivityChanges();
+    public static Stream<Arguments> cisShadowMonitorScenarios() {
+        return Stream.of(
+                Arguments.of(Scenario.builder()
+                        .build()),
+                Arguments.of(Scenario.builder()
+                        .receiveDuplicateShadowDeltaUpdates(true)
+                        .build()),
+                // when monitor starts while cda is offline,
+                // shadow will update after online
+                Arguments.of(Scenario.builder()
+                        .goOnlineAfterDelay(Duration.ofSeconds(2L))
+                        .build()),
+                // test that monitor recovers after being offline during operation
+                Arguments.of(Scenario.builder()
+                        .numShadowUpdates(5)
+                        .delayBetweenShadowUpdates(Duration.ofSeconds(1))
+                        .goOfflineAfterDelay(Duration.ofSeconds(2L))
+                        .goOnlineAfterDelay(Duration.ofSeconds(6L))
+                        .build()),
+                // when monitor can't get shadow on startup,
+                // it'll recover on subsequent shadow updates
+                Arguments.of(Scenario.builder()
+                        .createShadowAfterDelay(Duration.ofSeconds(2L))
+                        .serialShadowUpdates(true)
+                        .build()),
+                // if shadow is never updated,
+                // monitor still works because it fetches shadow on startup
+                Arguments.of(Scenario.builder()
+                        .numShadowUpdates(0)
+                        .build()),
+                // if shadow is never updated,
+                // monitor still works because it fetches shadow on startup.
+                // if shadow fetching fails, it will be retried
+                Arguments.of(Scenario.builder()
+                        .numShadowUpdates(0)
+                        .createShadowAfterDelay(Duration.ofSeconds(2L))
+                        .serialShadowUpdates(true)
+                        .build()),
+                Arguments.of(Scenario.builder()
+                        .numShadowUpdatePublishFailures(1)
+                        .serialShadowUpdates(true)
+                        .build()),
+                Arguments.of(Scenario.builder()
+                        .connectivityProviderMode(FakeConnectivityInformation.Mode.THROW_VALIDATION_EXCEPTION)
+                        .build()),
+                Arguments.of(Scenario.builder()
+                        .connectivityProviderMode(FakeConnectivityInformation.Mode.CONSTANT)
+                        .build()),
+                Arguments.of(Scenario.builder()
+                        .connectivityProviderMode(FakeConnectivityInformation.Mode.CONSTANT)
+                        .receiveDuplicateShadowDeltaUpdates(true)
+                        .build()),
+                Arguments.of(Scenario.builder()
+                        .connectivityProviderMode(FakeConnectivityInformation.Mode.FAIL_ONCE)
+                        .serialShadowUpdates(true)
+                        .build()),
+                Arguments.of(Scenario.builder()
+                        // force situation where request is received while another is in progress
+                        .certGenDuration(Duration.ofSeconds(3))
+                        .receiveDuplicateShadowDeltaUpdates(true)
+                        .build())
+        );
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changes_THEN_delta_is_processed() throws Exception {
+    @ParameterizedTest
+    @MethodSource("cisShadowMonitorScenarios")
+    @SuppressWarnings("PMD.NullAssignment")
+    void GIVEN_monitor_WHEN_cis_shadow_changes_THEN_monitor_updates_certificates(Scenario scenario, ExtensionContext context) throws Exception {
+        IGNORED_EXCEPTIONS.forEach(e -> ignoreExceptionOfType(context, e));
 
-        // capture the subscription callback for shadow delta update
-        ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
-        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
+        if (scenario.certGenDuration != null) {
+            doAnswer(invocation -> {
+                Thread.sleep(scenario.certGenDuration.toMillis());
+                return null;
+            }).when(certificateGenerator).generateCertificate(any(), any());
+        }
 
-        // generated list of deltas to feed to the shadow monitor
-        List<Map<String, Object>> deltas =
-                IntStream.range(0, 5).mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
-                        .collect(Collectors.toList());
-        Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
+        connectivityInfoProvider.setMode(scenario.getConnectivityProviderMode());
 
-        // notify when last shadow update is published
-        WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
-                .expectedReportedState(lastDelta) // reported state updated to desired state
-                .expectedDesiredState(null) // desired state isn't modified
-                .build();
-        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean())).thenAnswer(
-                whenUpdateIsPublished);
+        // latch that completes when the monitor sends a shadow update.
+        // this reference holds a new latch per request processed by the monitor,
+        // and is used by this test to (optionally) feed messages to the monitor serially
+        AtomicReference<CountDownLatch> updateProcessedByMonitor = updateProcessedByMonitor();
 
-        cisShadowMonitor.startMonitor();
+        Runnable putInitialShadowState = () -> updateShadowDesiredState(
+                Utils.immutableMap("version", "-1"),
+                scenario.isReceiveDuplicateShadowDeltaUpdates()
+        );
+
+        // optional, handle case where shadow exists before monitor starts up
+        if (scenario.getCreateShadowAfterDelay() == null) {
+            putInitialShadowState.run();
+        }
+
+        // by default, start online
+        if (scenario.getGoOnlineAfterDelay() == null || scenario.getGoOfflineAfterDelay() != null) {
+            networkStateProvider.goOnline();
+        }
+
         cisShadowMonitor.addToMonitor(certificateGenerator);
-
-        // trigger update delta subscription callbacks
-        AtomicInteger version = new AtomicInteger(1);
-        deltas.forEach(delta -> {
-            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-            deltaUpdatedEvent.version = version.getAndIncrement();
-            deltaUpdatedEvent.state = new HashMap<>(delta);
-            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(
-                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
-        });
-
-        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
-        verifyCertsRotatedWhenConnectivityChanges();
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changes_with_duplicate_delta_messages_THEN_delta_processing_is_deduped()
-            throws Exception {
-
-        // capture the subscription callback for shadow delta update
-        ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
-        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
-
-        // generated list of deltas to feed to the shadow monitor
-        List<Map<String, Object>> deltas =
-                IntStream.range(0, 5).mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
-                        .collect(Collectors.toList());
-        Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
-
-        // notify when last shadow update is published
-        WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
-                .expectedReportedState(lastDelta) // reported state updated to desired state
-                .expectedDesiredState(null) // desired state isn't modified
-                .build();
-        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean())).thenAnswer(
-                whenUpdateIsPublished);
-
         cisShadowMonitor.startMonitor();
-        cisShadowMonitor.addToMonitor(certificateGenerator);
 
-        // trigger update delta subscription callbacks
-        AtomicInteger version = new AtomicInteger(1);
-        deltas.forEach(delta -> {
-            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-            deltaUpdatedEvent.version = version.getAndIncrement();
-            deltaUpdatedEvent.state = new HashMap<>(delta);
+        // optional, handle case where shadow is created AFTER monitor is started
+        if (scenario.getCreateShadowAfterDelay() != null) {
+            if (!scenario.isSerialShadowUpdates()) {
+                fail("initializing shadow after monitor startup "
+                        + "only supported when shadow updates are serialized, otherwise there's no point");
+            }
+            ses.schedule(putInitialShadowState, scenario.getCreateShadowAfterDelay().toMillis(), TimeUnit.MILLISECONDS);
+        }
+        // optional, trigger network up after a delay
+        if (scenario.getGoOnlineAfterDelay() != null) {
+            ses.schedule(networkStateProvider::goOnline, scenario.getGoOnlineAfterDelay().toMillis(), TimeUnit.MILLISECONDS);
+        }
+        // optional, trigger network down after a delay
+        if (scenario.getGoOfflineAfterDelay() != null) {
+            ses.schedule(networkStateProvider::goOffline, scenario.getGoOfflineAfterDelay().toMillis(), TimeUnit.MILLISECONDS);
+        }
 
-            // original message
-            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(
-                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
-            // duplicate message
-            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, true).ifPresent(
-                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
-        });
+        // on startup, the monitor directly requests a shadow and processes it.
+        // optionally wait for the monitor to process the get shadow response.
+        if (scenario.isSerialShadowUpdates()) {
+            boolean monitorExpectedToUpdateReportedState =
+                    scenario.getConnectivityProviderMode() != FakeConnectivityInformation.Mode.FAIL_ONCE
+                            && scenario.getNumShadowUpdatePublishFailures() == 0;
+            waitForSubscriptions();
+            waitForMonitorToProcessUpdate(updateProcessedByMonitor, monitorExpectedToUpdateReportedState);
+        }
 
-        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
-        verifyCertsRotatedWhenConnectivityChanges();
-    }
+        for (int i = 0; i < scenario.getNumShadowUpdates(); i++) {
+            // optionally have monitor fail to update shadow reported state
+            boolean monitorExpectedToUpdateReportedState = i >= scenario.getNumShadowUpdatePublishFailures();
+            shadowClient.failOnPublish(monitorExpectedToUpdateReportedState ? null: UPDATE_SHADOW_TOPIC);
 
-    @Test
-    @SuppressWarnings({"unchecked", "PMD.AvoidCatchingGenericException"})
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changes_AND_shadow_update_request_fails_THEN_delta_processing_is_unaffected(
-            ExtensionContext context) throws Exception {
-        ignoreExceptionOfType(context, RuntimeException.class);
-        ignoreExceptionOfType(context, CompletionException.class);
+            // trigger a shadow delta update,
+            // which will be picked up by the monitor
+            updateShadowDesiredState(
+                    Utils.immutableMap("version", String.valueOf(i)),
+                    scenario.isReceiveDuplicateShadowDeltaUpdates()
+            );
 
-        // capture the subscription callback for shadow delta update
-        ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
-        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
-
-        // generated list of deltas to feed to the shadow monitor
-        List<Map<String, Object>> deltas =
-                IntStream.range(0, 5).mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
-                        .collect(Collectors.toList());
-        Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
-
-        // notify when last shadow update is published
-        WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
-                .expectedReportedState(lastDelta) // reported state updated to desired state
-                .expectedDesiredState(null) // desired state isn't modified
-                .build();
-        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean()))
-                // first time, fail with direct exception
-                .thenThrow(RuntimeException.class)
-                // second time, fail with exception nested in the future
-                .thenAnswer(invocation -> {
-                    CompletableFuture<Integer> error = new CompletableFuture<>();
-                    error.completeExceptionally(new RuntimeException());
-                    return error;
-                })
-                // rest of the time, complete normally
-                .thenAnswer(whenUpdateIsPublished);
-
-        cisShadowMonitor.startMonitor();
-        cisShadowMonitor.addToMonitor(certificateGenerator);
-
-        // trigger update delta subscription callbacks
-        int version = 1;
-        for (Map<String, Object> delta : deltas) {
-            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-            deltaUpdatedEvent.version = version++;
-            deltaUpdatedEvent.state = new HashMap<>(delta);
-
-            try {
-                wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(
-                        resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
-            } catch (RuntimeException e) {
-                if (version == 1) {
-                    // expected exception on first publish
-                    continue;
-                }
-                throw e;
+            // optionally wait for monitor to process the update
+            if (scenario.isSerialShadowUpdates()) {
+                waitForMonitorToProcessUpdate(updateProcessedByMonitor, monitorExpectedToUpdateReportedState);
+            }
+            if (scenario.getDelayBetweenShadowUpdates() != null) {
+                Thread.sleep(scenario.getDelayBetweenShadowUpdates().toMillis());
             }
         }
 
-        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
+        assertShadowEventuallyEquals(
+                Utils.immutableMap("version", String.valueOf(scenario.getNumShadowUpdates() - 1)),
+                Utils.immutableMap("version", String.valueOf(scenario.getNumShadowUpdates() - 1)));
+
         verifyCertsRotatedWhenConnectivityChanges();
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_changes_AND_connectivity_call_fails_THEN_delta_not_processed_on_failure(
-            ExtensionContext context) throws Exception {
-        ignoreExceptionOfType(context, RuntimeException.class);
-
-        // make connectivity call fail the first time
-        connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.FAIL_ONCE);
-
-        // capture the subscription callback for shadow delta update
-        ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
-        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
-
-        // generated list of deltas to feed to the shadow monitor
-        List<Map<String, Object>> deltas =
-                IntStream.range(0, 5).mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
-                        .collect(Collectors.toList());
-        Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
-
-        // notify when last shadow update is published
-        WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
-                .expectedReportedState(lastDelta) // reported state updated to desired state
-                .expectedDesiredState(null) // desired state isn't modified
-                .build();
-        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean())).thenAnswer(
-                whenUpdateIsPublished);
-
-        cisShadowMonitor.startMonitor();
-        cisShadowMonitor.addToMonitor(certificateGenerator);
-
-        // trigger update delta subscription callbacks
-        AtomicInteger version = new AtomicInteger(1);
-        deltas.forEach(delta -> {
-            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-            deltaUpdatedEvent.version = version.getAndIncrement();
-            deltaUpdatedEvent.state = new HashMap<>(delta);
-
-            // original message
-            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(
-                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
-
-            // duplicate message
-            // opted to throw this scenario in rather than split it out into its own test.
-            // we already have a specific test for duplicate messages, so no need for extra clutter.
-            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, true).ifPresent(
-                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
+    private AtomicReference<CountDownLatch> updateProcessedByMonitor() {
+        AtomicReference<CountDownLatch> updateProcessedByMonitor = new AtomicReference<>(new CountDownLatch(1));
+        shadowClient.onPublish(m -> {
+            if (!Objects.equals(m.getTopic(), UPDATE_SHADOW_TOPIC)) {
+                return;
+            }
+            UpdateShadowRequest request = readValue(m, UpdateShadowRequest.class);
+            // differentiate publishes made by this test and the monitor
+            boolean isUpdateRequestFromMonitor = request.state.reported != null && request.state.desired == null;
+            if (!isUpdateRequestFromMonitor) {
+                return;
+            }
+            updateProcessedByMonitor.getAndSet(new CountDownLatch(1)).countDown();
         });
-
-        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
-        verifyCertsRotatedWhenConnectivityChanges();
+        return updateProcessedByMonitor;
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void GIVEN_CISShadowMonitor_WHEN_cis_shadow_delta_duplicate_received_THEN_delta_processing_is_deduped(
-            ExtensionContext context) throws Exception {
-        // make connectivity call yield the same response each time,
-        // to match scenario where we receive same shadow delta version multiple times.
-        connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.CONSTANT);
-
-        // capture the subscription callback for shadow delta update
-        ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
-        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
-
-        Map<String, Object> delta = Utils.immutableMap("version", "1");
-
-        // notify when last shadow update is published
-        WhenUpdateIsPublished whenUpdateIsPublished =
-                WhenUpdateIsPublished.builder().expectedReportedState(delta) // reported state updated to desired state
-                        .expectedDesiredState(null) // desired state isn't modified
-                        .build();
-        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean())).thenAnswer(
-                whenUpdateIsPublished);
-
-        cisShadowMonitor.startMonitor();
-        cisShadowMonitor.addToMonitor(certificateGenerator);
-
-        // trigger update delta subscription callbacks
-        AtomicInteger version = new AtomicInteger(1);
-
-        ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-        deltaUpdatedEvent.version = version.getAndIncrement();
-        deltaUpdatedEvent.state = new HashMap<>(delta);
-
-
-        // send the same message multiple times
-        for (int i = 0; i < 2; i++) {
-            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, i > 0).ifPresent(
-                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
+    private void waitForMonitorToProcessUpdate(AtomicReference<CountDownLatch> updateProcessedByMonitor, boolean monitorExpectedToUpdateReportedState) {
+        try {
+            if (monitorExpectedToUpdateReportedState) {
+                // wait for monitor to update shadow state, which
+                // means that it has finished processing that particular shadow version
+                assertTrue(updateProcessedByMonitor.get().await(15L, TimeUnit.SECONDS));
+            } else {
+                // monitor will not update the shadow state,
+                // so we don't have a way to know when the monitor has completed its work
+                // without cracking into monitor internals.
+                // sleeping is inefficient but it'll work well enough.
+                Thread.sleep(1000L);
+            }
+        } catch (InterruptedException e) {
+            fail(e);
         }
-
-        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
-        verifyCertsRotatedWhenConnectivityChanges();
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void GIVEN_CISShadowMonitor_WHEN_connectivity_info_does_not_change_across_multiple_deltas_received_THEN_extra_processing_is_ignored() throws Exception {
-        // make connectivity call yield the same response each time,
-        // to match scenario where we receive same shadow delta version multiple times.
-        connectivityInfoProvider.setMode(FakeConnectivityInformation.Mode.CONSTANT);
-
-        // capture the subscription callback for shadow delta update
-        ArgumentCaptor<Consumer<MqttMessage>> shadowDeltaUpdatedCallback = ArgumentCaptor.forClass(Consumer.class);
-        when(shadowClientConnection.subscribe(eq(SHADOW_DELTA_UPDATED_TOPIC), any(),
-                shadowDeltaUpdatedCallback.capture())).thenReturn(DUMMY_PACKET_ID);
-
-        // generated list of deltas to feed to the shadow monitor
-        List<Map<String, Object>> deltas =
-                IntStream.range(0, 5).mapToObj(i -> Utils.immutableMap("version", (Object) String.valueOf(i)))
-                        .collect(Collectors.toList());
-        Map<String, Object> lastDelta = deltas.get(deltas.size() - 1);
-
-        // notify when last shadow update is published
-        WhenUpdateIsPublished whenUpdateIsPublished = WhenUpdateIsPublished.builder()
-                .expectedReportedState(lastDelta) // reported state updated to desired state
-                .expectedDesiredState(null) // desired state isn't modified
-                .build();
-        when(shadowClientConnection.publish(argThat(new ShadowUpdateRequestMatcher()), any(), anyBoolean())).thenAnswer(
-                whenUpdateIsPublished);
-
-        cisShadowMonitor.startMonitor();
-        cisShadowMonitor.addToMonitor(certificateGenerator);
-
-        // trigger update delta subscription callbacks
-        AtomicInteger version = new AtomicInteger(1);
-        deltas.forEach(delta -> {
-            ShadowDeltaUpdatedEvent deltaUpdatedEvent = new ShadowDeltaUpdatedEvent();
-            deltaUpdatedEvent.version = version.getAndIncrement();
-            deltaUpdatedEvent.state = new HashMap<>(delta);
-
-            // original message
-            wrapInMessage(SHADOW_DELTA_UPDATED_TOPIC, deltaUpdatedEvent, false).ifPresent(
-                    resp -> shadowDeltaUpdatedCallback.getValue().accept(resp));
-        });
-
-        assertTrue(whenUpdateIsPublished.getLatch().await(5L, TimeUnit.SECONDS));
-        verifyCertsRotatedWhenConnectivityChanges();
+    private void waitForSubscriptions() throws InterruptedException {
+        TestHelpers.eventuallyTrue(() -> shadowClient.subscriptions.size() == 3);
     }
 
-    @Test
-    void GIVEN_CISShadowMonitor_WHEN_stop_monitor_THEN_unsubscribe() {
-        AtomicInteger numSubscriptions = new AtomicInteger();
-        when(shadowClientConnection.subscribe(any(), any(), any())).thenAnswer(invocation -> {
-            numSubscriptions.incrementAndGet();
-            return DUMMY_PACKET_ID;
-        });
-        when(shadowClientConnection.unsubscribe(any())).thenAnswer(invocation -> {
-            numSubscriptions.decrementAndGet();
-            return DUMMY_PACKET_ID;
-        });
+    private void updateShadowDesiredState(Map<String, Object> reported, boolean publishDuplicateMessage) {
+        shadowClient.updateShadow(
+                SHADOW_NAME,
+                reported,
+                null,
+                publishDuplicateMessage
+        );
+    }
 
-
-        cisShadowMonitor.startMonitor();
-        assertTrue(numSubscriptions.get() > 0);
-
-        cisShadowMonitor.stopMonitor();
-        assertEquals(0, numSubscriptions.get());
+    private void assertShadowEventuallyEquals(Map<String, Object> desired, Map<String, Object> reported) throws InterruptedException {
+        TestHelpers.eventuallyTrue(() ->
+                Objects.equals(shadowClient.getShadow(SHADOW_NAME).getLeft(), desired) &&
+                        Objects.equals(shadowClient.getShadow(SHADOW_NAME).getRight(), reported)
+        );
     }
 
     /**
@@ -523,7 +409,7 @@ public class CISShadowMonitorTest {
      */
     private void verifyCertsRotatedWhenConnectivityChanges() throws CertificateGenerationException {
         verify(certificateGenerator,
-                times(connectivityInfoProvider.getNumUniqueConnectivityInfoResponses())).generateCertificate(any(),
+                times(connectivityInfoProvider.getNumConnectivityInfoChanges())).generateCertificate(any(),
                 any());
     }
 
@@ -537,83 +423,283 @@ public class CISShadowMonitorTest {
         }
     }
 
-    private static <T> Optional<MqttMessage> wrapInMessage(String topic, T payload, boolean dup) {
+    private static <T> MqttMessage asMessage(String topic, T payload) {
+        return asMessage(topic, payload, false);
+    }
+
+    private static <T> MqttMessage asMessage(String topic, T payload, boolean dup) {
         try {
-            return Optional.of(
-                    new MqttMessage(topic, MAPPER.writeValueAsString(payload).getBytes(StandardCharsets.UTF_8),
-                            QualityOfService.AT_LEAST_ONCE, false, dup));
+            return new MqttMessage(topic, MAPPER.writeValueAsString(payload).getBytes(StandardCharsets.UTF_8),
+                    QualityOfService.AT_LEAST_ONCE, false, dup);
         } catch (JsonProcessingException e) {
-            return Optional.empty();
-        }
-    }
-
-    static class GetShadowRequestMatcher implements ArgumentMatcher<MqttMessage> {
-        @Override
-        public boolean matches(MqttMessage message) {
-            if (message == null) {
-                return false;
-            }
-            GetShadowRequest request = readValue(message, GetShadowRequest.class);
-            return Objects.equals(message.getTopic(), GET_SHADOW_TOPIC) && Objects.equals(SHADOW_NAME,
-                    request.thingName);
-        }
-    }
-
-    @Builder
-    static class ShadowUpdateRequestMatcher implements ArgumentMatcher<MqttMessage> {
-        @Override
-        public boolean matches(MqttMessage message) {
-            if (message == null) {
-                return false;
-            }
-            UpdateShadowRequest request = readValue(message, UpdateShadowRequest.class);
-            return Objects.equals(message.getTopic(), UPDATE_SHADOW_TOPIC) && Objects.equals(SHADOW_NAME,
-                    request.thingName);
-        }
-    }
-
-    @Builder
-    static class WhenUpdateIsPublished implements Answer<CompletableFuture<Integer>> {
-
-        @Getter(AccessLevel.PACKAGE)
-        private final CountDownLatch latch = new CountDownLatch(1);
-        private final Map<String, Object> expectedReportedState;
-        private final Map<String, Object> expectedDesiredState;
-
-        @Override
-        public CompletableFuture<Integer> answer(InvocationOnMock invocation) {
-            MqttMessage message = invocation.getArgument(0);
-            if (message == null || !message.getTopic().equals(UPDATE_SHADOW_TOPIC)) {
-                return DUMMY_PACKET_ID;
-            }
-
-            UpdateShadowRequest request = readValue(message, UpdateShadowRequest.class);
-            if (Objects.equals(request.state.reported, expectedReportedState) && Objects.equals(request.state.desired,
-                    expectedDesiredState)) {
-                latch.countDown();
-            }
-            return DUMMY_PACKET_ID;
+            return fail(e);
         }
     }
 
     static class FakeIotShadowClient extends IotShadowClient {
+        private static final CompletableFuture<Integer> DUMMY_PACKET_ID = CompletableFuture.completedFuture(0);
+        private final Map<String, Shadow> shadowsByThingName = Collections.synchronizedMap(new HashMap<>());
+        private final Map<String, Consumer<MqttMessage>> subscriptions = Collections.synchronizedMap(new HashMap<>());
+        private final AtomicReference<String> failOnPublish = new AtomicReference<>();
+        private final AtomicReference<Pair<String, AtomicInteger>> failOnGet = new AtomicReference<>();
+        private final List<Consumer<MqttMessage>> onPublish = new ArrayList<>();
 
         @Getter(AccessLevel.PACKAGE)
         private final MqttClientConnection connection;
+        private final NetworkStateProvider networkStateProvider;
 
-        FakeIotShadowClient() {
-            this(mock(MqttClientConnection.class));
+        FakeIotShadowClient(NetworkStateProvider networkStateProvider) {
+            this(mock(MqttClientConnection.class), networkStateProvider);
         }
 
-        private FakeIotShadowClient(MqttClientConnection connection) {
+        private FakeIotShadowClient(MqttClientConnection connection,
+                                    NetworkStateProvider networkStateProvider) {
             super(connection);
+            this.networkStateProvider = networkStateProvider;
             this.connection = connection;
-            when(this.connection.subscribe(any(), any(), any())).thenReturn(DUMMY_PACKET_ID);
-            when(this.connection.publish(any(), any(), anyBoolean())).thenReturn(DUMMY_PACKET_ID);
-            when(this.connection.unsubscribe(any())).thenReturn(DUMMY_PACKET_ID);
+            when(this.connection.subscribe(any(), any(), any())).thenAnswer(invocation -> {
+                if (isOffline()) {
+                    return offlineResult();
+                }
+                String topic = invocation.getArgument(0, String.class);
+                Consumer<MqttMessage> callback = invocation.getArgument(2);
+                subscriptions.put(topic, callback);
+                return DUMMY_PACKET_ID;
+            });
+            when(this.connection.publish(any(), any(), anyBoolean())).thenAnswer(invocation -> {
+                if (isOffline()) {
+                    return offlineResult();
+                }
+                MqttMessage message = invocation.getArgument(0, MqttMessage.class);
+                String topic = message.getTopic();
+
+                if (Objects.equals(topic, failOnPublish.get())) {
+                    CompletableFuture<Integer> f = new CompletableFuture<>();
+                    f.completeExceptionally(new RuntimeException());
+                    return f;
+                }
+
+                if (topic.endsWith("shadow/get")) {
+                    handleShadowGetRequest(message);
+                } else if (topic.endsWith("shadow/update")) {
+                    handleShadowUpdateRequest(message);
+                }
+                onPublish.forEach(cb -> cb.accept(message));
+                return DUMMY_PACKET_ID;
+            });
+            when(this.connection.unsubscribe(any())).thenAnswer(invocation -> {
+                if (isOffline()) {
+                    return offlineResult();
+                }
+                String topic = invocation.getArgument(0, String.class);
+                subscriptions.remove(topic);
+                return DUMMY_PACKET_ID;
+            });
+        }
+
+        private boolean isOffline() {
+            return networkStateProvider.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_DOWN;
+        }
+
+        private static CompletableFuture<?> offlineResult() {
+            CompletableFuture<?> f = new CompletableFuture<>();
+            f.completeExceptionally(new RuntimeException("offline"));
+            return f;
+        }
+
+        private void handleShadowGetRequest(MqttMessage message) {
+            if (isOffline()) { // client not connected, don't fire subscriptions
+                return;
+            }
+
+            String thingName = extractThingName(message.getTopic());
+            Shadow shadow = shadowsByThingName.get(thingName);
+            if (shadow == null) {
+                return;
+            }
+
+            String respTopic;
+            MqttMessage respMessage;
+
+            if (failGetOperation(message.getTopic())) {
+                ErrorResponse resp = new ErrorResponse();
+                resp.message = "get shadow failed";
+                resp.timestamp = new Timestamp(new Date());
+                respTopic = rejectedTopic(thingName);
+                respMessage = asMessage(respTopic, resp);
+            } else {
+                GetShadowResponse resp = new GetShadowResponse();
+                resp.version = shadow.version;
+                resp.state = new ShadowStateWithDelta();
+                resp.state.desired = shadow.getDesired();
+                resp.state.reported = shadow.getReported();
+                resp.state.delta = shadow.getDelta();
+                respTopic = acceptedTopic(thingName);
+                respMessage = asMessage(respTopic, resp);
+            }
+
+            Consumer<MqttMessage> subscription = subscriptions.get(respTopic);
+            if (subscription != null) {
+                subscription.accept(respMessage);
+            }
+        }
+
+        private boolean failGetOperation(String topic) {
+            Pair<String, AtomicInteger> failOnGet = this.failOnGet.get();
+            return failOnGet != null
+                    && Objects.equals(topic, failOnGet.getLeft())
+                    && failOnGet.getRight().getAndDecrement() > 0;
+        }
+
+        private void handleShadowUpdateRequest(MqttMessage message) {
+            UpdateShadowRequest request = readValue(message, UpdateShadowRequest.class);
+            updateShadow(
+                    request.thingName,
+                    request.state == null ? null : request.state.desired,
+                    request.state == null ? null : request.state.reported
+            );
+        }
+
+        void updateShadow(String thingName, Map<String, Object> desired, Map<String, Object> reported) {
+            updateShadow(thingName, desired, reported, false);
+        }
+
+        @SuppressWarnings("PMD.PrematureDeclaration")
+        void updateShadow(String thingName, Map<String, Object> desired, Map<String, Object> reported, boolean sendDuplicate) {
+            Shadow updatedShadow = shadowsByThingName.compute(thingName, (k, v) -> {
+                Shadow shadow = new Shadow(v);
+                shadow.version++;
+                if (desired != null) {
+                    shadow.desired = new HashMap<>(desired);
+                }
+                if (reported != null) {
+                    shadow.reported = new HashMap<>(reported);
+                }
+                shadow.recalculateDelta();
+                return shadow;
+            });
+
+            if (isOffline()) { // client not connected, don't fire subscriptions
+                return;
+            }
+
+            String shadowDeltaTopic = updateDeltaTopic(thingName);
+            Consumer<MqttMessage> subscription = subscriptions.get(shadowDeltaTopic);
+            if (subscription != null && !updatedShadow.getDelta().isEmpty()) {
+                ShadowDeltaUpdatedEvent response = new ShadowDeltaUpdatedEvent();
+                response.version = updatedShadow.getVersion();
+                response.state = updatedShadow.getDelta();
+                subscription.accept(asMessage(shadowDeltaTopic, response));
+                if (sendDuplicate) {
+                    subscription.accept(asMessage(shadowDeltaTopic, response, true));
+                }
+            }
+        }
+
+        /**
+         * When a publish is made to the provided topic, fail the operation.
+         *
+         * @param topic topic
+         */
+        void failOnPublish(String topic) {
+            failOnPublish.set(topic);
+        }
+
+        /**
+         * When a get request is made to the provided topic, fail the operation.
+         * Shadow get result will be sent to rejected topic instead of accepted topic.
+         *
+         * @param topic topic
+         * @param times number of times to fail the get request
+         */
+        void failOnGet(String topic, int times) {
+            failOnGet.set(new Pair<>(topic, new AtomicInteger(times)));
+        }
+
+        void onPublish(Consumer<MqttMessage> callback) {
+            onPublish.add(callback);
+        }
+
+        /**
+         * Retrieve shadow state by thing name.
+         *
+         * @param thingName thing name
+         * @return desired and reported state
+         */
+        Pair<Map<String, Object>, Map<String, Object>> getShadow(String thingName) {
+            Shadow shadow = shadowsByThingName.get(thingName);
+            if (shadow == null) {
+                return null;
+            }
+            return new Pair<>(shadow.getDesired(), shadow.getReported());
+        }
+
+        private static String acceptedTopic(String thingName) {
+            return String.format("$aws/things/%s/shadow/get/accepted", thingName);
+        }
+
+        private static String rejectedTopic(String thingName) {
+            return String.format("$aws/things/%s/shadow/get/rejected", thingName);
+        }
+
+        private static String updateDeltaTopic(String thingName) {
+            return String.format("$aws/things/%s/shadow/update/delta", thingName);
+        }
+
+        private static String extractThingName(String topic) {
+            String[] topicParts = topic.split("/");
+            return topicParts[2];
         }
     }
 
+    @Data
+    @SuppressWarnings("PMD.LooseCoupling") // using HashMap to match iotshadow models
+    static class Shadow {
+
+        HashMap<String, Object> desired;
+        HashMap<String, Object> reported;
+        HashMap<String, Object> delta;
+        int version;
+
+        public Shadow(Shadow other) {
+            if (other == null) {
+                return;
+            }
+            this.desired = other.getDesired();
+            this.reported = other.getReported();
+            this.delta = other.getDelta();
+            this.version = other.getVersion();
+        }
+
+        HashMap<String, Object> getDesired() {
+            return desired == null ? null : new HashMap<>(desired);
+        }
+
+        HashMap<String, Object> getReported() {
+            return reported == null ? null : new HashMap<>(reported);
+        }
+
+        HashMap<String, Object> getDelta() {
+            return delta == null ? null : new HashMap<>(delta);
+        }
+
+        void recalculateDelta() {
+            this.delta = calculateDelta(this);
+        }
+
+        private static HashMap<String, Object> calculateDelta(Shadow shadow) {
+            // CIS shadow state is just {"version": "......"},
+            // so we don't need a full-blown delta algo here
+            if (shadow.getDesired() != null && shadow.getReported() != null
+                    && Objects.equals(shadow.getDesired().get("version"), shadow.getReported().get("version"))) {
+                return new HashMap<>();
+            }
+            if (shadow.getDesired() != null && shadow.getDesired().get("version") != null) {
+                return shadow.getDesired();
+            }
+            return shadow.getReported();
+        }
+    }
 
     static class FakeConnectivityInfoCache extends ConnectivityInfoCache {
 
@@ -634,7 +720,10 @@ public class CISShadowMonitorTest {
 
         private final AtomicReference<List<ConnectivityInfo>> CONNECTIVITY_INFO_SAMPLE =
                 new AtomicReference<>(Collections.singletonList(connectivityInfoWithRandomHost()));
-        private final Set<Integer> responseHashes = new CopyOnWriteArraySet<>();
+
+        @Getter
+        private int numConnectivityInfoChanges;
+        private Set<HostAddress> prevAddresses;
         private final AtomicReference<Mode> mode = new AtomicReference<>(Mode.RANDOM);
         private final AtomicBoolean failed = new AtomicBoolean();
 
@@ -666,15 +755,6 @@ public class CISShadowMonitorTest {
             this.mode.set(mode);
         }
 
-        /**
-         * Get the number of unique responses to getConnectivityInfo provided by this fake.
-         *
-         * @return number of unique connectivity info responses generated by this fake
-         */
-        int getNumUniqueConnectivityInfoResponses() {
-            return responseHashes.size();
-        }
-
         @Override
         public Optional<List<ConnectivityInfo>> getConnectivityInfo() {
             List<ConnectivityInfo> connectivityInfo = doGetConnectivityInfo();
@@ -683,7 +763,11 @@ public class CISShadowMonitorTest {
                         .map(HostAddress::of)
                         .collect(Collectors.toSet());
                 getConnectivityInfoCache().put("source", addresses);
-                responseHashes.add(addresses.hashCode());
+                Set<HostAddress> prevAddresses = this.prevAddresses;
+                this.prevAddresses = addresses;
+                if (!Objects.equals(addresses, prevAddresses)) {
+                    numConnectivityInfoChanges++;
+                }
             }
             return Optional.ofNullable(connectivityInfo);
         }

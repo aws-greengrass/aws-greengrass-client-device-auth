@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 
 public class NetworkStateFake implements NetworkStateProvider {
     private final List<Consumer<ConnectionState>> handlers = new ArrayList<>();
-    private NetworkStateProvider.ConnectionState connectionState;
+    private NetworkStateProvider.ConnectionState connectionState = ConnectionState.NETWORK_DOWN;
 
     @Override
     public void registerHandler(Consumer<ConnectionState> networkChangeHandler) {

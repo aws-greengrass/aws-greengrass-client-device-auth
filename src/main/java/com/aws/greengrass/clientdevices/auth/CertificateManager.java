@@ -9,6 +9,7 @@ import com.aws.greengrass.clientdevices.auth.api.CertificateUpdateEvent;
 import com.aws.greengrass.clientdevices.auth.api.DomainEvents;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequest;
 import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestOptions;
+import com.aws.greengrass.clientdevices.auth.api.GetCertificateRequestWithGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateExpiryMonitor;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateGenerator;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
@@ -34,6 +35,7 @@ import com.aws.greengrass.security.exceptions.ServiceUnavailableException;
 import com.aws.greengrass.util.EncryptionUtils;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
 import com.aws.greengrass.util.RetryUtils;
+import lombok.Getter;
 import lombok.NonNull;
 import software.amazon.awssdk.services.greengrassv2data.model.AccessDeniedException;
 import software.amazon.awssdk.services.greengrassv2data.model.InternalServerException;
@@ -46,7 +48,6 @@ import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
@@ -58,22 +59,25 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import javax.inject.Inject;
 
 public class CertificateManager {
+    private static final Logger logger = LogManager.getLogger(CertificateManager.class);
+    private static final String pkcs11Scheme = "pkcs11";
     private final CertificateStore certificateStore;
     private final ConnectivityInformation connectivityInformation;
     private final CertificateExpiryMonitor certExpiryMonitor;
     private final CISShadowMonitor cisShadowMonitor;
     private final CertificateRotationHandler caConfigurationMonitor;
+    @Getter
     private final Clock clock;
     private final Map<GetCertificateRequest, CertificateGenerator> certSubscriptions = new ConcurrentHashMap<>();
     private final GreengrassServiceClientFactory clientFactory;
     private final SecurityService securityService;
     private final DomainEvents domainEvent;
+    @Getter
     private CertificatesConfig certificatesConfig;
-    private static final Logger logger = LogManager.getLogger(CertificateManager.class);
-    private static final String pkcs11Scheme = "pkcs11";
 
     /**
      * Construct a new CertificateManager.
@@ -167,35 +171,90 @@ public class CertificateManager {
      */
     public void subscribeToCertificateUpdates(GetCertificateRequest getCertificateRequest)
             throws CertificateGenerationException {
+        GetCertificateRequestOptions.CertificateType certificateType =
+                getCertificateRequest.getCertificateRequestOptions().getCertificateType();
         try {
-            GetCertificateRequestOptions.CertificateType certificateType =
-                    getCertificateRequest.getCertificateRequestOptions().getCertificateType();
-            // TODO: Should be configurable
-            KeyPair keyPair = CertificateStore.newRSAKeyPair(4096);
+            CertificateGenerator certificateGenerator =
+                    createCertificateGenerator(getCertificateRequest, certificateType);
+            subscribeToCertificateUpdatesNoCSR(certificateGenerator, getCertificateRequest, certificateType);
 
-            if (certificateType.equals(GetCertificateRequestOptions.CertificateType.SERVER)) {
-                BiConsumer<X509Certificate, X509Certificate[]> consumer = (serverCert, caCertificates) -> {
-                    CertificateUpdateEvent certificateUpdateEvent =
-                            new CertificateUpdateEvent(keyPair, serverCert, caCertificates);
-                    getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
-                };
-                subscribeToServerCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
+            if (GetCertificateRequestOptions.CertificateType.SERVER.equals(certificateType)) {
                 logger.atDebug().log("Successfully subscribed to certificate update");
                 domainEvent.emit(new CertificateSubscriptionEvent(certificateType,
                         CertificateSubscriptionEvent.SubscriptionStatus.SUCCESS));
-            } else if (certificateType.equals(GetCertificateRequestOptions.CertificateType.CLIENT)) {
-                BiConsumer<X509Certificate, X509Certificate[]> consumer = (clientCert, caCertificates) -> {
-                    CertificateUpdateEvent certificateUpdateEvent =
-                            new CertificateUpdateEvent(keyPair, clientCert, caCertificates);
-                    getCertificateRequest.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
-                };
-                subscribeToClientCertificateUpdatesNoCSR(getCertificateRequest, keyPair.getPublic(), consumer);
             }
         } catch (NoSuchAlgorithmException e) {
-            domainEvent.emit(new CertificateSubscriptionEvent(getCertificateRequest.getCertificateRequestOptions()
-                    .getCertificateType(), CertificateSubscriptionEvent.SubscriptionStatus.FAIL));
+            domainEvent.emit(new CertificateSubscriptionEvent(certificateType,
+                    CertificateSubscriptionEvent.SubscriptionStatus.FAIL));
             throw new CertificateGenerationException(e);
         }
+    }
+
+    private CertificateGenerator createCertificateGenerator(GetCertificateRequest request,
+                                                            GetCertificateRequestOptions.CertificateType type)
+            throws CertificateGenerationException, NoSuchAlgorithmException {
+
+        switch (type) {
+            case SERVER:
+            case CLIENT:
+                // TODO: Should be configurable
+                KeyPair keyPair = CertificateStore.newRSAKeyPair(4096);
+
+                BiConsumer<X509Certificate, X509Certificate[]> consumer = (cert, caCertificates) -> {
+                    CertificateUpdateEvent certificateUpdateEvent =
+                            new CertificateUpdateEvent(keyPair, cert, caCertificates);
+                    request.getCertificateUpdateConsumer().accept(certificateUpdateEvent);
+                };
+                if (GetCertificateRequestOptions.CertificateType.SERVER.equals(type)) {
+                    return new ServerCertificateGenerator(CertificateHelper.getX500Name(request.getServiceName()),
+                            keyPair.getPublic(), consumer, certificateStore, certificatesConfig, clock);
+                } else {
+                    return new ClientCertificateGenerator(CertificateHelper.getX500Name(request.getServiceName()),
+                            keyPair.getPublic(), consumer, certificateStore, certificatesConfig, clock);
+                }
+            case CLIENT_AND_SERVER:
+                // the attached certificate generator is responsible for getting the certificate store and clock
+                if (request instanceof GetCertificateRequestWithGenerator) {
+                    return ((GetCertificateRequestWithGenerator) request).getCertificateGenerator();
+                }
+                throw new CertificateGenerationException("Invalid certificate request for type " + type);
+            default:
+                throw new CertificateGenerationException("Unsupported certificate type: " + type);
+        }
+    }
+
+    private void subscribeToCertificateUpdatesNoCSR(@NonNull CertificateGenerator certificateGenerator,
+                                                    @NonNull GetCertificateRequest certificateRequest,
+                                                    @NonNull GetCertificateRequestOptions.CertificateType type)
+            throws CertificateGenerationException {
+        // Add certificate generator to monitors
+        certExpiryMonitor.addToMonitor(certificateGenerator);
+        caConfigurationMonitor.addToMonitor(certificateGenerator);
+
+        if (type == GetCertificateRequestOptions.CertificateType.SERVER
+                || type == GetCertificateRequestOptions.CertificateType.CLIENT_AND_SERVER) {
+            // monitor connectivity info changes from cloud
+            cisShadowMonitor.addToMonitor(certificateGenerator);
+        }
+
+        if (certificateStore.isReady()) {
+            String reason = "initialization of " + type.toString().toLowerCase() + " cert subscription";
+            certificateGenerator.generateCertificate(getAddressProvider(type), reason);
+        }
+
+        certSubscriptions.compute(certificateRequest, (k, v) -> {
+            if (v != null) {
+                removeCGFromMonitors(v);
+            }
+            return certificateGenerator;
+        });
+    }
+
+    private Supplier<List<String>> getAddressProvider(GetCertificateRequestOptions.CertificateType type) {
+        if (type == GetCertificateRequestOptions.CertificateType.CLIENT) {
+            return Collections::emptyList;
+        }
+        return connectivityInformation::getCachedHostAddresses;
     }
 
     /**
@@ -210,59 +269,6 @@ public class CertificateManager {
         }
     }
 
-    private void subscribeToServerCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
-                                                          @NonNull PublicKey publicKey,
-                                                          @NonNull BiConsumer<X509Certificate, X509Certificate[]> cb)
-            throws CertificateGenerationException {
-        CertificateGenerator certificateGenerator =
-                new ServerCertificateGenerator(CertificateHelper.getX500Name(certificateRequest.getServiceName()),
-                        publicKey, cb, certificateStore, certificatesConfig, clock);
-
-        // Add certificate generator to monitors first in order to avoid missing events
-        // that happen while the initial certificate is being generated.
-        certExpiryMonitor.addToMonitor(certificateGenerator);
-        cisShadowMonitor.addToMonitor(certificateGenerator);
-        caConfigurationMonitor.addToMonitor(certificateGenerator);
-
-        if (certificateStore.isReady()) {
-            certificateGenerator.generateCertificate(connectivityInformation::getCachedHostAddresses,
-                    "initialization of server cert subscription");
-        }
-
-        certSubscriptions.compute(certificateRequest, (k, v) -> {
-            // A subscription already exists, we will replace it so that a new certificate is generated immediately
-            if (v != null) {
-                removeCGFromMonitors(v);
-            }
-            return certificateGenerator;
-        });
-    }
-
-    private void subscribeToClientCertificateUpdatesNoCSR(@NonNull GetCertificateRequest certificateRequest,
-                                                          @NonNull PublicKey publicKey,
-                                                          @NonNull BiConsumer<X509Certificate, X509Certificate[]> cb)
-            throws CertificateGenerationException {
-        CertificateGenerator certificateGenerator =
-                new ClientCertificateGenerator(CertificateHelper.getX500Name(certificateRequest.getServiceName()),
-                        publicKey, cb, certificateStore, certificatesConfig, clock);
-
-        caConfigurationMonitor.addToMonitor(certificateGenerator);
-        certExpiryMonitor.addToMonitor(certificateGenerator);
-
-        if (certificateStore.isReady()) {
-            certificateGenerator.generateCertificate(Collections::emptyList,
-                    "initialization of client cert subscription");
-        }
-
-        certSubscriptions.compute(certificateRequest, (k, v) -> {
-            // A subscription already exists, we will replace it so that a new certificate is generated immediately
-            if (v != null) {
-                removeCGFromMonitors(v);
-            }
-            return certificateGenerator;
-        });
-    }
-
     private void removeCGFromMonitors(CertificateGenerator gen) {
         certExpiryMonitor.removeFromMonitor(gen);
         cisShadowMonitor.removeFromMonitor(gen);
@@ -270,8 +276,8 @@ public class CertificateManager {
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private X509Certificate[] getCertificateChainFromConfiguration(CAConfiguration configuration) throws
-            CertificateChainLoadingException {
+    private X509Certificate[] getCertificateChainFromConfiguration(CAConfiguration configuration)
+            throws CertificateChainLoadingException {
         try {
             Optional<URI> certificateChainUri = configuration.getCertificateChainUri();
 
@@ -342,14 +348,16 @@ public class CertificateManager {
      *
      * @param thingName   Core device name
      * @param certificate the CA to upload to IoT core. Which will be provided by cloud discovery
-     * @throws CertificateEncodingException If unable to get certificate encoding
-     * @throws KeyStoreException            If unable to retrieve the certificate
-     * @throws IOException                  If unable to read certificate
-     * @throws DeviceConfigurationException If unable to retrieve Greengrass V2 Data client
+     * @throws CertificateEncodingException     If unable to get certificate encoding
+     * @throws KeyStoreException                If unable to retrieve the certificate
+     * @throws IOException                      If unable to read certificate
+     * @throws DeviceConfigurationException     If unable to retrieve Greengrass V2 Data client
+     * @throws CloudServiceInteractionException If cloud call fails
      */
     @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidRethrowingException"})
     public void uploadCoreDeviceCAs(String thingName, X509Certificate certificate)
-            throws CertificateEncodingException, KeyStoreException, IOException, DeviceConfigurationException {
+            throws CertificateEncodingException, KeyStoreException, IOException,
+            DeviceConfigurationException, CloudServiceInteractionException {
         String certificatePem = CertificateHelper.toPem(certificate);
 
         List<Class> retryAbleExceptions =

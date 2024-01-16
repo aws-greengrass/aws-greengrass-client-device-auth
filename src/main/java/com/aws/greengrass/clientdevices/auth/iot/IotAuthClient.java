@@ -41,13 +41,13 @@ import java.util.stream.Stream;
 import javax.inject.Inject;
 
 public interface IotAuthClient {
-    Optional<String> getActiveCertificateId(String certificatePem);
+    Optional<String> getActiveCertificateId(String certificatePem) throws CloudServiceInteractionException;
 
     Optional<Certificate> getIotCertificate(String certificatePem) throws InvalidCertificateException;
 
-    boolean isThingAttachedToCertificate(Thing thing, Certificate certificate);
+    boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) throws CloudServiceInteractionException;
 
-    boolean isThingAttachedToCertificate(Thing thing, String certificateId);
+    boolean isThingAttachedToCertificate(Thing thing, String certificateId) throws CloudServiceInteractionException;
 
 
     Stream<List<AssociatedClientDevice>> getThingsAssociatedWithCoreDevice();
@@ -77,7 +77,7 @@ public interface IotAuthClient {
 
         @Override
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
-        public Optional<String> getActiveCertificateId(String certificatePem) {
+        public Optional<String> getActiveCertificateId(String certificatePem) throws CloudServiceInteractionException {
             if (Utils.isEmpty(certificatePem)) {
                 throw new IllegalArgumentException("Certificate PEM is empty");
             }
@@ -135,7 +135,8 @@ public interface IotAuthClient {
         }
 
         @Override
-        public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate) {
+        public boolean isThingAttachedToCertificate(Thing thing, Certificate certificate)
+                throws CloudServiceInteractionException {
             if (Objects.isNull(certificate)) {
                 return false;
             }
@@ -144,7 +145,8 @@ public interface IotAuthClient {
 
         @Override
         @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.AvoidDuplicateLiterals"})
-        public boolean isThingAttachedToCertificate(Thing thing, String certificateId) {
+        public boolean isThingAttachedToCertificate(Thing thing, String certificateId)
+                throws CloudServiceInteractionException {
             if (thing == null || Utils.isEmpty(thing.getThingName())) {
                 throw new IllegalArgumentException("No thing name available to validate");
             }
