@@ -41,7 +41,8 @@ public final class PermissionEvaluationUtils {
 
     private static final String POLICY_VARIABLE_FORMAT = "\\$\\{iot:(Connection.Thing.ThingName)}";
 
-    private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile(POLICY_VARIABLE_FORMAT);
+    private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile(POLICY_VARIABLE_FORMAT,
+            Pattern.CASE_INSENSITIVE);
 
     private static final String THING_NAME_VARIABLE = "Connection.Thing.ThingName";
     private final GroupManager groupManager;
@@ -209,13 +210,12 @@ public final class PermissionEvaluationUtils {
             String attributeName = vars[2];
 
             // this supports the ThingName attribute only
-            if (THING_NAME_VARIABLE.equals(policyVariable)) {
+            if (THING_NAME_VARIABLE.equalsIgnoreCase(policyVariable)) {
                 String policyVariableValue =
                         Coerce.toString(session.getSessionAttribute(attributeNamespace, attributeName));
 
                 if (policyVariableValue == null) {
-                    logger.atWarn().kv("attributeName", attributeName)
-                            .log("No attribute found for current session");
+                    throw new IllegalArgumentException("Not attribute found for current session");
                 } else {
                     // for ThingName support only, we can use .replaceAll()
                     // to support additional policy variables in the future
@@ -228,7 +228,8 @@ public final class PermissionEvaluationUtils {
                 }
             } else {
                 logger.atWarn().kv("policyVariable", policyVariable)
-                        .log("Policy variable detected but could not be parsed");
+                        .log("Policy variable unsupported. Only thing name variables are supported, please fix the "
+                                + "config");
             }
         }
         return permission;
