@@ -80,7 +80,8 @@ public class AuthorizationBenchmarks {
     static abstract class PolicyTestState {
         final FakeSessionManager sessionManager = new FakeSessionManager();
         final GroupManager groupManager = new GroupManager();
-        final DeviceAuthClient deviceAuthClient = new DeviceAuthClient(sessionManager, groupManager, null);
+        final PermissionEvaluationUtils permissionEvaluationUtils = new PermissionEvaluationUtils(groupManager);
+        final DeviceAuthClient deviceAuthClient = new DeviceAuthClient(sessionManager, null, permissionEvaluationUtils);
     }
 
     static class FakeSession implements Session {
