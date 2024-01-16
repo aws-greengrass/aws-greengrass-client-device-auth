@@ -68,14 +68,15 @@ public final class PermissionEvaluationUtils {
     public boolean isAuthorized(AuthorizationRequest request, Session session) {
         Operation op = parseOperation(request.getOperation());
         Resource rsc = parseResource(request.getResource());
-        Map<String, Set<Permission>> groupToPermissionsMap = transformGroupPermissionsWithVariableValue(session,
-                groupManager.getApplicablePolicyPermissions(session));
 
         if (!rsc.getService().equals(op.getService())) {
             throw new IllegalArgumentException(
                     String.format("Operation %s service is not same as resource %s service", op, rsc));
 
         }
+
+        Map<String, Set<Permission>> groupToPermissionsMap = transformGroupPermissionsWithVariableValue(session,
+                groupManager.getApplicablePolicyPermissions(session));
         if (groupToPermissionsMap == null || groupToPermissionsMap.isEmpty()) {
             logger.atDebug().kv("operation", request.getOperation()).kv("resource", request.getResource())
                     .log("No authorization group matches, " + "deny the request");
