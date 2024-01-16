@@ -216,7 +216,7 @@ public final class PermissionEvaluationUtils {
                         Coerce.toString(session.getSessionAttribute(attributeNamespace, attributeName));
 
                 if (policyVariableValue == null) {
-                    throw new IllegalArgumentException("Not attribute found for current session");
+                    throw new IllegalArgumentException("No attribute found for current session");
                 } else {
                     // for ThingName support only, we can use .replaceAll()
                     // to support additional policy variables in the future
