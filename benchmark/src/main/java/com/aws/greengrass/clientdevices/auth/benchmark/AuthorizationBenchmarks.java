@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.benchmark;
 
 import com.aws.greengrass.clientdevices.auth.AuthorizationRequest;
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
+import com.aws.greengrass.clientdevices.auth.PermissionEvaluationUtils;
 import com.aws.greengrass.clientdevices.auth.configuration.AuthorizationPolicyStatement;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupDefinition;
