@@ -75,8 +75,15 @@ public final class PermissionEvaluationUtils {
 
         }
 
-        Map<String, Set<Permission>> groupToPermissionsMap = transformGroupPermissionsWithVariableValue(session,
-                groupManager.getApplicablePolicyPermissions(session));
+        Map<String, Set<Permission>> groupToPermissionsMap;
+        try {
+            groupToPermissionsMap = transformGroupPermissionsWithVariableValue(session,
+                    groupManager.getApplicablePolicyPermissions(session));
+        } catch (IllegalArgumentException e) {
+            logger.atError().setCause(e).log(e.getMessage());
+            return false;
+        }
+
         if (groupToPermissionsMap == null || groupToPermissionsMap.isEmpty()) {
             logger.atDebug().kv("operation", request.getOperation()).kv("resource", request.getResource())
                     .log("No authorization group matches, " + "deny the request");
@@ -207,6 +214,9 @@ public final class PermissionEvaluationUtils {
         while (matcher.find()) {
             String policyVariable = matcher.group(1);
             String[] vars = policyVariable.split("\\.");
+            if (vars.length < 3) {
+                throw new IllegalArgumentException("Policy variable does not contain attribute information");
+            }
             String attributeNamespace = vars[1];
             String attributeName = vars[2];
 
