@@ -8,7 +8,6 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
 import com.aws.greengrass.clientdevices.auth.configuration.parser.ParseException;
-import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Test;
@@ -27,8 +26,7 @@ import static org.hamcrest.Matchers.is;
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class GroupManagerTest {
     @Test
-    void GIVEN_emptyGroupConfiguration_WHEN_getApplicablePolicyPermissions_THEN_returnEmptySet()
-            throws AuthorizationException {
+    void GIVEN_emptyGroupConfiguration_WHEN_getApplicablePolicyPermissions_THEN_returnEmptySet() throws Exception {
         GroupManager groupManager = new GroupManager();
         groupManager.setGroupConfiguration(new GroupConfiguration(null, null, null));
 
@@ -37,8 +35,7 @@ public class GroupManagerTest {
     }
 
     @Test
-    void GIVEN_sessionInNoGroup_WHEN_getApplicablePolicyPermissions_THEN_returnEmptySet()
-            throws AuthorizationException, ParseException {
+    void GIVEN_sessionInNoGroup_WHEN_getApplicablePolicyPermissions_THEN_returnEmptySet() throws Exception {
         GroupConfiguration groupConfiguration = GroupConfiguration.builder()
                 .definitions(Collections.singletonMap("group1", getGroupDefinition("differentThingName", "policy1")))
                 .policies(Collections.singletonMap("policy1",
@@ -51,8 +48,7 @@ public class GroupManagerTest {
     }
 
     @Test
-    void GIVEN_sessionInSingleGroup_WHEN_getApplicablePolicyPermissions_THEN_returnGroupPermissions()
-            throws AuthorizationException, ParseException {
+    void GIVEN_sessionInSingleGroup_WHEN_getApplicablePolicyPermissions_THEN_returnGroupPermissions() throws Exception {
         Session session = getSessionFromThing("thingName");
         GroupConfiguration groupConfiguration = GroupConfiguration.builder()
                 .definitions(Collections.singletonMap("group1", getGroupDefinition("thingName", "policy1"))).policies(
@@ -70,8 +66,7 @@ public class GroupManagerTest {
     }
 
     @Test
-    void GIVEN_sessionInMultipleGroups_WHEN_getApplicablePolicyPermissions_THEN_returnMergedGroupPermissions()
-            throws AuthorizationException, ParseException {
+    void GIVEN_sessionInMultipleGroups_WHEN_getApplicablePolicyPermissions_THEN_returnMergedGroupPermissions() throws Exception {
         Session session = getSessionFromThing("thingName");
         GroupConfiguration groupConfiguration =
                 GroupConfiguration.builder().definitions(new HashMap<String, GroupDefinition>() {{
