@@ -28,6 +28,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.file.NoSuchFileException;
@@ -35,6 +38,7 @@ import java.nio.file.Path;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static com.aws.greengrass.testcommons.testutilities.TestUtils.createServiceStateChangeWaiter;
@@ -123,61 +127,32 @@ public class EvaluateClientDeviceActionsWithPolicyVariablesTest {
         kernel.shutdown();
     }
 
-    @Test
-    void GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithThingNameValidResource_THEN_ClientAuthorized() throws Exception {
-        String deviceToken = getClientDeviceSessionAuthToken("myThing", clientPem);
-
-        AuthorizationRequest connectRequest = AuthorizationRequest.builder().sessionId(deviceToken)
-                .operation("mqtt:connect").resource("mqtt:myThing:foo").build();
-
-        AuthorizationRequest publishRequest = AuthorizationRequest.builder().sessionId(deviceToken)
-                .operation("mqtt:publish").resource("mqtt:topic:myThing").build();
-
-        authzClientDeviceAction(connectRequest, true);
-        authzClientDeviceAction(publishRequest, true);
+    private static Stream<Arguments> authzRequests () {
+        return Stream.of(
+                // GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithThingNameValidResource_THEN_ClientAuthorized
+                Arguments.of("myThing", "mqtt:connect", "mqtt:myThing:foo", true),
+                Arguments.of("myThing", "mqtt:publish", "mqtt:topic:myThing", true),
+                // GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithThingNameInvalidResource_THEN_ClientNotAuthorized
+                Arguments.of("myThing", "mqtt:connect", "mqtt:MyCoolThing:foo", false),
+                Arguments.of("myThing", "mqtt:publish", "mqtt:topic:SomeThing", false),
+                // GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithThingNameResourceInvalidAction_THEN_ClientNotAuthorized
+                Arguments.of("myThing", "mqtt:connect", "mqtt:topic:myThing", false),
+                Arguments.of("myThing", "mqtt:publish", "mqtt:myThing:foo", false),
+                // GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithInvalidThingNameResource_THEN_ClientNotAuthorized
+                Arguments.of("SomeThing", "mqtt:connect", "mqtt:myThing:foo", false),
+                Arguments.of("SomeThing", "mqtt:publish", "mqtt:topic:myThing", false)
+        );
     }
 
-    @Test
-    void
-    GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithThingNameInvalidResource_THEN_ClientNotAuthorized() throws Exception {
-        String deviceToken = getClientDeviceSessionAuthToken("myThing", clientPem);
+    @ParameterizedTest
+    @MethodSource("authzRequests")
+    void GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithThingName_THEN_ClientAuthorized(
+            String thingName, String operation, String resource, Boolean result) throws Exception {
+        String deviceToken = getClientDeviceSessionAuthToken(thingName, clientPem);
 
-        AuthorizationRequest connectRequest = AuthorizationRequest.builder().sessionId(deviceToken)
-                .operation("mqtt:connect").resource("mqtt:MyCoolThing:foo").build();
+        AuthorizationRequest request = AuthorizationRequest.builder().sessionId(deviceToken)
+                .operation(operation).resource(resource).build();
 
-        AuthorizationRequest publishRequest = AuthorizationRequest.builder().sessionId(deviceToken)
-                .operation("mqtt:publish").resource("mqtt:topic:SomeThing").build();
-
-        authzClientDeviceAction(connectRequest, false);
-        authzClientDeviceAction(publishRequest, false);
-    }
-
-    @Test
-    void GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithThingNameResourceInvalidAction_THEN_ClientNotAuthorized() throws Exception {
-        String deviceToken = getClientDeviceSessionAuthToken("myThing", clientPem);
-
-        AuthorizationRequest connectRequest = AuthorizationRequest.builder().sessionId(deviceToken)
-                .operation("mqtt:connect").resource("mqtt:topic:myThing").build();
-
-        AuthorizationRequest publishRequest = AuthorizationRequest.builder().sessionId(deviceToken)
-                .operation("mqtt:publish").resource("mqtt:myThing:foo").build();
-
-        authzClientDeviceAction(connectRequest, false);
-        authzClientDeviceAction(publishRequest, false);
-    }
-
-    @Test
-    void GIVEN_permissiveGroupPolicyWithThingNameVariable_WHEN_ClientAuthorizesWithInvalidThingNameResource_THEN_ClientNotAuthorized() throws Exception {
-
-        String deviceToken = getClientDeviceSessionAuthToken("SomeThing", clientPem);
-
-        AuthorizationRequest connectRequest = AuthorizationRequest.builder().sessionId(deviceToken)
-                .operation("mqtt:connect").resource("mqtt:myThing:foo").build();
-
-        AuthorizationRequest publishRequest = AuthorizationRequest.builder().sessionId(deviceToken)
-                .operation("mqtt:publish").resource("mqtt:topic:myThing").build();
-
-        authzClientDeviceAction(connectRequest, false);
-        authzClientDeviceAction(publishRequest, false);
+        authzClientDeviceAction(request, result);
     }
 }
