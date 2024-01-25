@@ -8,9 +8,12 @@ package com.aws.greengrass.clientdevices.auth.api;
 import com.aws.greengrass.clientdevices.auth.AuthorizationRequest;
 import com.aws.greengrass.clientdevices.auth.CertificateManager;
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
+import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoCache;
+import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
 import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CertificateGenerationException;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.events.VerifyClientDeviceIdentityEvent;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyCertificateValidityPeriod;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyIotCertificate;
@@ -20,6 +23,7 @@ import com.aws.greengrass.logging.impl.LogManager;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 public class ClientDevicesAuthServiceApi {
@@ -28,6 +32,8 @@ public class ClientDevicesAuthServiceApi {
     private final CertificateManager certificateManager;
     private final ClientDeviceFetcher clientDeviceFetcher;
     private final UseCases useCases;
+    private final NetworkStateProvider networkStateProvider;
+    private final ConnectivityInfoCache connectivityInfoCache;
     private final DomainEvents domainEvents;
     private static final Logger logger = LogManager.getLogger(ClientDevicesAuthServiceApi.class);
 
@@ -44,12 +50,16 @@ public class ClientDevicesAuthServiceApi {
     public ClientDevicesAuthServiceApi(SessionManager sessionManager, DeviceAuthClient deviceAuthClient,
                                        CertificateManager certificateManager, UseCases useCases,
                                        DomainEvents domainEvents,
+                                       NetworkStateProvider networkStateProvider,
+                                       ConnectivityInfoCache connectivityInfoCache,
                                        ClientDeviceFetcher clientDeviceFetcher) {
         this.sessionManager = sessionManager;
         this.deviceAuthClient = deviceAuthClient;
         this.certificateManager = certificateManager;
         this.useCases = useCases;
         this.domainEvents = domainEvents;
+        this.networkStateProvider = networkStateProvider;
+        this.connectivityInfoCache = connectivityInfoCache;
         this.clientDeviceFetcher = clientDeviceFetcher;
     }
 
@@ -169,5 +179,19 @@ public class ClientDevicesAuthServiceApi {
      */
     public List<ClientDevice> listClientDevices() {
         return clientDeviceFetcher.listClientDevices();
+    }
+
+    /**
+     * TODO.
+     *
+     * @return todo
+     */
+    public ServiceStatus getServiceStatus() {
+        return ServiceStatus.builder()
+                .brokerAddress(connectivityInfoCache.getAll().stream()
+                        .map(HostAddress::getHost)
+                        .collect(Collectors.joining(",")))
+                .online(networkStateProvider.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_UP)
+                .build();
     }
 }
