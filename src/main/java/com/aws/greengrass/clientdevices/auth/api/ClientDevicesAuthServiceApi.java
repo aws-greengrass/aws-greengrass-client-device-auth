@@ -18,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 
+import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
 
@@ -25,6 +26,7 @@ public class ClientDevicesAuthServiceApi {
     private final SessionManager sessionManager;
     private final DeviceAuthClient deviceAuthClient;
     private final CertificateManager certificateManager;
+    private final ClientDeviceFetcher clientDeviceFetcher;
     private final UseCases useCases;
     private final DomainEvents domainEvents;
     private static final Logger logger = LogManager.getLogger(ClientDevicesAuthServiceApi.class);
@@ -41,12 +43,14 @@ public class ClientDevicesAuthServiceApi {
     @Inject
     public ClientDevicesAuthServiceApi(SessionManager sessionManager, DeviceAuthClient deviceAuthClient,
                                        CertificateManager certificateManager, UseCases useCases,
-                                       DomainEvents domainEvents) {
+                                       DomainEvents domainEvents,
+                                       ClientDeviceFetcher clientDeviceFetcher) {
         this.sessionManager = sessionManager;
         this.deviceAuthClient = deviceAuthClient;
         this.certificateManager = certificateManager;
         this.useCases = useCases;
         this.domainEvents = domainEvents;
+        this.clientDeviceFetcher = clientDeviceFetcher;
     }
 
     /**
@@ -156,5 +160,14 @@ public class ClientDevicesAuthServiceApi {
      */
     public void unsubscribeFromCertificateUpdates(GetCertificateRequest getCertificateRequest) {
         certificateManager.unsubscribeFromCertificateUpdates(getCertificateRequest);
+    }
+
+    /**
+     * TODO.
+     *
+     * @return todo
+     */
+    public List<ClientDevice> listClientDevices() {
+        return clientDeviceFetcher.listClientDevices();
     }
 }

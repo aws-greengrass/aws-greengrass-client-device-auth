@@ -13,8 +13,10 @@ import com.aws.greengrass.logging.impl.LogManager;
 import lombok.AccessLevel;
 import lombok.Getter;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import javax.inject.Inject;
@@ -49,6 +51,10 @@ public class SessionManager {
     @Inject
     public SessionManager(DomainEvents domainEvents) {
         this.domainEvents = domainEvents;
+    }
+
+    public List<Session> listSessions() {
+        return new ArrayList<>(sessionMap.values());
     }
 
     /**
