@@ -26,8 +26,8 @@ public class SessionImplTest {
         Session session = new SessionImpl(cert, thing);
 
         Assertions.assertEquals(session.getSessionAttribute("Certificate", "CertificateId").toString(),
-                cert.getDeviceAttributes().get("CertificateId").toString());
+                cert.getDeviceAttribute("CertificateId").toString());
         Assertions.assertEquals(session.getSessionAttribute("Thing", "ThingName").toString(),
-                thing.getDeviceAttributes().get("ThingName").toString());
+                thing.getDeviceAttribute("ThingName").toString());
     }
 }

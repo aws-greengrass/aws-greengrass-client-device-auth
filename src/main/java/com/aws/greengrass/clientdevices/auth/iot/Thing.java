@@ -12,7 +12,6 @@ import lombok.Getter;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -164,8 +163,12 @@ public final class Thing implements AttributeProvider, Cloneable {
     }
 
     @Override
-    public Map<String, DeviceAttribute> getDeviceAttributes() {
-        return Collections.singletonMap("ThingName", new WildcardSuffixAttribute(thingName));
+    public DeviceAttribute getDeviceAttribute(String attributeName) {
+        if (attributeName.equals("ThingName")) {
+            return new WildcardSuffixAttribute(thingName);
+        }
+        // TODO: Return other possible DeviceAttributes
+        return null;
     }
 
     /**

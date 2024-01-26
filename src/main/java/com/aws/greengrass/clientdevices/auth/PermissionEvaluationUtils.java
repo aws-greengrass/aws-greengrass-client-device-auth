@@ -11,11 +11,15 @@ import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Coerce;
+import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.Utils;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -39,13 +43,19 @@ public final class PermissionEvaluationUtils {
             String.format(SERVICE_RESOURCE_FORMAT, SERVICE_PATTERN_STRING, SERVICE_RESOURCE_TYPE_PATTERN_STRING,
                     SERVICE_RESOURCE_NAME_PATTERN_STRING), Pattern.UNICODE_CHARACTER_CLASS);
 
-    private static final String POLICY_VARIABLE_FORMAT = "\\$\\{iot:(Connection.Thing.ThingName)}";
+    private static final String POLICY_VARIABLE_FORMAT = "\\$\\{([a-z]+:[a-zA-Z.]+)\\}";
 
     private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile(POLICY_VARIABLE_FORMAT,
             Pattern.CASE_INSENSITIVE);
 
-    private static final String THING_NAME_VARIABLE = "Connection.Thing.ThingName";
     private final GroupManager groupManager;
+
+    private static final Map<String, Pair<String,String>> policyVariableResolver =
+            new HashMap<String, Pair<String,String>>() {
+        {
+            put("iot:Connection.Thing.ThingName", new Pair<>("Thing", "ThingName"));
+        }
+    };
 
     /**
      * Constructor for PermissionEvaluationUtils.
@@ -213,18 +223,12 @@ public final class PermissionEvaluationUtils {
 
         while (matcher.find()) {
             String policyVariable = matcher.group(1);
-            String[] vars = policyVariable.split("\\.");
-            if (vars.length < 3) {
-                throw new IllegalArgumentException("Policy variable does not contain attribute information");
-            }
-            String attributeNamespace = vars[1];
-            String attributeName = vars[2];
 
-            // this supports the ThingName attribute only
-            if (THING_NAME_VARIABLE.equalsIgnoreCase(policyVariable)) {
-                String policyVariableValue =
-                        Coerce.toString(session.getSessionAttribute(attributeNamespace, attributeName));
-
+            if (policyVariableResolver.containsKey(policyVariable)) {
+                String attributeNamespace = policyVariableResolver.get(policyVariable).getLeft();
+                String attributeName = policyVariableResolver.get(policyVariable).getRight();
+                String policyVariableValue = Coerce.toString(session.getSessionAttribute(attributeNamespace,
+                        attributeName));
                 if (policyVariableValue == null) {
                     throw new IllegalArgumentException("No attribute found for current session");
                 } else {
