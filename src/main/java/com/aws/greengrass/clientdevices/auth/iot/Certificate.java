@@ -129,7 +129,7 @@ public class Certificate implements AttributeProvider {
 
     @Override
     public DeviceAttribute getDeviceAttribute(String attributeName) {
-        if (attributeName.equals("CertificateId")) {
+        if ("CertificateId".equals(attributeName)) {
             return new StringLiteralAttribute(getCertificateId());
         }
         // TODO: Return other possible DeviceAttributes

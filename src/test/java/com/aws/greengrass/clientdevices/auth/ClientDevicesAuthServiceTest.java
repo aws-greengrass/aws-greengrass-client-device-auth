@@ -198,19 +198,19 @@ class ClientDevicesAuthServiceTest {
 
         Permission[] tempSensorPermissions =
                 {Permission.builder().principal("myTemperatureSensors").operation("mqtt" + ":connect")
-                        .resource("mqtt:clientId:foo").build(),
+                        .resource("mqtt:clientId:foo").policyVariables(Collections.emptyList()).build(),
                         Permission.builder().principal("myTemperatureSensors").operation("mqtt:publish")
-                                .resource("mqtt:topic:temperature").build(),
+                                .resource("mqtt:topic:temperature").policyVariables(Collections.emptyList()).build(),
                         Permission.builder().principal("myTemperatureSensors").operation("mqtt:publish")
-                                .resource("mqtt:topic:humidity").build()};
+                                .resource("mqtt:topic:humidity").policyVariables(Collections.emptyList()).build()};
         assertThat(permissionMap.get("myTemperatureSensors"), containsInAnyOrder(tempSensorPermissions));
         Permission[] humidSensorPermissions =
                 {Permission.builder().principal("myHumiditySensors").operation("mqtt:connect")
-                        .resource("mqtt:clientId:foo").build(),
+                        .resource("mqtt:clientId:foo").policyVariables(Collections.emptyList()).build(),
                         Permission.builder().principal("myHumiditySensors").operation("mqtt:publish")
-                                .resource("mqtt:topic:temperature").build(),
+                                .resource("mqtt:topic:temperature").policyVariables(Collections.emptyList()).build(),
                         Permission.builder().principal("myHumiditySensors").operation("mqtt:publish")
-                                .resource("mqtt:topic:humidity").build()};
+                                .resource("mqtt:topic:humidity").policyVariables(Collections.emptyList()).build()};
         assertThat(permissionMap.get("myHumiditySensors"), containsInAnyOrder(humidSensorPermissions));
     }
 

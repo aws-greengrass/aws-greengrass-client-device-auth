@@ -61,7 +61,8 @@ public class GroupManagerTest {
                 .build();
         GroupManager groupManager = new GroupManager();
         Map<String, Set<Permission>> permissionsMap = new HashMap<>(Collections.singletonMap("group1",
-                new HashSet<>(Collections.singleton(new Permission("group1", "connect", "clientId")))));
+                new HashSet<>(Collections.singleton(Permission.builder().principal("group1").operation("connect").resource("clientId")
+                        .policyVariables(Collections.emptyList()).build()))));
 
         groupManager.setGroupConfiguration(groupConfiguration);
 
@@ -86,9 +87,11 @@ public class GroupManagerTest {
 
         Map<String, Set<Permission>> permissionsMap = new HashMap<>();
         permissionsMap.put("group1",
-                new HashSet<>(Collections.singleton(new Permission("group1", "connect", "clientId"))));
+                new HashSet<>(Collections.singleton(Permission.builder().principal("group1").operation("connect").resource("clientId")
+                        .policyVariables(Collections.emptyList()).build())));
         permissionsMap.put("group2",
-                new HashSet<>(Collections.singleton(new Permission("group2", "publish", "topic"))));
+                new HashSet<>(Collections.singleton(Permission.builder().principal("group2").operation("publish").resource("topic")
+                        .policyVariables(Collections.emptyList()).build())));
 
         groupManager.setGroupConfiguration(groupConfiguration);
 

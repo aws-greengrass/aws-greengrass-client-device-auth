@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,6 +38,8 @@ class PermissionEvaluationUtilsTest {
     private static final String FAKE_CERT_ID = "FAKE_CERT_ID";
     private static final String THING_NAME = "b";
     private static final String SESSION_ID = "sessionId";
+    private static final List<String> THING_NAME_POLICY_VARIABLE = Collections.
+            singletonList("${iot:Connection.Thing.ThingName}");
     private Certificate cert;
     private Thing thing;
     private Session session;
@@ -53,78 +56,62 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
-    void GIVEN_single_permission_with_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() {
+    void GIVEN_single_permission_with_policy_variable_WHEN_get_permission_resource_THEN_return_updated_permission_resource() {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation")
-                        .resource("/msg/${iot:Connection.Thing.ThingName}").build();
-
-        Permission updatedPolicyVariablePermission = permissionEvaluationUtils.replaceResourcePolicyVariable(session,
-                policyVariablePermission);
+                        .resource("/msg/${iot:Connection.Thing.ThingName}").policyVariables(THING_NAME_POLICY_VARIABLE).build();
 
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation")
                 .resource("/msg/b").build();
-
-        assertThat(updatedPolicyVariablePermission.equals(permission), is(true));
+        assertThat(policyVariablePermission.getResource(session).equals(permission.getResource()), is(true));
     }
 
     @Test
-    void GIVEN_single_permission_with_invalid_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() {
+    void GIVEN_single_permission_with_invalid_policy_variable_WHEN_get_permission_resource_THEN_return_updated_permission_resource() {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation")
                         .resource("/msg/${iot:Connection.Thing.ThingName/}").build();
 
-        Permission updatedPolicyVariablePermission = permissionEvaluationUtils.replaceResourcePolicyVariable(session,
-                policyVariablePermission);
-
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation")
                 .resource("/msg/b").build();
 
-        assertThat(updatedPolicyVariablePermission.equals(policyVariablePermission), is(true));
-        assertThat(updatedPolicyVariablePermission.equals(permission), is(false));
+        assertThat(policyVariablePermission.getResource(session).equals(policyVariablePermission.getResource()), is(true));
+        assertThat(policyVariablePermission.getResource(session).equals(permission.getResource()), is(false));
     }
 
     @Test
-    void GIVEN_single_permission_with_nonexistent_policy_variable_WHEN_update_resource_permission_THEN_return_updated_permission() {
+    void GIVEN_single_permission_with_nonexistent_policy_variable_WHEN_get_permission_resource_THEN_return_updated_permission_resource() {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation")
                         .resource("/msg/${iot:Connection.Thing.RealThing}").build();
 
-        Permission updatedPolicyVariablePermission = permissionEvaluationUtils.replaceResourcePolicyVariable(session,
-                policyVariablePermission);
-
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation")
                 .resource("/msg/b").build();
 
-        assertThat(updatedPolicyVariablePermission.equals(policyVariablePermission), is(true));
-        assertThat(updatedPolicyVariablePermission.equals(permission), is(false));
+        assertThat(policyVariablePermission.getResource(session).equals(policyVariablePermission.getResource()), is(true));
+        assertThat(policyVariablePermission.getResource(session).equals(permission.getResource()), is(false));
     }
 
     @Test
-    void GIVEN_single_permission_with_multiple_policy_variables_WHEN_update_resource_permission_THEN_return_updated_permission() {
+    void GIVEN_single_permission_with_multiple_policy_variables_WHEN_get_permission_resource_THEN_return_updated_permission_resource() {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation")
                         .resource("/msg/${iot:Connection.Thing.ThingName}/${iot:Connection.Thing.ThingName}/src")
-                        .build();
-
-        Permission updatedPolicyVariablePermission = permissionEvaluationUtils.replaceResourcePolicyVariable(session,
-                policyVariablePermission);
+                        .policyVariables(THING_NAME_POLICY_VARIABLE).build();
 
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation")
                 .resource("/msg/b/b/src").build();
 
-        assertThat(updatedPolicyVariablePermission.equals(policyVariablePermission), is(false));
-        assertThat(updatedPolicyVariablePermission.equals(permission), is(true));
+        assertThat(policyVariablePermission.getResource(session).equals(policyVariablePermission.getResource()), is(false));
+        assertThat(policyVariablePermission.getResource(session).equals(permission.getResource()), is(true));
     }
 
     @Test
-    void GIVEN_single_permission_with_multiple_invalid_policy_variables_WHEN_update_resource_permission_THEN_return_updated_permission() {
+    void GIVEN_single_permission_with_multiple_invalid_policy_variables_WHEN_get_permission_resource_THEN_return_updated_permission_resource() {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation")
                         .resource("/msg/${iot:Connection.Thing.ThingName}/${iot:Connection}.Thing.RealThing}/src")
-                        .build();
-
-        Permission updatedPolicyVariablePermission = permissionEvaluationUtils.replaceResourcePolicyVariable(session,
-                policyVariablePermission);
+                        .policyVariables(THING_NAME_POLICY_VARIABLE).build();
 
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation")
                 .resource("/msg/b/b/src").build();
@@ -132,9 +119,9 @@ class PermissionEvaluationUtilsTest {
         Permission expectedPermission = Permission.builder().principal("some-principal").operation("some-operation")
                 .resource("/msg/b/${iot:Connection}.Thing.RealThing}/src").build();
 
-        assertThat(updatedPolicyVariablePermission.equals(policyVariablePermission), is(false));
-        assertThat(updatedPolicyVariablePermission.equals(permission), is(false));
-        assertThat(updatedPolicyVariablePermission.equals(expectedPermission), is(true));
+        assertThat(policyVariablePermission.getResource(session).equals(policyVariablePermission.getResource()), is(false));
+        assertThat(policyVariablePermission.getResource(session).equals(permission.getResource()), is(false));
+        assertThat(policyVariablePermission.getResource(session).equals(expectedPermission.getResource()), is(true));
     }
 
     @Test
@@ -241,7 +228,8 @@ class PermissionEvaluationUtilsTest {
     private Map<String, Set<Permission>> prepareGroupVariablePermissionsData() {
         Permission[] sensorPermission =
                 {Permission.builder().principal("sensor").operation("mqtt:publish").resource("mqtt:topic:a").build(),
-                        Permission.builder().principal("sensor").operation("mqtt:*").resource("mqtt:topic:${iot:Connection.Thing.ThingName}").build(),
+                        Permission.builder().principal("sensor").operation("mqtt:*").resource("mqtt:topic:${iot:Connection.Thing.ThingName}")
+                                .policyVariables(THING_NAME_POLICY_VARIABLE).build(),
                         Permission.builder().principal("sensor").operation("mqtt:subscribe")
                                 .resource("mqtt:topic:device:${iot:Connection.FakeThing.ThingName}").build(),
                         Permission.builder().principal("sensor").operation("mqtt:connect").resource("*").build(),};

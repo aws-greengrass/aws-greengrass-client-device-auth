@@ -10,21 +10,14 @@ import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
-import com.aws.greengrass.util.Coerce;
-import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.Utils;
 import lombok.Builder;
-import lombok.Getter;
-import lombok.NonNull;
 import lombok.Value;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 public final class PermissionEvaluationUtils {
@@ -42,20 +35,7 @@ public final class PermissionEvaluationUtils {
     private static final Pattern SERVICE_RESOURCE_PATTERN = Pattern.compile(
             String.format(SERVICE_RESOURCE_FORMAT, SERVICE_PATTERN_STRING, SERVICE_RESOURCE_TYPE_PATTERN_STRING,
                     SERVICE_RESOURCE_NAME_PATTERN_STRING), Pattern.UNICODE_CHARACTER_CLASS);
-
-    private static final String POLICY_VARIABLE_FORMAT = "\\$\\{([a-z]+:[a-zA-Z.]+)\\}";
-
-    private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile(POLICY_VARIABLE_FORMAT,
-            Pattern.CASE_INSENSITIVE);
-
     private final GroupManager groupManager;
-
-    private static final Map<String, Pair<String,String>> policyVariableResolver =
-            new HashMap<String, Pair<String,String>>() {
-        {
-            put("iot:Connection.Thing.ThingName", new Pair<>("Thing", "ThingName"));
-        }
-    };
 
     /**
      * Constructor for PermissionEvaluationUtils.
@@ -85,14 +65,7 @@ public final class PermissionEvaluationUtils {
 
         }
 
-        Map<String, Set<Permission>> groupToPermissionsMap;
-        try {
-            groupToPermissionsMap = transformGroupPermissionsWithVariableValue(session,
-                    groupManager.getApplicablePolicyPermissions(session));
-        } catch (IllegalArgumentException e) {
-            logger.atError().setCause(e).log(e.getMessage());
-            return false;
-        }
+        Map<String, Set<Permission>> groupToPermissionsMap = groupManager.getApplicablePolicyPermissions(session);
 
         if (groupToPermissionsMap == null || groupToPermissionsMap.isEmpty()) {
             logger.atDebug().kv("operation", request.getOperation()).kv("resource", request.getResource())
@@ -116,7 +89,12 @@ public final class PermissionEvaluationUtils {
                 if (!compareOperation(op, e.getOperation())) {
                     return false;
                 }
-                return compareResource(rsc, e.getResource());
+                try {
+                    return compareResource(rsc, e.getResource(session));
+                } catch (IllegalArgumentException er) {
+                    logger.atError().setCause(er).log(er.getMessage());
+                    return false;
+                }
             }).findFirst().orElse(null);
 
             if (permission != null) {
@@ -126,25 +104,6 @@ public final class PermissionEvaluationUtils {
         }
 
         return false;
-    }
-
-    /**
-     * utility method to transform map of group permissions by updating policy variables with device variable values.
-     *
-     * @param session    current device session
-     * @param groupToPermissionsMap set of permissions for each device group
-     * @return permission map with updated resources
-     */
-    public Map<String, Set<Permission>> transformGroupPermissionsWithVariableValue(
-            @NonNull Session session, Map<String, Set<Permission>> groupToPermissionsMap) {
-        return groupToPermissionsMap.entrySet().stream()
-                .filter(entry -> !Utils.isEmpty(entry.getValue()))
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue().stream()
-                                .map(permission -> replaceResourcePolicyVariable(session, permission))
-                                .collect(Collectors.toSet())
-                ));
     }
 
     private boolean comparePrincipal(String requestPrincipal, String policyPrincipal) {
@@ -206,48 +165,6 @@ public final class PermissionEvaluationUtils {
 
         throw new IllegalArgumentException(
                 String.format("Resource %s is not in the form of %s", resourceStr, SERVICE_RESOURCE_PATTERN.pattern()));
-    }
-
-    /**
-     * utility method to replace policy variables in permission with device attribute.
-     *
-     * @param session    current device session
-     * @param permission permission to parse
-     * @return updated permission
-     */
-    Permission replaceResourcePolicyVariable(@NonNull Session session, @NonNull Permission permission) {
-
-        String resource = permission.getResource();
-
-        Matcher matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
-
-        while (matcher.find()) {
-            String policyVariable = matcher.group(1);
-
-            if (policyVariableResolver.containsKey(policyVariable)) {
-                String attributeNamespace = policyVariableResolver.get(policyVariable).getLeft();
-                String attributeName = policyVariableResolver.get(policyVariable).getRight();
-                String policyVariableValue = Coerce.toString(session.getSessionAttribute(attributeNamespace,
-                        attributeName));
-                if (policyVariableValue == null) {
-                    throw new IllegalArgumentException("No attribute found for current session");
-                } else {
-                    // for ThingName support only, we can use .replaceAll()
-                    // to support additional policy variables in the future
-                    resource = matcher.replaceFirst(policyVariableValue);
-                    matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
-                    permission = Permission.builder()
-                            .principal(permission.getPrincipal())
-                            .operation(permission.getOperation())
-                            .resource(resource).build();
-                }
-            } else {
-                logger.atWarn().kv("policyVariable", policyVariable)
-                        .log("Policy variable unsupported. Only thing name variables are supported, please fix the "
-                                + "config");
-            }
-        }
-        return permission;
     }
 
     @Value

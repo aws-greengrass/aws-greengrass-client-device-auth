@@ -44,6 +44,7 @@ import static com.aws.greengrass.testcommons.testutilities.TestUtils.createServi
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+@SuppressWarnings("PMD.UnusedPrivateMethod")
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
 public class EvaluateClientDeviceActionsWithPolicyVariablesTest {
     @TempDir

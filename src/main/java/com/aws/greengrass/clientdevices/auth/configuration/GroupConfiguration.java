@@ -14,11 +14,15 @@ import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import lombok.Builder;
 import lombok.Value;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Value
 @JsonDeserialize(builder = GroupConfiguration.GroupConfigurationBuilder.class)
@@ -35,6 +39,11 @@ public class GroupConfiguration {
 
 
     Map<String, Set<Permission>> groupToPermissionsMap;
+
+    private static final String POLICY_VARIABLE_FORMAT = "(\\$\\{[a-z]+:[a-zA-Z.]+\\})";
+
+    private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile(POLICY_VARIABLE_FORMAT,
+            Pattern.CASE_INSENSITIVE);
 
     @Builder
     GroupConfiguration(ConfigurationFormatVersion formatVersion, Map<String, GroupDefinition> definitions,
@@ -91,9 +100,20 @@ public class GroupConfiguration {
                     continue;
                 }
                 permissions.add(
-                        Permission.builder().principal(groupName).operation(operation).resource(resource).build());
+                        Permission.builder().principal(groupName).operation(operation).resource(resource)
+                                .policyVariables(findPolicyVariables(resource)).build());
             }
         }
         return permissions;
+    }
+
+    private List<String> findPolicyVariables(String resource) {
+        Matcher matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
+        List<String> policyVariables = new ArrayList<>();
+        while (matcher.find()) {
+            String policyVariable = matcher.group(1);
+            policyVariables.add(policyVariable);
+        }
+        return policyVariables;
     }
 }
