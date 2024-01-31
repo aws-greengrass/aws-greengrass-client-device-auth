@@ -5,11 +5,13 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
+import com.aws.greengrass.clientdevices.auth.exception.AttributeProviderException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 
+import java.util.Collections;
 import java.util.List;
 
 @Value
@@ -21,9 +23,10 @@ public class Permission {
 
     @NonNull String resource;
 
-    List<String> policyVariables;
+    @Builder.Default
+    List<String> resourcePolicyVariables = Collections.emptyList();
 
-    public String getResource(Session session) {
-        return PolicyVariableResolver.resolvePolicyVariables(policyVariables, resource, session);
+    public String getResource(Session session) throws AttributeProviderException {
+        return PolicyVariableResolver.resolvePolicyVariables(resourcePolicyVariables, resource, session);
     }
 }

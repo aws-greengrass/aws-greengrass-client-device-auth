@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
+import com.aws.greengrass.clientdevices.auth.exception.AttributeProviderException;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
@@ -56,10 +57,11 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
-    void GIVEN_single_permission_with_policy_variable_WHEN_get_permission_resource_THEN_return_updated_permission_resource() {
+    void GIVEN_single_permission_with_policy_variable_WHEN_get_permission_resource_THEN_return_updated_permission_resource()
+            throws AttributeProviderException {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation")
-                        .resource("/msg/${iot:Connection.Thing.ThingName}").policyVariables(THING_NAME_POLICY_VARIABLE).build();
+                        .resource("/msg/${iot:Connection.Thing.ThingName}").resourcePolicyVariables(THING_NAME_POLICY_VARIABLE).build();
 
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation")
                 .resource("/msg/b").build();
@@ -67,7 +69,8 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
-    void GIVEN_single_permission_with_invalid_policy_variable_WHEN_get_permission_resource_THEN_return_updated_permission_resource() {
+    void GIVEN_single_permission_with_invalid_policy_variable_WHEN_get_permission_resource_THEN_return_updated_permission_resource()
+            throws AttributeProviderException {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation")
                         .resource("/msg/${iot:Connection.Thing.ThingName/}").build();
@@ -80,7 +83,8 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
-    void GIVEN_single_permission_with_nonexistent_policy_variable_WHEN_get_permission_resource_THEN_return_updated_permission_resource() {
+    void GIVEN_single_permission_with_nonexistent_policy_variable_WHEN_get_permission_resource_THEN_return_updated_permission_resource()
+            throws AttributeProviderException {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation")
                         .resource("/msg/${iot:Connection.Thing.RealThing}").build();
@@ -93,11 +97,12 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
-    void GIVEN_single_permission_with_multiple_policy_variables_WHEN_get_permission_resource_THEN_return_updated_permission_resource() {
+    void GIVEN_single_permission_with_multiple_policy_variables_WHEN_get_permission_resource_THEN_return_updated_permission_resource()
+            throws AttributeProviderException {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation")
                         .resource("/msg/${iot:Connection.Thing.ThingName}/${iot:Connection.Thing.ThingName}/src")
-                        .policyVariables(THING_NAME_POLICY_VARIABLE).build();
+                        .resourcePolicyVariables(THING_NAME_POLICY_VARIABLE).build();
 
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation")
                 .resource("/msg/b/b/src").build();
@@ -107,11 +112,12 @@ class PermissionEvaluationUtilsTest {
     }
 
     @Test
-    void GIVEN_single_permission_with_multiple_invalid_policy_variables_WHEN_get_permission_resource_THEN_return_updated_permission_resource() {
+    void GIVEN_single_permission_with_multiple_invalid_policy_variables_WHEN_get_permission_resource_THEN_return_updated_permission_resource()
+            throws AttributeProviderException {
         Permission policyVariablePermission =
                 Permission.builder().principal("some-principal").operation("some-operation")
                         .resource("/msg/${iot:Connection.Thing.ThingName}/${iot:Connection}.Thing.RealThing}/src")
-                        .policyVariables(THING_NAME_POLICY_VARIABLE).build();
+                        .resourcePolicyVariables(THING_NAME_POLICY_VARIABLE).build();
 
         Permission permission = Permission.builder().principal("some-principal").operation("some-operation")
                 .resource("/msg/b/b/src").build();
@@ -229,7 +235,7 @@ class PermissionEvaluationUtilsTest {
         Permission[] sensorPermission =
                 {Permission.builder().principal("sensor").operation("mqtt:publish").resource("mqtt:topic:a").build(),
                         Permission.builder().principal("sensor").operation("mqtt:*").resource("mqtt:topic:${iot:Connection.Thing.ThingName}")
-                                .policyVariables(THING_NAME_POLICY_VARIABLE).build(),
+                                .resourcePolicyVariables(THING_NAME_POLICY_VARIABLE).build(),
                         Permission.builder().principal("sensor").operation("mqtt:subscribe")
                                 .resource("mqtt:topic:device:${iot:Connection.FakeThing.ThingName}").build(),
                         Permission.builder().principal("sensor").operation("mqtt:connect").resource("*").build(),};

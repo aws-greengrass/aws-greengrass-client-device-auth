@@ -111,7 +111,7 @@ public class DeviceAuthClientTest {
         when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
                 Collections.singleton(Permission.builder().operation("mqtt:publish")
                                 .resource("mqtt:topic:${iot:Connection.Thing.ThingName}").principal("group1")
-                        .policyVariables(THING_NAME_POLICY_VARIABLE).build())));
+                        .resourcePolicyVariables(THING_NAME_POLICY_VARIABLE).build())));
 
         boolean authorized = authClient.canDevicePerform(constructPolicyVariableAuthorizationRequest(thingName));
 

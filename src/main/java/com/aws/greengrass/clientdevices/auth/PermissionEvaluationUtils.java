@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
+import com.aws.greengrass.clientdevices.auth.exception.AttributeProviderException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -91,7 +92,7 @@ public final class PermissionEvaluationUtils {
                 }
                 try {
                     return compareResource(rsc, e.getResource(session));
-                } catch (IllegalArgumentException er) {
+                } catch (AttributeProviderException er) {
                     logger.atError().setCause(er).log(er.getMessage());
                     return false;
                 }
@@ -115,7 +116,7 @@ public final class PermissionEvaluationUtils {
     }
 
     private boolean compareOperation(Operation requestOperation, String policyOperation) {
-        if (requestOperation.toString().equals(policyOperation)) {
+        if (requestOperation.getOperationStr().equals(policyOperation)) {
             return true;
         }
         if (String.format(SERVICE_OPERATION_FORMAT, requestOperation.getService(), ANY_REGEX).equals(policyOperation)) {
@@ -125,7 +126,7 @@ public final class PermissionEvaluationUtils {
     }
 
     private boolean compareResource(Resource requestResource, String policyResource) {
-        if (requestResource.toString().equals(policyResource)) {
+        if (requestResource.getResourceStr().equals(policyResource)) {
             return true;
         }
 
@@ -144,7 +145,8 @@ public final class PermissionEvaluationUtils {
 
         Matcher matcher = SERVICE_OPERATION_PATTERN.matcher(operationStr);
         if (matcher.matches()) {
-            return Operation.builder().service(matcher.group(1)).action(matcher.group(2)).build();
+            return Operation.builder().operationStr(operationStr).service(matcher.group(1)).action(matcher.group(2))
+                    .build();
         }
         throw new IllegalArgumentException(String.format("Operation %s is not in the form of %s", operationStr,
                 SERVICE_OPERATION_PATTERN.pattern()));
@@ -157,7 +159,8 @@ public final class PermissionEvaluationUtils {
 
         Matcher matcher = SERVICE_RESOURCE_PATTERN.matcher(resourceStr);
         if (matcher.matches()) {
-            return Resource.builder().service(matcher.group(1))
+            return Resource.builder().resourceStr(resourceStr)
+                    .service(matcher.group(1))
                     .resourceType(matcher.group(2))
                     .resourceName(matcher.group(3))
                     .build();
@@ -170,25 +173,17 @@ public final class PermissionEvaluationUtils {
     @Value
     @Builder
     private static class Operation {
+        String operationStr;
         String service;
         String action;
-
-        @Override
-        public String toString() {
-            return String.format(SERVICE_OPERATION_FORMAT, service, action);
-        }
     }
 
     @Value
     @Builder
     private static class Resource {
+        String resourceStr;
         String service;
         String resourceType;
         String resourceName;
-
-        @Override
-        public String toString() {
-            return String.format(SERVICE_RESOURCE_FORMAT, service, resourceType, resourceName);
-        }
     }
 }

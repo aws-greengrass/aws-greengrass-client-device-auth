@@ -164,11 +164,8 @@ public final class Thing implements AttributeProvider, Cloneable {
 
     @Override
     public DeviceAttribute getDeviceAttribute(String attributeName) {
-        if ("ThingName".equals(attributeName)) {
-            return new WildcardSuffixAttribute(thingName);
-        }
-        // TODO: Return other possible DeviceAttributes
-        return null;
+        // TODO: Support other DeviceAttributes
+        return new WildcardSuffixAttribute(thingName);
     }
 
     /**

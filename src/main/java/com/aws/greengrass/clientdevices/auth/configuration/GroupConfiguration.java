@@ -101,7 +101,7 @@ public class GroupConfiguration {
                 }
                 permissions.add(
                         Permission.builder().principal(groupName).operation(operation).resource(resource)
-                                .policyVariables(findPolicyVariables(resource)).build());
+                                .resourcePolicyVariables(findPolicyVariables(resource)).build());
             }
         }
         return permissions;
