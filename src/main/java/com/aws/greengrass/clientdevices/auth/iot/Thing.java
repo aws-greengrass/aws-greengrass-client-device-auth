@@ -12,7 +12,6 @@ import lombok.Getter;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -31,6 +30,7 @@ import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfig
 @Getter
 public final class Thing implements AttributeProvider, Cloneable {
     public static final String NAMESPACE = "Thing";
+    private static final String THING_NAME_ATTRIBUTE = "ThingName";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
     private static final AtomicInteger metadataTrustDurationMinutes =
             new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
@@ -164,8 +164,12 @@ public final class Thing implements AttributeProvider, Cloneable {
     }
 
     @Override
-    public Map<String, DeviceAttribute> getDeviceAttributes() {
-        return Collections.singletonMap("ThingName", new WildcardSuffixAttribute(thingName));
+    public DeviceAttribute getDeviceAttribute(String attributeName) {
+        // TODO: Support other DeviceAttributes
+        if (THING_NAME_ATTRIBUTE.equals(attributeName)) {
+            return new WildcardSuffixAttribute(thingName);
+        }
+        return null;
     }
 
     /**

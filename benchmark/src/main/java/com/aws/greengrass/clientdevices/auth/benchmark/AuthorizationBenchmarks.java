@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.benchmark;
 
 import com.aws.greengrass.clientdevices.auth.AuthorizationRequest;
 import com.aws.greengrass.clientdevices.auth.DeviceAuthClient;
+import com.aws.greengrass.clientdevices.auth.PermissionEvaluationUtils;
 import com.aws.greengrass.clientdevices.auth.configuration.AuthorizationPolicyStatement;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupDefinition;
@@ -72,15 +73,51 @@ public class AuthorizationBenchmarks {
         }
     }
 
+    @State(Scope.Thread)
+    public static class PolicyVariableAuthRequest extends PolicyTestState {
+
+        final AuthorizationRequest thingNameRequest = AuthorizationRequest.builder()
+                .operation("mqtt:publish")
+                .resource("mqtt:topic:MyThingName/humidity")
+                .sessionId("sessionId")
+                .build();
+
+        @Setup
+        public void doSetup() throws ParseException, AuthorizationException {
+            sessionManager.registerSession("sessionId", FakeSession.forDevice("MyThingName"));
+            groupManager.setGroupConfiguration(GroupConfiguration.builder()
+                    .definitions(Collections.singletonMap(
+                            "group1", GroupDefinition.builder()
+                                    .selectionRule("thingName: " + "MyThingName")
+                                    .policyName("policy1")
+                                    .build()))
+                    .policies(Collections.singletonMap(
+                            "policy1", Collections.singletonMap(
+                                    "Statement1", AuthorizationPolicyStatement.builder()
+                                            .statementDescription("Policy description")
+                                            .effect(AuthorizationPolicyStatement.Effect.ALLOW)
+                                            .resources(new HashSet<>(Collections.singleton("mqtt:topic:${iot:Connection.Thing.ThingName}/humidity")))
+                                            .operations(new HashSet<>(Collections.singleton("mqtt:publish")))
+                                            .build())))
+                    .build());
+        }
+    }
+
     @Benchmark
     public boolean GIVEN_single_group_permission_WHEN_simple_auth_request_THEN_successful_auth(SimpleAuthRequest state) throws Exception {
         return state.deviceAuthClient.canDevicePerform(state.basicRequest);
     }
 
+    @Benchmark
+    public boolean GIVEN_policy_with_thing_name_variable_WHEN_auth_request_THEN_successful_auth(PolicyVariableAuthRequest state) throws Exception {
+        return state.deviceAuthClient.canDevicePerform(state.thingNameRequest);
+    }
+
     static abstract class PolicyTestState {
         final FakeSessionManager sessionManager = new FakeSessionManager();
         final GroupManager groupManager = new GroupManager();
-        final DeviceAuthClient deviceAuthClient = new DeviceAuthClient(sessionManager, groupManager, null);
+        final PermissionEvaluationUtils permissionEvaluationUtils = new PermissionEvaluationUtils(groupManager);
+        final DeviceAuthClient deviceAuthClient = new DeviceAuthClient(sessionManager, null, permissionEvaluationUtils);
     }
 
     static class FakeSession implements Session {

@@ -23,7 +23,7 @@ public class Component implements AttributeProvider {
     }
 
     @Override
-    public Map<String, DeviceAttribute> getDeviceAttributes() {
-        return ATTRIBUTES;
+    public DeviceAttribute getDeviceAttribute(String attributeName) {
+        return ATTRIBUTES.get(attributeName);
     }
 }

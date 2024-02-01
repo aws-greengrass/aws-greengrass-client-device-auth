@@ -5,7 +5,10 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
+import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
+import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
@@ -16,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.inject.Inject;
 
 public final class PermissionEvaluationUtils {
     private static final Logger logger = LogManager.getLogger(PermissionEvaluationUtils.class);
@@ -32,30 +36,40 @@ public final class PermissionEvaluationUtils {
     private static final Pattern SERVICE_RESOURCE_PATTERN = Pattern.compile(
             String.format(SERVICE_RESOURCE_FORMAT, SERVICE_PATTERN_STRING, SERVICE_RESOURCE_TYPE_PATTERN_STRING,
                     SERVICE_RESOURCE_NAME_PATTERN_STRING), Pattern.UNICODE_CHARACTER_CLASS);
+    private final GroupManager groupManager;
 
-
-    private PermissionEvaluationUtils() {
+    /**
+     * Constructor for PermissionEvaluationUtils.
+     *
+     * @param groupManager  Group Manager
+     */
+    @Inject
+    public PermissionEvaluationUtils(GroupManager groupManager) {
+        this.groupManager = groupManager;
     }
 
     /**
      * utility method of authorizing operation to resource.
      *
-     * @param operation             operation in the form of 'service:action'
-     * @param resource              resource in the form of 'service:resourceType:resourceName'
-     * @param groupToPermissionsMap device matching group to permissions map
-     * @return whether operation to resource in authorized
+     * @param request   Authorization Request
+     * @param session   Session
+     *
+     * @return boolean indicating if the operation requested is authorized
      */
-    public static boolean isAuthorized(String operation, String resource,
-                                       Map<String, Set<Permission>> groupToPermissionsMap) {
-        Operation op = parseOperation(operation);
-        Resource rsc = parseResource(resource);
+    public boolean isAuthorized(AuthorizationRequest request, Session session) {
+        Operation op = parseOperation(request.getOperation());
+        Resource rsc = parseResource(request.getResource());
+
         if (!rsc.getService().equals(op.getService())) {
             throw new IllegalArgumentException(
                     String.format("Operation %s service is not same as resource %s service", op, rsc));
 
         }
+
+        Map<String, Set<Permission>> groupToPermissionsMap = groupManager.getApplicablePolicyPermissions(session);
+
         if (groupToPermissionsMap == null || groupToPermissionsMap.isEmpty()) {
-            logger.atDebug().kv("operation", operation).kv("resource", resource)
+            logger.atDebug().kv("operation", request.getOperation()).kv("resource", request.getResource())
                     .log("No authorization group matches, " + "deny the request");
             return false;
         }
@@ -76,7 +90,12 @@ public final class PermissionEvaluationUtils {
                 if (!compareOperation(op, e.getOperation())) {
                     return false;
                 }
-                return compareResource(rsc, e.getResource());
+                try {
+                    return compareResource(rsc, e.getResource(session));
+                } catch (PolicyException er) {
+                    logger.atError().setCause(er).log();
+                    return false;
+                }
             }).findFirst().orElse(null);
 
             if (permission != null) {
@@ -88,7 +107,7 @@ public final class PermissionEvaluationUtils {
         return false;
     }
 
-    private static boolean comparePrincipal(String requestPrincipal, String policyPrincipal) {
+    private boolean comparePrincipal(String requestPrincipal, String policyPrincipal) {
         if (requestPrincipal.equals(policyPrincipal)) {
             return true;
         }
@@ -96,8 +115,8 @@ public final class PermissionEvaluationUtils {
         return ANY_REGEX.equals(policyPrincipal);
     }
 
-    private static boolean compareOperation(Operation requestOperation, String policyOperation) {
-        if (requestOperation.toString().equals(policyOperation)) {
+    private boolean compareOperation(Operation requestOperation, String policyOperation) {
+        if (requestOperation.getOperationStr().equals(policyOperation)) {
             return true;
         }
         if (String.format(SERVICE_OPERATION_FORMAT, requestOperation.getService(), ANY_REGEX).equals(policyOperation)) {
@@ -106,8 +125,8 @@ public final class PermissionEvaluationUtils {
         return ANY_REGEX.equals(policyOperation);
     }
 
-    private static boolean compareResource(Resource requestResource, String policyResource) {
-        if (requestResource.toString().equals(policyResource)) {
+    private boolean compareResource(Resource requestResource, String policyResource) {
+        if (requestResource.getResourceStr().equals(policyResource)) {
             return true;
         }
 
@@ -119,28 +138,32 @@ public final class PermissionEvaluationUtils {
         return ANY_REGEX.equals(policyResource);
     }
 
-    private static Operation parseOperation(String operationStr) {
+    private Operation parseOperation(String operationStr) {
         if (Utils.isEmpty(operationStr)) {
             throw new IllegalArgumentException("Operation can't be empty");
         }
 
         Matcher matcher = SERVICE_OPERATION_PATTERN.matcher(operationStr);
         if (matcher.matches()) {
-            return Operation.builder().service(matcher.group(1)).action(matcher.group(2)).build();
+            return Operation.builder().operationStr(operationStr).service(matcher.group(1)).action(matcher.group(2))
+                    .build();
         }
         throw new IllegalArgumentException(String.format("Operation %s is not in the form of %s", operationStr,
                 SERVICE_OPERATION_PATTERN.pattern()));
     }
 
-    private static Resource parseResource(String resourceStr) {
+    private Resource parseResource(String resourceStr) {
         if (Utils.isEmpty(resourceStr)) {
             throw new IllegalArgumentException("Resource can't be empty");
         }
 
         Matcher matcher = SERVICE_RESOURCE_PATTERN.matcher(resourceStr);
         if (matcher.matches()) {
-            return Resource.builder().service(matcher.group(1)).resourceType(matcher.group(2))
-                    .resourceName(matcher.group(3)).build();
+            return Resource.builder().resourceStr(resourceStr)
+                    .service(matcher.group(1))
+                    .resourceType(matcher.group(2))
+                    .resourceName(matcher.group(3))
+                    .build();
         }
 
         throw new IllegalArgumentException(
@@ -150,25 +173,17 @@ public final class PermissionEvaluationUtils {
     @Value
     @Builder
     private static class Operation {
+        String operationStr;
         String service;
         String action;
-
-        @Override
-        public String toString() {
-            return String.format(SERVICE_OPERATION_FORMAT, service, action);
-        }
     }
 
     @Value
     @Builder
     private static class Resource {
+        String resourceStr;
         String service;
         String resourceType;
         String resourceName;
-
-        @Override
-        public String toString() {
-            return String.format(SERVICE_RESOURCE_FORMAT, service, resourceType, resourceName);
-        }
     }
 }

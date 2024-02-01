@@ -5,10 +5,8 @@
 
 package com.aws.greengrass.clientdevices.auth.session.attribute;
 
-import java.util.Map;
-
 public interface AttributeProvider {
     String getNamespace();
 
-    Map<String, DeviceAttribute> getDeviceAttributes();
+    DeviceAttribute getDeviceAttribute(String attributeName);
 }

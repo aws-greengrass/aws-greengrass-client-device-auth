@@ -6,7 +6,6 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
-import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidSessionException;
 import com.aws.greengrass.clientdevices.auth.iot.Component;
@@ -40,22 +39,22 @@ public class DeviceAuthClient {
     private static final Logger logger = LogManager.getLogger(DeviceAuthClient.class);
 
     private final SessionManager sessionManager;
-    private final GroupManager groupManager;
     private final CertificateStore certificateStore;
+    private final PermissionEvaluationUtils permissionEvaluationUtils;
 
     /**
      * Constructor.
      *
-     * @param sessionManager   Session manager
-     * @param groupManager     Group manager
-     * @param certificateStore Certificate store
+     * @param sessionManager            Session manager
+     * @param certificateStore          Certificate store
+     * @param permissionEvaluationUtils Permission Evaluation Utils
      */
     @Inject
-    public DeviceAuthClient(SessionManager sessionManager, GroupManager groupManager,
-                            CertificateStore certificateStore) {
+    public DeviceAuthClient(SessionManager sessionManager, CertificateStore certificateStore,
+                            PermissionEvaluationUtils permissionEvaluationUtils) {
         this.sessionManager = sessionManager;
-        this.groupManager = groupManager;
         this.certificateStore = certificateStore;
+        this.permissionEvaluationUtils = permissionEvaluationUtils;
     }
 
     /**
@@ -141,7 +140,6 @@ public class DeviceAuthClient {
             return true;
         }
 
-        return PermissionEvaluationUtils.isAuthorized(request.getOperation(), request.getResource(),
-                groupManager.getApplicablePolicyPermissions(session));
+        return permissionEvaluationUtils.isAuthorized(request, session);
     }
 }

@@ -41,7 +41,7 @@ public class SessionImpl extends ConcurrentHashMap<String, AttributeProvider> im
     @Override
     public DeviceAttribute getSessionAttribute(String attributeNamespace, String attributeName) {
         if (this.getAttributeProvider(attributeNamespace) != null) {
-            return this.getAttributeProvider(attributeNamespace).getDeviceAttributes().get(attributeName);
+            return this.getAttributeProvider(attributeNamespace).getDeviceAttribute(attributeName);
         }
         return null;
     }

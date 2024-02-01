@@ -5,9 +5,14 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
+import com.aws.greengrass.clientdevices.auth.session.Session;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
+
+import java.util.Collections;
+import java.util.Set;
 
 @Value
 @Builder
@@ -17,4 +22,11 @@ public class Permission {
     @NonNull String operation;
 
     @NonNull String resource;
+
+    @Builder.Default
+    Set<String> resourcePolicyVariables = Collections.emptySet();
+
+    public String getResource(Session session) throws PolicyException {
+        return PolicyVariableResolver.resolvePolicyVariables(resourcePolicyVariables, resource, session);
+    }
 }

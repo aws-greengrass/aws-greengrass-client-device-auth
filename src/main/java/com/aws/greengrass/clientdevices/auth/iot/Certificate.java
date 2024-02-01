@@ -23,8 +23,6 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfiguration.DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES;
@@ -32,6 +30,7 @@ import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfig
 @Getter
 public class Certificate implements AttributeProvider {
     public static final String NAMESPACE = "Certificate";
+    private static final String CERTIFICATE_ID_ATTRIBUTE = "CertificateId";
     private static final AtomicInteger metadataTrustDurationMinutes =
             new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
 
@@ -130,8 +129,12 @@ public class Certificate implements AttributeProvider {
     }
 
     @Override
-    public Map<String, DeviceAttribute> getDeviceAttributes() {
-        return Collections.singletonMap("CertificateId", new StringLiteralAttribute(getCertificateId()));
+    public DeviceAttribute getDeviceAttribute(String attributeName) {
+        // TODO: Support other DeviceAttributes
+        if (CERTIFICATE_ID_ATTRIBUTE.equals(attributeName)) {
+            return new StringLiteralAttribute(getCertificateId());
+        }
+        return null;
     }
 
     /**
