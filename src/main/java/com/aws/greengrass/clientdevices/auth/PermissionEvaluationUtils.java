@@ -93,7 +93,7 @@ public final class PermissionEvaluationUtils {
                 try {
                     return compareResource(rsc, e.getResource(session));
                 } catch (PolicyException er) {
-                    logger.atError().setCause(er).log(er.getMessage());
+                    logger.atError().setCause(er).log();
                     return false;
                 }
             }).findFirst().orElse(null);

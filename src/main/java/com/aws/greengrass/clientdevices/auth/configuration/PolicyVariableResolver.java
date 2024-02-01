@@ -7,6 +7,7 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
+import com.aws.greengrass.util.Coerce;
 import com.aws.greengrass.util.Pair;
 import org.apache.commons.lang3.StringUtils;
 import software.amazon.awssdk.utils.ImmutableMap;
@@ -45,7 +46,8 @@ public final class PolicyVariableResolver {
         for (String policyVariable : policyVariables) {
             String attributeNamespace = policyVariableToAttributeProvider.get(policyVariable).getLeft();
             String attributeName = policyVariableToAttributeProvider.get(policyVariable).getRight();
-            String policyVariableValue = session.getSessionAttribute(attributeNamespace, attributeName).toString();
+            String policyVariableValue = Coerce.toString(session.getSessionAttribute(attributeNamespace,
+                    attributeName));
             if (policyVariableValue == null) {
                 throw new PolicyException(
                         String.format("No attribute found for policy variable %s in current session", policyVariable));
