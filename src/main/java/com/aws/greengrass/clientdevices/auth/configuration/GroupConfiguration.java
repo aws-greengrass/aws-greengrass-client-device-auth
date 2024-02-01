@@ -14,11 +14,9 @@ import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import lombok.Builder;
 import lombok.Value;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -107,9 +105,9 @@ public class GroupConfiguration {
         return permissions;
     }
 
-    private List<String> findPolicyVariables(String resource) {
+    private Set<String> findPolicyVariables(String resource) {
         Matcher matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
-        List<String> policyVariables = new ArrayList<>();
+        Set<String> policyVariables = new HashSet<>();
         while (matcher.find()) {
             String policyVariable = matcher.group(1);
             policyVariables.add(policyVariable);

@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import java.util.Collections;
-import java.util.List;
+import java.util.Set;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -38,7 +38,7 @@ public class PolicyVariableResolverTest {
     private Session mockSession;
     @Mock
     private WildcardSuffixAttribute wildcardSuffixAttribute;
-    private static final List<String> POLICY_VARIABLES = Collections.singletonList("${iot:Connection.Thing.ThingName}");
+    private static final Set<String> POLICY_VARIABLES = Collections.singleton("${iot:Connection.Thing.ThingName}");
 
     @BeforeEach
     void beforeEach() throws InvalidCertificateException {

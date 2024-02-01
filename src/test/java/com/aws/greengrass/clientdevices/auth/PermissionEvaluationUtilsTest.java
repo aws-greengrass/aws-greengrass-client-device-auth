@@ -24,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -39,8 +38,8 @@ class PermissionEvaluationUtilsTest {
     private static final String FAKE_CERT_ID = "FAKE_CERT_ID";
     private static final String THING_NAME = "b";
     private static final String SESSION_ID = "sessionId";
-    private static final List<String> THING_NAME_POLICY_VARIABLE = Collections.
-            singletonList("${iot:Connection.Thing.ThingName}");
+    private static final Set<String> THING_NAME_POLICY_VARIABLE = Collections.
+            singleton("${iot:Connection.Thing.ThingName}");
     private Certificate cert;
     private Thing thing;
     private Session session;

@@ -30,7 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.List;
+import java.util.Set;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -39,8 +39,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class DeviceAuthClientTest {
-    private static final List<String> THING_NAME_POLICY_VARIABLE = Collections
-            .singletonList("${iot:Connection.Thing.ThingName}");
+    private static final Set<String> THING_NAME_POLICY_VARIABLE = Collections
+            .singleton("${iot:Connection.Thing.ThingName}");
     private static final String SESSION_ID = "sessionId";
     private DeviceAuthClient authClient;
 

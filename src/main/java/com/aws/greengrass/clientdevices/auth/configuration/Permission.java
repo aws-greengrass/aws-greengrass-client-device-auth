@@ -12,7 +12,7 @@ import lombok.NonNull;
 import lombok.Value;
 
 import java.util.Collections;
-import java.util.List;
+import java.util.Set;
 
 @Value
 @Builder
@@ -24,7 +24,7 @@ public class Permission {
     @NonNull String resource;
 
     @Builder.Default
-    List<String> resourcePolicyVariables = Collections.emptyList();
+    Set<String> resourcePolicyVariables = Collections.emptySet();
 
     public String getResource(Session session) throws PolicyException {
         return PolicyVariableResolver.resolvePolicyVariables(resourcePolicyVariables, resource, session);

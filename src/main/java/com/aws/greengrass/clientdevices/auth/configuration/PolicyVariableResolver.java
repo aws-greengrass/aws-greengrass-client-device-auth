@@ -11,8 +11,8 @@ import com.aws.greengrass.util.Pair;
 import org.apache.commons.lang3.StringUtils;
 import software.amazon.awssdk.utils.ImmutableMap;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class PolicyVariableResolver {
     private static final String THING_NAMESPACE = "Thing";
@@ -36,7 +36,7 @@ public final class PolicyVariableResolver {
      * @return updated format
      * @throws PolicyException when unable to find a policy variable value
      */
-    public static String resolvePolicyVariables(List<String> policyVariables, String format, Session session)
+    public static String resolvePolicyVariables(Set<String> policyVariables, String format, Session session)
             throws PolicyException {
         if (policyVariables.isEmpty()) {
             return format;
