@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
-import com.aws.greengrass.clientdevices.auth.exception.AttributeProviderException;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.util.Pair;
 import org.apache.commons.lang3.StringUtils;
@@ -26,16 +26,18 @@ public final class PolicyVariableResolver {
     }
 
     /**
-     * Utility method to replace policy variables in the resource with device attributes.
+     * Utility method to replace policy variables in permissions with device attributes.
+     * Policy variables need to be validated when reading the policy document.
+     * This method does not handle unsupported policy variables.
      *
      * @param policyVariables list of policy variables in permission format
      * @param format permission format to resolve
      * @param session current device session
-     * @return updated resource
-     * @throws AttributeProviderException when unable to find a policy variable value
+     * @return updated format
+     * @throws PolicyException when unable to find a policy variable value
      */
     public static String resolvePolicyVariables(List<String> policyVariables, String format, Session session)
-            throws AttributeProviderException {
+            throws PolicyException {
         if (policyVariables.isEmpty()) {
             return format;
         }
@@ -45,7 +47,7 @@ public final class PolicyVariableResolver {
             String attributeName = policyVariableToAttributeProvider.get(policyVariable).getRight();
             String policyVariableValue = session.getSessionAttribute(attributeNamespace, attributeName).toString();
             if (policyVariableValue == null) {
-                throw new AttributeProviderException(
+                throw new PolicyException(
                         String.format("No attribute found for policy variable %s in current session", policyVariable));
             } else {
                 // StringUtils.replace() is faster than String.replace() since it does not use regex

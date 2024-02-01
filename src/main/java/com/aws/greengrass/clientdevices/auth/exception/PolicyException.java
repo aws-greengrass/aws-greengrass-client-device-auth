@@ -5,18 +5,18 @@
 
 package com.aws.greengrass.clientdevices.auth.exception;
 
-public class AttributeProviderException extends Exception {
+public class PolicyException extends Exception {
     private static final long serialVersionUID = -1L;
 
-    public AttributeProviderException(String message) {
+    public PolicyException(String message) {
         super(message);
     }
 
-    public AttributeProviderException(Throwable e) {
+    public PolicyException(Throwable e) {
         super(e);
     }
 
-    public AttributeProviderException(String message, Throwable e) {
+    public PolicyException(String message, Throwable e) {
         super(message, e);
     }
 }

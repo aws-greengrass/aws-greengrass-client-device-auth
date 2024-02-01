@@ -7,7 +7,7 @@ package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
-import com.aws.greengrass.clientdevices.auth.exception.AttributeProviderException;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
@@ -92,7 +92,7 @@ public final class PermissionEvaluationUtils {
                 }
                 try {
                     return compareResource(rsc, e.getResource(session));
-                } catch (AttributeProviderException er) {
+                } catch (PolicyException er) {
                     logger.atError().setCause(er).log(er.getMessage());
                     return false;
                 }

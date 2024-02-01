@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
-import com.aws.greengrass.clientdevices.auth.exception.AttributeProviderException;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import lombok.Builder;
 import lombok.NonNull;
@@ -26,7 +26,7 @@ public class Permission {
     @Builder.Default
     List<String> resourcePolicyVariables = Collections.emptyList();
 
-    public String getResource(Session session) throws AttributeProviderException {
+    public String getResource(Session session) throws PolicyException {
         return PolicyVariableResolver.resolvePolicyVariables(resourcePolicyVariables, resource, session);
     }
 }

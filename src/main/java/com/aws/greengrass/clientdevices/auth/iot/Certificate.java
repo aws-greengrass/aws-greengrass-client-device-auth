@@ -30,6 +30,7 @@ import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfig
 @Getter
 public class Certificate implements AttributeProvider {
     public static final String NAMESPACE = "Certificate";
+    private static final String CERTIFICATE_ID_ATTRIBUTE = "CertificateId";
     private static final AtomicInteger metadataTrustDurationMinutes =
             new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
 
@@ -130,7 +131,10 @@ public class Certificate implements AttributeProvider {
     @Override
     public DeviceAttribute getDeviceAttribute(String attributeName) {
         // TODO: Support other DeviceAttributes
-        return new StringLiteralAttribute(getCertificateId());
+        if (CERTIFICATE_ID_ATTRIBUTE.equals(attributeName)) {
+            return new StringLiteralAttribute(getCertificateId());
+        }
+        return null;
     }
 
     /**

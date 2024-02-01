@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
-import com.aws.greengrass.clientdevices.auth.exception.AttributeProviderException;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
@@ -51,7 +51,7 @@ public class PolicyVariableResolverTest {
 
     @Test
     void GIVEN_valid_resource_and_policy_variables_WHEN_resolve_policy_variables_THEN_return_updated_resource()
-            throws AttributeProviderException {
+            throws PolicyException {
         String resource = "msg/${iot:Connection.Thing.ThingName}/test";
         String expected = String.format("msg/%s/test", THING_NAME);
         String actual = PolicyVariableResolver.resolvePolicyVariables(POLICY_VARIABLES, resource, session);
@@ -60,7 +60,7 @@ public class PolicyVariableResolverTest {
 
     @Test
     void GIVEN_invalid_resource_and_policy_variables_WHEN_resolve_policy_variables_THEN_return_original_resource()
-            throws AttributeProviderException {
+            throws PolicyException {
         String resource = "msg/${iot:Connection.Thing/ThingName}/test";
         String expected = "msg/${iot:Connection.Thing/ThingName}/test";
         String actual = PolicyVariableResolver.resolvePolicyVariables(POLICY_VARIABLES, resource, session);
@@ -75,7 +75,8 @@ public class PolicyVariableResolverTest {
 
         when(wildcardSuffixAttribute.toString()).thenReturn(null);
 
-        assertThrows(AttributeProviderException.class, () -> PolicyVariableResolver.resolvePolicyVariables(POLICY_VARIABLES, resource,
+        assertThrows(
+                PolicyException.class, () -> PolicyVariableResolver.resolvePolicyVariables(POLICY_VARIABLES, resource,
                 mockSession));
     }
 
