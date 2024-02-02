@@ -6,13 +6,12 @@
 package com.aws.greengrass.clientdevices.auth.util;
 
 import com.aws.greengrass.authorization.AuthorizationHandler.ResourceLookupPolicy;
-import com.aws.greengrass.util.DefaultConcurrentHashMap;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Copied from nucleus with some customizations for performance
+ * Copied from nucleus with some customizations for performance.
  */
 public class WildcardTrie {
     protected static final String GLOB_WILDCARD = "*";
@@ -26,17 +25,24 @@ public class WildcardTrie {
     protected static final char singleLevelWildcardChar = MQTT_SINGLELEVEL_WILDCARD.charAt(0);
     protected static final char levelSeparatorChar = MQTT_LEVEL_SEPARATOR.charAt(0);
 
-
     private boolean isTerminal;
     private boolean isTerminalLevel;
     private boolean isWildcard;
     private boolean isMQTTWildcard;
     private boolean matchAll;
-    private final Map<String, WildcardTrie> children =
-            new DefaultConcurrentHashMap<>(WildcardTrie::new);
+    private final Map<String, WildcardTrie> children = new HashMap<>();
+
+    private void clear() {
+        isTerminal = false;
+        isTerminalLevel = false;
+        isWildcard = false;
+        isMQTTWildcard = false;
+        matchAll = false;
+        children.clear();
+    }
 
     public void set(String subject) {
-        children.clear();
+        clear();
         add(subject);
     }
 
@@ -54,27 +60,27 @@ public class WildcardTrie {
             return;
         }
         if (subject.equals(GLOB_WILDCARD)) {
-            WildcardTrie initial = this.children.get(GLOB_WILDCARD);
+            WildcardTrie initial = getOrInitializeChild(this, GLOB_WILDCARD);
             initial.matchAll = true;
             initial.isTerminal = true;
             initial.isWildcard = true;
             return;
         }
         if (subject.equals(MQTT_MULTILEVEL_WILDCARD)) {
-            WildcardTrie initial = this.children.get(MQTT_MULTILEVEL_WILDCARD);
+            WildcardTrie initial = getOrInitializeChild(this, MQTT_MULTILEVEL_WILDCARD);
             initial.matchAll = true;
             initial.isTerminal = true;
             initial.isMQTTWildcard = true;
             return;
         }
         if (subject.equals(MQTT_SINGLELEVEL_WILDCARD)) {
-            WildcardTrie initial = this.children.get(MQTT_SINGLELEVEL_WILDCARD);
+            WildcardTrie initial = getOrInitializeChild(this, MQTT_SINGLELEVEL_WILDCARD);
             initial.isTerminal = true;
             initial.isMQTTWildcard = true;
             return;
         }
         if (subject.startsWith(MQTT_SINGLELEVEL_WILDCARD + MQTT_LEVEL_SEPARATOR)) {
-            WildcardTrie initial = this.children.get(MQTT_SINGLELEVEL_WILDCARD);
+            WildcardTrie initial = getOrInitializeChild(this, MQTT_SINGLELEVEL_WILDCARD);
             initial.isMQTTWildcard = true;
             initial.add(subject.substring(1), true);
         }
@@ -97,7 +103,7 @@ public class WildcardTrie {
             // Also tag them wildcard if its a valid usage
             if (currentChar == wildcardChar) {
                 current = current.add(sb.toString(), false);
-                current = current.children.get(GLOB_WILDCARD);
+                current = getOrInitializeChild(current, GLOB_WILDCARD);
                 current.isWildcard = true;
                 // If the string ends with *, then the wildcard is a terminal
                 if (i == subjectLength - 1) {
@@ -108,7 +114,7 @@ public class WildcardTrie {
             }
             if (currentChar == multiLevelWildcardChar) {
                 WildcardTrie terminalLevel = current.add(sb.toString(), false);
-                current = terminalLevel.children.get(MQTT_MULTILEVEL_WILDCARD);
+                current = getOrInitializeChild(terminalLevel, MQTT_MULTILEVEL_WILDCARD);
                 if (i == subjectLength - 1) {
                     current.isTerminal = true;
                     // check if # wildcard usage is valid
@@ -123,7 +129,7 @@ public class WildcardTrie {
             }
             if (currentChar == singleLevelWildcardChar) {
                 current = current.add(sb.toString(), false);
-                current = current.children.get(MQTT_SINGLELEVEL_WILDCARD);
+                current = getOrInitializeChild(current, MQTT_SINGLELEVEL_WILDCARD);
                 if (i == subjectLength - 1) {
                     current.isTerminal = true;
                     // check if '+' wildcard usage is valid
@@ -152,7 +158,7 @@ public class WildcardTrie {
             sb.append(currentChar);
         }
         // Handle non-wildcard value
-        current = current.children.get(sb.toString());
+        current = getOrInitializeChild(current, sb.toString());
         current.isTerminal |= isTerminal;
         return current;
     }
@@ -330,5 +336,14 @@ public class WildcardTrie {
     public boolean matches(String str, ResourceLookupPolicy lookupPolicy) {
         return lookupPolicy == ResourceLookupPolicy.MQTT_STYLE ? matchesMQTT(str)
                 : matchesStandard(str);
+    }
+
+    private static WildcardTrie getOrInitializeChild(WildcardTrie trie, String key) {
+        WildcardTrie child = trie.children.get(key);
+        if (child == null) {
+            child = new WildcardTrie();
+            trie.children.put(key, child);
+        }
+        return child;
     }
 }
