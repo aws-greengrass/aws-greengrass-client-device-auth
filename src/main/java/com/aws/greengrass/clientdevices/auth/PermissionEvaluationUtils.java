@@ -5,11 +5,11 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
-import com.aws.greengrass.authorization.WildcardTrie;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
+import com.aws.greengrass.clientdevices.auth.util.WildcardTrie;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
@@ -36,6 +36,7 @@ public final class PermissionEvaluationUtils {
             "Resource is malformed, must be of the form: "
             + "([a-zA-Z]+):([a-zA-Z]+):" + RESOURCE_NAME_PATTERN.pattern();
 
+    private final WildcardTrie wildcardTrie = new WildcardTrie();
     private final GroupManager groupManager;
 
     /**
@@ -135,9 +136,8 @@ public final class PermissionEvaluationUtils {
             return true;
         }
 
-        WildcardTrie trie = new WildcardTrie();
-        trie.add(policyResource);
-        return trie.matchesStandard(requestResource.getResourceStr());
+        wildcardTrie.set(policyResource);
+        return wildcardTrie.matchesStandard(requestResource.getResourceStr());
     }
 
     private Operation parseOperation(String operationStr) throws PolicyException {
