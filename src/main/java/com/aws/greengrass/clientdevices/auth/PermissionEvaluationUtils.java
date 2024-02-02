@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
+import com.aws.greengrass.authorization.WildcardTrie;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
@@ -133,12 +134,10 @@ public final class PermissionEvaluationUtils {
         if (Objects.equals(requestResource.getResourceStr(), policyResource)) {
             return true;
         }
-        if (Objects.equals(
-                requestResource.getService() + DELIM + requestResource.getResourceType() + DELIM + WILDCARD,
-                policyResource)) {
-            return true;
-        }
-        return Objects.equals(WILDCARD, policyResource);
+
+        WildcardTrie trie = new WildcardTrie();
+        trie.add(policyResource);
+        return trie.matchesStandard(requestResource.getResourceStr());
     }
 
     private Operation parseOperation(String operationStr) throws PolicyException {
