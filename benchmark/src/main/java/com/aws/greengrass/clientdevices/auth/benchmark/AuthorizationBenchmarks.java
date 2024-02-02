@@ -46,7 +46,7 @@ public class AuthorizationBenchmarks {
     @State(Scope.Thread)
     public static class SimpleAuthRequest extends PolicyTestState {
 
-        final AuthorizationRequest basicRequest = AuthorizationRequest.builder()
+        final AuthorizationRequest request = AuthorizationRequest.builder()
                 .operation("mqtt:publish")
                 .resource("mqtt:topic:humidity")
                 .sessionId("sessionId")
@@ -58,7 +58,7 @@ public class AuthorizationBenchmarks {
             groupManager.setGroupConfiguration(GroupConfiguration.builder()
                     .definitions(Collections.singletonMap(
                             "group1", GroupDefinition.builder()
-                                    .selectionRule("thingName: " + "MyThingName")
+                                    .selectionRule("thingName: MyThingName")
                                     .policyName("policy1")
                                     .build()))
                     .policies(Collections.singletonMap(
@@ -76,7 +76,7 @@ public class AuthorizationBenchmarks {
     @State(Scope.Thread)
     public static class PolicyVariableAuthRequest extends PolicyTestState {
 
-        final AuthorizationRequest thingNameRequest = AuthorizationRequest.builder()
+        final AuthorizationRequest request = AuthorizationRequest.builder()
                 .operation("mqtt:publish")
                 .resource("mqtt:topic:MyThingName/humidity")
                 .sessionId("sessionId")
@@ -88,7 +88,7 @@ public class AuthorizationBenchmarks {
             groupManager.setGroupConfiguration(GroupConfiguration.builder()
                     .definitions(Collections.singletonMap(
                             "group1", GroupDefinition.builder()
-                                    .selectionRule("thingName: " + "MyThingName")
+                                    .selectionRule("thingName: MyThingName")
                                     .policyName("policy1")
                                     .build()))
                     .policies(Collections.singletonMap(
@@ -103,14 +103,49 @@ public class AuthorizationBenchmarks {
         }
     }
 
+    @State(Scope.Thread)
+    public static class WildcardAuthRequest extends PolicyTestState {
+
+        final AuthorizationRequest request = AuthorizationRequest.builder()
+                .operation("mqtt:publish")
+                .resource("mqtt:topic:a/b/c/d/e/f")
+                .sessionId("sessionId")
+                .build();
+
+        @Setup
+        public void doSetup() throws ParseException, AuthorizationException {
+            sessionManager.registerSession("sessionId", FakeSession.forDevice("MyThingName"));
+            groupManager.setGroupConfiguration(GroupConfiguration.builder()
+                    .definitions(Collections.singletonMap(
+                            "group1", GroupDefinition.builder()
+                                    .selectionRule("thingName: MyThingName")
+                                    .policyName("policy1")
+                                    .build()))
+                    .policies(Collections.singletonMap(
+                            "policy1", Collections.singletonMap(
+                                    "Statement1", AuthorizationPolicyStatement.builder()
+                                            .statementDescription("Policy description")
+                                            .effect(AuthorizationPolicyStatement.Effect.ALLOW)
+                                            .resources(new HashSet<>(Collections.singleton("mqtt:topic:*/*/*/*/*/*")))
+                                            .operations(new HashSet<>(Collections.singleton("mqtt:publish")))
+                                            .build())))
+                    .build());
+        }
+    }
+
     @Benchmark
     public boolean GIVEN_single_group_permission_WHEN_simple_auth_request_THEN_successful_auth(SimpleAuthRequest state) throws Exception {
-        return state.deviceAuthClient.canDevicePerform(state.basicRequest);
+        return state.deviceAuthClient.canDevicePerform(state.request);
     }
 
     @Benchmark
     public boolean GIVEN_policy_with_thing_name_variable_WHEN_auth_request_THEN_successful_auth(PolicyVariableAuthRequest state) throws Exception {
-        return state.deviceAuthClient.canDevicePerform(state.thingNameRequest);
+        return state.deviceAuthClient.canDevicePerform(state.request);
+    }
+
+    @Benchmark
+    public boolean GIVEN_policy_with_wildcards_WHEN_auth_request_THEN_successful_auth(WildcardAuthRequest state) throws Exception {
+        return state.deviceAuthClient.canDevicePerform(state.request);
     }
 
     static abstract class PolicyTestState {
