@@ -17,7 +17,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
-import com.aws.greengrass.clientdevices.auth.exception.InvalidPolicyException;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
@@ -217,7 +217,7 @@ class ClientDevicesAuthServiceTest {
     void GIVEN_group_has_no_policy_WHEN_start_service_THEN_no_configuration_update(ExtensionContext context)
             throws Exception {
         ignoreExceptionOfType(context, IllegalArgumentException.class);
-        ignoreExceptionOfType(context, InvalidPolicyException.class);
+        ignoreExceptionOfType(context, PolicyException.class);
 
         startNucleusWithConfig("noGroupPolicyConfig.yaml", State.RUNNING);
 

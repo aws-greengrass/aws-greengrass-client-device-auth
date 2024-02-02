@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
-import com.aws.greengrass.clientdevices.auth.exception.InvalidPolicyException;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
@@ -111,16 +111,16 @@ public class GroupConfiguration {
     /**
      * Validate the deviceGroups configuration.
      *
-     * @throws InvalidPolicyException if an invalid policy is detected
+     * @throws PolicyException if an invalid policy is detected
      */
-    public void validate() throws InvalidPolicyException {
+    public void validate() throws PolicyException {
         String missingPolicy = definitions.values().stream()
                 .map(GroupDefinition::getPolicyName)
                 .filter(policyName -> !policies.containsKey(policyName))
                 .findFirst()
                 .orElse(null);
         if (missingPolicy != null) {
-            throw new InvalidPolicyException(
+            throw new PolicyException(
                     String.format("Policy definition %s does not have a corresponding policy", missingPolicy));
         }
     }

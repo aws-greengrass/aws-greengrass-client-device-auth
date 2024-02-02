@@ -22,7 +22,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoCache;
-import com.aws.greengrass.clientdevices.auth.exception.InvalidPolicyException;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.metrics.MetricsEmitter;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
@@ -282,7 +282,7 @@ public class ClientDevicesAuthService extends PluginService {
 
         try {
             groupConfiguration.validate();
-        } catch (InvalidPolicyException e) {
+        } catch (PolicyException e) {
             logger.atError().cause(e)
                     .kv(KV_EVENT, whatHappened)
                     .kv(KV_NODE, deviceGroupsTopics.getFullName())
