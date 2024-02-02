@@ -8,11 +8,10 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 /**
  * Singleton manager class for managing device group roles and retrieving permissions associated with Sessions. To
@@ -37,21 +36,15 @@ public class GroupManager {
         if (config == null) {
             return Collections.emptyMap();
         }
-        Set<String> matchingGroups = findMatchingGroups(config.getDefinitions(), session);
-        return matchingGroups.stream()
-                .collect(Collectors.toMap(group -> group, group -> config.getGroupToPermissionsMap().get(group)));
-    }
-
-    private Set<String> findMatchingGroups(Map<String, GroupDefinition> groupDefinitionMap, Session session) {
-        Set<String> matchingGroups = new HashSet<>();
-
-        for (String groupName : groupDefinitionMap.keySet()) {
-            GroupDefinition group = groupDefinitionMap.get(groupName);
-            if (group.containsClientDevice(session)) {
-                matchingGroups.add(groupName);
+        Map<String, Set<Permission>> groupPermissions = new HashMap<>();
+        for (Map.Entry<String, GroupDefinition> entry : config.getDefinitions().entrySet()) {
+            if (entry.getValue().containsClientDevice(session)) {
+                Set<Permission> permissions = config.getGroupToPermissionsMap().get(entry.getKey());
+                if (permissions != null) {
+                    groupPermissions.put(entry.getKey(), permissions);
+                }
             }
         }
-
-        return matchingGroups;
+        return groupPermissions;
     }
 }

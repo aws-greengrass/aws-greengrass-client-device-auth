@@ -56,6 +56,7 @@ public final class PermissionEvaluationUtils {
      *
      * @return boolean indicating if the operation requested is authorized
      */
+    @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
     public boolean isAuthorized(AuthorizationRequest request, Session session) {
         Operation op = parseOperation(request.getOperation());
         Resource rsc = parseResource(request.getResource());
@@ -63,47 +64,45 @@ public final class PermissionEvaluationUtils {
         if (!rsc.getService().equals(op.getService())) {
             throw new IllegalArgumentException(
                     String.format("Operation %s service is not same as resource %s service", op, rsc));
-
         }
 
-        Map<String, Set<Permission>> groupToPermissionsMap = groupManager.getApplicablePolicyPermissions(session);
+        Map<String, Set<Permission>> groupPermissions = groupManager.getApplicablePolicyPermissions(session);
 
-        if (groupToPermissionsMap == null || groupToPermissionsMap.isEmpty()) {
+        if (groupPermissions == null || groupPermissions.isEmpty()) {
             logger.atDebug().kv("operation", request.getOperation()).kv("resource", request.getResource())
                     .log("No authorization group matches, " + "deny the request");
             return false;
         }
 
-        for (Map.Entry<String, Set<Permission>> entry : groupToPermissionsMap.entrySet()) {
+        for (Map.Entry<String, Set<Permission>> entry : groupPermissions.entrySet()) {
             String principal = entry.getKey();
-            Set<Permission> permissions = entry.getValue();
-            if (Utils.isEmpty(permissions)) {
-                continue;
-            }
 
             // Find the first matching permission since we don't support 'deny' operation yet.
             //TODO add support of 'deny' operation
-            Permission permission = permissions.stream().filter(e -> {
-                if (!comparePrincipal(principal, e.getPrincipal())) {
-                    return false;
+            for (Permission permission : entry.getValue()) {
+                if (!comparePrincipal(principal, permission.getPrincipal())) {
+                    continue;
                 }
-                if (!compareOperation(op, e.getOperation())) {
-                    return false;
+                if (!compareOperation(op, permission.getOperation())) {
+                    continue;
                 }
+
+                String resource;
                 try {
-                    return compareResource(rsc, e.getResource(session));
+                    resource = permission.getResource(session);
                 } catch (PolicyException er) {
                     logger.atError().setCause(er).log();
-                    return false;
+                    continue;
                 }
-            }).findFirst().orElse(null);
 
-            if (permission != null) {
+                if (!compareResource(rsc, resource)) {
+                    continue;
+                }
+
                 logger.atDebug().log("Hit policy with permission {}", permission);
                 return true;
             }
         }
-
         return false;
     }
 
@@ -158,7 +157,7 @@ public final class PermissionEvaluationUtils {
         }
 
         Matcher matcher = SERVICE_RESOURCE_PATTERN.matcher(resourceStr);
-        if (matcher.matches()) {
+        if (matcher.matches()) { // TODO
             return Resource.builder().resourceStr(resourceStr)
                     .service(matcher.group(1))
                     .resourceType(matcher.group(2))
