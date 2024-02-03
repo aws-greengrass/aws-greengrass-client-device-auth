@@ -14,9 +14,11 @@ import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
 import lombok.Builder;
 import lombok.Value;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.inject.Inject;
 
 public final class PermissionEvaluationUtils {
@@ -24,13 +26,15 @@ public final class PermissionEvaluationUtils {
     private static final String ANY_REGEX = "*";
     private static final String SERVICE_OPERATION_FORMAT = "%s:%s";
     private static final String SERVICE_RESOURCE_FORMAT = "%s:%s:%s";
+    private static final Pattern RESOURCE_NAME_PATTERN =
+            Pattern.compile("([\\w -\\/:-@\\[-\\`{-~]+)", Pattern.UNICODE_CHARACTER_CLASS);
+    private static final String EXCEPTION_MALFORMED_OPERATION =
+            "Operation is malformed, must be of the form: "
+            + "([a-zA-Z]+):([a-zA-Z0-9-_]+)";
+    private static final String EXCEPTION_MALFORMED_RESOURCE =
+            "Resource is malformed, must be of the form: "
+            + "([a-zA-Z]+):([a-zA-Z]+):(" + RESOURCE_NAME_PATTERN.pattern() + "+)";
 
-    private static final PolicyException EXCEPTION_MALFORMED_OPERATION =
-            new PolicyException("Operation is malformed, must be of the form: "
-                    + "([a-zA-Z]+):([a-zA-Z0-9-_]+)");
-    private static final PolicyException EXCEPTION_MALFORMED_RESOURCE =
-            new PolicyException("Resource is malformed, must be of the form: "
-                    + "([a-zA-Z]+):([a-zA-Z]+):([\\w -\\/:-@\\[-\\`{-~]+)");
     private final GroupManager groupManager;
 
     /**
@@ -146,8 +150,6 @@ public final class PermissionEvaluationUtils {
         return ANY_REGEX.equals(policyResource);
     }
 
-
-
     private Operation parseOperation(String operationStr) throws PolicyException {
         if (Utils.isEmpty(operationStr)) {
             throw new PolicyException("Operation can't be empty");
@@ -155,16 +157,17 @@ public final class PermissionEvaluationUtils {
 
         int split = operationStr.indexOf(':');
         if (split == -1) {
-            throw EXCEPTION_MALFORMED_OPERATION;
+            throw new PolicyException(EXCEPTION_MALFORMED_OPERATION);
         }
 
         String service = operationStr.substring(0, split);
+        if (service.isEmpty() || !StringUtils.isAlpha(service)) {
+            throw new PolicyException(EXCEPTION_MALFORMED_OPERATION);
+        }
+
         String action = operationStr.substring(split + 1);
-
-        // TODO validate chars
-
-        if (service.isEmpty() || action.isEmpty()) {
-            throw EXCEPTION_MALFORMED_OPERATION;
+        if (action.isEmpty() || !isAlphanumericWithExtraChars(action, "-_")) {
+            throw new PolicyException(EXCEPTION_MALFORMED_OPERATION);
         }
 
         return Operation.builder()
@@ -181,33 +184,35 @@ public final class PermissionEvaluationUtils {
 
         int split = resourceStr.indexOf(':');
         if (split == -1) {
-            throw EXCEPTION_MALFORMED_RESOURCE;
+            throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
         }
 
         String service = resourceStr.substring(0, split);
-
-        if (service.isEmpty()) {
-            throw EXCEPTION_MALFORMED_RESOURCE;
+        if (service.isEmpty() || !StringUtils.isAlpha(service)) {
+            throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
         }
-        // TODO validate chars
 
         String typeAndName = resourceStr.substring(split + 1);
         if (typeAndName.isEmpty()) {
-            throw EXCEPTION_MALFORMED_RESOURCE;
+            throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
         }
 
         split = typeAndName.indexOf(':');
         if (split == -1) {
-            throw EXCEPTION_MALFORMED_RESOURCE;
+            throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
         }
 
         String resourceType = typeAndName.substring(0, split);
+        if (resourceType.isEmpty() || !StringUtils.isAlpha(resourceType)) {
+            throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
+        }
+
         String resourceName = typeAndName.substring(split + 1);
 
-        if (resourceType.isEmpty() || resourceName.isEmpty()) {
-            throw EXCEPTION_MALFORMED_RESOURCE;
+        // still using regex because Pattern.UNICODE_CHARACTER_CLASS is complicated
+        if (!RESOURCE_NAME_PATTERN.matcher(resourceName).matches()) {
+            throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
         }
-        // TODO validate chars
 
         return Resource.builder()
                 .resourceStr(resourceStr)
@@ -215,6 +220,19 @@ public final class PermissionEvaluationUtils {
                 .resourceType(resourceType)
                 .resourceName(resourceName)
                 .build();
+    }
+
+    private static boolean isAlphanumericWithExtraChars(CharSequence cs, String extra) {
+        if (Utils.isEmpty(cs)) {
+            return false;
+        }
+        for (int i = 0; i < cs.length(); i++) {
+            char curr = cs.charAt(i);
+            if (!Character.isLetterOrDigit(curr) && extra.indexOf(curr) == -1) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Value
