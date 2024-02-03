@@ -17,25 +17,20 @@ import lombok.Value;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javax.inject.Inject;
 
 public final class PermissionEvaluationUtils {
     private static final Logger logger = LogManager.getLogger(PermissionEvaluationUtils.class);
     private static final String ANY_REGEX = "*";
-    private static final String SERVICE_PATTERN_STRING = "([a-zA-Z]+)";
-    private static final String SERVICE_OPERATION_PATTERN_STRING = "([a-zA-Z0-9-_]+)";
-    private static final String SERVICE_RESOURCE_TYPE_PATTERN_STRING = "([a-zA-Z]+)";
-    // Characters, digits, special chars, space (Allowed in MQTT topics)
-    private static final String SERVICE_RESOURCE_NAME_PATTERN_STRING = "([\\w -\\/:-@\\[-\\`{-~]+)";
     private static final String SERVICE_OPERATION_FORMAT = "%s:%s";
     private static final String SERVICE_RESOURCE_FORMAT = "%s:%s:%s";
-    private static final Pattern SERVICE_OPERATION_PATTERN = Pattern.compile(
-            String.format(SERVICE_OPERATION_FORMAT, SERVICE_PATTERN_STRING, SERVICE_OPERATION_PATTERN_STRING));
-    private static final Pattern SERVICE_RESOURCE_PATTERN = Pattern.compile(
-            String.format(SERVICE_RESOURCE_FORMAT, SERVICE_PATTERN_STRING, SERVICE_RESOURCE_TYPE_PATTERN_STRING,
-                    SERVICE_RESOURCE_NAME_PATTERN_STRING), Pattern.UNICODE_CHARACTER_CLASS);
+
+    private static final PolicyException EXCEPTION_MALFORMED_OPERATION =
+            new PolicyException("Operation is malformed, must be of the form: "
+                    + "([a-zA-Z]+):([a-zA-Z0-9-_]+)");
+    private static final PolicyException EXCEPTION_MALFORMED_RESOURCE =
+            new PolicyException("Resource is malformed, must be of the form: "
+                    + "([a-zA-Z]+):([a-zA-Z]+):([\\w -\\/:-@\\[-\\`{-~]+)");
     private final GroupManager groupManager;
 
     /**
@@ -58,8 +53,21 @@ public final class PermissionEvaluationUtils {
      */
     @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
     public boolean isAuthorized(AuthorizationRequest request, Session session) {
-        Operation op = parseOperation(request.getOperation());
-        Resource rsc = parseResource(request.getResource());
+        Operation op;
+        try {
+            op = parseOperation(request.getOperation());
+        } catch (PolicyException e) {
+            logger.atError().setCause(e).log();
+            return false;
+        }
+
+        Resource rsc;
+        try {
+            rsc = parseResource(request.getResource());
+        } catch (PolicyException e) {
+            logger.atError().setCause(e).log();
+            return false;
+        }
 
         if (!rsc.getService().equals(op.getService())) {
             throw new IllegalArgumentException(
@@ -118,6 +126,7 @@ public final class PermissionEvaluationUtils {
         if (requestOperation.getOperationStr().equals(policyOperation)) {
             return true;
         }
+        // TODO
         if (String.format(SERVICE_OPERATION_FORMAT, requestOperation.getService(), ANY_REGEX).equals(policyOperation)) {
             return true;
         }
@@ -137,36 +146,75 @@ public final class PermissionEvaluationUtils {
         return ANY_REGEX.equals(policyResource);
     }
 
-    private Operation parseOperation(String operationStr) {
+
+
+    private Operation parseOperation(String operationStr) throws PolicyException {
         if (Utils.isEmpty(operationStr)) {
-            throw new IllegalArgumentException("Operation can't be empty");
+            throw new PolicyException("Operation can't be empty");
         }
 
-        Matcher matcher = SERVICE_OPERATION_PATTERN.matcher(operationStr);
-        if (matcher.matches()) {
-            return Operation.builder().operationStr(operationStr).service(matcher.group(1)).action(matcher.group(2))
-                    .build();
+        int split = operationStr.indexOf(':');
+        if (split == -1) {
+            throw EXCEPTION_MALFORMED_OPERATION;
         }
-        throw new IllegalArgumentException(String.format("Operation %s is not in the form of %s", operationStr,
-                SERVICE_OPERATION_PATTERN.pattern()));
+
+        String service = operationStr.substring(0, split);
+        String action = operationStr.substring(split + 1);
+
+        // TODO validate chars
+
+        if (service.isEmpty() || action.isEmpty()) {
+            throw EXCEPTION_MALFORMED_OPERATION;
+        }
+
+        return Operation.builder()
+                .operationStr(operationStr)
+                .service(service)
+                .action(action)
+                .build();
     }
 
-    private Resource parseResource(String resourceStr) {
+    private Resource parseResource(String resourceStr) throws PolicyException  {
         if (Utils.isEmpty(resourceStr)) {
-            throw new IllegalArgumentException("Resource can't be empty");
+            throw new PolicyException("Resource can't be empty");
         }
 
-        Matcher matcher = SERVICE_RESOURCE_PATTERN.matcher(resourceStr);
-        if (matcher.matches()) { // TODO
-            return Resource.builder().resourceStr(resourceStr)
-                    .service(matcher.group(1))
-                    .resourceType(matcher.group(2))
-                    .resourceName(matcher.group(3))
-                    .build();
+        int split = resourceStr.indexOf(':');
+        if (split == -1) {
+            throw EXCEPTION_MALFORMED_RESOURCE;
         }
 
-        throw new IllegalArgumentException(
-                String.format("Resource %s is not in the form of %s", resourceStr, SERVICE_RESOURCE_PATTERN.pattern()));
+        String service = resourceStr.substring(0, split);
+
+        if (service.isEmpty()) {
+            throw EXCEPTION_MALFORMED_RESOURCE;
+        }
+        // TODO validate chars
+
+        String typeAndName = resourceStr.substring(split + 1);
+        if (typeAndName.isEmpty()) {
+            throw EXCEPTION_MALFORMED_RESOURCE;
+        }
+
+        split = typeAndName.indexOf(':');
+        if (split == -1) {
+            throw EXCEPTION_MALFORMED_RESOURCE;
+        }
+
+        String resourceType = typeAndName.substring(0, split);
+        String resourceName = typeAndName.substring(split + 1);
+
+        if (resourceType.isEmpty() || resourceName.isEmpty()) {
+            throw EXCEPTION_MALFORMED_RESOURCE;
+        }
+        // TODO validate chars
+
+        return Resource.builder()
+                .resourceStr(resourceStr)
+                .service(service)
+                .resourceType(resourceType)
+                .resourceName(resourceName)
+                .build();
     }
 
     @Value
