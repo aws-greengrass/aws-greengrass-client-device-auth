@@ -70,7 +70,7 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VER
 @ImplementsService(name = ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
-    private static final ObjectMapper MAPPER = SerializerFactory.getRecipeSerializerJson();
+    private static final ObjectMapper MAPPER = SerializerFactory.getConfigurationSerializerJson();
     private static final String KV_NODE = "node";
 
     // TODO: Move configuration related constants to appropriate configuration class
