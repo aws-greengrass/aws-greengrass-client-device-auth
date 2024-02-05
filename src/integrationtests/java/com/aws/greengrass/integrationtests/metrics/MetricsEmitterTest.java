@@ -89,6 +89,7 @@ import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssert
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
@@ -103,7 +104,7 @@ public class MetricsEmitterTest {
     Clock clock;
     Kernel kernel;
     DomainEvents domainEvents;
-    PeekFirstClientDeviceAuthMetrics clientDeviceAuthMetrics;
+    CollectOnceClientDeviceAuthMetrics clientDeviceAuthMetrics;
     SessionManager sessionManager;
     @Mock
     GreengrassServiceClientFactory clientFactory;
@@ -128,7 +129,7 @@ public class MetricsEmitterTest {
         //Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         clock = Clock.systemUTC();
-        clientDeviceAuthMetrics = spy(new PeekFirstClientDeviceAuthMetrics(clock));
+        clientDeviceAuthMetrics = spy(new CollectOnceClientDeviceAuthMetrics(clock));
         domainEvents = new DomainEvents();
         sessionManager = new SessionManager(domainEvents);
         kernel = new Kernel();
@@ -331,6 +332,8 @@ public class MetricsEmitterTest {
         // metrics are emitted periodically from when CDA started.
         // to avoid a race with the verification above, we simply wait for the first non-empty metrics to be emitted.
         assertTrue(eventuallyTrue(() -> clientDeviceAuthMetrics.getCollectedMetrics() != null));
+        // ensure that for a single expected metric, we only collected once
+        assertFalse(clientDeviceAuthMetrics.isExtraMetricsCollected());
 
         List<Metric> collectedMetrics = clientDeviceAuthMetrics.getCollectedMetrics();
         assertEquals(1, collectedMetrics.size());
@@ -342,22 +345,29 @@ public class MetricsEmitterTest {
     }
 
     /**
-     * Capture only the first metrics emitted by {@link ClientDeviceAuthMetrics}.
+     * {@link ClientDeviceAuthMetrics} where only the first (non-empty) metrics are collected.
      */
-    static class PeekFirstClientDeviceAuthMetrics extends ClientDeviceAuthMetrics {
+    static class CollectOnceClientDeviceAuthMetrics extends ClientDeviceAuthMetrics {
 
         @Getter
         List<Metric> collectedMetrics;
 
-        public PeekFirstClientDeviceAuthMetrics(Clock clock) {
+        @Getter
+        boolean extraMetricsCollected;
+
+        public CollectOnceClientDeviceAuthMetrics(Clock clock) {
             super(clock);
         }
 
         @Override
         public List<Metric> collectMetrics() {
             List<Metric> collectedMetrics = super.collectMetrics();
-            if (this.collectedMetrics == null && !collectedMetrics.isEmpty()) {
-                this.collectedMetrics = collectedMetrics;
+            if (!collectedMetrics.isEmpty()) {
+                if (this.collectedMetrics == null) {
+                    this.collectedMetrics = collectedMetrics;
+                } else {
+                    this.extraMetricsCollected = true;
+                }
             }
             return collectedMetrics;
         }
