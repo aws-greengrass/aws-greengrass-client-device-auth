@@ -186,7 +186,7 @@ public class ClientDevicesAuthService extends PluginService {
         if (whatHappened == WhatHappened.timestampUpdated || whatHappened == WhatHappened.interiorAdded) {
             return;
         }
-        logger.atDebug().kv("why", whatHappened).kv(KV_NODE, node).log();
+        logger.atTrace().kv("why", whatHappened).kv(KV_NODE, node).log();
         // NOTE: This should not live here. The service doesn't have to have knowledge about where/how
         // keys are stored
         Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
