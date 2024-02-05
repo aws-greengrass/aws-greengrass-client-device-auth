@@ -284,6 +284,11 @@ public class MetricsEmitterTest {
         Metric expectedMetric = buildMetric(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS);
         startNucleusWithConfig("metricsConfig.yaml");
 
+        //Reset the metric spy and capture the emitted metrics when the emitter runs
+        Mockito.reset(metricSpy);
+        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
+        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
+
         //Verify client device identity
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerSubscribingToCertUpdates")) {
@@ -294,11 +299,6 @@ public class MetricsEmitterTest {
 
             ipcClient.verifyClientDeviceIdentity(request, Optional.empty()).getResponse();
         }
-
-        //Reset the metric spy and capture the emitted metrics when the emitter runs
-        Mockito.reset(metricSpy);
-        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
-        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
 
         //Wait for the emitter to run
         Mockito.verify(metricSpy, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
