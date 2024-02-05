@@ -328,7 +328,9 @@ public class MetricsEmitterTest {
     }
 
     private void assertMetricEmitted(Metric metric) throws InterruptedException {
-        verify(clientDeviceAuthMetrics, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
+        // let the emitter run multiple times,
+        // allows us to verify later that extra metrics weren't emitted
+        verify(clientDeviceAuthMetrics, Mockito.timeout(3000L).atLeast(2)).emitMetrics();
         // metrics are emitted periodically from when CDA started.
         // to avoid a race with the verification above, we simply wait for the first non-empty metrics to be emitted.
         assertTrue(eventuallyTrue(() -> clientDeviceAuthMetrics.getCollectedMetrics() != null));
