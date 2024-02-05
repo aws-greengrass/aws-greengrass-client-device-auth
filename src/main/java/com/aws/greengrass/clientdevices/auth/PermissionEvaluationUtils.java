@@ -58,15 +58,9 @@ public final class PermissionEvaluationUtils {
     @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
     public boolean isAuthorized(AuthorizationRequest request, Session session) {
         Operation op;
-        try {
-            op = parseOperation(request.getOperation());
-        } catch (PolicyException e) {
-            logger.atError().setCause(e).log();
-            return false;
-        }
-
         Resource rsc;
         try {
+            op = parseOperation(request.getOperation());
             rsc = parseResource(request.getResource());
         } catch (PolicyException e) {
             logger.atError().setCause(e).log();
