@@ -40,9 +40,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.exceptions.verification.TooManyActualInvocations;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.stubbing.Answer;
 import software.amazon.awssdk.aws.greengrass.AuthorizeClientDeviceActionResponseHandler;
 import software.amazon.awssdk.aws.greengrass.GetClientDeviceAuthTokenResponseHandler;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCClient;
@@ -76,6 +74,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import static com.aws.greengrass.clientdevices.auth.helpers.TestHelpers.eventuallyTrue;
 import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
         .METRIC_GET_CLIENT_DEVICE_AUTH_TOKEN_SUCCESS;
 import static com.aws.greengrass.clientdevices.auth.metrics.ClientDeviceAuthMetrics
@@ -90,46 +89,35 @@ import static com.aws.greengrass.testcommons.testutilities.TestUtils.asyncAssert
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 public class MetricsEmitterTest {
     private static final long TEST_TIME_OUT_SEC = 10L;
-    private Clock clock;
-    private Kernel kernel;
-    private DomainEvents domainEvents;
-    private ClientDeviceAuthMetrics metricSpy;
-    private SessionManager sessionManager;
+    Clock clock;
+    Kernel kernel;
+    DomainEvents domainEvents;
+    PeekFirstClientDeviceAuthMetrics clientDeviceAuthMetrics;
+    SessionManager sessionManager;
     @Mock
-    private GreengrassServiceClientFactory clientFactory;
+    GreengrassServiceClientFactory clientFactory;
     @Mock
-    private GreengrassV2DataClient client;
+    GreengrassV2DataClient client;
     @Mock
-    private DeviceAuthClient deviceAuthClient;
+    DeviceAuthClient deviceAuthClient;
     @Mock
-    private SessionConfig sessionConfig;
+    SessionConfig sessionConfig;
     @Mock
-    private CreateIoTThingSession createIoTThingSession;
+    CreateIoTThingSession createIoTThingSession;
 
     @TempDir
     Path rootDir;
-
-    //Result captor class created to save and verify the results of scheduled emitting calls
-    private static class ResultCaptor<T> implements Answer {
-        @Getter
-        private T result = null;
-
-        @Override
-        public T answer(InvocationOnMock invocationOnMock) throws Throwable {
-            result = (T) invocationOnMock.callRealMethod();
-            return result;
-        }
-    }
 
     @BeforeEach
     void beforeEach(ExtensionContext context) throws DeviceConfigurationException {
@@ -140,13 +128,13 @@ public class MetricsEmitterTest {
         //Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         clock = Clock.systemUTC();
-        metricSpy = spy(new ClientDeviceAuthMetrics(clock));
+        clientDeviceAuthMetrics = spy(new PeekFirstClientDeviceAuthMetrics(clock));
         domainEvents = new DomainEvents();
         sessionManager = new SessionManager(domainEvents);
         kernel = new Kernel();
         kernel.getContext().put(DomainEvents.class, domainEvents);
         kernel.getContext().put(Clock.class, clock);
-        kernel.getContext().put(ClientDeviceAuthMetrics.class, metricSpy);
+        kernel.getContext().put(ClientDeviceAuthMetrics.class, clientDeviceAuthMetrics);
         kernel.getContext().put(CreateIoTThingSession.class, createIoTThingSession);
         kernel.getContext().put(GreengrassServiceClientFactory.class, clientFactory);
         kernel.getContext().put(SessionManager.class, sessionManager);
@@ -239,7 +227,7 @@ public class MetricsEmitterTest {
 
         Metric expectedMetric = buildMetric(METRIC_SUBSCRIBE_TO_CERTIFICATE_UPDATES_SUCCESS);
 
-        //Subscribe to certificate updates
+        // subscribe to certificate updates
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerSubscribingToCertUpdates")) {
             GreengrassCoreIPCClient ipcClient = new GreengrassCoreIPCClient(connection);
@@ -248,21 +236,7 @@ public class MetricsEmitterTest {
             subscribeToCertUpdates(ipcClient, request, cb.getRight());
         }
 
-        //Reset the metric spy and capture the emitted metrics when the emitter runs
-        Mockito.reset(metricSpy);
-        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
-        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
-
-        //Wait for the emitter to run
-        Mockito.verify(metricSpy, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
-
-        List<Metric> collectedMetrics = resultMetrics.getResult();
-        assertEquals(1, collectedMetrics.size());
-        assertEquals(expectedMetric.getName(), collectedMetrics.get(0).getName());
-        assertEquals(expectedMetric.getUnit(), collectedMetrics.get(0).getUnit());
-        assertEquals(expectedMetric.getValue(), collectedMetrics.get(0).getValue());
-        assertEquals(expectedMetric.getNamespace(), collectedMetrics.get(0).getNamespace());
-        assertEquals(expectedMetric.getAggregation(), collectedMetrics.get(0).getAggregation());
+        assertMetricEmitted(expectedMetric);
     }
 
     @Test
@@ -284,11 +258,6 @@ public class MetricsEmitterTest {
         Metric expectedMetric = buildMetric(METRIC_VERIFY_CLIENT_DEVICE_IDENTITY_SUCCESS);
         startNucleusWithConfig("metricsConfig.yaml");
 
-        //Reset the metric spy and capture the emitted metrics when the emitter runs
-        Mockito.reset(metricSpy);
-        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
-        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
-
         //Verify client device identity
         try (EventStreamRPCConnection connection = IPCTestUtils.getEventStreamRpcConnection(kernel,
                 "BrokerSubscribingToCertUpdates")) {
@@ -300,16 +269,7 @@ public class MetricsEmitterTest {
             ipcClient.verifyClientDeviceIdentity(request, Optional.empty()).getResponse();
         }
 
-        //Wait for the emitter to run
-        Mockito.verify(metricSpy, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
-
-        List<Metric> collectedMetrics = resultMetrics.getResult();
-        assertEquals(1, collectedMetrics.size());
-        assertEquals(expectedMetric.getName(), collectedMetrics.get(0).getName());
-        assertEquals(expectedMetric.getUnit(), collectedMetrics.get(0).getUnit());
-        assertEquals(expectedMetric.getValue(), collectedMetrics.get(0).getValue());
-        assertEquals(expectedMetric.getNamespace(), collectedMetrics.get(0).getNamespace());
-        assertEquals(expectedMetric.getAggregation(), collectedMetrics.get(0).getAggregation());
+        assertMetricEmitted(expectedMetric);
     }
 
     @Test
@@ -337,21 +297,7 @@ public class MetricsEmitterTest {
             authzClientDeviceAction(ipcClient, request, cb.getRight());
         }
 
-        //Reset the metric spy and capture the emitted metrics when the emitter runs
-        Mockito.reset(metricSpy);
-        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
-        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
-
-        //Wait for the emitter to run
-        Mockito.verify(metricSpy, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
-
-        List<Metric> collectedMetrics = resultMetrics.getResult();
-        assertEquals(1, collectedMetrics.size());
-        assertEquals(expectedMetric.getName(), collectedMetrics.get(0).getName());
-        assertEquals(expectedMetric.getUnit(), collectedMetrics.get(0).getUnit());
-        assertEquals(expectedMetric.getValue(), collectedMetrics.get(0).getValue());
-        assertEquals(expectedMetric.getNamespace(), collectedMetrics.get(0).getNamespace());
-        assertEquals(expectedMetric.getAggregation(), collectedMetrics.get(0).getAggregation());
+        assertMetricEmitted(expectedMetric);
     }
 
     @Test
@@ -377,20 +323,43 @@ public class MetricsEmitterTest {
             clientDeviceAuthToken(ipcClient, request, cb.getRight());
         }
 
-        //Reset the metric spy and capture the emitted metrics when the emitter runs
-        Mockito.reset(metricSpy);
-        ResultCaptor<List<Metric>> resultMetrics = new ResultCaptor<>();
-        doAnswer(resultMetrics).when(metricSpy).collectMetrics();
+        assertMetricEmitted(expectedMetric);
+    }
 
-        //Wait for the emitter to run
-        Mockito.verify(metricSpy, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
+    private void assertMetricEmitted(Metric metric) throws InterruptedException {
+        verify(clientDeviceAuthMetrics, Mockito.timeout(2000L).atLeastOnce()).emitMetrics();
+        // metrics are emitted periodically from when CDA started.
+        // to avoid a race with the verification above, we simply wait for the first non-empty metrics to be emitted.
+        assertTrue(eventuallyTrue(() -> clientDeviceAuthMetrics.getCollectedMetrics() != null));
 
-        List<Metric> collectedMetrics = resultMetrics.getResult();
+        List<Metric> collectedMetrics = clientDeviceAuthMetrics.getCollectedMetrics();
         assertEquals(1, collectedMetrics.size());
-        assertEquals(expectedMetric.getName(), collectedMetrics.get(0).getName());
-        assertEquals(expectedMetric.getUnit(), collectedMetrics.get(0).getUnit());
-        assertEquals(expectedMetric.getValue(), collectedMetrics.get(0).getValue());
-        assertEquals(expectedMetric.getNamespace(), collectedMetrics.get(0).getNamespace());
-        assertEquals(expectedMetric.getAggregation(), collectedMetrics.get(0).getAggregation());
+        assertEquals(metric.getName(), collectedMetrics.get(0).getName());
+        assertEquals(metric.getUnit(), collectedMetrics.get(0).getUnit());
+        assertEquals(metric.getValue(), collectedMetrics.get(0).getValue());
+        assertEquals(metric.getNamespace(), collectedMetrics.get(0).getNamespace());
+        assertEquals(metric.getAggregation(), collectedMetrics.get(0).getAggregation());
+    }
+
+    /**
+     * Capture only the first metrics emitted by {@link ClientDeviceAuthMetrics}.
+     */
+    static class PeekFirstClientDeviceAuthMetrics extends ClientDeviceAuthMetrics {
+
+        @Getter
+        List<Metric> collectedMetrics;
+
+        public PeekFirstClientDeviceAuthMetrics(Clock clock) {
+            super(clock);
+        }
+
+        @Override
+        public List<Metric> collectMetrics() {
+            List<Metric> collectedMetrics = super.collectMetrics();
+            if (this.collectedMetrics == null && !collectedMetrics.isEmpty()) {
+                this.collectedMetrics = collectedMetrics;
+            }
+            return collectedMetrics;
+        }
     }
 }
