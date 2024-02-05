@@ -17,15 +17,15 @@ import lombok.Value;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 
 public final class PermissionEvaluationUtils {
     private static final Logger logger = LogManager.getLogger(PermissionEvaluationUtils.class);
-    private static final String ANY_REGEX = "*";
-    private static final String SERVICE_OPERATION_FORMAT = "%s:%s";
-    private static final String SERVICE_RESOURCE_FORMAT = "%s:%s:%s";
+    private static final String WILDCARD = "*";
+    private static final String DELIM = ":";
     private static final Pattern RESOURCE_NAME_PATTERN =
             Pattern.compile("([\\w -\\/:-@\\[-\\`{-~]+)", Pattern.UNICODE_CHARACTER_CLASS);
     private static final String EXCEPTION_MALFORMED_OPERATION =
@@ -113,35 +113,32 @@ public final class PermissionEvaluationUtils {
     }
 
     private boolean comparePrincipal(String requestPrincipal, String policyPrincipal) {
-        if (requestPrincipal.equals(policyPrincipal)) {
+        if (Objects.equals(requestPrincipal, policyPrincipal)) {
             return true;
         }
-
-        return ANY_REGEX.equals(policyPrincipal);
+        return Objects.equals(WILDCARD, policyPrincipal);
     }
 
     private boolean compareOperation(Operation requestOperation, String policyOperation) {
-        if (requestOperation.getOperationStr().equals(policyOperation)) {
+        if (Objects.equals(requestOperation.getOperationStr(), policyOperation)) {
             return true;
         }
-        // TODO
-        if (String.format(SERVICE_OPERATION_FORMAT, requestOperation.getService(), ANY_REGEX).equals(policyOperation)) {
+        if (Objects.equals(requestOperation.getService() + DELIM + WILDCARD, policyOperation)) {
             return true;
         }
-        return ANY_REGEX.equals(policyOperation);
+        return Objects.equals(WILDCARD, policyOperation);
     }
 
     private boolean compareResource(Resource requestResource, String policyResource) {
-        if (requestResource.getResourceStr().equals(policyResource)) {
+        if (Objects.equals(requestResource.getResourceStr(), policyResource)) {
             return true;
         }
-
-        if (String.format(SERVICE_RESOURCE_FORMAT, requestResource.getService(), requestResource.getResourceType(),
-                ANY_REGEX).equals(policyResource)) {
+        if (Objects.equals(
+                requestResource.getService() + DELIM + requestResource.getResourceType() + DELIM + WILDCARD,
+                policyResource)) {
             return true;
         }
-
-        return ANY_REGEX.equals(policyResource);
+        return Objects.equals(WILDCARD, policyResource);
     }
 
     private Operation parseOperation(String operationStr) throws PolicyException {
