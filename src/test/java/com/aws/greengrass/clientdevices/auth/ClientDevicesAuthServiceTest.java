@@ -171,7 +171,7 @@ class ClientDevicesAuthServiceTest {
         ignoreExceptionOfType(context, IllegalArgumentException.class);
         ignoreExceptionOfType(context, UnrecognizedPropertyException.class);
 
-        startNucleusWithConfig("badGroupConfig.yaml", State.RUNNING);
+        startNucleusWithConfig("badGroupConfig.yaml", State.ERRORED);
         verify(groupManager, never()).setGroupConfiguration(any());
     }
 
@@ -219,7 +219,7 @@ class ClientDevicesAuthServiceTest {
         ignoreExceptionOfType(context, IllegalArgumentException.class);
         ignoreExceptionOfType(context, PolicyException.class);
 
-        startNucleusWithConfig("noGroupPolicyConfig.yaml", State.RUNNING);
+        startNucleusWithConfig("noGroupPolicyConfig.yaml", State.ERRORED);
 
         verify(groupManager, never()).setGroupConfiguration(any());
     }

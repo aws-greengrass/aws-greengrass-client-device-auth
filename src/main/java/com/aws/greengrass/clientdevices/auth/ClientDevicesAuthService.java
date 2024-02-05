@@ -74,12 +74,7 @@ public class ClientDevicesAuthService extends PluginService {
     private static final ObjectMapper MAPPER = JsonMapper.builder()
             .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
             .build();
-    private static final String KV_EVENT = "event";
     private static final String KV_NODE = "node";
-    private static final String ERROR_MSG_INVALID_DEVICE_GROUPS = "Requested policy changes are invalid. "
-            + "The existing policy will remain in effect. "
-            + "If there is no existing policy, a DENY ALL one will be used by default. "
-            + "Please fix the \"deviceGroups\" configuration and redeploy";
 
     // TODO: Move configuration related constants to appropriate configuration class
     public static final String DEVICE_GROUPS_TOPICS = "deviceGroups";
@@ -213,7 +208,7 @@ public class ClientDevicesAuthService extends PluginService {
         }
 
         if (whatHappened == WhatHappened.initialized || node == null || node.childOf(DEVICE_GROUPS_TOPICS)) {
-            updateDeviceGroups(whatHappened, deviceGroupTopics);
+            updateDeviceGroups(deviceGroupTopics);
         }
 
         onConfigurationChanged();
@@ -267,26 +262,20 @@ public class ClientDevicesAuthService extends PluginService {
         return context.get(CertificateManager.class);
     }
 
-    private void updateDeviceGroups(WhatHappened whatHappened, Topics deviceGroupsTopics) {
+    private void updateDeviceGroups(Topics deviceGroupsTopics) {
         GroupConfiguration groupConfiguration;
 
         try {
             groupConfiguration = MAPPER.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class);
         } catch (IllegalArgumentException e) {
-            logger.atError().setCause(e)
-                    .kv(KV_EVENT, whatHappened)
-                    .kv(KV_NODE, deviceGroupsTopics.getFullName())
-                    .log(ERROR_MSG_INVALID_DEVICE_GROUPS);
+            serviceErrored(e);
             return;
         }
 
         try {
             groupConfiguration.validate();
         } catch (PolicyException e) {
-            logger.atError().cause(e)
-                    .kv(KV_EVENT, whatHappened)
-                    .kv(KV_NODE, deviceGroupsTopics.getFullName())
-                    .log(ERROR_MSG_INVALID_DEVICE_GROUPS);
+            serviceErrored(e);
             return;
         }
 
