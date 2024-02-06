@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.exception;
 
-public class PolicyException extends Exception {
+public class PolicyException extends AuthorizationException {
     private static final long serialVersionUID = -1L;
 
     public PolicyException(String message) {

@@ -18,6 +18,10 @@ import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -26,9 +30,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
+import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -127,6 +134,57 @@ class PermissionEvaluationUtilsTest {
         assertThat(policyVariablePermission.getResource(session).equals(policyVariablePermission.getResource()), is(false));
         assertThat(policyVariablePermission.getResource(session).equals(permission.getResource()), is(false));
         assertThat(policyVariablePermission.getResource(session).equals(expectedPermission.getResource()), is(true));
+    }
+
+    public static Stream<Arguments> invalidAuthRequests() {
+        return Stream.of( // operation, resource
+
+                // bad resources
+                Arguments.of("mqtt:publish", ""),
+                Arguments.of("mqtt:publish", ":"),
+                Arguments.of("mqtt:publish", "::"),
+                Arguments.of("mqtt:publish", "mqtt:topic:"),
+                Arguments.of("mqtt:publish", "mqtt::myTopic"),
+                Arguments.of("mqtt:publish", ":topic:myTopic"),
+                Arguments.of("mqtt:publish", "mqtt::"),
+                Arguments.of("mqtt:publish", "mqtt:"),
+                Arguments.of("mqtt:publish", "mqtt: "),
+                Arguments.of("mqtt:publish", ":topic:"),
+                Arguments.of("mqtt:publish", "::myTopic"),
+                Arguments.of("mqtt:publish", "mqtt:topic"),
+                Arguments.of("mqtt:publish", "mqtt"),
+                Arguments.of("mqtt:publish", "mqtt:topic:myTopic:"),
+                Arguments.of("mqtt:publish", "mqtt::topic:myTopic"),
+                Arguments.of("mqtt:publish", "mqtt:topic::myTopic"),
+                Arguments.of("mqtt:publish", ":mqtt:topic:myTopic"),
+                Arguments.of("mqtt:publish", " :topic:myTopic"),
+                Arguments.of("mqtt:publish", "mqtt: :myTopic"),
+
+                // bad operations
+                Arguments.of("", "mqtt:topic:myTopic"),
+                Arguments.of(":", "mqtt:topic:myTopic"),
+                Arguments.of("mqtt", "mqtt:topic:myTopic"),
+                Arguments.of("mqtt:", "mqtt:topic:myTopic"),
+                Arguments.of("mqtt: ", "mqtt:topic:myTopic"),
+                Arguments.of(":publish", "mqtt:topic:myTopic"),
+                Arguments.of(" :publish", "mqtt:topic:myTopic"),
+                Arguments.of("mqtt:publish:", "mqtt:topic:myTopic"),
+                Arguments.of("mqtt::publish", "mqtt:topic:myTopic"),
+                Arguments.of(":mqtt:publish", "mqtt:topic:myTopic")
+        );
+    }
+
+    @MethodSource("invalidAuthRequests")
+    @ParameterizedTest
+    void GIVEN_invalid_auth_request_WHEN_authN_performed_THEN_exception_thrown(String operation, String resource, ExtensionContext context) {
+        ignoreExceptionOfType(context, PolicyException.class);
+        assertFalse(permissionEvaluationUtils.isAuthorized(
+                AuthorizationRequest.builder()
+                        .sessionId(SESSION_ID)
+                        .operation(operation)
+                        .resource(resource)
+                        .build(),
+                session));
     }
 
     @Test

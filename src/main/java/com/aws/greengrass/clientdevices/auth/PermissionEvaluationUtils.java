@@ -13,7 +13,6 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
 import lombok.Builder;
-import lombok.NonNull;
 import lombok.Value;
 import org.apache.commons.lang3.StringUtils;
 
@@ -148,16 +147,16 @@ public final class PermissionEvaluationUtils {
         }
 
         int split = operationStr.indexOf(':');
-        if (split == -1) {
+        if (split == -1 || split == operationStr.length() - 1) {
             throw new PolicyException(EXCEPTION_MALFORMED_OPERATION);
         }
 
-        String service = safeSubstring(operationStr, 0, split);
+        String service = operationStr.substring(0, split);
         if (service.isEmpty() || !StringUtils.isAlpha(service)) {
             throw new PolicyException(EXCEPTION_MALFORMED_OPERATION);
         }
 
-        String action = safeSubstring(operationStr, split + 1);
+        String action = operationStr.substring(split + 1);
         if (action.isEmpty() || !isAlphanumericWithExtraChars(action, "-_")) {
             throw new PolicyException(EXCEPTION_MALFORMED_OPERATION);
         }
@@ -175,32 +174,27 @@ public final class PermissionEvaluationUtils {
         }
 
         int split = resourceStr.indexOf(':');
-        if (split == -1) {
+        if (split == -1 || split == resourceStr.length() - 1) {
             throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
         }
 
-        String service = safeSubstring(resourceStr, 0, split);
+        String service = resourceStr.substring(0, split);
         if (service.isEmpty() || !StringUtils.isAlpha(service)) {
             throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
         }
 
-        String typeAndName = safeSubstring(resourceStr, split + 1);
-        if (typeAndName.isEmpty()) {
-            throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
-        }
-
+        String typeAndName = resourceStr.substring(split + 1);
         split = typeAndName.indexOf(':');
-        if (split == -1) {
+        if (split == -1 || split == resourceStr.length() - 1) {
             throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
         }
 
-        String resourceType = safeSubstring(typeAndName, 0, split);
+        String resourceType = typeAndName.substring(0, split);
         if (resourceType.isEmpty() || !StringUtils.isAlpha(resourceType)) {
             throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
         }
 
-        String resourceName = safeSubstring(typeAndName, split + 1);
-
+        String resourceName = typeAndName.substring(split + 1); // TODO
         // still using regex because Pattern.UNICODE_CHARACTER_CLASS is complicated
         if (!RESOURCE_NAME_PATTERN.matcher(resourceName).matches()) {
             throw new PolicyException(EXCEPTION_MALFORMED_RESOURCE);
@@ -225,29 +219,6 @@ public final class PermissionEvaluationUtils {
             }
         }
         return true;
-    }
-
-    /**
-     * Like {@link String#substring(int, int)}, except rather than throwing, start/end
-     * indexes will be clamped to the string's length.
-     * <ul>
-     * <li>safeSubstring("a", 0, 0) -> ""</li>
-     * <li>safeSubstring("a", 0, 1) -> "a"</li>
-     * <li>safeSubstring("a", 0, 10) -> "a"</li>
-     * <li>safeSubstring("a", 1, 10) -> ""</li>
-     * </ul>
-     *
-     * @param str   input string
-     * @param start substring start, inclusive. must be greater than zero.
-     * @param end   substring end,
-     * @return substring
-     */
-    private static String safeSubstring(@NonNull String str, int start, int end) {
-        return str.substring(Math.min(start, str.length()), Math.min(end, str.length()));
-    }
-
-    private static String safeSubstring(@NonNull String str, int start) {
-        return safeSubstring(str, start, str.length());
     }
 
     @Value
