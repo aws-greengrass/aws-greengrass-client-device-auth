@@ -29,7 +29,6 @@ import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsMapContaining;
 import org.hamcrest.collection.IsMapWithSize;
@@ -166,13 +165,12 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_bad_group_configuration_WHEN_start_service_THEN_service_in_error_state(ExtensionContext context)
-            throws Exception {
-        ignoreExceptionOfType(context, IllegalArgumentException.class);
-        ignoreExceptionOfType(context, UnrecognizedPropertyException.class);
-
-        startNucleusWithConfig("badGroupConfig.yaml", State.ERRORED);
-        verify(groupManager, never()).setGroupConfiguration(any());
+    void GIVEN_empty_group_with_unknown_property_WHEN_start_service_THEN_empty_group_created() throws Exception {
+        startNucleusWithConfig("groupConfigWithUnknownProperty.yaml", State.RUNNING);
+        verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
+        GroupConfiguration groupConfiguration = configurationCaptor.getValue();
+        assertThat(groupConfiguration.getDefinitions(), IsMapWithSize.anEmptyMap());
+        assertThat(groupConfiguration.getPolicies(), IsMapWithSize.anEmptyMap());
     }
 
     @Test
