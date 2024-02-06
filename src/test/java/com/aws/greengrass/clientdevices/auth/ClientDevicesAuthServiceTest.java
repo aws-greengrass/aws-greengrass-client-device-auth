@@ -16,8 +16,8 @@ import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
-import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionException;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.exception.UseCaseException;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topic;
@@ -29,7 +29,6 @@ import com.aws.greengrass.lifecyclemanager.exceptions.ServiceLoadException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.GreengrassServiceClientFactory;
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.hamcrest.collection.IsMapContaining;
 import org.hamcrest.collection.IsMapWithSize;
@@ -166,14 +165,12 @@ class ClientDevicesAuthServiceTest {
     }
 
     @Test
-    void GIVEN_bad_group_configuration_WHEN_start_service_THEN_service_in_error_state(ExtensionContext context)
-            throws Exception {
-        ignoreExceptionOfType(context, IllegalArgumentException.class);
-        ignoreExceptionOfType(context, UnrecognizedPropertyException.class);
-
-        startNucleusWithConfig("badGroupConfig.yaml", State.ERRORED);
-
-        verify(groupManager, never()).setGroupConfiguration(any());
+    void GIVEN_empty_group_with_unknown_property_WHEN_start_service_THEN_empty_group_created() throws Exception {
+        startNucleusWithConfig("groupConfigWithUnknownProperty.yaml", State.RUNNING);
+        verify(groupManager).setGroupConfiguration(configurationCaptor.capture());
+        GroupConfiguration groupConfiguration = configurationCaptor.getValue();
+        assertThat(groupConfiguration.getDefinitions(), IsMapWithSize.anEmptyMap());
+        assertThat(groupConfiguration.getPolicies(), IsMapWithSize.anEmptyMap());
     }
 
     @Test
@@ -218,7 +215,7 @@ class ClientDevicesAuthServiceTest {
     void GIVEN_group_has_no_policy_WHEN_start_service_THEN_no_configuration_update(ExtensionContext context)
             throws Exception {
         ignoreExceptionOfType(context, IllegalArgumentException.class);
-        ignoreExceptionOfType(context, AuthorizationException.class);
+        ignoreExceptionOfType(context, PolicyException.class);
 
         startNucleusWithConfig("noGroupPolicyConfig.yaml", State.ERRORED);
 

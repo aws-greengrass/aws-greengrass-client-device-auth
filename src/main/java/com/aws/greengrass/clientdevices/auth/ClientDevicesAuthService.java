@@ -5,7 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
+import com.amazon.aws.iot.greengrass.component.common.SerializerFactory;
 import com.aws.greengrass.authorization.AuthorizationHandler;
+import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.api.UseCases;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificatesConfig;
@@ -21,6 +23,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.MetricsConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoCache;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.metrics.MetricsEmitter;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
@@ -44,7 +47,6 @@ import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
 import com.aws.greengrass.ipc.VerifyClientDeviceIdentityOperationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
-import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
 
@@ -68,6 +70,8 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VER
 @ImplementsService(name = ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
+    private static final ObjectMapper MAPPER = SerializerFactory.getConfigurationSerializerJson();
+    private static final String KV_NODE = "node";
 
     // TODO: Move configuration related constants to appropriate configuration class
     public static final String DEVICE_GROUPS_TOPICS = "deviceGroups";
@@ -174,7 +178,7 @@ public class ClientDevicesAuthService extends PluginService {
         if (whatHappened == WhatHappened.timestampUpdated || whatHappened == WhatHappened.interiorAdded) {
             return;
         }
-        logger.atDebug().kv("why", whatHappened).kv("node", node).log();
+        logger.atTrace().kv("why", whatHappened).kv(KV_NODE, node).log();
         // NOTE: This should not live here. The service doesn't have to have knowledge about where/how
         // keys are stored
         Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
@@ -201,7 +205,7 @@ public class ClientDevicesAuthService extends PluginService {
         }
 
         if (whatHappened == WhatHappened.initialized || node == null || node.childOf(DEVICE_GROUPS_TOPICS)) {
-            updateDeviceGroups(whatHappened, deviceGroupTopics);
+            updateDeviceGroups(deviceGroupTopics);
         }
 
         onConfigurationChanged();
@@ -229,7 +233,7 @@ public class ClientDevicesAuthService extends PluginService {
             authorizationHandler.registerComponent(this.getName(), new HashSet<>(
                     Arrays.asList(SUBSCRIBE_TO_CERTIFICATE_UPDATES, VERIFY_CLIENT_DEVICE_IDENTITY,
                             GET_CLIENT_DEVICE_AUTH_TOKEN, AUTHORIZE_CLIENT_DEVICE_ACTION)));
-        } catch (com.aws.greengrass.authorization.exceptions.AuthorizationException e) {
+        } catch (AuthorizationException e) {
             logger.atError("initialize-cda-service-authorization-error", e)
                     .log("Failed to initialize the client device auth service with the Authorization module.");
         }
@@ -255,18 +259,24 @@ public class ClientDevicesAuthService extends PluginService {
         return context.get(CertificateManager.class);
     }
 
-    private void updateDeviceGroups(WhatHappened whatHappened, Topics deviceGroupsTopics) {
-        final ObjectMapper objectMapper = new ObjectMapper().enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS,
-                MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
+    private void updateDeviceGroups(Topics deviceGroupsTopics) {
+        GroupConfiguration groupConfiguration;
 
         try {
-            context.get(GroupManager.class).setGroupConfiguration(
-                    objectMapper.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class));
+            groupConfiguration = MAPPER.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class);
         } catch (IllegalArgumentException e) {
-            logger.atError().kv("event", whatHappened).kv("node", deviceGroupsTopics.getFullName()).setCause(e)
-                    .log("Unable to parse group configuration");
             serviceErrored(e);
+            return;
         }
+
+        try {
+            groupConfiguration.validate();
+        } catch (PolicyException e) {
+            serviceErrored(e);
+            return;
+        }
+
+        context.get(GroupManager.class).setGroupConfiguration(groupConfiguration);
     }
 
     void updateCACertificateConfig(List<String> caCerts) {

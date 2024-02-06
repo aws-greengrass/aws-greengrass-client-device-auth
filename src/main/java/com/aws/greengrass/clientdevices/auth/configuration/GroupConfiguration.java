@@ -5,7 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.configuration;
 
-import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
@@ -15,12 +15,12 @@ import lombok.Builder;
 import lombok.Value;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Value
 @JsonDeserialize(builder = GroupConfiguration.GroupConfigurationBuilder.class)
@@ -45,31 +45,24 @@ public class GroupConfiguration {
 
     @Builder
     GroupConfiguration(ConfigurationFormatVersion formatVersion, Map<String, GroupDefinition> definitions,
-                       Map<String, Map<String, AuthorizationPolicyStatement>> policies) throws AuthorizationException {
+                       Map<String, Map<String, AuthorizationPolicyStatement>> policies) {
         this.formatVersion = formatVersion == null ? ConfigurationFormatVersion.MAR_05_2021 : formatVersion;
         this.definitions = definitions == null ? Collections.emptyMap() : definitions;
         this.policies = policies == null ? Collections.emptyMap() : policies;
-        this.groupToPermissionsMap = constructGroupToPermissionsMap();
+        this.groupToPermissionsMap = constructGroupPermissions();
     }
 
     @JsonPOJOBuilder(withPrefix = "")
     public static class GroupConfigurationBuilder {
     }
 
-    private Map<String, Set<Permission>> constructGroupToPermissionsMap() throws AuthorizationException {
-        Map<String, Set<Permission>> groupToPermissionsMap = new HashMap<>();
-
-        for (Map.Entry<String, GroupDefinition> groupDefinitionEntry : definitions.entrySet()) {
-            GroupDefinition groupDefinition = groupDefinitionEntry.getValue();
-            if (!policies.containsKey(groupDefinition.getPolicyName())) {
-                throw new AuthorizationException(
-                        String.format("Policies doesn't have policy named %s", groupDefinition.getPolicyName()));
-            }
-            groupToPermissionsMap.put(groupDefinitionEntry.getKey(),
-                    constructGroupPermission(groupDefinitionEntry.getKey(),
-                            policies.get(groupDefinition.getPolicyName())));
-        }
-        return groupToPermissionsMap;
+    private Map<String, Set<Permission>> constructGroupPermissions() {
+        return definitions.entrySet().stream().collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> constructGroupPermission(
+                        entry.getKey(),
+                        policies.getOrDefault(entry.getValue().getPolicyName(),
+                                Collections.emptyMap()))));
     }
 
     private Set<Permission> constructGroupPermission(String groupName,
@@ -113,5 +106,22 @@ public class GroupConfiguration {
             policyVariables.add(policyVariable);
         }
         return policyVariables;
+    }
+
+    /**
+     * Validate the deviceGroups configuration.
+     *
+     * @throws PolicyException if an invalid policy is detected
+     */
+    public void validate() throws PolicyException {
+        String missingPolicy = definitions.values().stream()
+                .map(GroupDefinition::getPolicyName)
+                .filter(policyName -> !policies.containsKey(policyName))
+                .findFirst()
+                .orElse(null);
+        if (missingPolicy != null) {
+            throw new PolicyException(
+                    String.format("Policy definition %s does not have a corresponding policy", missingPolicy));
+        }
     }
 }
