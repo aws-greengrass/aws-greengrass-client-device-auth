@@ -5,7 +5,6 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
-import com.amazon.aws.iot.greengrass.component.common.SerializerFactory;
 import com.aws.greengrass.authorization.AuthorizationHandler;
 import com.aws.greengrass.authorization.exceptions.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
@@ -47,7 +46,9 @@ import com.aws.greengrass.ipc.SubscribeToCertificateUpdatesOperationHandler;
 import com.aws.greengrass.ipc.VerifyClientDeviceIdentityOperationHandler;
 import com.aws.greengrass.lifecyclemanager.PluginService;
 import com.aws.greengrass.util.Coerce;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService;
 
 import java.net.URISyntaxException;
@@ -70,7 +71,9 @@ import static software.amazon.awssdk.aws.greengrass.GreengrassCoreIPCService.VER
 @ImplementsService(name = ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
 public class ClientDevicesAuthService extends PluginService {
     public static final String CLIENT_DEVICES_AUTH_SERVICE_NAME = "aws.greengrass.clientdevices.Auth";
-    private static final ObjectMapper MAPPER = SerializerFactory.getConfigurationSerializerJson();
+    private static final ObjectMapper MAPPER = JsonMapper.builder()
+            .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)
+            .build();
     private static final String KV_NODE = "node";
 
     // TODO: Move configuration related constants to appropriate configuration class
