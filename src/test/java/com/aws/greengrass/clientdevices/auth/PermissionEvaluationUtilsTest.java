@@ -5,6 +5,9 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
+import com.aws.greengrass.clientdevices.auth.configuration.AuthorizationPolicyStatement;
+import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.GroupDefinition;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
@@ -15,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
+import com.aws.greengrass.util.Utils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,37 +26,30 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, GGExtension.class})
 class PermissionEvaluationUtilsTest {
-
     private static final String FAKE_CERT_ID = "FAKE_CERT_ID";
     private static final String THING_NAME = "b";
     private static final String SESSION_ID = "sessionId";
-    private static final Set<String> THING_NAME_POLICY_VARIABLE = Collections.
-            singleton("${iot:Connection.Thing.ThingName}");
-    private Certificate cert;
-    private Thing thing;
-    private Session session;
-    private PermissionEvaluationUtils permissionEvaluationUtils;
-    @Mock
-    private GroupManager groupManager;
+    private static final Set<String> THING_NAME_POLICY_VARIABLE = Collections.singleton("${iot:Connection.Thing.ThingName}");
+    Certificate cert;
+    Thing thing;
+    Session session;
+    PermissionEvaluationUtils permissionEvaluationUtils;
+    GroupManager groupManager = new GroupManager();
 
     @BeforeEach
     void beforeEach() throws InvalidCertificateException {
@@ -176,7 +173,7 @@ class PermissionEvaluationUtilsTest {
 
     @MethodSource("invalidAuthRequests")
     @ParameterizedTest
-    void GIVEN_invalid_auth_request_WHEN_authN_performed_THEN_exception_thrown(String operation, String resource, ExtensionContext context) {
+    void GIVEN_invalid_auth_request_WHEN_authZ_performed_THEN_exception_thrown(String operation, String resource, ExtensionContext context) {
         ignoreExceptionOfType(context, PolicyException.class);
         assertFalse(permissionEvaluationUtils.isAuthorized(
                 AuthorizationRequest.builder()
@@ -187,116 +184,122 @@ class PermissionEvaluationUtilsTest {
                 session));
     }
 
-    @Test
-    void GIVEN_single_group_permission_with_variable_WHEN_evaluate_operation_permission_THEN_return_decision() {
-        when(groupManager.getApplicablePolicyPermissions(any(Session.class)))
-                .thenReturn(prepareGroupVariablePermissionsData());
+    public static Stream<Arguments> validPolicies() {
+        return Stream.of( // policyOperation, policyResource, requestOperation, requestResource, expectedResult
 
-        AuthorizationRequest request = AuthorizationRequest.builder().operation("mqtt:publish")
-                .resource("mqtt:topic:a").sessionId(SESSION_ID).build();
-        boolean authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
+                // basic
+                Arguments.of("mqtt:publish", "mqtt:topic:hello", "mqtt:publish", "mqtt:topic:hello", true),
 
-        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:b")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
+                // basic - negative cases
+                Arguments.of("mqtt:publish", "mqtt:topic:hello", "mqtt:publish", "mqtt:topic:world", false),
+                Arguments.of("mqtt:publish", "mqtt:topic:hello", "mqtt:connect", "mqtt:topic:hello", false),
 
-        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:topic:b")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
+                // resource wildcards
+                Arguments.of("mqtt:publish", "mqtt:topic:*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "mqtt:topic*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "mqtt:*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "mqtt*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "*mqtt*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "*topic*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "*hello*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "*:hello", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "mqtt:*:*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "*:*:*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "*:**", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "**:*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "***", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "*:topic:*", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("mqtt:publish", "***************************", "mqtt:publish", "mqtt:topic:hello", true),
 
-        request = AuthorizationRequest.builder().operation("mqtt:connect").resource("mqtt:broker:localBroker")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
+                // resource wildcards - negative cases
+                Arguments.of("mqtt:publish", "mqtt:topic:*", "mqtt:publish", "mqtt:topic:", false),
+                Arguments.of("mqtt:publish", "mqtt:*:*", "mqtt:publish", "mqtt:topic:", false),
+                Arguments.of("mqtt:publish", "mqtt:*:*", "mqtt:publish", "mqtt::", false),
+                Arguments.of("mqtt:publish", "mqtt:*:hello", "mqtt:publish", "mqtt::hello", false),
+                Arguments.of("mqtt:publish", "*:topic:hello", "mqtt:publish", ":topic:hello", false),
+                Arguments.of("mqtt:publish", "*:hello", "mqtt:publish", "topic:hello", false),
+                Arguments.of("mqtt:publish", "*", "mqtt:publish", "topic", false),
+                Arguments.of("mqtt:publish", "*", "mqtt:publish", "mqtt", false),
+                Arguments.of("mqtt:publish", "*", "mqtt:publish", "mqtt:topic", false),
+                Arguments.of("mqtt:publish", "*", "mqtt:publish", "mqtt:topic:", false),
+                Arguments.of("mqtt:publish", "*:*:*", "mqtt:publish", "::", false),
+                Arguments.of("mqtt:publish", "mqtt:topic:*", "mqtt:connect", "mqtt:topic:hello", false),
 
-        request = AuthorizationRequest.builder().operation("mqtt:subscribe")
-                .resource("mqtt:topic:device:${iot:Connection.FakeThing.ThingName}").sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
+                // operation wildcards
+                Arguments.of("mqtt:*", "mqtt:topic:hello", "mqtt:publish", "mqtt:topic:hello", true),
+                Arguments.of("*", "mqtt:topic:hello", "mqtt:publish", "mqtt:topic:hello", true),
 
-        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:d")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(false));
+                // operation wildcards - negative cases
+                Arguments.of("mqtt:*", "mqtt:topic:hello", "mqtt:", "mqtt:topic:hello", false),
+                Arguments.of("*", "mqtt:topic:hello", "mqtt:", "mqtt:topic:hello", false),
+                Arguments.of("*", "mqtt:topic:hello", ":publish", "mqtt:topic:hello", false),
+                Arguments.of("*", "mqtt:topic:hello", ":", "mqtt:topic:hello", false),
+                Arguments.of("*", "mqtt:topic:hello", "mqtt", "mqtt:topic:hello", false),
 
-        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:message:a")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(false));
+                // policy variables
+                Arguments.of("mqtt:publish", "mqtt:topic:${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:topic:b", true),
+                Arguments.of("mqtt:publish", "mqtt:topic:${iot:Connection.Thing.ThingName}${iot:Connection.Thing.ThingName}${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:topic:bbb", true),
+                Arguments.of("mqtt:publish", "mqtt:${iot:Connection.Thing.ThingName}:${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:b:b", true),
+                Arguments.of("mqtt:publish", "mqtt:${iot:Connection.Thing.ThingName}:hello", "mqtt:publish", "mqtt:b:hello", true),
+                Arguments.of("bbb:publish", "${iot:Connection.Thing.ThingName}${iot:Connection.Thing.ThingName}${iot:Connection.Thing.ThingName}:${iot:Connection.Thing.ThingName}${iot:Connection.Thing.ThingName}${iot:Connection.Thing.ThingName}:${iot:Connection.Thing.ThingName}${iot:Connection.Thing.ThingName}${iot:Connection.Thing.ThingName}", "bbb:publish", "bbb:bbb:bbb", true),
+                Arguments.of("b:publish", "${iot:Connection.Thing.ThingName}:${iot:Connection.Thing.ThingName}:${iot:Connection.Thing.ThingName}", "b:publish", "b:b:b", true),
+                Arguments.of("b:publish", "${iot:Connection.Thing.ThingName}:${iot:Connection.Thing.ThingName}:hello", "b:publish", "b:b:hello", true),
+                Arguments.of("b:publish", "${iot:Connection.Thing.ThingName}:topic:hello", "b:publish", "b:topic:hello", true),
 
-        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:topic:device:b")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(false));
+                // policy variables - negative cases
+                Arguments.of("mqtt:publish", "mqtt:topic:${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:topic:a", false),
+                Arguments.of("mqtt:publish", "mqtt:topic:${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:topic:bb", false),
+
+                // policy variables and wildcards
+                Arguments.of("mqtt:publish", "mqtt:*:${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:topic:b", true),
+                Arguments.of("mqtt:publish", "mqtt:${iot:Connection.Thing.ThingName}:*", "mqtt:publish", "mqtt:b:topic", true),
+                Arguments.of("mqtt:publish", "mqtt:*:*${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:topic:b", true),
+                Arguments.of("mqtt:publish", "mqtt:*:*${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:topic:bb", true),
+                Arguments.of("mqtt:publish", "mqtt:*:${iot:Connection.Thing.ThingName}*", "mqtt:publish", "mqtt:topic:bb", true),
+
+                // policy variables and wildcards - negative cases
+                Arguments.of("mqtt:publish", "mqtt:*:${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:topic:a", false),
+                Arguments.of("mqtt:publish", "mqtt:*:${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:topic:bb", false),
+                Arguments.of("mqtt:publish", "mqtt:*${iot:Connection.Thing.ThingName}", "mqtt:publish", "mqtt:b", false),
+
+                // special characters
+                Arguments.of("mqtt:publish", "mqtt:topic:$foo .10bar/導À-baz/#", "mqtt:publish", "mqtt:topic:$foo .10bar/導À-baz/#", true),
+                Arguments.of("mqtt:publish", "mqtt:topic:$foo/bar/+/baz", "mqtt:publish", "mqtt:topic:$foo/bar/+/baz", true),
+
+                // a little bit of everything
+                Arguments.of("mqtt:*", "mqtt:*:$*${iot:Connection.Thing.ThingName}*", "mqtt:publish", "mqtt:topic:$導*b*", true)
+        );
     }
 
-    @Test
-    void GIVEN_single_group_permission_WHEN_evaluate_operation_permission_THEN_return_decision() {
-        when(groupManager.getApplicablePolicyPermissions(any(Session.class))).thenReturn(prepareGroupPermissionsData());
+    @MethodSource("validPolicies")
+    @ParameterizedTest
+    void GIVEN_valid_policies_WHEN_auth_performed_THEN_authorized(String policyOperation, String policyResource, String requestOperation, String requestResource, boolean expectedResult, ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, PolicyException.class);
 
-        AuthorizationRequest request = AuthorizationRequest.builder().operation("mqtt:publish")
-                .resource("mqtt:topic:a").sessionId(SESSION_ID).build();
-        boolean authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
+        groupManager.setGroupConfiguration(GroupConfiguration.builder()
+                .definitions(Utils.immutableMap(
+                        "group1", GroupDefinition.builder()
+                                .selectionRule("thingName: " + THING_NAME)
+                                .policyName("sensor")
+                                .build()))
+                .policies(Utils.immutableMap(
+                        "sensor", Utils.immutableMap(
+                                "Statement1", AuthorizationPolicyStatement.builder()
+                                        .statementDescription("Policy description")
+                                        .effect(AuthorizationPolicyStatement.Effect.ALLOW)
+                                        .resources(new HashSet<>(Collections.singleton(policyResource)))
+                                        .operations(new HashSet<>(Collections.singleton(policyOperation)))
+                                        .build()
+                        )))
+                .build());
 
-        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:b")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
-
-        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:topic:b")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
-
-        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:topic:$foo/bar/+/baz")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
-
-        request = AuthorizationRequest.builder().operation("mqtt:subscribe")
-                .resource("mqtt:topic:$foo .10bar/導À-baz/#").sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
-
-        request = AuthorizationRequest.builder().operation("mqtt:connect").resource("mqtt:broker:localBroker")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(true));
-
-        request = AuthorizationRequest.builder().operation("mqtt:publish").resource("mqtt:topic:d")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(false));
-
-        request = AuthorizationRequest.builder().operation("mqtt:subscribe").resource("mqtt:message:a")
-                .sessionId(SESSION_ID).build();
-        authorized = permissionEvaluationUtils.isAuthorized(request, session);
-        assertThat(authorized, is(false));
+        assertEquals(expectedResult, permissionEvaluationUtils.isAuthorized(
+                AuthorizationRequest.builder()
+                        .sessionId(SESSION_ID)
+                        .operation(requestOperation)
+                        .resource(requestResource)
+                        .build(),
+                session));
     }
-
-    private Map<String, Set<Permission>> prepareGroupPermissionsData() {
-        Permission[] sensorPermission =
-                {Permission.builder().principal("sensor").operation("mqtt:publish").resource("mqtt:topic:a").build(),
-                        Permission.builder().principal("sensor").operation("mqtt:*").resource("mqtt:topic:b").build(),
-                        Permission.builder().principal("sensor").operation("mqtt:subscribe")
-                                .resource("mqtt:topic:*").build(),
-                        Permission.builder().principal("sensor").operation("mqtt:connect").resource("*").build(),};
-        return Collections.singletonMap("sensor", new HashSet<>(Arrays.asList(sensorPermission)));
-    }
-
-    private Map<String, Set<Permission>> prepareGroupVariablePermissionsData() {
-        Permission[] sensorPermission =
-                {Permission.builder().principal("sensor").operation("mqtt:publish").resource("mqtt:topic:a").build(),
-                        Permission.builder().principal("sensor").operation("mqtt:*").resource("mqtt:topic:${iot:Connection.Thing.ThingName}")
-                                .resourcePolicyVariables(THING_NAME_POLICY_VARIABLE).build(),
-                        Permission.builder().principal("sensor").operation("mqtt:subscribe")
-                                .resource("mqtt:topic:device:${iot:Connection.FakeThing.ThingName}").build(),
-                        Permission.builder().principal("sensor").operation("mqtt:connect").resource("*").build(),};
-        return Collections.singletonMap("sensor", new HashSet<>(Arrays.asList(sensorPermission)));
-    }
-
 }
