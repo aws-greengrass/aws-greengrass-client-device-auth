@@ -35,8 +35,6 @@ public final class PermissionEvaluationUtils {
     private static final String EXCEPTION_MALFORMED_RESOURCE =
             "Resource is malformed, must be of the form: "
             + "([a-zA-Z]+):([a-zA-Z]+):" + RESOURCE_NAME_PATTERN.pattern();
-
-    private final WildcardTrie wildcardTrie = new WildcardTrie();
     private final GroupManager groupManager;
 
     /**
