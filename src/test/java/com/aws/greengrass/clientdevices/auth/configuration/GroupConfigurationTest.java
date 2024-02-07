@@ -32,7 +32,6 @@ class GroupConfigurationTest {
         return Stream.of( // resource, expected variables
                 Arguments.of("mqtt:topic:hello", Collections.emptySet()),
                 Arguments.of("mqtt:topic:${iot:Connection.Thing.ThingName}", Collections.singleton("${iot:Connection.Thing.ThingName}")),
-                Arguments.of("mqtt:topic:${ioT:ConneCtion.tHing.thingName}", Collections.singleton("${iot:Connection.Thing.ThingName}")),
                 Arguments.of("mqtt:topic:${iot:Connection.Thing.ThingName}}", Collections.singleton("${iot:Connection.Thing.ThingName}")),
                 Arguments.of("mqtt:topic:{{${iot:Connection.Thing.ThingName}}", Collections.singleton("${iot:Connection.Thing.ThingName}")),
                 Arguments.of("mqtt:topic:{${iot:Connection.Thing.ThingName}}", Collections.singleton("${iot:Connection.Thing.ThingName}"))
@@ -73,7 +72,10 @@ class GroupConfigurationTest {
             "mqtt:topic:${}",
             "mqtt:topic:${ }",
             "mqtt:topic:${iot}",
+            "mqtt:topic:${ioT:Connection.Thing.ThingName}",
+            "mqtt:topic:${iot:Connection.Thing.thingName}",
             "mqtt:topic:${iot:Connection.Thing.ThingNames}",
+            "mqtt:topic:${iot:Connection. Thing.ThingNames}",
             "mqtt:topic:${iot:Connection.Thing.*}",
             "mqtt:topic:${iot:Connection.Thing.ThingName${iot:Connection.Thing.ThingName}}",
             "mqtt:topic:${${iot:Connection.Thing.ThingName}}",

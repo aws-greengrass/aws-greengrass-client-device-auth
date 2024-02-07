@@ -20,7 +20,7 @@ public final class PolicyVariableResolver {
     private static final String THING_NAME_ATTRIBUTE = "ThingName";
 
     private static final Map<String, Pair<String,String>> policyVariableToAttributeProvider = ImmutableMap.of(
-            "${iot:Connection.Thing.ThingName}".toLowerCase(), new Pair<>(THING_NAMESPACE, THING_NAME_ATTRIBUTE)
+            "${iot:Connection.Thing.ThingName}", new Pair<>(THING_NAMESPACE, THING_NAME_ATTRIBUTE)
     );
 
     private PolicyVariableResolver() {
@@ -44,8 +44,8 @@ public final class PolicyVariableResolver {
         }
         String substitutedFormat = format;
         for (String policyVariable : policyVariables) {
-            String attributeNamespace = policyVariableToAttributeProvider.get(policyVariable.toLowerCase()).getLeft();
-            String attributeName = policyVariableToAttributeProvider.get(policyVariable.toLowerCase()).getRight();
+            String attributeNamespace = policyVariableToAttributeProvider.get(policyVariable).getLeft();
+            String attributeName = policyVariableToAttributeProvider.get(policyVariable).getRight();
             String policyVariableValue = Coerce.toString(session.getSessionAttribute(attributeNamespace,
                     attributeName));
             if (policyVariableValue == null) {
@@ -60,6 +60,6 @@ public final class PolicyVariableResolver {
     }
 
     public static boolean isPolicyVariable(String variable) {
-        return policyVariableToAttributeProvider.containsKey(variable.toLowerCase());
+        return policyVariableToAttributeProvider.containsKey(variable);
     }
 }
