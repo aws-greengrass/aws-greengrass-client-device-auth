@@ -27,21 +27,12 @@ import java.util.stream.Collectors;
 public class GroupConfiguration {
     private static final Logger logger = LogManager.getLogger(GroupConfiguration.class);
 
+    private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile("\\$\\{.*?}");
+
     ConfigurationFormatVersion formatVersion;
-
-    //group name to group definition map
     Map<String, GroupDefinition> definitions;
-
-    //policy name to policy map
     Map<String, Map<String, AuthorizationPolicyStatement>> policies;
-
-
     Map<String, Set<Permission>> groupToPermissionsMap;
-
-    private static final String POLICY_VARIABLE_FORMAT = "(\\$\\{[a-z]+:[a-zA-Z.]+\\})";
-
-    private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile(POLICY_VARIABLE_FORMAT,
-            Pattern.CASE_INSENSITIVE);
 
     @Builder
     GroupConfiguration(ConfigurationFormatVersion formatVersion, Map<String, GroupDefinition> definitions,
@@ -102,7 +93,7 @@ public class GroupConfiguration {
         Matcher matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
         Set<String> policyVariables = new HashSet<>();
         while (matcher.find()) {
-            String policyVariable = matcher.group(1);
+            String policyVariable = matcher.group(0);
             policyVariables.add(policyVariable);
         }
         return policyVariables;
@@ -122,6 +113,12 @@ public class GroupConfiguration {
         if (missingPolicy != null) {
             throw new PolicyException(
                     String.format("Policy definition %s does not have a corresponding policy", missingPolicy));
+        }
+
+        if (!groupToPermissionsMap.values().stream()
+                .flatMap(permissions -> permissions.stream().flatMap(p -> p.getResourcePolicyVariables().stream()))
+                .allMatch(PolicyVariableResolver::isPolicyVariable)) {
+            throw new PolicyException("Policy contains unknown variables");
         }
     }
 }
