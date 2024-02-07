@@ -9,6 +9,7 @@ import com.aws.greengrass.clientdevices.auth.AuthorizationRequest;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
+import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.file.NoSuchFileException;
@@ -70,6 +72,16 @@ public class PolicyTest {
         kernel.shutdown();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "malformed-variable.yaml",
+            "unknown-variable.yaml"
+    })
+    void GIVEN_invalid_cda_policy_WHEN_cda_startups_THEN_cda_errors(String configFile, ExtensionContext context) {
+        ignoreExceptionOfType(context, PolicyException.class);
+        startNucleus(configFile, State.ERRORED);
+    }
+
     @Value
     @Builder
     static class AuthZRequest {
@@ -81,25 +93,6 @@ public class PolicyTest {
 
     public static Stream<Arguments> authzRequests() {
         return Stream.of( // config file, thing name, operation, resource, expected result
-
-                Arguments.of("malformed-variable.yaml", Arrays.asList(
-                        AuthZRequest.builder()
-                                .thingName("myThing")
-                                .operation("mqtt:publish")
-                                .resource("mqtt:topic:foo")
-                                .expectedResult(false)
-                                .build()
-                )),
-                // TODO uncomment after validations have been added
-//                Arguments.of("unknown-variable.yaml", Arrays.asList(
-//                        AuthZRequest.builder()
-//                                .thingName("myThing")
-//                                .operation("mqtt:publish")
-//                                .resource("mqtt:topic:foo")
-//                                .expectedResult(false)
-//                                .build()
-//                )),
-
                 Arguments.of("variable-in-resource-type.yaml", Arrays.asList(
                         AuthZRequest.builder()
                                 .thingName("myThing")
@@ -272,6 +265,10 @@ public class PolicyTest {
     }
 
     private void startNucleus(String configFileName) {
+        startNucleus(configFileName, State.RUNNING);
+    }
+
+    private void startNucleus(String configFileName, State expectedState) {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
@@ -279,7 +276,7 @@ public class PolicyTest {
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         Runnable mainRunning = createServiceStateChangeWaiter(kernel,
-                ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME, 30, State.RUNNING);
+                ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME, 30, expectedState);
         kernel.launch();
         mainRunning.run();
     }
