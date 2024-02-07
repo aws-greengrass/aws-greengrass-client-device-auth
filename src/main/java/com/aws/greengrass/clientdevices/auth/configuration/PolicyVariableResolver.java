@@ -58,4 +58,8 @@ public final class PolicyVariableResolver {
         }
         return substitutedFormat;
     }
+
+    public static boolean isPolicyVariable(String variable) {
+        return policyVariableToAttributeProvider.containsKey(variable);
+    }
 }
