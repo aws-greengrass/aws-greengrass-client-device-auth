@@ -9,6 +9,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.parser.ASTStart;
 import com.aws.greengrass.clientdevices.auth.configuration.parser.ParseException;
 import com.aws.greengrass.clientdevices.auth.configuration.parser.RuleExpression;
 import com.aws.greengrass.clientdevices.auth.session.Session;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import lombok.Builder;
@@ -21,12 +22,15 @@ import java.io.StringReader;
 @JsonDeserialize(builder = GroupDefinition.GroupDefinitionBuilder.class)
 public class GroupDefinition {
 
+    @JsonIgnore
     ASTStart expressionTree;
+    String selectionRule;
     String policyName;
 
 
     @Builder
     GroupDefinition(@NonNull String selectionRule, @NonNull String policyName) throws ParseException {
+        this.selectionRule = selectionRule;
         this.expressionTree = new RuleExpression(new StringReader(selectionRule)).Start();
         this.policyName = policyName;
     }

@@ -9,6 +9,9 @@ import com.aws.greengrass.clientdevices.auth.AuthorizationRequest;
 import com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService;
 import com.aws.greengrass.clientdevices.auth.api.ClientDevicesAuthServiceApi;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
+import com.aws.greengrass.clientdevices.auth.configuration.AuthorizationPolicyStatement;
+import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
+import com.aws.greengrass.clientdevices.auth.configuration.GroupDefinition;
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
@@ -25,10 +28,12 @@ import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.UniqueRootPathExtension;
 import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.Utils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Builder;
 import lombok.Value;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.io.TempDir;
@@ -45,16 +50,21 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.aws.greengrass.clientdevices.auth.ClientDevicesAuthService.DEVICE_GROUPS_TOPICS;
 import static com.aws.greengrass.testcommons.testutilities.ExceptionLogProtector.ignoreExceptionOfType;
 import static com.aws.greengrass.testcommons.testutilities.TestUtils.createServiceStateChangeWaiter;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
 public class PolicyTest {
+    private static final ObjectMapper MAPPER = new ObjectMapper();
     private final Map<String, Pair<Certificate, String>> clients = new HashMap<>();
     @TempDir
     Path rootDir;
@@ -70,6 +80,65 @@ public class PolicyTest {
     void afterEach() {
         LogConfig.getRootLogConfig().reset();
         kernel.shutdown();
+    }
+
+    @Test
+    void GIVEN_cda_with_client_policy_WHEN_resource_removed_from_policy_THEN_resource_not_accessible_anymore() throws Exception {
+        startNucleus("empty-config.yaml");
+
+        // set policy that allows publish on topic "a"
+        replacePolicy(GroupConfiguration.builder()
+                .definitions(Utils.immutableMap("group1", GroupDefinition.builder()
+                        .policyName("policyA")
+                        .selectionRule("thingName: myThing")
+                        .build()))
+                .policies(Utils.immutableMap("policyA", Utils.immutableMap("statement1", AuthorizationPolicyStatement.builder()
+                        .statementDescription("allow publish on topic a")
+                        .operations(Stream.of("mqtt:publish").collect(Collectors.toSet()))
+                        .resources(Stream.of("mqtt:topic:a").collect(Collectors.toSet()))
+                        .effect(AuthorizationPolicyStatement.Effect.ALLOW)
+                        .build())))
+                .build());
+
+        // verify we can publish to topic "a"
+        assertTrue(api().authorizeClientDeviceAction(AuthorizationRequest.builder()
+                .sessionId(generateAuthToken("myThing"))
+                .operation("mqtt:publish")
+                .resource("mqtt:topic:a")
+                .build()));
+        // verify we cannot publish to topic "b"
+        assertFalse(api().authorizeClientDeviceAction(AuthorizationRequest.builder()
+                .sessionId(generateAuthToken("myThing"))
+                .operation("mqtt:publish")
+                .resource("mqtt:topic:b")
+                .build()));
+
+        // replace topic "a" from the policy with topic "b"
+        replacePolicy(GroupConfiguration.builder()
+                .definitions(Utils.immutableMap("group1", GroupDefinition.builder()
+                                .policyName("policyA")
+                                .selectionRule("thingName: myThing")
+                        .build()))
+                .policies(Utils.immutableMap("policyA", Utils.immutableMap("statement1", AuthorizationPolicyStatement.builder()
+                                .statementDescription("allow publish on topic b")
+                                .operations(Stream.of("mqtt:publish").collect(Collectors.toSet()))
+                                .resources(Stream.of("mqtt:topic:b").collect(Collectors.toSet()))
+                                .effect(AuthorizationPolicyStatement.Effect.ALLOW)
+                        .build())))
+                .build());
+
+        // verify we can no longer publish to topic "a"
+        assertFalse(api().authorizeClientDeviceAction(AuthorizationRequest.builder()
+                .sessionId(generateAuthToken("myThing"))
+                .operation("mqtt:publish")
+                .resource("mqtt:topic:a")
+                .build()));
+        // verify we can publish to topic "b"
+        assertTrue(api().authorizeClientDeviceAction(AuthorizationRequest.builder()
+                .sessionId(generateAuthToken("myThing"))
+                .operation("mqtt:publish")
+                .resource("mqtt:topic:b")
+                .build()));
     }
 
     @ParameterizedTest
@@ -258,6 +327,13 @@ public class PolicyTest {
         // activate certificate
         certificateRegistry.updateCertificate(cert);
         return new Pair<>(cert, clientPem);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void replacePolicy(GroupConfiguration groupConfiguration) {
+        kernel.findServiceTopic(ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME)
+                .lookupTopics("configuration", DEVICE_GROUPS_TOPICS)
+                .replaceAndWait(MAPPER.convertValue(groupConfiguration, Map.class));
     }
 
     private ClientDevicesAuthServiceApi api() {
