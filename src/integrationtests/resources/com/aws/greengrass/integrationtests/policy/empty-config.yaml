@@ -1,0 +1,12 @@
+---
+services:
+  aws.greengrass.Nucleus:
+    configuration:
+      runWithDefault:
+        posixUser: nobody
+        windowsUser: integ-tester
+      logging:
+        level: "DEBUG"
+  main:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth
