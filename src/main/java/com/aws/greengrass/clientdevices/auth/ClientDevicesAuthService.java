@@ -108,7 +108,6 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CertificateManager.class).updateCertificatesConfiguration(new CertificatesConfig(getConfig()));
         initializeInfrastructure();
         initializeHandlers();
-        subscribeToConfigChanges();
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {
@@ -214,6 +213,7 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void startup() throws InterruptedException {
         context.get(CertificateManager.class).startMonitors();
+        subscribeToConfigChanges();
         super.startup();
     }
 
