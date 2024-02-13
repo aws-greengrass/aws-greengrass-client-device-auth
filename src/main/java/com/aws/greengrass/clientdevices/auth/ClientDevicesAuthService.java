@@ -37,6 +37,7 @@ import com.aws.greengrass.clientdevices.auth.session.SessionConfig;
 import com.aws.greengrass.clientdevices.auth.session.SessionCreator;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
 import com.aws.greengrass.clientdevices.auth.util.ResizableLinkedBlockingQueue;
+import com.aws.greengrass.config.ChildChanged;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.config.WhatHappened;
@@ -83,6 +84,7 @@ public class ClientDevicesAuthService extends PluginService {
     private static final int DEFAULT_CLOUD_CALL_QUEUE_SIZE = 100;
     private static final int DEFAULT_THREAD_POOL_SIZE = 1;
     public static final int DEFAULT_MAX_ACTIVE_AUTH_TOKENS = 2500;
+    private final ChildChanged configChangeHandler = this::configChangeHandler;
 
     // Create a threadpool for calling the cloud. Single thread will be used by default.
     private ThreadPoolExecutor cloudCallThreadPool;
@@ -108,7 +110,6 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CertificateManager.class).updateCertificatesConfiguration(new CertificatesConfig(getConfig()));
         initializeInfrastructure();
         initializeHandlers();
-        subscribeToConfigChanges();
     }
 
     private int getValidCloudCallQueueSize(Topics topics) {
@@ -163,7 +164,7 @@ public class ClientDevicesAuthService extends PluginService {
 
     private void subscribeToConfigChanges() {
         onConfigurationChanged();
-        config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(this::configChangeHandler);
+        config.lookupTopics(CONFIGURATION_CONFIG_KEY).subscribe(configChangeHandler);
     }
 
     private void onConfigurationChanged() {
@@ -214,6 +215,7 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void startup() throws InterruptedException {
         context.get(CertificateManager.class).startMonitors();
+        subscribeToConfigChanges();
         super.startup();
     }
 
