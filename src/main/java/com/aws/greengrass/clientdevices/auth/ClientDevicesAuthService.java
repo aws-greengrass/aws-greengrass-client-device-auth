@@ -216,7 +216,8 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(CertificateManager.class).startMonitors();
         try {
             subscribeToConfigChanges();
-            validateConfig();
+            // Validate CDA policy to force CDA to break on bad config policies before CDA reaches RUNNING
+            lookupAndValidateDeviceGroups();
         } catch (IllegalArgumentException | PolicyException e) {
             serviceErrored(e);
             return;
@@ -270,7 +271,8 @@ public class ClientDevicesAuthService extends PluginService {
         GroupConfiguration groupConfiguration;
 
         try {
-            groupConfiguration = validateConfig();
+            // Lookup and validate DeviceGroups to ensure CDA errors on bad CDA policy changes
+            groupConfiguration = lookupAndValidateDeviceGroups();
         } catch (IllegalArgumentException | PolicyException e) {
             serviceErrored(e);
             return;
@@ -279,7 +281,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(GroupManager.class).setGroupConfiguration(groupConfiguration);
     }
 
-    private GroupConfiguration validateConfig() throws IllegalArgumentException, PolicyException {
+    private GroupConfiguration lookupAndValidateDeviceGroups() throws IllegalArgumentException, PolicyException {
         GroupConfiguration groupConfiguration;
         Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
         groupConfiguration = MAPPER.convertValue(deviceGroupTopics.toPOJO(), GroupConfiguration.class);
