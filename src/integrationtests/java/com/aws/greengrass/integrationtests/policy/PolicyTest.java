@@ -146,9 +146,9 @@ public class PolicyTest {
             "malformed-variable.yaml",
             "unknown-variable.yaml"
     })
-    void GIVEN_invalid_cda_policy_WHEN_cda_startups_THEN_cda_errors(String configFile, ExtensionContext context) {
+    void GIVEN_invalid_cda_policy_WHEN_cda_startups_THEN_cda_broken(String configFile, ExtensionContext context) {
         ignoreExceptionOfType(context, PolicyException.class);
-        startNucleus(configFile, State.ERRORED);
+        startNucleus(configFile, State.BROKEN);
     }
 
     @Value

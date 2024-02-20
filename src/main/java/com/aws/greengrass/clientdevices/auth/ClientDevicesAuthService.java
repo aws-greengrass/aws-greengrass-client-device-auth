@@ -182,7 +182,6 @@ public class ClientDevicesAuthService extends PluginService {
         logger.atTrace().kv("why", whatHappened).kv(KV_NODE, node).log();
         // NOTE: This should not live here. The service doesn't have to have knowledge about where/how
         // keys are stored
-        Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
 
         try {
             // NOTE: Extract this to a method these are infrastructure concerns.
@@ -206,7 +205,7 @@ public class ClientDevicesAuthService extends PluginService {
         }
 
         if (whatHappened == WhatHappened.initialized || node == null || node.childOf(DEVICE_GROUPS_TOPICS)) {
-            updateDeviceGroups(deviceGroupTopics);
+            updateDeviceGroups();
         }
 
         onConfigurationChanged();
@@ -215,7 +214,13 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void startup() throws InterruptedException {
         context.get(CertificateManager.class).startMonitors();
-        subscribeToConfigChanges();
+        try {
+            subscribeToConfigChanges();
+            validateConfig();
+        } catch (IllegalArgumentException | PolicyException e) {
+            serviceErrored(e);
+            return;
+        }
         super.startup();
     }
 
@@ -261,24 +266,25 @@ public class ClientDevicesAuthService extends PluginService {
         return context.get(CertificateManager.class);
     }
 
-    private void updateDeviceGroups(Topics deviceGroupsTopics) {
+    private void updateDeviceGroups() {
         GroupConfiguration groupConfiguration;
 
         try {
-            groupConfiguration = MAPPER.convertValue(deviceGroupsTopics.toPOJO(), GroupConfiguration.class);
-        } catch (IllegalArgumentException e) {
-            serviceErrored(e);
-            return;
-        }
-
-        try {
-            groupConfiguration.validate();
-        } catch (PolicyException e) {
+            groupConfiguration = validateConfig();
+        } catch (IllegalArgumentException | PolicyException e) {
             serviceErrored(e);
             return;
         }
 
         context.get(GroupManager.class).setGroupConfiguration(groupConfiguration);
+    }
+
+    private GroupConfiguration validateConfig() throws IllegalArgumentException, PolicyException {
+        GroupConfiguration groupConfiguration;
+        Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
+        groupConfiguration = MAPPER.convertValue(deviceGroupTopics.toPOJO(), GroupConfiguration.class);
+        groupConfiguration.validate();
+        return groupConfiguration;
     }
 
     void updateCACertificateConfig(List<String> caCerts) {
