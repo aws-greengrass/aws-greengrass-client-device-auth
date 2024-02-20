@@ -141,14 +141,38 @@ public class PolicyTest {
                 .build()));
     }
 
+    @Test
+    void GIVEN_cda_running_WHEN_policy_updated_with_invalid_policy_variable_THEN_cda_broken(ExtensionContext context) throws Exception {
+        ignoreExceptionOfType(context, PolicyException.class);
+        startNucleus("empty-config.yaml");
+
+        Runnable waitForBroken = createServiceStateChangeWaiter(kernel,
+                ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME, 30, State.BROKEN);
+
+        // merge bad policy config
+        replacePolicy(GroupConfiguration.builder()
+                .definitions(Utils.immutableMap("group1", GroupDefinition.builder()
+                        .policyName("policyA")
+                        .selectionRule("thingName: myThing")
+                        .build()))
+                .policies(Utils.immutableMap("policyA", Utils.immutableMap("statement1", AuthorizationPolicyStatement.builder()
+                        .statementDescription("invalid policy variable")
+                        .operations(Stream.of("mqtt:publish").collect(Collectors.toSet()))
+                        .resources(Stream.of("mqtt:topic:${iot:Connection.Thing.Unknown}").collect(Collectors.toSet()))
+                        .effect(AuthorizationPolicyStatement.Effect.ALLOW)
+                        .build())))
+                .build());
+        waitForBroken.run();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
             "malformed-variable.yaml",
             "unknown-variable.yaml"
     })
-    void GIVEN_invalid_cda_policy_WHEN_cda_startups_THEN_cda_errors(String configFile, ExtensionContext context) {
+    void GIVEN_invalid_cda_policy_WHEN_cda_startups_THEN_cda_broken(String configFile, ExtensionContext context) {
         ignoreExceptionOfType(context, PolicyException.class);
-        startNucleus(configFile, State.ERRORED);
+        startNucleus(configFile, State.BROKEN);
     }
 
     @Value
