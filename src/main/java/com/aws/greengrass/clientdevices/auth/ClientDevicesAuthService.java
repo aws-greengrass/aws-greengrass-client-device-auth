@@ -281,7 +281,7 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(GroupManager.class).setGroupConfiguration(groupConfiguration);
     }
 
-    private GroupConfiguration lookupAndValidateDeviceGroups() throws IllegalArgumentException, PolicyException {
+    private GroupConfiguration lookupAndValidateDeviceGroups() throws PolicyException {
         GroupConfiguration groupConfiguration;
         Topics deviceGroupTopics = this.config.lookupTopics(CONFIGURATION_CONFIG_KEY, DEVICE_GROUPS_TOPICS);
         groupConfiguration = MAPPER.convertValue(deviceGroupTopics.toPOJO(), GroupConfiguration.class);

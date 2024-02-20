@@ -145,9 +145,8 @@ public class PolicyTest {
     void GIVEN_cda_running_WHEN_policy_updated_with_invalid_policy_variable_THEN_cda_broken(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, PolicyException.class);
         startNucleus("empty-config.yaml");
-        //CDA is RUNNING
 
-        Runnable mainRunning = createServiceStateChangeWaiter(kernel,
+        Runnable waitForBroken = createServiceStateChangeWaiter(kernel,
                 ClientDevicesAuthService.CLIENT_DEVICES_AUTH_SERVICE_NAME, 30, State.BROKEN);
 
         // merge bad policy config
@@ -163,7 +162,7 @@ public class PolicyTest {
                         .effect(AuthorizationPolicyStatement.Effect.ALLOW)
                         .build())))
                 .build());
-        mainRunning.run();
+        waitForBroken.run();
     }
 
     @ParameterizedTest
