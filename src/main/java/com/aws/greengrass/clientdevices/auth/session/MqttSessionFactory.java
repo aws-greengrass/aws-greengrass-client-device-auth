@@ -45,7 +45,7 @@ public class MqttSessionFactory implements SessionFactory {
     }
 
     private Session createIotThingSession(MqttCredential mqttCredential) throws AuthenticationException {
-        // NOTE: We should remove  calling this useCase from here, but for now it serves its purpose. We will
+        // NOTE: We should remove calling this useCase from here, but for now it serves its purpose. We will
         //  refactor this later
         CreateIoTThingSession useCase = useCases.get(CreateIoTThingSession.class);
         CreateSessionDTO command = new CreateSessionDTO(mqttCredential.clientId, mqttCredential.certificatePem);

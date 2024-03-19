@@ -49,7 +49,7 @@ public class CAConfigurationChangedHandler implements Consumer<CAConfigurationCh
      * @param event Certificate authority configuration change event
      */
     @Override
-    public void accept(CAConfigurationChanged event) {
+    public synchronized void accept(CAConfigurationChanged event) {
         CAConfiguration configuration = event.getConfiguration();
 
         try {

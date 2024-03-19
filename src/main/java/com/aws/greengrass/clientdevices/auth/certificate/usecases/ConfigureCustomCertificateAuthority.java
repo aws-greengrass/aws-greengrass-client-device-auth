@@ -45,10 +45,6 @@ public class ConfigureCustomCertificateAuthority implements UseCases.UseCase<Voi
 
     @Override
     public Void apply(CAConfiguration configuration) throws UseCaseException {
-        // TODO: We need to synchronize the changes that configuration has on the state of the service. There is
-        //  a possibility that 2 threads run different use cases and change the certificate authority concurrently
-        //  causing potential race conditions
-
         try {
             logger.info("Configuring custom certificate authority.");
             // NOTE: We will pull the configureCustomCA out of the certificate Manager to here

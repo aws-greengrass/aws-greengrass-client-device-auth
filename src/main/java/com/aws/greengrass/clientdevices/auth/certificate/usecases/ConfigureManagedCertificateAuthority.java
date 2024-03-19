@@ -46,10 +46,6 @@ public class ConfigureManagedCertificateAuthority implements UseCases.UseCase<Vo
         // TODO: We should not be passing the entire configuration just what changed. We are just doing it for
         //  its convenience but eventually syncing the runtime config can be its own use case triggered by events.
 
-        // TODO: We need to synchronize the changes that configuration has on the state of the service. There is
-        //  a possibility that 2 threads run different use cases and change the certificate authority concurrently
-        //  causing potential race conditions
-
         logger.info("Configuring Greengrass managed certificate authority.");
 
         try {

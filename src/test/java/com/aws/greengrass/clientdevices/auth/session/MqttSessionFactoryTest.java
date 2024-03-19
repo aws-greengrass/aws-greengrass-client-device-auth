@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
@@ -98,6 +99,15 @@ public class MqttSessionFactoryTest {
             throws InvalidCertificateException {
         when(mockCertificateRegistry.getCertificateFromPem(any())).thenReturn(Optional.empty());
         Assertions.assertThrows(AuthenticationException.class, () -> mqttSessionFactory.createSession(credentialMap));
+    }
+
+    @Test
+    void GIVEN_credentialsWithLongClientId_WHEN_createSession_THEN_throwsAuthenticationException() {
+        AuthenticationException ex = Assertions.assertThrows(AuthenticationException.class,
+                () -> mqttSessionFactory.createSession(
+                        ImmutableMap.of("certificatePem", "PEM", "clientId", new String(new byte[65536]), "username",
+                                "", "password", "")));
+        assertThat(ex.getMessage(), containsString("too long"));
     }
 
     @Test
