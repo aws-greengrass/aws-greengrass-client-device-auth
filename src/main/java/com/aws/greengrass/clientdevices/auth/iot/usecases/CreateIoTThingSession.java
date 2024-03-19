@@ -51,6 +51,10 @@ public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSe
      */
     @Override
     public Session apply(CreateSessionDTO dto) throws AuthenticationException {
+        if (dto.getThingName() != null && dto.getThingName().length() > 65_535) {
+            throw new AuthenticationException("Thing name is too long");
+        }
+
         Certificate certificate = getActiveCertificateFromRegistry(dto);
         String thingName = dto.getThingName();
         Thing thing = thingRegistry.getOrCreateThing(thingName);
