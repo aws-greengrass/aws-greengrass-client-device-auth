@@ -189,8 +189,8 @@ public class BackgroundRefreshTest {
 
         // Check state before refresh of thing attachments
         ThingRegistry thingRegistry = kernel.getContext().get(ThingRegistry.class);
-        Thing ogThingA = thingRegistry.getOrCreateThing(thingOne.get());
-        Thing ogThingB = thingRegistry.getOrCreateThing(thingTwo.get());
+        Thing ogThingA = thingRegistry.getOrCreateThing(thingOne.get()).getLeft();
+        Thing ogThingB = thingRegistry.getOrCreateThing(thingTwo.get()).getLeft();
         assertEquals(ogThingA.certificateLastAttachedOn(ogCertA.getCertificateId()).get().toEpochMilli(),
                 now.toEpochMilli());
         assertEquals(ogThingB.certificateLastAttachedOn(ogCertB.getCertificateId()).get().toEpochMilli(),
