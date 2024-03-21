@@ -32,6 +32,7 @@ public final class Thing implements AttributeProvider, Cloneable {
     public static final String NAMESPACE = "Thing";
     private static final String THING_NAME_ATTRIBUTE = "ThingName";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
+    public static final int MAX_THING_NAME_LENGTH = 128;
     private static final AtomicInteger metadataTrustDurationMinutes =
             new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
 
@@ -58,6 +59,9 @@ public final class Thing implements AttributeProvider, Cloneable {
      * @throws IllegalArgumentException If the given ThingName contains illegal characters
      */
     public static Thing of(String thingName, Map<String, Instant> certificateIds) {
+        if (thingName.length() > MAX_THING_NAME_LENGTH) {
+            throw new IllegalArgumentException("Invalid thing name. Thing name is too long.");
+        }
         if (!Pattern.matches(thingNamePattern, thingName)) {
             throw new IllegalArgumentException("Invalid thing name. The thing name must match \"[a-zA-Z0-9\\-_:]+\".");
         }

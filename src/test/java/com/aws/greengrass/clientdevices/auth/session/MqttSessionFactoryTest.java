@@ -105,7 +105,7 @@ public class MqttSessionFactoryTest {
     void GIVEN_credentialsWithLongClientId_WHEN_createSession_THEN_throwsAuthenticationException() {
         AuthenticationException ex = Assertions.assertThrows(AuthenticationException.class,
                 () -> mqttSessionFactory.createSession(
-                        ImmutableMap.of("certificatePem", "PEM", "clientId", new String(new byte[65536]), "username",
+                        ImmutableMap.of("certificatePem", "PEM", "clientId", new String(new byte[130]), "username",
                                 "", "password", "")));
         assertThat(ex.getMessage(), containsString("too long"));
     }

@@ -21,6 +21,8 @@ import com.aws.greengrass.logging.impl.LogManager;
 
 import javax.inject.Inject;
 
+import static com.aws.greengrass.clientdevices.auth.iot.Thing.MAX_THING_NAME_LENGTH;
+
 public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSessionDTO> {
     private static final Logger logger = LogManager.getLogger(CreateIoTThingSession.class);
     private final ThingRegistry thingRegistry;
@@ -51,7 +53,7 @@ public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSe
      */
     @Override
     public Session apply(CreateSessionDTO dto) throws AuthenticationException {
-        if (dto.getThingName() != null && dto.getThingName().length() > 65_535) {
+        if (dto.getThingName() != null && dto.getThingName().length() > MAX_THING_NAME_LENGTH) {
             throw new AuthenticationException("Thing name is too long");
         }
 
