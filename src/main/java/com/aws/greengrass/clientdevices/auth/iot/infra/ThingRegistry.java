@@ -10,6 +10,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.RuntimeConfiguration;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.clientdevices.auth.iot.events.ThingUpdated;
+import com.aws.greengrass.util.Pair;
 
 import java.time.Instant;
 import java.util.Map;
@@ -38,14 +39,15 @@ public class ThingRegistry {
      * Get or create a Thing.
      *
      * @param thingName ThingName
-     * @return Thing object
+     * @return Thing object and if the thing was newly created
      */
-    public Thing getOrCreateThing(String thingName) {
+    public Pair<Thing, Boolean> getOrCreateThing(String thingName) {
         Thing thing = getThingInternal(thingName);
         if (thing == null) {
             thing = createThing(thingName);
+            return new Pair<>(thing, true);
         }
-        return thing;
+        return new Pair<>(thing, false);
     }
 
     /**

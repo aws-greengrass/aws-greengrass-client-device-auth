@@ -18,6 +18,7 @@ import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionImpl;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
+import com.aws.greengrass.util.Pair;
 
 import javax.inject.Inject;
 
@@ -59,7 +60,7 @@ public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSe
 
         Certificate certificate = getActiveCertificateFromRegistry(dto);
         String thingName = dto.getThingName();
-        Thing thing = thingRegistry.getOrCreateThing(thingName);
+        Pair<Thing, Boolean> thing = thingRegistry.getOrCreateThing(thingName);
 
         VerifyThingAttachedToCertificate.Result result =
                 useCases.get(VerifyThingAttachedToCertificate.class)
@@ -74,9 +75,13 @@ public class CreateIoTThingSession implements UseCases.UseCase<Session, CreateSe
                 .log("Attachment verification result");
 
         if (result.isThingHasValidAttachmentToCertificate()) {
-            return new SessionImpl(certificate, thing);
+            return new SessionImpl(certificate, thing.getLeft());
         }
 
+        // If the thing was newly created just for this request, then remove it from the config if validation failed.
+        if (thing.getRight()) {
+            thingRegistry.deleteThing(thing.getLeft());
+        }
         throw new AuthenticationException("Failed to verify certificate attached to thing");
     }
 
