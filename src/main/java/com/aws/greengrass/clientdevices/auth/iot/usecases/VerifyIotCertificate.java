@@ -55,7 +55,7 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
         // so this guarantees that we at least try once.
         // Else, rely on whatever is in the local registry.
         Optional<Certificate> cloudCert = Optional.empty();
-        Certificate cert;
+        Certificate cert = null;
 
         try {
             cert = certificateRegistry.getOrCreateCertificate(certificatePem);
@@ -64,6 +64,9 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
             }
         } catch (InvalidCertificateException e) {
             logger.atWarn().kv("certificatePem", certificatePem).log("Unable to process certificate", e);
+            if (cert != null) {
+                certificateRegistry.deleteCertificate(cert);
+            }
             return false;
         }
 
@@ -72,9 +75,10 @@ public class VerifyIotCertificate implements UseCases.UseCase<Boolean, String> {
             cert = cloudCert.get();
             if (cert.isActive()) {
                 certificateRegistry.updateCertificate(cloudCert.get());
-            } else {
-                certificateRegistry.deleteCertificate(cloudCert.get());
             }
+        }
+        if (!cert.isActive()) {
+            certificateRegistry.deleteCertificate(cert);
         }
 
         String verificationSource = cloudCert.isPresent() ? CLOUD_VERIFICATION_SOURCE : LOCAL_VERIFICATION_SOURCE;
