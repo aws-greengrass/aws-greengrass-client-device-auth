@@ -16,6 +16,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.parser.ParseException
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.StringLiteralAttribute;
@@ -173,19 +174,19 @@ public class AuthorizationBenchmarks {
         }
 
         @Override
-        public AttributeProvider getAttributeProvider(String attributeProviderNameSpace) {
+        public AttributeProvider getAttributeProvider(String namespace) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public DeviceAttribute getSessionAttribute(String ns, String name) {
-            if ("Component".equalsIgnoreCase(ns) && name.equalsIgnoreCase("component")) {
+        public DeviceAttribute getSessionAttribute(Attribute attribute) {
+            if ("Component".equalsIgnoreCase(attribute.getNamespace()) && attribute.getName().equalsIgnoreCase("component")) {
                 return isComponent ? new StringLiteralAttribute("component") : null;
             }
-            if ("Thing".equalsIgnoreCase(ns) && name.equalsIgnoreCase("thingName")) {
+            if ("Thing".equalsIgnoreCase(attribute.getNamespace()) && attribute.getName().equalsIgnoreCase("thingName")) {
                    return new WildcardSuffixAttribute(thingName);
             }
-            throw new UnsupportedOperationException(String.format("Attribute %s.%s not supported", ns, name));
+            throw new UnsupportedOperationException(String.format("Attribute %s.%s not supported", attribute.getNamespace(), attribute.getName()));
         }
     }
 

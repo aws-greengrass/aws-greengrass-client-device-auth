@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.iot;
 
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.StringLiteralAttribute;
@@ -29,8 +30,6 @@ import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfig
 
 @Getter
 public class Certificate implements AttributeProvider {
-    public static final String NAMESPACE = "Certificate";
-    private static final String CERTIFICATE_ID_ATTRIBUTE = "CertificateId";
     private static final AtomicInteger metadataTrustDurationMinutes =
             new AtomicInteger(DEFAULT_CLIENT_DEVICE_TRUST_DURATION_MINUTES);
 
@@ -125,13 +124,13 @@ public class Certificate implements AttributeProvider {
 
     @Override
     public String getNamespace() {
-        return NAMESPACE;
+        return Attribute.Namespaces.CERTIFICATE;
     }
 
     @Override
     public DeviceAttribute getDeviceAttribute(String attributeName) {
         // TODO: Support other DeviceAttributes
-        if (CERTIFICATE_ID_ATTRIBUTE.equals(attributeName)) {
+        if (Attribute.CERTIFICATE_ID.getName().equals(attributeName)) {
             return new StringLiteralAttribute(getCertificateId());
         }
         return null;

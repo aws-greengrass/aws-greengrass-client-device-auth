@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.iot;
 
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.WildcardSuffixAttribute;
@@ -29,8 +30,6 @@ import static com.aws.greengrass.clientdevices.auth.configuration.SecurityConfig
  */
 @Getter
 public final class Thing implements AttributeProvider, Cloneable {
-    public static final String NAMESPACE = "Thing";
-    private static final String THING_NAME_ATTRIBUTE = "ThingName";
     private static final String thingNamePattern = "[a-zA-Z0-9\\-_:]+";
     public static final int MAX_THING_NAME_LENGTH = 128;
     private static final AtomicInteger metadataTrustDurationMinutes =
@@ -164,16 +163,34 @@ public final class Thing implements AttributeProvider, Cloneable {
 
     @Override
     public String getNamespace() {
-        return NAMESPACE;
+        return Attribute.Namespaces.THING;
     }
 
     @Override
     public DeviceAttribute getDeviceAttribute(String attributeName) {
-        // TODO: Support other DeviceAttributes
-        if (THING_NAME_ATTRIBUTE.equals(attributeName)) {
+        if (Attribute.THING_NAME.getName().equals(attributeName)) {
             return new WildcardSuffixAttribute(thingName);
         }
-        return null;
+        return getCachedIotCoreDeviceAttributes();
+    }
+
+    private DeviceAttribute getCachedIotCoreDeviceAttributes() {
+        return ThingAttributesCache.instance()
+                .map(cache -> new DeviceAttribute() {
+                    private String resolvedAttr;
+
+                    @Override
+                    public boolean matches(String attribute) {
+                        resolvedAttr = cache.getAttribute(thingName, attribute).orElse(null);
+                        return !Objects.equals(resolvedAttr, null);
+                    }
+
+                    @Override
+                    public String toString() {
+                        return resolvedAttr;
+                    }
+                })
+                .orElse(null);
     }
 
     /**

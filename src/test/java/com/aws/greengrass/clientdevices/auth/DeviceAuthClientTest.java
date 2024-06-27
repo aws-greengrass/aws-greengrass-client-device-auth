@@ -9,6 +9,7 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
 import com.aws.greengrass.componentmanager.KernelConfigResolver;
 import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.dependency.Context;
@@ -107,7 +108,7 @@ public class DeviceAuthClientTest {
         Session session = new SessionImpl(cert, thing);
         when(sessionManager.findSession(SESSION_ID)).thenReturn(session);
 
-        String thingName = Coerce.toString(session.getSessionAttribute("Thing", "ThingName"));
+        String thingName = Coerce.toString(session.getSessionAttribute(Attribute.THING_NAME));
         when(groupManager.getApplicablePolicyPermissions(session)).thenReturn(Collections.singletonMap("group1",
                 Collections.singleton(Permission.builder().operation("mqtt:publish")
                                 .resource("mqtt:topic:${iot:Connection.Thing.ThingName}").principal("group1")
