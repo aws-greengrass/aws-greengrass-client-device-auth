@@ -209,7 +209,8 @@ public class ThingAttributesCache {
         logger.atTrace().log("Fetching thing description from cloud");
         Optional<Map<String, String>> attributes = fetchThingAttributes(thingName);
         attributes.ifPresent(attrs ->
-                runtimeConfiguration.putThingDescriptionV1(new ThingDescriptionV1DTO(thingName, attrs, LocalDateTime.now())));
+                runtimeConfiguration.putThingDescriptionV1(
+                        new ThingDescriptionV1DTO(thingName, attrs, LocalDateTime.now())));
         return attributes;
     }
 
