@@ -62,8 +62,8 @@ import java.util.stream.Stream;
  * |                           |---- k:v
  * |                      |---- "l": lastUpdated
  * |    |---- "hostAddresses":
- *            |---- <source>:
- *                 |---- [...]
+ * |---- <source>:
+ * |---- [...]
  * </p>
  */
 public final class RuntimeConfiguration {
@@ -229,12 +229,22 @@ public final class RuntimeConfiguration {
         }
     }
 
+    /**
+     * Persist thing association dto.
+     *
+     * @param dto dto
+     */
     public void putThingAssociationV1(ThingAssociationV1DTO dto) {
         Topics t = getOrRepairTopics(config, ASSOCIATIONS_KEY, ASSOCIATIONS_V1);
         t.lookup(ASSOCIATIONS_PROP_KEY).withValue(new ArrayList<>(dto.getAssociatedThingNames()));
         t.lookup(LAST_UPDATED_KEY).withValue(dto.getLastUpdated().toEpochSecond(ZoneOffset.UTC));
     }
 
+    /**
+     * Get things associated with the core device.
+     *
+     * @return dto
+     */
     public Optional<ThingAssociationV1DTO> getThingAssociationV1() {
         Topics t = config.findTopics(ASSOCIATIONS_KEY, ASSOCIATIONS_V1);
         if (t == null) {
@@ -256,6 +266,11 @@ public final class RuntimeConfiguration {
         return Optional.of(new ThingAssociationV1DTO(thingNames, lastFetched));
     }
 
+    /**
+     * Persist thing description dto.
+     *
+     * @param dto dto
+     */
     public void putThingDescriptionV1(ThingDescriptionV1DTO dto) {
         Topics t = getOrRepairTopics(config, DESCRIPTION_KEY, DESCRIPTION_V1, dto.getThingName());
         t.lookup(LAST_UPDATED_KEY).withValue(dto.getLastUpdated().toEpochSecond(ZoneOffset.UTC));
@@ -263,6 +278,12 @@ public final class RuntimeConfiguration {
         getOrRepairTopics(t, ATTRIBUTES_PROP_KEY).replaceAndWait(attrs);
     }
 
+    /**
+     * Get cached IoT describe-thing response. Currently, we only care about the attributes field.
+     *
+     * @param thingName thing name
+     * @return dto
+     */
     public Optional<ThingDescriptionV1DTO> getThingDescriptionV1(String thingName) {
         Topics t = config.findTopics(DESCRIPTION_KEY, DESCRIPTION_V1, thingName);
         if (t == null) {
@@ -340,8 +361,8 @@ public final class RuntimeConfiguration {
     /**
      * Put hostAddresses config.
      *
-     * @param source         connectivity information source
-     * @param hostAddresses  host addresses
+     * @param source        connectivity information source
+     * @param hostAddresses host addresses
      */
     public void putHostAddressForSource(String source, Set<HostAddress> hostAddresses) {
         config.lookup(HOST_ADDRESSES_KEY, source)
