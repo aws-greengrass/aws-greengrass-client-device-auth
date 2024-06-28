@@ -9,6 +9,7 @@ import com.aws.greengrass.clientdevices.auth.iot.Certificate;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -25,9 +26,9 @@ public class SessionImplTest {
         Thing thing = Thing.of("MyThing");
         Session session = new SessionImpl(cert, thing);
 
-        Assertions.assertEquals(session.getSessionAttribute("Certificate", "CertificateId").toString(),
+        Assertions.assertEquals(session.getSessionAttribute(Attribute.CERTIFICATE_ID).toString(),
                 cert.getDeviceAttribute("CertificateId").toString());
-        Assertions.assertEquals(session.getSessionAttribute("Thing", "ThingName").toString(),
+        Assertions.assertEquals(session.getSessionAttribute(Attribute.THING_NAME).toString(),
                 thing.getDeviceAttribute("ThingName").toString());
     }
 }

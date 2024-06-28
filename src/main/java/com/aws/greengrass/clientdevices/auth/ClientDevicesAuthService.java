@@ -25,6 +25,7 @@ import com.aws.greengrass.clientdevices.auth.connectivity.CISShadowMonitor;
 import com.aws.greengrass.clientdevices.auth.connectivity.ConnectivityInfoCache;
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
+import com.aws.greengrass.clientdevices.auth.iot.ThingAttributesCache;
 import com.aws.greengrass.clientdevices.auth.metrics.MetricsEmitter;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.AuthorizeClientDeviceActionsMetricHandler;
 import com.aws.greengrass.clientdevices.auth.metrics.handlers.CertificateSubscriptionEventHandler;
@@ -136,6 +137,10 @@ public class ClientDevicesAuthService extends PluginService {
         context.get(BackgroundCertificateRefresh.class).start();
         context.get(MetricsEmitter.class).start(MetricsConfiguration.DEFAULT_PERIODIC_AGGREGATE_INTERVAL_SEC);
 
+        // make cache available during policy evaluation, which doesn't
+        // have access to context or dependency injection
+        ThingAttributesCache.setInstance(context.get(ThingAttributesCache.class));
+
         // Initialize IPC thread pool
         cloudCallQueueSize = DEFAULT_CLOUD_CALL_QUEUE_SIZE;
         cloudCallQueueSize = getValidCloudCallQueueSize(config);
@@ -214,20 +219,33 @@ public class ClientDevicesAuthService extends PluginService {
     @Override
     protected void startup() throws InterruptedException {
         context.get(CertificateManager.class).startMonitors();
+
+        GroupConfiguration groupConfiguration;
         try {
             subscribeToConfigChanges();
             // Validate CDA policy to force CDA to break on bad config policies before CDA reaches RUNNING
-            lookupAndValidateDeviceGroups();
+            groupConfiguration = lookupAndValidateDeviceGroups();
         } catch (IllegalArgumentException | PolicyException e) {
             serviceErrored(e);
             return;
         }
+
+        // wait for device attributes to be loaded before marking CDA as STARTED,
+        // otherwise client devices will be rejected until loading is complete
+        // TODO make timeout configurable and also dependent on startup timeout
+        if (groupConfiguration.isHasDeviceAttributeVariables()
+                && !context.get(ThingAttributesCache.class).waitForInitialization(10L, TimeUnit.SECONDS)) {
+            serviceErrored("Timed out loading thing attributes from cloud during startup");
+            return;
+        }
+
         super.startup();
     }
 
     @Override
     protected void shutdown() throws InterruptedException {
         super.shutdown();
+        context.get(ThingAttributesCache.class).stopPeriodicRefresh();
         context.get(CertificateManager.class).stopMonitors();
         context.get(BackgroundCertificateRefresh.class).stop();
         context.get(MetricsEmitter.class).stop();
@@ -276,6 +294,17 @@ public class ClientDevicesAuthService extends PluginService {
         } catch (IllegalArgumentException | PolicyException e) {
             serviceErrored(e);
             return;
+        }
+
+        // policy may have added or removed an attribute variable, e.g. ${iot:Connection.Thing.Attributes[myAttribute]}
+        // these attributes are fetched from the cloud periodically and cached
+        ThingAttributesCache cache = context.get(ThingAttributesCache.class);
+        if (groupConfiguration.isHasDeviceAttributeVariables()) {
+            logger.atTrace().log("enabling thing-attribute cache");
+            cache.startPeriodicRefresh();
+        } else {
+            logger.atTrace().log("disabling thing-attribute cache");
+            cache.stopPeriodicRefresh();
         }
 
         context.get(GroupManager.class).setGroupConfiguration(groupConfiguration);

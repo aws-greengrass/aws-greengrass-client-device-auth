@@ -28,7 +28,7 @@ public class GroupDefinitionTest {
         GroupDefinition groupDefinition = new GroupDefinition("thingName: thing", "Policy1");
         Session session = Mockito.mock(Session.class);
         DeviceAttribute attribute = new WildcardSuffixAttribute("thing");
-        Mockito.when(session.getSessionAttribute(any(), any())).thenReturn(attribute);
+        Mockito.when(session.getSessionAttribute(any())).thenReturn(attribute);
         assertThat(groupDefinition.containsClientDevice(session), is(true));
     }
 
@@ -38,7 +38,7 @@ public class GroupDefinitionTest {
         GroupDefinition groupDefinition = new GroupDefinition("thingName: thing*", "Policy1");
         Session session = Mockito.mock(Session.class);
         DeviceAttribute attribute = new WildcardSuffixAttribute("thing-A");
-        Mockito.when(session.getSessionAttribute(any(), any())).thenReturn(attribute);
+        Mockito.when(session.getSessionAttribute(any())).thenReturn(attribute);
         assertThat(groupDefinition.containsClientDevice(session), is(true));
     }
 
@@ -48,7 +48,7 @@ public class GroupDefinitionTest {
         GroupDefinition groupDefinition = new GroupDefinition("thingName: *thing", "Policy1");
         Session session = Mockito.mock(Session.class);
         DeviceAttribute attribute = new WildcardSuffixAttribute("A-thing");
-        Mockito.when(session.getSessionAttribute(any(), any())).thenReturn(attribute);
+        Mockito.when(session.getSessionAttribute(any())).thenReturn(attribute);
         assertThat(groupDefinition.containsClientDevice(session), is(true));
     }
 
@@ -58,7 +58,7 @@ public class GroupDefinitionTest {
         GroupDefinition groupDefinition = new GroupDefinition("thingName: *thing*", "Policy1");
         Session session = Mockito.mock(Session.class);
         DeviceAttribute attribute = new WildcardSuffixAttribute("A-thing-B");
-        Mockito.when(session.getSessionAttribute(any(), any())).thenReturn(attribute);
+        Mockito.when(session.getSessionAttribute(any())).thenReturn(attribute);
         assertThat(groupDefinition.containsClientDevice(session), is(true));
     }
 
