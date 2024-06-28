@@ -7,6 +7,8 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
 import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1DTO;
+import com.aws.greengrass.clientdevices.auth.iot.dto.ThingAssociationV1DTO;
+import com.aws.greengrass.clientdevices.auth.iot.dto.ThingDescriptionV1DTO;
 import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
@@ -202,6 +204,22 @@ public final class RuntimeConfiguration {
         if (v1CertNode != null) {
             v1CertNode.remove();
         }
+    }
+
+    public void putThingAssociationV1(ThingAssociationV1DTO thingAssociationV1DTO) {
+        // TODO
+    }
+
+    public ThingAssociationV1DTO getThingAssociationV1() {
+        return null; // TODO
+    }
+
+    public void putThingDescriptionV1(ThingDescriptionV1DTO thingDescriptionV1DTO) {
+        // TODO
+    }
+
+    public ThingDescriptionV1DTO getThingDescriptionV1(String thingName) {
+        return null; // TODO
     }
 
     private Topics getOrRepairTopics(Topics root, String... path) {
