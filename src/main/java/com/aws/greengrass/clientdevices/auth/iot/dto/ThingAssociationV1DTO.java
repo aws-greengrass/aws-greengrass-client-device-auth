@@ -15,5 +15,5 @@ import java.util.Set;
 @AllArgsConstructor
 public class ThingAssociationV1DTO {
     Set<String> associatedThingNames;
-    LocalDateTime lastFetched;
+    LocalDateTime lastUpdated;
 }

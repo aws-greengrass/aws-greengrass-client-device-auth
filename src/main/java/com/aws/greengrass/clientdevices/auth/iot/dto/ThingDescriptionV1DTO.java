@@ -16,5 +16,5 @@ import java.util.Map;
 public class ThingDescriptionV1DTO {
     String thingName;
     Map<String, String> attributes;
-    LocalDateTime lastFetched;
+    LocalDateTime lastUpdated;
 }

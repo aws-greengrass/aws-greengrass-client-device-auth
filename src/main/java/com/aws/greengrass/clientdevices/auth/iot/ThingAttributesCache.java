@@ -154,12 +154,12 @@ public class ThingAttributesCache {
 
     private Optional<Set<String>> getAssociatedThingNames() {
         // use cached value, provided it's not stale
-        ThingAssociationV1DTO dto = runtimeConfiguration.getThingAssociationV1();
+        Optional<ThingAssociationV1DTO> dto = runtimeConfiguration.getThingAssociationV1();
         // TODO pull from configuration
-        if (dto != null && dto.getLastFetched().plusSeconds(DEFAULT_THING_ASSOCIATION_TRUST_DURATION_SECONDS)
+        if (dto.isPresent() && dto.get().getLastUpdated().plusSeconds(DEFAULT_THING_ASSOCIATION_TRUST_DURATION_SECONDS)
                 .isBefore(LocalDateTime.now())) {
             logger.atTrace().log("Using locally cached thing associations");
-            return Optional.ofNullable(dto.getAssociatedThingNames());
+            return dto.map(ThingAssociationV1DTO::getAssociatedThingNames);
         }
 
         if (networkStateProvider.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_DOWN) {
@@ -192,12 +192,12 @@ public class ThingAttributesCache {
 
     private Optional<Map<String, String>> getThingAttributes(String thingName) {
         // use cached value, provided it's not stale
-        ThingDescriptionV1DTO dto = runtimeConfiguration.getThingDescriptionV1(thingName);
+        Optional<ThingDescriptionV1DTO> dto = runtimeConfiguration.getThingDescriptionV1(thingName);
         // TODO pull from configuration
-        if (dto != null && dto.getLastFetched().plusSeconds(DEFAULT_THING_DESCRIPTION_TRUST_DURATION_SECONDS)
+        if (dto.isPresent() && dto.get().getLastUpdated().plusSeconds(DEFAULT_THING_DESCRIPTION_TRUST_DURATION_SECONDS)
                 .isBefore(LocalDateTime.now())) {
             logger.atTrace().log("Using locally cached thing description");
-            return Optional.ofNullable(dto.getAttributes());
+            return dto.map(ThingDescriptionV1DTO::getAttributes);
         }
 
         if (networkStateProvider.getConnectionState() == NetworkStateProvider.ConnectionState.NETWORK_DOWN) {
