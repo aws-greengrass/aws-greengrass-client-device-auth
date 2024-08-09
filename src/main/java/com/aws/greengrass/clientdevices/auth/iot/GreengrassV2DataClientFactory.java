@@ -13,12 +13,16 @@ import com.aws.greengrass.util.Utils;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.endpoints.Endpoint;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClientBuilder;
+import software.amazon.awssdk.services.greengrassv2data.endpoints.GreengrassV2DataEndpointParams;
+import software.amazon.awssdk.services.greengrassv2data.endpoints.GreengrassV2DataEndpointProvider;
 
 import java.net.URI;
+import java.util.concurrent.CompletableFuture;
 import javax.inject.Inject;
 
 /**
@@ -51,14 +55,23 @@ public class GreengrassV2DataClientFactory {
         String ggServiceEndpoint = ClientConfigurationUtils.getGreengrassServiceEndpoint(deviceConfiguration);
         ApacheHttpClient.Builder httpClient = ClientConfigurationUtils.getConfiguredClientBuilder(deviceConfiguration);
 
+        GreengrassV2DataEndpointProvider endpointProvider = new GreengrassV2DataEndpointProvider() {
+            @Override
+            public CompletableFuture<Endpoint> resolveEndpoint(GreengrassV2DataEndpointParams endpointParams) {
+                return CompletableFuture.supplyAsync(() -> Endpoint.builder()
+                        .url(URI.create(ggServiceEndpoint))
+                        .build());
+            }
+        };
+
         GreengrassV2DataClientBuilder clientBuilder =
                 GreengrassV2DataClient.builder().credentialsProvider(AnonymousCredentialsProvider.create())
+                        .endpointProvider(endpointProvider)
                         .httpClientBuilder(httpClient.useIdleConnectionReaper(false))
                         .overrideConfiguration(ClientOverrideConfiguration.builder()
                                 .retryPolicy(RetryPolicy.none()).build());
 
         clientBuilder.region(Region.of(awsRegion));
-        clientBuilder.endpointOverride(URI.create(ggServiceEndpoint));
         return clientBuilder.build();
     }
 
