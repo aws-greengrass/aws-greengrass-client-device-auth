@@ -31,7 +31,7 @@ public class RuleExpressionEvaluationTest {
     Session getSessionWithThing(String thingName) {
         Session session = Mockito.mock(Session.class);
         DeviceAttribute attribute = new WildcardSuffixAttribute(thingName);
-        Mockito.when(session.getSessionAttribute(any(), any())).thenReturn(attribute);
+        Mockito.when(session.getSessionAttribute(any())).thenReturn(attribute);
         return session;
     }
 

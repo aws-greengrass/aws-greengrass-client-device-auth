@@ -7,21 +7,21 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
+import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 import com.aws.greengrass.util.Coerce;
-import com.aws.greengrass.util.Pair;
 import org.apache.commons.lang3.StringUtils;
-import software.amazon.awssdk.utils.ImmutableMap;
 
-import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public final class PolicyVariableResolver {
-    private static final String THING_NAMESPACE = "Thing";
-    private static final String THING_NAME_ATTRIBUTE = "ThingName";
 
-    private static final Map<String, Pair<String,String>> policyVariableToAttributeProvider = ImmutableMap.of(
-            "${iot:Connection.Thing.ThingName}", new Pair<>(THING_NAMESPACE, THING_NAME_ATTRIBUTE)
-    );
+    private static final Function<PolicyVariable, PolicyException> NO_ATTR_FOUND_EXCEPTION = policyVariable ->
+            new PolicyException(String.format("No attribute found for policy variable %s in current session",
+                    policyVariable));
 
     private PolicyVariableResolver() {
     }
@@ -32,8 +32,8 @@ public final class PolicyVariableResolver {
      * This method does not handle unsupported policy variables.
      *
      * @param policyVariables list of policy variables in permission format
-     * @param format permission format to resolve
-     * @param session current device session
+     * @param format          permission format to resolve
+     * @param session         current device session
      * @return updated format
      * @throws PolicyException when unable to find a policy variable value
      */
@@ -43,23 +43,49 @@ public final class PolicyVariableResolver {
             return format;
         }
         String substitutedFormat = format;
-        for (String policyVariable : policyVariables) {
-            String attributeNamespace = policyVariableToAttributeProvider.get(policyVariable).getLeft();
-            String attributeName = policyVariableToAttributeProvider.get(policyVariable).getRight();
-            String policyVariableValue = Coerce.toString(session.getSessionAttribute(attributeNamespace,
-                    attributeName));
-            if (policyVariableValue == null) {
-                throw new PolicyException(
-                        String.format("No attribute found for policy variable %s in current session", policyVariable));
-            } else {
-                // StringUtils.replace() is faster than String.replace() since it does not use regex
-                substitutedFormat = StringUtils.replace(substitutedFormat, policyVariable, policyVariableValue);
+        for (PolicyVariable policyVariable : policyVariables.stream()
+                .map(PolicyVariable::parse).map(v -> v.orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList())) {
+
+            DeviceAttribute attr = session.getSessionAttribute(policyVariable.getAttribute());
+            if (policyVariable.getAttribute() == Attribute.THING_ATTRIBUTES
+                    && !attr.matches(policyVariable.getSelector())) {
+                throw NO_ATTR_FOUND_EXCEPTION.apply(policyVariable);
             }
+
+            String policyVariableValue = Coerce.toString(attr);
+            if (policyVariableValue == null) {
+                throw NO_ATTR_FOUND_EXCEPTION.apply(policyVariable);
+            }
+
+            // StringUtils.replace() is faster than String.replace() since it does not use regex
+            substitutedFormat = StringUtils.replace(substitutedFormat,
+                    policyVariable.getOriginalText(), policyVariableValue);
         }
         return substitutedFormat;
     }
 
-    public static boolean isPolicyVariable(String variable) {
-        return policyVariableToAttributeProvider.containsKey(variable);
+    /**
+     * True if the variable is a supported policy variable.
+     *
+     * @param variable variable
+     * @return true if the variable is a support policy variable
+     */
+    public static boolean isSupportedPolicyVariable(String variable) {
+        return PolicyVariable.parse(variable).isPresent();
+    }
+
+    /**
+     * True if the following variable represents a thing attribute,
+     * such as ${iot:Connection.Thing.Attributes[myAttribute]}.
+     *
+     * @param variable variable
+     * @return true if variable is a thing attribute
+     */
+    public static boolean isAttributePolicyVariable(String variable) {
+        return PolicyVariable.parse(variable)
+                .filter(var -> var.getAttribute() == Attribute.THING_ATTRIBUTES)
+                .isPresent();
     }
 }

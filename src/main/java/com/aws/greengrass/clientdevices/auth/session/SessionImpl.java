@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.session;
 
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 
@@ -27,21 +28,20 @@ public class SessionImpl extends ConcurrentHashMap<String, AttributeProvider> im
     }
 
     @Override
-    public AttributeProvider getAttributeProvider(String attributeProviderNameSpace) {
-        return this.get(attributeProviderNameSpace);
+    public AttributeProvider getAttributeProvider(String namespace) {
+        return this.get(namespace);
     }
 
     /**
      * Get session attribute.
      *
-     * @param attributeNamespace Attribute namespace
-     * @param attributeName      Attribute name
+     * @param attribute     attribute
      * @return Session attribute
      */
     @Override
-    public DeviceAttribute getSessionAttribute(String attributeNamespace, String attributeName) {
-        if (this.getAttributeProvider(attributeNamespace) != null) {
-            return this.getAttributeProvider(attributeNamespace).getDeviceAttribute(attributeName);
+    public DeviceAttribute getSessionAttribute(Attribute attribute) {
+        if (this.getAttributeProvider(attribute.getNamespace()) != null) {
+            return this.getAttributeProvider(attribute.getNamespace()).getDeviceAttribute(attribute.getName());
         }
         return null;
     }
