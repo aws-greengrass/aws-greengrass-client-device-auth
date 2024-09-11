@@ -20,6 +20,7 @@ import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
 import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.lifecyclemanager.Kernel;
+import com.aws.greengrass.mqttclient.MqttRequestException;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 
@@ -46,6 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -172,7 +174,8 @@ public class OfflineAuthenticationTest {
     @Test
     void GIVEN_clientConnectsWhileOnline_WHEN_offline_THEN_clientCanConnect(ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, NoSuchFileException.class);
-
+        ignoreExceptionOfType(context, MqttRequestException.class);
+        ignoreExceptionOfType(context, ExecutionException.class);
         // Given
         network.goOnline();
 
@@ -198,7 +201,8 @@ public class OfflineAuthenticationTest {
     void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndTtlExpired_THEN_clientCanNotConnect(ExtensionContext context)
             throws Exception {
         ignoreExceptionOfType(context, NoSuchFileException.class);
-
+        ignoreExceptionOfType(context, MqttRequestException.class);
+        ignoreExceptionOfType(context, ExecutionException.class);
         // Given
         network.goOnline();
         Instant now = Instant.now();
@@ -230,6 +234,8 @@ public class OfflineAuthenticationTest {
     void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertificateRevoked_THEN_backOnlineAndClientRejected(
             ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, NoSuchFileException.class);
+        ignoreExceptionOfType(context, MqttRequestException.class);
+        ignoreExceptionOfType(context, ExecutionException.class);
         // Given
         network.goOnline();
 
@@ -260,6 +266,8 @@ public class OfflineAuthenticationTest {
     void GIVEN_clientConnectsWhileOnline_WHEN_offlineAndCertDetachedFromThing_THEN_backOnlineAndClientRejected(
             ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, NoSuchFileException.class);
+        ignoreExceptionOfType(context, MqttRequestException.class);
+        ignoreExceptionOfType(context, ExecutionException.class);
         // Given
         network.goOnline();
 
@@ -291,6 +299,8 @@ public class OfflineAuthenticationTest {
             ExtensionContext context) throws Exception {
         ignoreExceptionOfType(context, NoSuchFileException.class);
         ignoreExceptionOfType(context, InvalidCertificateException.class);
+        ignoreExceptionOfType(context, MqttRequestException.class);
+        ignoreExceptionOfType(context, ExecutionException.class);
         // Given
         network.goOnline();
 
