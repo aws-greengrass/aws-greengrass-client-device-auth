@@ -28,7 +28,7 @@ services:
               operations:
                 - "mqtt:subscribe"
               resources:
-                - "mqtt:topic:myThing/#/test/*"
+                - "mqtt:topic:myThing/#/test/???"
   main:
     dependencies:
       - aws.greengrass.clientdevices.Auth

@@ -5,12 +5,12 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
-import com.aws.greengrass.authorization.WildcardTrie;
 import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
+import com.aws.greengrass.clientdevices.auth.util.WildcardTrie;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
@@ -137,28 +137,14 @@ public final class PermissionEvaluationUtils {
         if (Objects.equals(requestResource.getResourceStr(), policyResource)) {
             return true;
         }
-
-        if (matchMqttWildcards()) {
-            String name = extractResourceName(policyResource);
-            WildcardTrie trie = new WildcardTrie();
-            trie.add(name);
-            return trie.matchesMQTT(requestResource.getResourceName());
-        } else {
-            WildcardTrie trie = new WildcardTrie();
-            trie.add(policyResource);
-            return trie.matchesStandard(requestResource.getResourceStr());
-        }
+        WildcardTrie trie = new WildcardTrie();
+        trie.add(policyResource);
+        return trie.matches(requestResource.getResourceStr(), matchSingleCharacterWildcard());
     }
 
-    private String extractResourceName(String resource) {
-        // resource is considered valid at this point, so don't need to duplicate validation from parseResource
-        String typeAndName = resource.substring(resource.indexOf(':') + 1);
-        return typeAndName.substring(typeAndName.indexOf(':') + 1);
-    }
-
-    private boolean matchMqttWildcards() {
+    private boolean matchSingleCharacterWildcard() {
         CDAConfiguration config = cdaConfiguration;
-        return config != null && config.isEnableMqttWildcardEvaluation();
+        return config != null && config.isMatchSingleCharacterWildcard();
     }
 
     private Operation parseOperation(String operationStr) throws PolicyException {

@@ -53,7 +53,7 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
 @Builder
 public final class CDAConfiguration {
 
-    public static final String ENABLE_MQTT_WILDCARD_EVALUATION = "enableMqttWildcardEvaluation";
+    public static final String ENABLE_MQTT_WILDCARD_EVALUATION = "enableSingleCharacterWildcardMatching";
 
     private final DomainEvents domainEvents;
     private final RuntimeConfiguration runtime;
@@ -62,7 +62,7 @@ public final class CDAConfiguration {
     private final SecurityConfiguration security;
     private final MetricsConfiguration metricsConfiguration;
     @Getter
-    private final boolean enableMqttWildcardEvaluation;
+    private final boolean matchSingleCharacterWildcard;
 
     /**
      * Creates the CDA (Client Device Auth) Service configuration. And allows it to be available in the context with the
@@ -84,7 +84,7 @@ public final class CDAConfiguration {
                 .certificateAuthorityConfiguration(CAConfiguration.from(serviceConfiguration))
                 .security(SecurityConfiguration.from(serviceConfiguration))
                 .metricsConfiguration(MetricsConfiguration.from(serviceConfiguration))
-                .enableMqttWildcardEvaluation(
+                .matchSingleCharacterWildcard(
                         Coerce.toBoolean(serviceConfiguration.find(ENABLE_MQTT_WILDCARD_EVALUATION)))
                 .build();
 

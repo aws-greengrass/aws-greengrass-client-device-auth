@@ -9,7 +9,7 @@ services:
         level: "DEBUG"
   aws.greengrass.clientdevices.Auth:
     configuration:
-      enableMqttWildcardEvaluation: true
+      enableSingleCharacterWildcardMatching: true
       deviceGroups:
         formatVersion: "2021-03-05"
         definitions:
@@ -18,18 +18,12 @@ services:
             policyName: "thingAccessPolicy"
         policies:
           thingAccessPolicy:
-            publish:
-              statementDescription: "mqtt publish"
-              operations:
-                - "mqtt:publish"
-              resources:
-                - "mqtt:topic:*/myThing/*"
             subscribe:
               statementDescription: "mqtt subscribe"
               operations:
                 - "mqtt:subscribe"
               resources:
-                - "mqtt:topic:${iot:Connection.Thing.ThingName}/+/test/#"
+                - "mqtt:topic:${iot:Connection.Thing.ThingName}/???/test/*"
   main:
     dependencies:
       - aws.greengrass.clientdevices.Auth
