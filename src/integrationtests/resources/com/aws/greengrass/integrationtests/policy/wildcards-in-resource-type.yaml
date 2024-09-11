@@ -17,12 +17,18 @@ services:
             policyName: "thingAccessPolicy"
         policies:
           thingAccessPolicy:
-            policyStatement:
+            publish:
               statementDescription: "mqtt publish"
               operations:
                 - "mqtt:publish"
               resources:
                 - "mqtt:topic:*/myThing/*"
+            subscribe:
+              statementDescription: "mqtt subscribe"
+              operations:
+                - "mqtt:subscribe"
+              resources:
+                - "mqtt:topic:myThing/#/test/*"
   main:
     dependencies:
       - aws.greengrass.clientdevices.Auth

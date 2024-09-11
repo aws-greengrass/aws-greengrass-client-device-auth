@@ -273,6 +273,19 @@ public class PolicyTest {
                                 .operation("mqtt:publish")
                                 .resource("mqtt:topic:myThing/world")
                                 .expectedResult(false)
+                                .build(),
+                        // mqtt wildcards eval not supported
+                        AuthZRequest.builder()
+                                .thingName("myThing")
+                                .operation("mqtt:subscribe")
+                                .resource("mqtt:topic:myThing/test/test/*")
+                                .expectedResult(false)
+                                .build(),
+                        AuthZRequest.builder()
+                                .thingName("myThing")
+                                .operation("mqtt:subscribe")
+                                .resource("mqtt:topic:myThing/#/test/*")
+                                .expectedResult(true)
                                 .build()
                 )),
 
