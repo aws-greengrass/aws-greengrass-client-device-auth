@@ -10,6 +10,8 @@ import com.aws.greengrass.clientdevices.auth.certificate.events.CAConfigurationC
 import com.aws.greengrass.clientdevices.auth.configuration.events.MetricsConfigurationChanged;
 import com.aws.greengrass.clientdevices.auth.configuration.events.SecurityConfigurationChanged;
 import com.aws.greengrass.config.Topics;
+import com.aws.greengrass.util.Coerce;
+import lombok.Builder;
 import lombok.Getter;
 
 import java.net.URISyntaxException;
@@ -48,23 +50,19 @@ import static com.aws.greengrass.lifecyclemanager.GreengrassService.RUNTIME_STOR
  * |
  * </p>
  */
+@Builder
 public final class CDAConfiguration {
 
+    public static final String ENABLE_MQTT_WILDCARD_EVALUATION = "enableMqttWildcardEvaluation";
+
+    private final DomainEvents domainEvents;
     private final RuntimeConfiguration runtime;
-    private final SecurityConfiguration security;
     @Getter
     private final CAConfiguration certificateAuthorityConfiguration;
+    private final SecurityConfiguration security;
     private final MetricsConfiguration metricsConfiguration;
-    private final DomainEvents domainEvents;
-
-    private CDAConfiguration(DomainEvents domainEvents, RuntimeConfiguration runtime, CAConfiguration ca,
-                             SecurityConfiguration security, MetricsConfiguration metricsConfiguration) {
-        this.domainEvents = domainEvents;
-        this.runtime = runtime;
-        this.security = security;
-        this.certificateAuthorityConfiguration = ca;
-        this.metricsConfiguration = metricsConfiguration;
-    }
+    @Getter
+    private final boolean enableMqttWildcardEvaluation;
 
     /**
      * Creates the CDA (Client Device Auth) Service configuration. And allows it to be available in the context with the
@@ -80,9 +78,15 @@ public final class CDAConfiguration {
 
         DomainEvents domainEvents = topics.getContext().get(DomainEvents.class);
 
-        CDAConfiguration newConfig = new CDAConfiguration(domainEvents, RuntimeConfiguration.from(runtimeTopics),
-                CAConfiguration.from(serviceConfiguration), SecurityConfiguration.from(serviceConfiguration),
-                MetricsConfiguration.from(serviceConfiguration));
+        CDAConfiguration newConfig = CDAConfiguration.builder()
+                .domainEvents(domainEvents)
+                .runtime(RuntimeConfiguration.from(runtimeTopics))
+                .certificateAuthorityConfiguration(CAConfiguration.from(serviceConfiguration))
+                .security(SecurityConfiguration.from(serviceConfiguration))
+                .metricsConfiguration(MetricsConfiguration.from(serviceConfiguration))
+                .enableMqttWildcardEvaluation(
+                        Coerce.toBoolean(serviceConfiguration.find(ENABLE_MQTT_WILDCARD_EVALUATION)))
+                .build();
 
         newConfig.triggerChanges(newConfig, existingConfig);
 

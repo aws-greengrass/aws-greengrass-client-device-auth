@@ -6,6 +6,7 @@
 package com.aws.greengrass.clientdevices.auth;
 
 import com.aws.greengrass.authorization.WildcardTrie;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
@@ -14,6 +15,7 @@ import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
 import lombok.Builder;
+import lombok.Setter;
 import lombok.Value;
 import org.apache.commons.lang3.StringUtils;
 
@@ -36,6 +38,8 @@ public final class PermissionEvaluationUtils {
             "Resource is malformed, must be of the form: "
             + "([a-zA-Z]+):([a-zA-Z]+):" + RESOURCE_NAME_PATTERN.pattern();
     private final GroupManager groupManager;
+    @Setter
+    private volatile CDAConfiguration cdaConfiguration;
 
     /**
      * Constructor for PermissionEvaluationUtils.
@@ -134,9 +138,27 @@ public final class PermissionEvaluationUtils {
             return true;
         }
 
-        WildcardTrie wildcardTrie = new WildcardTrie();
-        wildcardTrie.add(policyResource);
-        return wildcardTrie.matchesStandard(requestResource.getResourceStr());
+        if (matchMqttWildcards()) {
+            String name = extractResourceName(policyResource);
+            WildcardTrie trie = new WildcardTrie();
+            trie.add(name);
+            return trie.matchesMQTT(requestResource.getResourceName());
+        } else {
+            WildcardTrie trie = new WildcardTrie();
+            trie.add(policyResource);
+            return trie.matchesStandard(requestResource.getResourceStr());
+        }
+    }
+
+    private String extractResourceName(String resource) {
+        // resource is considered valid at this point, so don't need to duplicate validation from parseResource
+        String typeAndName = resource.substring(resource.indexOf(':') + 1);
+        return typeAndName.substring(typeAndName.indexOf(':') + 1);
+    }
+
+    private boolean matchMqttWildcards() {
+        CDAConfiguration config = cdaConfiguration;
+        return config != null && config.isEnableMqttWildcardEvaluation();
     }
 
     private Operation parseOperation(String operationStr) throws PolicyException {

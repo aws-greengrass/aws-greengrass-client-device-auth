@@ -274,7 +274,7 @@ public class PolicyTest {
                                 .resource("mqtt:topic:myThing/world")
                                 .expectedResult(false)
                                 .build(),
-                        // mqtt wildcards eval not supported
+                        // mqtt wildcards eval not supported by default
                         AuthZRequest.builder()
                                 .thingName("myThing")
                                 .operation("mqtt:subscribe")
@@ -285,6 +285,27 @@ public class PolicyTest {
                                 .thingName("myThing")
                                 .operation("mqtt:subscribe")
                                 .resource("mqtt:topic:myThing/#/test/*")
+                                .expectedResult(true)
+                                .build()
+                )),
+
+                Arguments.of("mqtt-wildcards-in-resource.yaml", Arrays.asList(
+                        AuthZRequest.builder()
+                                .thingName("myThing")
+                                .operation("mqtt:publish")
+                                .resource("mqtt:topic:*/myThing/*")
+                                .expectedResult(true)
+                                .build(),
+                        AuthZRequest.builder()
+                                .thingName("myThing")
+                                .operation("mqtt:publish")
+                                .resource("mqtt:topic:hello/myThing/world")
+                                .expectedResult(true)
+                                .build(),
+                        AuthZRequest.builder()
+                                .thingName("myThing")
+                                .operation("mqtt:subscribe")
+                                .resource("mqtt:topic:myThing/test/test/test/test")
                                 .expectedResult(true)
                                 .build()
                 )),
