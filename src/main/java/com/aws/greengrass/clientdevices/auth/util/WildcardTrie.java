@@ -7,151 +7,183 @@ package com.aws.greengrass.clientdevices.auth.util;
 
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import lombok.Builder;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import lombok.Value;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+@RequiredArgsConstructor
 public class WildcardTrie {
-    private static final String GLOB_WILDCARD = "*";
-    private static final String SINGLE_CHAR_WILDCARD = "?";
 
-    private final Map<String, WildcardTrie> children = new DefaultHashMap<>(WildcardTrie::new);
+    private Node root;
 
-    private boolean isTerminal;
-    private boolean isGlobWildcard;
-    private boolean isSingleCharWildcard;
+    private final MatchOptions opts;
 
-    public void add(String subject) {
-        add(subject, true);
+    private static String cleanPattern(@NonNull String s) {
+        // for example "abc***def" can be reduced to "abc*def"
+        return s.replaceAll(String.format("\\%s+", WildcardType.GLOB.val), WildcardType.GLOB.val);
     }
 
-    private WildcardTrie add(String subject, boolean isTerminal) {
-        if (subject == null || subject.isEmpty()) {
-            this.isTerminal |= isTerminal;
-            return this;
-        }
-        StringBuilder currPrefix = new StringBuilder(subject.length());
-        for (int i = 0; i < subject.length(); i++) {
-            char c = subject.charAt(i);
-            if (c == GLOB_WILDCARD.charAt(0)) {
-                return addGlobWildcard(subject, currPrefix.toString(), isTerminal);
+    public WildcardTrie withPattern(@NonNull String s) {
+        root = new Node();
+        withPattern(root, cleanPattern(s));
+        return this;
+    }
+
+    private Node withPattern(@NonNull Node n, @NonNull String s) {
+        StringBuilder token = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (isWildcard(s.charAt(i))) {
+                WildcardType type = WildcardType.from(c);
+                Node node = n.children.get(type.val());
+                node.wildcardType = type;
+                if (i == s.length() - 1) {
+                    // we've reached the last token
+                    return node;
+                }
+                return withPattern(node, s.substring(token.length() + 2));
+            } else {
+                token.append(c);
             }
-            if (c == SINGLE_CHAR_WILDCARD.charAt(0)) {
-                return addSingleCharWildcard(subject, currPrefix.toString(), isTerminal);
-            }
-            currPrefix.append(c);
         }
-        WildcardTrie node = children.get(currPrefix.toString());
-        node.isTerminal |= isTerminal;
-        return node;
+        // use remaining (non-wildcard) chars as last token
+        if (token.length() > 0) {
+            return n.children.get(token.toString());
+        } else {
+            return n;
+        }
     }
 
-    private WildcardTrie addGlobWildcard(String subject, String currPrefix, boolean isTerminal) {
-        WildcardTrie node = this;
-        node = node.add(currPrefix, false);
-        node = node.children.get(GLOB_WILDCARD);
-        node.isGlobWildcard = true;
-        // wildcard at end of subject is terminal
-        if (subject.length() - currPrefix.length() == 1) {
-            node.isTerminal = isTerminal;
-            return node;
+    private boolean isWildcard(char c) {
+        WildcardType type = WildcardType.from(c);
+        if (type == null) {
+            return false;
         }
-        return node.add(subject.substring(currPrefix.length() + 2), true);
+        if (type == WildcardType.SINGLE) {
+            return opts.useSingleCharWildcard;
+        }
+        return true;
     }
 
-    private WildcardTrie addSingleCharWildcard(String subject, String currPrefix, boolean isTerminal) {
-        WildcardTrie node = this;
-        node = node.add(currPrefix, false);
-        node = node.children.get(SINGLE_CHAR_WILDCARD);
-        node.isSingleCharWildcard = true;
-        // wildcard at end of subject is terminal
-        if (subject.length() - currPrefix.length() == 1) {
-            node.isTerminal = isTerminal;
-            return node;
+    public boolean matches(@NonNull String s) {
+        if (root == null) {
+            return s.isEmpty();
         }
-        return node.add(subject.substring(currPrefix.length() + 1), true);
+        return matches(root, s);
     }
 
-    public boolean matches(String s) {
-        return matches(s, true);
-    }
-
-    public boolean matches(String s, boolean matchSingleCharWildcard) {
-        if (s == null) {
-            return children.isEmpty();
-        }
-
-        if ((isWildcard() && isTerminal) || (isTerminal && s.isEmpty())) {
-            return true;
-        }
-
-        boolean childMatchesWildcard = children
-                .values()
-                .stream()
-                .filter(WildcardTrie::isWildcard)
-                .filter(childNode -> matchSingleCharWildcard || !childNode.isSingleCharWildcard)
-                .anyMatch(childNode -> childNode.matches(s, matchSingleCharWildcard));
-        if (childMatchesWildcard) {
-            return true;
-        }
-
-        if (matchSingleCharWildcard) {
-            boolean childMatchesSingleCharWildcard = children
-                    .values()
-                    .stream()
-                    .filter(childNode -> childNode.isSingleCharWildcard)
-                    .anyMatch(childNode -> childNode.matches(s, matchSingleCharWildcard));
-            if (childMatchesSingleCharWildcard) {
-                return true;
+    private boolean matches(@NonNull Node n, String s) {
+        if (n.isTerminal()) {
+            if (n.isWildcard()) {
+                switch (n.wildcardType) {
+                    case SINGLE:
+                        return s.length() == 1;
+                    case GLOB:
+                        return true;
+                    default:
+                        throw new UnsupportedOperationException("wildcard type " + n.wildcardType.name() + " not supported");
+                }
+            } else {
+                return s.isEmpty();
             }
         }
 
-        boolean childMatchesRegularCharacters = children
-                .keySet()
-                .stream()
-                .filter(s::startsWith)
-                .anyMatch(childToken -> {
-                    WildcardTrie childNode = children.get(childToken);
-                    String rest = s.substring(childToken.length());
-                    return childNode.matches(rest, matchSingleCharWildcard);
-                });
-        if (childMatchesRegularCharacters) {
-            return true;
+        for (String token : n.children.keySet()) {
+            Node child = n.children.get(token);
+
+            if (n.isWildcard()) {  // parent is a wildcard
+                switch (n.wildcardType) {
+                    case SINGLE:
+                        // skip over one character for single wildcard
+                        return matches(child, s.substring(1));
+                    case GLOB:
+                        // consume the input string to find a match
+                        return allIndicesOf(s, token).stream()
+                                .anyMatch(tokenIndex ->
+                                        matches(child, s.substring(tokenIndex + token.length()))
+                                );
+                    default:
+                        throw new UnsupportedOperationException("wildcard type " + n.wildcardType.name() + " not supported");
+                }
+            }
+
+            if (child.isWildcard()) {
+                // skip past the wildcard node,
+                // on the next iteration we need to figure out
+                // the part the wildcard matched (if at all).
+                return matches(child, s);
+            } else {
+                // match found, keep following this trie branch
+                if (s.startsWith(token)) {
+                    return matches(child, s.substring(token.length()));
+                }
+            }
         }
 
-        if (isWildcard() && !isTerminal) {
-            return findMatchingChildSuffixesAfterWildcard(s, matchSingleCharWildcard)
-                    .entrySet()
-                    .stream()
-                    .anyMatch((e) -> {
-                        String suffix = e.getKey();
-                        WildcardTrie childNode = e.getValue();
-                        return childNode.matches(suffix, matchSingleCharWildcard);
-                    });
-        }
         return false;
     }
 
-    private Map<String, WildcardTrie> findMatchingChildSuffixesAfterWildcard(String s, boolean matchSingleCharWildcard) {
-        Map<String, WildcardTrie> matchingSuffixes = new HashMap<>();
-        for (Map.Entry<String, WildcardTrie> e : children.entrySet()) {
-            String childToken = e.getKey();
-            WildcardTrie childNode = e.getValue();
-            int suffixIndex = s.indexOf(childToken);
-            if (matchSingleCharWildcard && suffixIndex > 1) {
-                continue;
-            }
-            while (suffixIndex >= 0) {
-                matchingSuffixes.put(s.substring(suffixIndex + childToken.length()), childNode);
-                suffixIndex = s.indexOf(childToken, suffixIndex + 1);
-            }
+    private static List<Integer> allIndicesOf(@NonNull String s, @NonNull String sub) {
+        List<Integer> indices = new ArrayList<>();
+        int i = s.indexOf(sub);
+        while (i >= 0) {
+            indices.add(i);
+            i = s.indexOf(sub, i + sub.length());
         }
-        return matchingSuffixes;
+        return indices;
     }
 
-    private boolean isWildcard() {
-        return isGlobWildcard || isSingleCharWildcard;
+    @Value
+    @Builder
+    public static class MatchOptions {
+        boolean useSingleCharWildcard;
+    }
+
+    enum WildcardType {
+        GLOB("*"),
+        SINGLE("?");
+
+        private final String val;
+
+        WildcardType(@NonNull String val) {
+            this.val = val;
+        }
+
+        public static WildcardType from(char c) {
+            return Arrays.stream(WildcardType.values())
+                    .filter(t -> t.charVal() == c)
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        public String val() {
+            return val;
+        }
+
+        public char charVal() {
+            return val.charAt(0);
+        }
+    }
+
+    private class Node {
+        private final Map<String, Node> children = new DefaultHashMap<>(Node::new);
+        private WildcardType wildcardType;
+
+        public boolean isWildcard() {
+            return wildcardType != null;
+        }
+
+        public boolean isTerminal() {
+            return children.isEmpty();
+        }
     }
 
     @SuppressFBWarnings("EQ_DOESNT_OVERRIDE_EQUALS")

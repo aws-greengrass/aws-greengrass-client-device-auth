@@ -43,8 +43,8 @@ class WildcardTrieTest {
     @MethodSource("validMatches")
     @ParameterizedTest
     void GIVEN_trie_with_wildcards_WHEN_valid_matches_provided_THEN_pass(String pattern, List<String> matches) {
-        WildcardTrie trie = new WildcardTrie();
-        trie.add(pattern);
+        WildcardTrie.MatchOptions opts = WildcardTrie.MatchOptions.builder().useSingleCharWildcard(true).build();
+        WildcardTrie trie = new WildcardTrie(opts).withPattern(pattern);
         matches.forEach(m -> assertTrue(trie.matches(m)));
     }
 
@@ -70,8 +70,8 @@ class WildcardTrieTest {
     @MethodSource("invalidMatches")
     @ParameterizedTest
     void GIVEN_trie_with_wildcards_WHEN_invalid_matches_provided_THEN_fail(String pattern, List<String> matches) {
-        WildcardTrie trie = new WildcardTrie();
-        trie.add(pattern);
+        WildcardTrie.MatchOptions opts = WildcardTrie.MatchOptions.builder().useSingleCharWildcard(true).build();
+        WildcardTrie trie = new WildcardTrie(opts).withPattern(pattern);
         matches.forEach(m -> assertFalse(trie.matches(m)));
     }
 }

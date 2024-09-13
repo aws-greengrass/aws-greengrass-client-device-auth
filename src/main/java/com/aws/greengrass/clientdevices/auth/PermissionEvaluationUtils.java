@@ -137,14 +137,16 @@ public final class PermissionEvaluationUtils {
         if (Objects.equals(requestResource.getResourceStr(), policyResource)) {
             return true;
         }
-        WildcardTrie trie = new WildcardTrie();
-        trie.add(policyResource);
-        return trie.matches(requestResource.getResourceStr(), matchSingleCharacterWildcard());
+        return new WildcardTrie(wildcardOpts())
+                .withPattern(policyResource)
+                .matches(requestResource.getResourceStr());
     }
 
-    private boolean matchSingleCharacterWildcard() {
+    private WildcardTrie.MatchOptions wildcardOpts() {
         CDAConfiguration config = cdaConfiguration;
-        return config != null && config.isMatchSingleCharacterWildcard();
+        return WildcardTrie.MatchOptions.builder()
+                .useSingleCharWildcard(config != null && config.isMatchSingleCharacterWildcard())
+                .build();
     }
 
     private Operation parseOperation(String operationStr) throws PolicyException {
