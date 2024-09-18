@@ -5,15 +5,17 @@
 
 package com.aws.greengrass.clientdevices.auth;
 
-import com.aws.greengrass.authorization.WildcardTrie;
+import com.aws.greengrass.clientdevices.auth.configuration.CDAConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupManager;
 import com.aws.greengrass.clientdevices.auth.configuration.Permission;
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.session.Session;
+import com.aws.greengrass.clientdevices.auth.util.WildcardTrie;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import com.aws.greengrass.util.Utils;
 import lombok.Builder;
+import lombok.Setter;
 import lombok.Value;
 import org.apache.commons.lang3.StringUtils;
 
@@ -36,6 +38,8 @@ public final class PermissionEvaluationUtils {
             "Resource is malformed, must be of the form: "
             + "([a-zA-Z]+):([a-zA-Z]+):" + RESOURCE_NAME_PATTERN.pattern();
     private final GroupManager groupManager;
+    @Setter
+    private volatile CDAConfiguration cdaConfiguration;
 
     /**
      * Constructor for PermissionEvaluationUtils.
@@ -133,10 +137,16 @@ public final class PermissionEvaluationUtils {
         if (Objects.equals(requestResource.getResourceStr(), policyResource)) {
             return true;
         }
+        return new WildcardTrie(wildcardOpts())
+                .withPattern(policyResource)
+                .matches(requestResource.getResourceStr());
+    }
 
-        WildcardTrie wildcardTrie = new WildcardTrie();
-        wildcardTrie.add(policyResource);
-        return wildcardTrie.matchesStandard(requestResource.getResourceStr());
+    private WildcardTrie.MatchOptions wildcardOpts() {
+        CDAConfiguration config = cdaConfiguration;
+        return WildcardTrie.MatchOptions.builder()
+                .useSingleCharWildcard(config != null && config.isMatchSingleCharacterWildcard())
+                .build();
     }
 
     private Operation parseOperation(String operationStr) throws PolicyException {
