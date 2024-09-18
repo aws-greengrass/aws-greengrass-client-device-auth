@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-// TODO fix failing cases
+
 class WildcardTrieTest {
 
     static Stream<Arguments> validMatches() {
@@ -36,7 +36,14 @@ class WildcardTrieTest {
                 // single character wildcard ?
                 arguments("?", asList("f", "*", "?")),
                 arguments("??", asList("ff", "**", "??", "*?")),
-                arguments("?f?", asList("fff", "f", "ff", "*f", "*f*", "f*"))
+                arguments("?f?", asList("fff", "*f*")),
+                // glob and single
+                arguments("?*", asList("?", "*", "a", "??", "**", "ab", "***", "???", "abc")),
+                arguments("*?", asList("?", "*", "a", "??", "**", "ab", "***", "???", "abc")),
+                arguments("?*?", asList("??", "**", "aa", "???", "***", "aaa", "????", "****", "aaaa")),
+                arguments("*?*", asList("?", "*", "a", "??", "**", "ab", "***", "???", "abc")),
+                arguments("a?*b", asList("acb", "a?b", "a*b", "a?cb")),
+                arguments("a*?b", asList("acb", "a?b", "a*b", "a?cb"))
         );
     }
 
@@ -45,7 +52,8 @@ class WildcardTrieTest {
     void GIVEN_trie_with_wildcards_WHEN_valid_matches_provided_THEN_pass(String pattern, List<String> matches) {
         WildcardTrie.MatchOptions opts = WildcardTrie.MatchOptions.builder().useSingleCharWildcard(true).build();
         WildcardTrie trie = new WildcardTrie(opts).withPattern(pattern);
-        matches.forEach(m -> assertTrue(trie.matches(m)));
+        matches.forEach(m -> assertTrue(trie.matches(m),
+                String.format("String \"%s\" did not match the pattern \"%s\"", m, pattern)));
     }
 
 
@@ -63,7 +71,12 @@ class WildcardTrieTest {
                 // single character wildcard ?
                 arguments("?", asList("aa", "??", "**")),
                 arguments("??", asList("aaa", "???", "***")),
-                arguments("?a?", asList("aaaa", "fff"))
+                arguments("?a?", asList("fff", "aaaa")),
+                arguments("?f?", asList("ff", "f", "*f", "f*")),
+                // glob and single
+                arguments("?*?", asList("a", "?", "*")),
+                arguments("a?*b", asList("ab", "abc")),
+                arguments("a*?b", asList("ab", "abc"))
         );
     }
 
@@ -72,6 +85,7 @@ class WildcardTrieTest {
     void GIVEN_trie_with_wildcards_WHEN_invalid_matches_provided_THEN_fail(String pattern, List<String> matches) {
         WildcardTrie.MatchOptions opts = WildcardTrie.MatchOptions.builder().useSingleCharWildcard(true).build();
         WildcardTrie trie = new WildcardTrie(opts).withPattern(pattern);
-        matches.forEach(m -> assertFalse(trie.matches(m)));
+        matches.forEach(m -> assertFalse(trie.matches(m),
+                String.format("String \"%s\" incorrectly matched the pattern \"%s\"", m, pattern)));
     }
 }

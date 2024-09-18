@@ -17,10 +17,14 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 @RequiredArgsConstructor
 public class WildcardTrie {
+
+    private static final Function<WildcardType, UnsupportedOperationException> EXCEPTION_UNSUPPORTED_WILDCARD_TYPE = wildcardType ->
+            new UnsupportedOperationException("wildcard type " + wildcardType.name() + " not supported");
 
     private Node root;
 
@@ -42,14 +46,17 @@ public class WildcardTrie {
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             if (isWildcard(s.charAt(i))) {
+                // create child node from non-wildcard chars that have been accumulated so far
+                Node node = token.length() > 0 ? n.children.get(token.toString()) : n;
+                // create child node for wildcard char itself
                 WildcardType type = WildcardType.from(c);
-                Node node = n.children.get(type.val());
+                node = node.children.get(type.val());
                 node.wildcardType = type;
                 if (i == s.length() - 1) {
                     // we've reached the last token
                     return node;
                 }
-                return withPattern(node, s.substring(token.length() + 2));
+                return withPattern(node, s.substring(i + 1));
             } else {
                 token.append(c);
             }
@@ -80,55 +87,59 @@ public class WildcardTrie {
         return matches(root, s);
     }
 
-    private boolean matches(@NonNull Node n, String s) {
+    private boolean matches(@NonNull Node n, @NonNull String s) {
         if (n.isTerminal()) {
-            if (n.isWildcard()) {
-                switch (n.wildcardType) {
-                    case SINGLE:
-                        return s.length() == 1;
-                    case GLOB:
-                        return true;
-                    default:
-                        throw new UnsupportedOperationException("wildcard type " + n.wildcardType.name() + " not supported");
-                }
-            } else {
-                return s.isEmpty();
+            return n.wildcardType == WildcardType.GLOB || s.isEmpty();
+        }
+
+        if (n.isWildcard()) {
+            switch (n.wildcardType) {
+                case SINGLE:
+                    return n.children.keySet().stream().anyMatch(token -> {
+                        Node child = n.children.get(token);
+                        // skip over one character for single wildcard
+                        if (child.isWildcard()) {
+                            return !s.isEmpty() && matches(child, s.substring(1));
+                        } else {
+                            return !s.isEmpty() && s.startsWith(token.substring(0, 1)) && matches(child, s.substring(1));
+                        }
+                    });
+                case GLOB:
+                    return n.children.keySet().stream().anyMatch(token -> {
+                        Node child = n.children.get(token);
+                        if (child.isWildcard()) {
+                            return true;// TODO
+                        } else {
+                            // consume the input string to find a match
+                            return allIndicesOf(s, token).stream()
+                                    .anyMatch(tokenIndex ->
+                                            matches(child, s.substring(tokenIndex + token.length()))
+                                    );
+                        }
+                    });
+                default:
+                    throw EXCEPTION_UNSUPPORTED_WILDCARD_TYPE.apply(n.wildcardType);
             }
         }
 
-        for (String token : n.children.keySet()) {
+        return n.children.keySet().stream().anyMatch(token -> {
             Node child = n.children.get(token);
-
-            if (n.isWildcard()) {  // parent is a wildcard
-                switch (n.wildcardType) {
-                    case SINGLE:
-                        // skip over one character for single wildcard
-                        return matches(child, s.substring(1));
-                    case GLOB:
-                        // consume the input string to find a match
-                        return allIndicesOf(s, token).stream()
-                                .anyMatch(tokenIndex ->
-                                        matches(child, s.substring(tokenIndex + token.length()))
-                                );
-                    default:
-                        throw new UnsupportedOperationException("wildcard type " + n.wildcardType.name() + " not supported");
-                }
-            }
-
             if (child.isWildcard()) {
-                // skip past the wildcard node,
-                // on the next iteration we need to figure out
-                // the part the wildcard matched (if at all).
-                return matches(child, s);
+                switch (child.wildcardType) {
+                    case SINGLE:
+                        // skip past the next character for ? matching
+                        return !s.isEmpty() && matches(child, s.substring(1));
+                    case GLOB:
+                        // skip past token and figure out retroactively if the glob matched
+                        return matches(child, s);
+                    default:
+                        throw EXCEPTION_UNSUPPORTED_WILDCARD_TYPE.apply(child.wildcardType);
+                }
             } else {
                 // match found, keep following this trie branch
-                if (s.startsWith(token)) {
-                    return matches(child, s.substring(token.length()));
-                }
+                return s.startsWith(token) && matches(child, s.substring(token.length()));
             }
-        }
-
-        return false;
+        });
     }
 
     private static List<Integer> allIndicesOf(@NonNull String s, @NonNull String sub) {
