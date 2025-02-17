@@ -12,6 +12,7 @@ import com.aws.greengrass.clientdevices.auth.configuration.parser.ASTThing;
 import com.aws.greengrass.clientdevices.auth.configuration.parser.RuleExpressionVisitor;
 import com.aws.greengrass.clientdevices.auth.configuration.parser.SimpleNode;
 import com.aws.greengrass.clientdevices.auth.session.Session;
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 
 public class ExpressionVisitor implements RuleExpressionVisitor {
@@ -51,7 +52,7 @@ public class ExpressionVisitor implements RuleExpressionVisitor {
     public Object visit(ASTThing node, Object data) {
         // TODO: Make ASTThing a generic node instead of hardcoding ThingName
         Session session = (Session) data;
-        DeviceAttribute attribute = session.getSessionAttribute("Thing", "ThingName");
+        DeviceAttribute attribute = session.getSessionAttribute(Attribute.THING_NAME);
         return attribute != null && attribute.matches((String) node.jjtGetValue());
     }
 }
