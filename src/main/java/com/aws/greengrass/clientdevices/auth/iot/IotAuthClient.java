@@ -24,7 +24,6 @@ import software.amazon.awssdk.services.greengrassv2.GreengrassV2Client;
 import software.amazon.awssdk.services.greengrassv2.GreengrassV2ClientBuilder;
 import software.amazon.awssdk.services.greengrassv2.model.AssociatedClientDevice;
 import software.amazon.awssdk.services.greengrassv2.model.ListClientDevicesAssociatedWithCoreDeviceRequest;
-import software.amazon.awssdk.services.greengrassv2.model.ListClientDevicesAssociatedWithCoreDeviceResponse;
 import software.amazon.awssdk.services.greengrassv2.paginators.ListClientDevicesAssociatedWithCoreDeviceIterable;
 import software.amazon.awssdk.services.greengrassv2data.GreengrassV2DataClient;
 import software.amazon.awssdk.services.greengrassv2data.model.ResourceNotFoundException;
@@ -37,7 +36,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 public interface IotAuthClient {
@@ -50,7 +49,7 @@ public interface IotAuthClient {
     boolean isThingAttachedToCertificate(Thing thing, String certificateId) throws CloudServiceInteractionException;
 
 
-    Stream<List<AssociatedClientDevice>> getThingsAssociatedWithCoreDevice();
+    List<AssociatedClientDevice> getThingsAssociatedWithCoreDevice();
 
     class Default implements IotAuthClient {
         private static final Logger logger = LogManager.getLogger(Default.class);
@@ -184,7 +183,7 @@ public interface IotAuthClient {
         }
 
         @Override
-        public Stream<List<AssociatedClientDevice>> getThingsAssociatedWithCoreDevice() {
+        public List<AssociatedClientDevice> getThingsAssociatedWithCoreDevice() {
             String thingName = Coerce.toString(deviceConfiguration.getThingName());
 
             ListClientDevicesAssociatedWithCoreDeviceRequest request =
@@ -194,8 +193,8 @@ public interface IotAuthClient {
                 ListClientDevicesAssociatedWithCoreDeviceIterable responses =
                         client.listClientDevicesAssociatedWithCoreDevicePaginator(request);
 
-                return responses.stream()
-                        .map(ListClientDevicesAssociatedWithCoreDeviceResponse::associatedClientDevices);
+                return responses.stream().flatMap(response -> response.associatedClientDevices().stream())
+                        .collect(Collectors.toList());
             }
         }
 
@@ -203,11 +202,10 @@ public interface IotAuthClient {
         //  are adding it here to avoid introducing new changes to the nucleus
         private GreengrassV2Client getGGV2Client() {
             String awsRegion = Coerce.toString(deviceConfiguration.getAWSRegion());
-            GreengrassV2ClientBuilder clientBuilder =
-                    GreengrassV2Client.builder().httpClientBuilder(ProxyUtils.getSdkHttpClientBuilder()
-                                    .useIdleConnectionReaper(false))
-                            .credentialsProvider(lazyCredentialProvider).overrideConfiguration(
-                                    ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build());
+            GreengrassV2ClientBuilder clientBuilder = GreengrassV2Client.builder()
+                    .httpClientBuilder(ProxyUtils.getSdkHttpClientBuilder().useIdleConnectionReaper(false))
+                    .credentialsProvider(lazyCredentialProvider).overrideConfiguration(
+                            ClientOverrideConfiguration.builder().retryPolicy(RetryMode.STANDARD).build());
 
             if (Utils.isEmpty(awsRegion)) {
                 return clientBuilder.build();

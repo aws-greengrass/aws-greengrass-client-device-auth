@@ -12,6 +12,7 @@ import software.amazon.awssdk.services.greengrassv2.model.AssociatedClientDevice
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,7 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 /**
  * IoT Auth Client Fake allows test writers to set up valid and invalid certificates, as well as Thing <-> certificate
@@ -126,11 +127,11 @@ public class IotAuthClientFake implements IotAuthClient {
     }
 
     @Override
-    public Stream<List<AssociatedClientDevice>> getThingsAssociatedWithCoreDevice() {
+    public List<AssociatedClientDevice> getThingsAssociatedWithCoreDevice() {
         ThingsAttachedToCorePaginator paginator = new ThingsAttachedToCorePaginator(
                 new ListClientDevicesAssociatedWithCoreDeviceResponseFetcher(this.thingsAttachedToCore));
 
-        return paginator.stream();
+        return paginator.stream().flatMap(Collection::stream).collect(Collectors.toList());
     }
 
     /**
