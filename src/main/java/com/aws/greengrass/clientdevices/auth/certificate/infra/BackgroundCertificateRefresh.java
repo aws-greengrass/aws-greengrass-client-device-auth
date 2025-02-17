@@ -202,12 +202,12 @@ public class BackgroundCertificateRefresh implements Runnable, Consumer<NetworkS
                         .build();
 
         try {
-            Stream<List<AssociatedClientDevice>> cloudAssociatedDevices =
+            List<AssociatedClientDevice> cloudAssociatedDevices =
                     RetryUtils.runWithRetry(retryConfig, iotAuthClient::getThingsAssociatedWithCoreDevice,
                             "get-things-associated-with-core-device", logger);
 
             Set<String> cloudThings =
-                    cloudAssociatedDevices.flatMap(List::stream).map(AssociatedClientDevice::thingName)
+                    cloudAssociatedDevices.stream().map(AssociatedClientDevice::thingName)
                             .collect(Collectors.toSet());
 
             return Optional.of(cloudThings);

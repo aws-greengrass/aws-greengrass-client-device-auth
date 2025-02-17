@@ -21,7 +21,7 @@ jobs:
         run: ./run-benchmarks.sh
         working-directory: ./benchmark
       - name: Upload Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Benchmark Results
           path: ./benchmark/jmh-result.json
