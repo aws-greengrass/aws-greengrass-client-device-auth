@@ -5,6 +5,7 @@
 
 package com.aws.greengrass.clientdevices.auth.session;
 
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
 import com.aws.greengrass.clientdevices.auth.session.attribute.AttributeProvider;
 import com.aws.greengrass.clientdevices.auth.session.attribute.DeviceAttribute;
 
@@ -13,17 +14,16 @@ public interface Session {
     /**
      * Get attribute provider by namespace.
      *
-     * @param attributeProviderNameSpace Attribute namespace
+     * @param namespace attribute provider namespace
      * @return Attribute provider
      */
-    AttributeProvider getAttributeProvider(String attributeProviderNameSpace);
+    AttributeProvider getAttributeProvider(String namespace);
 
     /**
      * Get session attribute.
      *
-     * @param attributeNamespace Attribute namespace
-     * @param attributeName      Attribute name
+     * @param attribute attribute
      * @return Session attribute
      */
-    DeviceAttribute getSessionAttribute(String attributeNamespace, String attributeName);
+    DeviceAttribute getSessionAttribute(Attribute attribute);
 }

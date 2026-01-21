@@ -12,6 +12,7 @@ import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.Value;
 
 import java.util.Collections;
@@ -27,76 +28,99 @@ import java.util.stream.Collectors;
 public class GroupConfiguration {
     private static final Logger logger = LogManager.getLogger(GroupConfiguration.class);
 
-    private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile("\\$\\{.*?}");
-
     ConfigurationFormatVersion formatVersion;
     Map<String, GroupDefinition> definitions;
     Map<String, Map<String, AuthorizationPolicyStatement>> policies;
     Map<String, Set<Permission>> groupToPermissionsMap;
+    boolean hasDeviceAttributeVariables;
 
     @Builder
     GroupConfiguration(ConfigurationFormatVersion formatVersion, Map<String, GroupDefinition> definitions,
                        Map<String, Map<String, AuthorizationPolicyStatement>> policies) {
         this.formatVersion = formatVersion == null ? ConfigurationFormatVersion.MAR_05_2021 : formatVersion;
-        this.definitions = definitions == null ? Collections.emptyMap() : definitions;
-        this.policies = policies == null ? Collections.emptyMap() : policies;
-        this.groupToPermissionsMap = constructGroupPermissions();
+
+        GroupPermissionConstructor constructor = new GroupPermissionConstructor(definitions, policies);
+        this.definitions = constructor.getDefinitions();
+        this.policies = constructor.getPolicies();
+        this.groupToPermissionsMap = constructor.getPermissions();
+        this.hasDeviceAttributeVariables = constructor.isHasDeviceAttributeVariables();
     }
 
     @JsonPOJOBuilder(withPrefix = "")
     public static class GroupConfigurationBuilder {
     }
 
-    private Map<String, Set<Permission>> constructGroupPermissions() {
-        return definitions.entrySet().stream().collect(Collectors.toMap(
-                Map.Entry::getKey,
-                entry -> constructGroupPermission(
-                        entry.getKey(),
-                        policies.getOrDefault(entry.getValue().getPolicyName(),
-                                Collections.emptyMap()))));
-    }
+    @Getter
+    private static class GroupPermissionConstructor {
 
-    private Set<Permission> constructGroupPermission(String groupName,
-                                                     Map<String, AuthorizationPolicyStatement> policyStatementMap) {
-        Set<Permission> permissions = new HashSet<>();
-        for (Map.Entry<String, AuthorizationPolicyStatement> statementEntry : policyStatementMap.entrySet()) {
-            AuthorizationPolicyStatement statement = statementEntry.getValue();
-            // only accept 'ALLOW' effect for beta launch
-            // TODO add 'DENY' effect support
-            if (statement.getEffect() == AuthorizationPolicyStatement.Effect.ALLOW) {
-                permissions.addAll(convertPolicyStatementToPermission(groupName, statement));
-            }
+        private static final Pattern POLICY_VARIABLE_PATTERN = Pattern.compile("\\$\\{.*?}");
+
+        private final Map<String, GroupDefinition> definitions;
+        private final Map<String, Map<String, AuthorizationPolicyStatement>> policies;
+        private final Map<String, Set<Permission>> permissions;
+        private boolean hasDeviceAttributeVariables;
+
+        GroupPermissionConstructor(Map<String, GroupDefinition> definitions,
+                                   Map<String, Map<String, AuthorizationPolicyStatement>> policies) {
+            this.definitions = definitions == null ? Collections.emptyMap() : definitions;
+            this.policies = policies == null ? Collections.emptyMap() : policies;
+            this.permissions = constructGroupPermissions();
         }
-        return permissions;
-    }
 
-    private Set<Permission> convertPolicyStatementToPermission(String groupName,
-                                                               AuthorizationPolicyStatement statement) {
-        Set<Permission> permissions = new HashSet<>();
-        for (String operation : statement.getOperations()) {
-            if (Utils.isEmpty(operation)) {
-                continue;
+        private Map<String, Set<Permission>> constructGroupPermissions() {
+            return definitions.entrySet().stream().collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry -> constructGroupPermission(
+                            entry.getKey(),
+                            policies.getOrDefault(entry.getValue().getPolicyName(),
+                                    Collections.emptyMap()))));
+        }
+
+        private Set<Permission> constructGroupPermission(String groupName,
+                                                         Map<String, AuthorizationPolicyStatement> policyStatementMap) {
+            Set<Permission> permissions = new HashSet<>();
+            for (Map.Entry<String, AuthorizationPolicyStatement> statementEntry : policyStatementMap.entrySet()) {
+                AuthorizationPolicyStatement statement = statementEntry.getValue();
+                // only accept 'ALLOW' effect for beta launch
+                // TODO add 'DENY' effect support
+                if (statement.getEffect() == AuthorizationPolicyStatement.Effect.ALLOW) {
+                    permissions.addAll(convertPolicyStatementToPermission(groupName, statement));
+                }
             }
-            for (String resource : statement.getResources()) {
-                if (Utils.isEmpty(resource)) {
+            return permissions;
+        }
+
+        private Set<Permission> convertPolicyStatementToPermission(String groupName,
+                                                                   AuthorizationPolicyStatement statement) {
+            Set<Permission> permissions = new HashSet<>();
+            for (String operation : statement.getOperations()) {
+                if (Utils.isEmpty(operation)) {
                     continue;
                 }
-                permissions.add(
-                        Permission.builder().principal(groupName).operation(operation).resource(resource)
-                                .resourcePolicyVariables(findPolicyVariables(resource)).build());
+                for (String resource : statement.getResources()) {
+                    if (Utils.isEmpty(resource)) {
+                        continue;
+                    }
+                    permissions.add(
+                            Permission.builder().principal(groupName).operation(operation).resource(resource)
+                                    .resourcePolicyVariables(findPolicyVariables(resource)).build());
+                }
             }
+            return permissions;
         }
-        return permissions;
-    }
 
-    private Set<String> findPolicyVariables(String resource) {
-        Matcher matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
-        Set<String> policyVariables = new HashSet<>();
-        while (matcher.find()) {
-            String policyVariable = matcher.group(0);
-            policyVariables.add(policyVariable);
+        private Set<String> findPolicyVariables(String resource) {
+            Matcher matcher = POLICY_VARIABLE_PATTERN.matcher(resource);
+            Set<String> policyVariables = new HashSet<>();
+            while (matcher.find()) {
+                String policyVariable = matcher.group(0);
+                if (PolicyVariableResolver.isAttributePolicyVariable(policyVariable)) {
+                    hasDeviceAttributeVariables = true;
+                }
+                policyVariables.add(policyVariable);
+            }
+            return policyVariables;
         }
-        return policyVariables;
     }
 
     /**
@@ -117,7 +141,7 @@ public class GroupConfiguration {
 
         if (!groupToPermissionsMap.values().stream()
                 .flatMap(permissions -> permissions.stream().flatMap(p -> p.getResourcePolicyVariables().stream()))
-                .allMatch(PolicyVariableResolver::isPolicyVariable)) {
+                .allMatch(PolicyVariableResolver::isSupportedPolicyVariable)) {
             throw new PolicyException("Policy contains unknown variables");
         }
     }

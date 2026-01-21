@@ -1,0 +1,28 @@
+---
+services:
+  aws.greengrass.Nucleus:
+    configuration:
+      runWithDefault:
+        posixUser: nobody
+        windowsUser: integ-tester
+      logging:
+        level: "DEBUG"
+  aws.greengrass.clientdevices.Auth:
+    configuration:
+      deviceGroups:
+        formatVersion: "2021-03-05"
+        definitions:
+          myThing:
+            selectionRule: "thingName: myThing"
+            policyName: "publish"
+        policies:
+          publish:
+            policyStatement:
+              statementDescription: "publish"
+              operations:
+                - "mqtt:publish"
+              resources:
+                - "mqtt:topic:${iot:Connection.Thing.Attributes[myAttribute]}"
+  main:
+    dependencies:
+      - aws.greengrass.clientdevices.Auth

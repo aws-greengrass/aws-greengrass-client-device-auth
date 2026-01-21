@@ -7,6 +7,8 @@ package com.aws.greengrass.clientdevices.auth.configuration;
 
 import com.aws.greengrass.clientdevices.auth.connectivity.HostAddress;
 import com.aws.greengrass.clientdevices.auth.iot.dto.CertificateV1DTO;
+import com.aws.greengrass.clientdevices.auth.iot.dto.ThingAssociationV1DTO;
+import com.aws.greengrass.clientdevices.auth.iot.dto.ThingDescriptionV1DTO;
 import com.aws.greengrass.clientdevices.auth.iot.dto.ThingV1DTO;
 import com.aws.greengrass.config.Node;
 import com.aws.greengrass.config.Topic;
@@ -14,6 +16,11 @@ import com.aws.greengrass.config.Topics;
 import com.aws.greengrass.util.Coerce;
 import lombok.NonNull;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,9 +51,19 @@ import java.util.stream.Stream;
  * |                |---- certificateId:
  * |                      |---- "s": status
  * |                      |---- "l": lastUpdated
+ * |    |---- "clientDeviceThingAssociations":
+ * |          |---- "v1":
+ * |                |---- associations: [...]
+ * |                |---- "l": lastUpdated
+ * |    |---- "clientDeviceThingDescription":
+ * |          |---- "v1":
+ * |                |---- thingName:
+ * |                      |---- "attributes":
+ * |                           |---- k:v
+ * |                      |---- "l": lastUpdated
  * |    |---- "hostAddresses":
- *            |---- <source>:
- *                 |---- [...]
+ * |---- <source>:
+ * |---- [...]
  * </p>
  */
 public final class RuntimeConfiguration {
@@ -61,6 +78,14 @@ public final class RuntimeConfiguration {
     static final String CERTS_STATUS_KEY = "s";
     static final String CERTS_STATUS_UPDATED_KEY = "l";
     private static final String HOST_ADDRESSES_KEY = "hostAddresses";
+
+    private static final String ASSOCIATIONS_KEY = "clientDeviceThingAssociations";
+    private static final String ASSOCIATIONS_V1 = "v1";
+    private static final String DESCRIPTION_KEY = "clientDeviceThingDescription";
+    private static final String DESCRIPTION_V1 = "v1";
+    private static final String LAST_UPDATED_KEY = "l";
+    private static final String ASSOCIATIONS_PROP_KEY = "associations";
+    private static final String ATTRIBUTES_PROP_KEY = "attributes";
 
     private final Topics config;
 
@@ -204,6 +229,82 @@ public final class RuntimeConfiguration {
         }
     }
 
+    /**
+     * Persist thing association dto.
+     *
+     * @param dto dto
+     */
+    public void putThingAssociationV1(ThingAssociationV1DTO dto) {
+        Topics t = getOrRepairTopics(config, ASSOCIATIONS_KEY, ASSOCIATIONS_V1);
+        t.lookup(ASSOCIATIONS_PROP_KEY).withValue(new ArrayList<>(dto.getAssociatedThingNames()));
+        t.lookup(LAST_UPDATED_KEY).withValue(dto.getLastUpdated().toEpochSecond(ZoneOffset.UTC));
+    }
+
+    /**
+     * Get things associated with the core device.
+     *
+     * @return dto
+     */
+    public Optional<ThingAssociationV1DTO> getThingAssociationV1() {
+        Topics t = config.findTopics(ASSOCIATIONS_KEY, ASSOCIATIONS_V1);
+        if (t == null) {
+            return Optional.empty();
+        }
+
+        Set<String> thingNames = new HashSet<>();
+        Topic associationsTopic = t.find(ASSOCIATIONS_PROP_KEY);
+        if (associationsTopic != null) {
+            thingNames.addAll(Coerce.toStringList(associationsTopic));
+        }
+
+        LocalDateTime lastFetched = null;
+        Topic lastFetchedTopic = t.find(LAST_UPDATED_KEY);
+        if (lastFetchedTopic != null) {
+            lastFetched = LocalDateTime.ofInstant(Instant.ofEpochMilli(Coerce.toLong(lastFetchedTopic)),
+                    ZoneId.of("UTC"));
+        }
+        return Optional.of(new ThingAssociationV1DTO(thingNames, lastFetched));
+    }
+
+    /**
+     * Persist thing description dto.
+     *
+     * @param dto dto
+     */
+    public void putThingDescriptionV1(ThingDescriptionV1DTO dto) {
+        Topics t = getOrRepairTopics(config, DESCRIPTION_KEY, DESCRIPTION_V1, dto.getThingName());
+        t.lookup(LAST_UPDATED_KEY).withValue(dto.getLastUpdated().toEpochSecond(ZoneOffset.UTC));
+        Map<String, Object> attrs = new HashMap<>(dto.getAttributes());
+        getOrRepairTopics(t, ATTRIBUTES_PROP_KEY).replaceAndWait(attrs);
+    }
+
+    /**
+     * Get cached IoT describe-thing response. Currently, we only care about the attributes field.
+     *
+     * @param thingName thing name
+     * @return dto
+     */
+    public Optional<ThingDescriptionV1DTO> getThingDescriptionV1(String thingName) {
+        Topics t = config.findTopics(DESCRIPTION_KEY, DESCRIPTION_V1, thingName);
+        if (t == null) {
+            return Optional.empty();
+        }
+
+        Map<String, String> attrs = new HashMap<>();
+        Topics attributesTopic = t.findTopics(ATTRIBUTES_PROP_KEY);
+        if (attributesTopic != null && !attributesTopic.isEmpty()) {
+            attributesTopic.forEach(node -> attrs.put(node.getName(), Coerce.toString(node)));
+        }
+
+        LocalDateTime lastFetched = null;
+        Topic lastFetchedTopic = t.find(LAST_UPDATED_KEY);
+        if (lastFetchedTopic != null) {
+            lastFetched = LocalDateTime.ofInstant(Instant.ofEpochMilli(Coerce.toLong(lastFetchedTopic)),
+                    ZoneId.of("UTC"));
+        }
+        return Optional.of(new ThingDescriptionV1DTO(thingName, attrs, lastFetched));
+    }
+
     private Topics getOrRepairTopics(Topics root, String... path) {
         try {
             return root.lookupTopics(path);
@@ -260,8 +361,8 @@ public final class RuntimeConfiguration {
     /**
      * Put hostAddresses config.
      *
-     * @param source         connectivity information source
-     * @param hostAddresses  host addresses
+     * @param source        connectivity information source
+     * @param hostAddresses host addresses
      */
     public void putHostAddressForSource(String source, Set<HostAddress> hostAddresses) {
         config.lookup(HOST_ADDRESSES_KEY, source)

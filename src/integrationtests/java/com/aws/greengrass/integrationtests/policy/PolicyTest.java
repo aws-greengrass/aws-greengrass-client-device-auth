@@ -12,21 +12,21 @@ import com.aws.greengrass.clientdevices.auth.certificate.CertificateHelper;
 import com.aws.greengrass.clientdevices.auth.configuration.AuthorizationPolicyStatement;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupConfiguration;
 import com.aws.greengrass.clientdevices.auth.configuration.GroupDefinition;
+import com.aws.greengrass.clientdevices.auth.exception.AuthenticationException;
 import com.aws.greengrass.clientdevices.auth.exception.PolicyException;
 import com.aws.greengrass.clientdevices.auth.helpers.CertificateTestHelpers;
-import com.aws.greengrass.clientdevices.auth.iot.Certificate;
-import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
+import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClientFake;
-import com.aws.greengrass.clientdevices.auth.iot.Thing;
-import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
+import com.aws.greengrass.clientdevices.auth.iot.IotCoreClient;
+import com.aws.greengrass.clientdevices.auth.iot.IotCoreClientFake;
+import com.aws.greengrass.clientdevices.auth.iot.NetworkStateFake;
 import com.aws.greengrass.dependency.State;
 import com.aws.greengrass.lifecyclemanager.Kernel;
 import com.aws.greengrass.logging.impl.config.LogConfig;
 import com.aws.greengrass.mqttclient.spool.SpoolerStoreException;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.testcommons.testutilities.UniqueRootPathExtension;
-import com.aws.greengrass.util.Pair;
 import com.aws.greengrass.util.Utils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Builder;
@@ -42,6 +42,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.utils.ImmutableMap;
 
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -65,7 +66,13 @@ import static org.junit.jupiter.api.Assertions.fail;
 @ExtendWith({GGExtension.class, UniqueRootPathExtension.class, MockitoExtension.class})
 public class PolicyTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private final Map<String, Pair<Certificate, String>> clients = new HashMap<>();
+    private final Map<String, String> clients = new HashMap<>();
+
+    private final NetworkStateFake networkStateProvider = new NetworkStateFake();
+    private final IotAuthClientFake iotAuthClient = new IotAuthClientFake();
+    private final IotCoreClientFake iotCoreClient = new IotCoreClientFake();
+    private final Map<String, String> DEFAULT_THING_ATTRIBUTES = ImmutableMap.of("myAttribute", "attribute");
+
     @TempDir
     Path rootDir;
     Kernel kernel;
@@ -74,6 +81,8 @@ public class PolicyTest {
     void beforeEach(ExtensionContext context) {
         ignoreExceptionOfType(context, SpoolerStoreException.class);
         ignoreExceptionOfType(context, NoSuchFileException.class); // Loading CA keystore
+        iotCoreClient.setThingAttributes(DEFAULT_THING_ATTRIBUTES);
+        networkStateProvider.goOnline();
     }
 
     @AfterEach
@@ -295,6 +304,14 @@ public class PolicyTest {
                                 .resource("mqtt:topic:hello/myThing")
                                 .expectedResult(false)
                                 .build()
+                )),
+                Arguments.of("thing-attribute-variable.yaml", Arrays.asList(
+                        AuthZRequest.builder()
+                                .thingName("myThing")
+                                .operation("mqtt:publish")
+                                .resource("mqtt:topic:attribute")
+                                .expectedResult(true)
+                                .build()
                 ))
         );
     }
@@ -302,11 +319,19 @@ public class PolicyTest {
     @ParameterizedTest
     @MethodSource("authzRequests")
     void GIVEN_cda_with_policy_configuration_WHEN_client_requests_authorization_THEN_client_is_authorized(String configFile, List<AuthZRequest> requests) throws Exception {
+        // register certificates and associate client devices with core BEFORE starting CDA.
+        // CDA needs this data on startup when:
+        //   1) the policy has a thing attr variable (see thing-attribute-variable.yaml)
+        Map<String, String> authTokens = requests.stream()
+                .map(AuthZRequest::getThingName)
+                .distinct()
+                .collect(Collectors.toMap(thingName -> thingName, this::createOrGetClient));
+
         startNucleus(configFile);
 
         for (AuthZRequest request : requests) {
             boolean actualResult = api().authorizeClientDeviceAction(AuthorizationRequest.builder()
-                    .sessionId(generateAuthToken(request.getThingName()))
+                    .sessionId(generateAuthToken(request.getThingName(), authTokens.get(request.getThingName())))
                     .operation(request.getOperation())
                     .resource(request.getResource())
                     .build());
@@ -317,40 +342,43 @@ public class PolicyTest {
     }
 
     @SuppressWarnings("PMD.AvoidCatchingGenericException")
-    private String generateAuthToken(String thingName) throws Exception {
-        Pair<Certificate, String> clientCert = clients.computeIfAbsent(thingName, k -> {
+    private String createOrGetClient(String thingName) {
+        return clients.computeIfAbsent(thingName, k -> {
             try {
-                Pair<Certificate, String> cert = generateClientCert();
-
-                // register client within CDA
-                ThingRegistry thingRegistry = kernel.getContext().get(ThingRegistry.class);
-                Thing thing = thingRegistry.createThing(thingName);
-                thing.attachCertificate(cert.getLeft().getCertificateId());
-                thingRegistry.updateThing(thing);
-
+                String cert = generateClientCert();
+                iotAuthClient.activateCert(cert);
+                iotAuthClient.attachCertificateToThing(thingName, cert);
+                iotAuthClient.attachThingToCore(() -> thingName);
                 return cert;
             } catch (Exception e) {
                 fail(e);
                 return null;
             }
         });
-
-        return api().getClientDeviceAuthToken("mqtt", Utils.immutableMap(
-            "clientId", thingName,
-            "certificatePem", clientCert.getRight()
-        ));
     }
 
-    private Pair<Certificate, String> generateClientCert() throws Exception {
-        // create certificate to attach to thing
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private String generateAuthToken(String thingName) {
+        return generateAuthToken(thingName, createOrGetClient(thingName));
+    }
+
+    @SuppressWarnings("PMD.AvoidCatchingGenericException")
+    private String generateAuthToken(String thingName, String cert) {
+        try {
+            assertTrue(api().verifyClientDeviceIdentity(cert)); // add cert to CDA cert registry
+            return api().getClientDeviceAuthToken("mqtt", Utils.immutableMap(
+                    "clientId", thingName,
+                    "certificatePem", cert
+            ));
+        } catch (AuthenticationException e) {
+            fail(e);
+            return null;
+        }
+    }
+
+    private String generateClientCert() throws Exception {
         List<X509Certificate> clientCertificates = CertificateTestHelpers.createClientCertificates(1);
-        String clientPem = CertificateHelper.toPem(clientCertificates.get(0));
-        CertificateRegistry certificateRegistry = kernel.getContext().get(CertificateRegistry.class);
-        Certificate cert = certificateRegistry.getOrCreateCertificate(clientPem);
-        cert.setStatus(Certificate.Status.ACTIVE);
-        // activate certificate
-        certificateRegistry.updateCertificate(cert);
-        return new Pair<>(cert, clientPem);
+        return CertificateHelper.toPem(clientCertificates.get(0));
     }
 
     @SuppressWarnings("unchecked")
@@ -372,7 +400,9 @@ public class PolicyTest {
         // Set this property for kernel to scan its own classpath to find plugins
         System.setProperty("aws.greengrass.scanSelfClasspath", "true");
         kernel = new Kernel();
-        kernel.getContext().put(IotAuthClient.class, new IotAuthClientFake());
+        kernel.getContext().put(IotAuthClient.class, iotAuthClient);
+        kernel.getContext().put(IotCoreClient.class, iotCoreClient);
+        kernel.getContext().put(NetworkStateProvider.class, networkStateProvider);
         kernel.parseArgs("-r", rootDir.toAbsolutePath().toString(), "-i",
                 getClass().getResource(configFileName).toString());
         Runnable mainRunning = createServiceStateChangeWaiter(kernel,

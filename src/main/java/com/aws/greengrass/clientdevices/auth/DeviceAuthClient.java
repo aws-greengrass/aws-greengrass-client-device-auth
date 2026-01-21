@@ -8,9 +8,9 @@ package com.aws.greengrass.clientdevices.auth;
 import com.aws.greengrass.clientdevices.auth.certificate.CertificateStore;
 import com.aws.greengrass.clientdevices.auth.exception.AuthorizationException;
 import com.aws.greengrass.clientdevices.auth.exception.InvalidSessionException;
-import com.aws.greengrass.clientdevices.auth.iot.Component;
 import com.aws.greengrass.clientdevices.auth.session.Session;
 import com.aws.greengrass.clientdevices.auth.session.SessionManager;
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
 import com.aws.greengrass.logging.api.Logger;
 import com.aws.greengrass.logging.impl.LogManager;
 import software.amazon.awssdk.utils.StringInputStream;
@@ -136,7 +136,7 @@ public class DeviceAuthClient {
         }
         // Allow all operations from internal components
         // Keep the workaround above (ALLOW_ALL_SESSION) for Moquette since it is using the older session management
-        if (session.getSessionAttribute(Component.NAMESPACE, "component") != null) {
+        if (session.getSessionAttribute(Attribute.COMPONENT) != null) {
             return true;
         }
 

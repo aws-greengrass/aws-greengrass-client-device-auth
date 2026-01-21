@@ -12,13 +12,13 @@ import com.aws.greengrass.clientdevices.auth.exception.CloudServiceInteractionEx
 import com.aws.greengrass.clientdevices.auth.infra.NetworkStateProvider;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateFake;
 import com.aws.greengrass.clientdevices.auth.iot.CertificateRegistry;
-import com.aws.greengrass.clientdevices.auth.iot.Component;
 import com.aws.greengrass.clientdevices.auth.iot.InvalidCertificateException;
 import com.aws.greengrass.clientdevices.auth.iot.IotAuthClient;
 import com.aws.greengrass.clientdevices.auth.iot.Thing;
 import com.aws.greengrass.clientdevices.auth.iot.infra.ThingRegistry;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.CreateIoTThingSession;
 import com.aws.greengrass.clientdevices.auth.iot.usecases.VerifyThingAttachedToCertificate;
+import com.aws.greengrass.clientdevices.auth.session.attribute.Attribute;
 import com.aws.greengrass.dependency.Context;
 import com.aws.greengrass.testcommons.testutilities.GGExtension;
 import com.aws.greengrass.util.Pair;
@@ -146,6 +146,6 @@ public class MqttSessionFactoryTest {
 
         Session session = mqttSessionFactory.createSession(credentialMap);
         assertThat(session, is(IsNull.notNullValue()));
-        assertThat(session.getSessionAttribute(Component.NAMESPACE, "component"), notNullValue());
+        assertThat(session.getSessionAttribute(Attribute.COMPONENT), notNullValue());
     }
 }
