@@ -273,6 +273,34 @@ public class PolicyTest {
                                 .operation("mqtt:publish")
                                 .resource("mqtt:topic:myThing/world")
                                 .expectedResult(false)
+                                .build(),
+                        // single character eval not supported by default
+                        AuthZRequest.builder()
+                                .thingName("myThing")
+                                .operation("mqtt:subscribe")
+                                .resource("mqtt:topic:myThing/#/test/abc")
+                                .expectedResult(false)
+                                .build(),
+                        AuthZRequest.builder()
+                                .thingName("myThing")
+                                .operation("mqtt:subscribe")
+                                .resource("mqtt:topic:myThing/#/test/???")
+                                .expectedResult(true)
+                                .build()
+                )),
+
+                Arguments.of("single-character-wildcards-in-resource.yaml", Arrays.asList(
+                        AuthZRequest.builder()
+                                .thingName("myThing")
+                                .operation("mqtt:subscribe")
+                                .resource("mqtt:topic:myThing/abc/test/a/b")
+                                .expectedResult(true)
+                                .build(),
+                        AuthZRequest.builder()
+                                .thingName("myThing")
+                                .operation("mqtt:subscribe")
+                                .resource("mqtt:topic:myThing/abcd/test/a/b")
+                                .expectedResult(false)
                                 .build()
                 )),
 
